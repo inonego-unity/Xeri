@@ -1,11 +1,10 @@
 {
   "name": "com.inonego.xeri",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "displayName": "Xeri",
-  "description": "",
+  "description": "xeri",
   "unity": "6000.0",
   "author": {
     "name": "inonego"
-  },
-  "dependencies": {}
+  }
 }
