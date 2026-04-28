@@ -1,0 +1,18 @@
+{
+    "name": "inonego.Xeri.Editor",
+    "rootNamespace": "",
+    "references": [
+        "inonego.Xeri"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
