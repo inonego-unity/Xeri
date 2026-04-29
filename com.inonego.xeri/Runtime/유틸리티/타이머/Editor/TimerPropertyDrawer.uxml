@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <ui:VisualElement class="timer-root">
+
+        <!-- 행 1: 필드명 + 입력 + 버튼 -->
+        <ui:VisualElement class="timer-header">
+            <ui:Label name="field-label" class="timer-field-label" />
+            <ui:FloatField name="duration-field" label="" class="timer-duration" />
+            <ui:VisualElement name="button-area" class="timer-buttons" />
+        </ui:VisualElement>
+
+        <!-- 행 2: 상태 + 진행률 바 -->
+        <ui:VisualElement class="timer-controls">
+            <ui:Label name="state-label" class="timer-state-label" />
+            <ui:VisualElement name="progress-container" class="timer-progress">
+                <ui:VisualElement name="progress-fill" class="timer-progress__fill" />
+                <ui:Label name="progress-text" class="timer-progress__text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

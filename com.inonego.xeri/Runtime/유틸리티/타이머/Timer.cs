@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Timer.cs
-수정일 : 2026-04-28
+수정일 : 2026-04-30
 
 # 설명
 float 기반 타이머. Tick(deltaTime) 호출로 시간을 진행시킨다.
@@ -76,6 +76,19 @@ namespace inonego.Xeri.Utility
 
         // ------------------------------------------------------------
         /// <summary>
+        /// Start 시 사용할 duration 값. Stop/Reset 후에도 유지된다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [SerializeField]
+        internal TValue cached = default;
+        TValue ITimer.cached
+        {
+            get => cached; 
+            set => cached = value;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// <br/> 타이머가 경과한 시간.
         /// <br/> 중지 후에도 Reset 또는 Start 전까지 값이 유지된다.
         /// </summary>
@@ -132,14 +145,14 @@ namespace inonego.Xeri.Utility
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 경과 시간 비율 (0.0 ~ 1.0).
+        /// 경과 시간 비율 (0.0 ~ 1.0). duration이 0이면 NaN을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public TValue ElapsedTime01   => ElapsedTime / duration;
+        public TValue ElapsedTime01 => ElapsedTime / duration;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 잔여 시간 비율 (0.0 ~ 1.0).
+        /// 잔여 시간 비율 (0.0 ~ 1.0). duration이 0이면 NaN을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
         public TValue RemainingTime01 => RemainingTime / duration;

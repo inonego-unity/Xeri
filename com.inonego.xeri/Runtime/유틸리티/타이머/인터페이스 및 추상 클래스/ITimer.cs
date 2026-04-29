@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ITimer.cs
-수정일 : 2026-04-28
+수정일 : 2026-04-30
 
 # 설명
 타이머 전체 인터페이스. 상태 제어·시간 값 읽기/쓰기를 모두 노출한다.
@@ -17,28 +17,17 @@ namespace inonego.Xeri.Utility
     /// 타이머 인터페이스.
     /// </summary>
     // ============================================================
-    public interface ITimer
+    public interface ITimer : IReadOnlyTimer
     {
-
-    #region 필드
-
-        public bool IsRunning { get; }
-        public bool IsPaused  { get; }
-
-        public TimerState Current { get; }
-
-    #endregion
-
-    #region 이벤트
-
-        public event EventHandler<TimerEndEventArgs> OnEnd;
-        public event ValueChangeEventHandler<TimerState> OnStateChange;
-
-    #endregion
 
     #region 시간
 
-        public TValue Duration { get; set; }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 타이머 지속 시간.
+        /// </summary>
+        // ------------------------------------------------------------
+        public new TValue Duration { get; set; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -46,7 +35,7 @@ namespace inonego.Xeri.Utility
         /// <br/> 중지 후에도 Reset 또는 Start 전까지 값이 유지된다.
         /// </summary>
         // ------------------------------------------------------------
-        public TValue ElapsedTime { get; set; }
+        public new TValue ElapsedTime { get; set; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -54,10 +43,14 @@ namespace inonego.Xeri.Utility
         /// <br/> 중지 후에도 Reset 또는 Start 전까지 값이 유지된다.
         /// </summary>
         // ------------------------------------------------------------
-        public TValue RemainingTime { get; set; }
+        public new TValue RemainingTime { get; set; }
 
-        public TValue ElapsedTime01   { get; }
-        public TValue RemainingTime01 { get; }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Start 시 사용할 duration 값. Stop/Reset 후에도 유지된다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal TValue cached { get; set; }
 
     #endregion
 

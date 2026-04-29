@@ -1,0 +1,100 @@
+.timer-root {
+    padding-bottom: 2px;
+}
+
+/* 필드명 + 입력 + 버튼 */
+.timer-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.timer-field-label {
+    flex-grow: 1;
+}
+
+/* 상태 + 진행률 바 */
+.timer-controls {
+    flex-direction: row;
+    height: 20px;
+}
+
+/* 상태 박스 */
+.timer-state-label {
+    width: 60px;
+    -unity-text-align: middle-center;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-color: rgb(26, 26, 26);
+    border-bottom-color: rgb(26, 26, 26);
+    border-left-color: rgb(26, 26, 26);
+    border-right-color: rgb(26, 26, 26);
+    margin-right: 4px;
+}
+
+/* 진행률 바 */
+.timer-progress {
+    flex-grow: 1;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-color: rgb(26, 26, 26);
+    border-bottom-color: rgb(26, 26, 26);
+    border-left-color: rgb(26, 26, 26);
+    border-right-color: rgb(26, 26, 26);
+    overflow: hidden;
+}
+
+.timer-progress__fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0%;
+    /* backgroundColor은 C#에서 pro/non-pro 테마에 따라 설정 */
+}
+
+.timer-progress__text {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    -unity-text-align: middle-center;
+    color: rgb(255, 255, 255);
+}
+
+/* 지속 시간 입력 */
+.timer-duration {
+    width: 52px;
+    margin-left: 4px;
+    margin-right: 2px;
+}
+
+.timer-duration > .unity-base-field__label {
+    display: none;
+}
+
+/* 버튼 영역 */
+.timer-buttons {
+    flex-direction: row;
+}
+
+.timer-button {
+    width: 20px;
+    height: 20px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+    padding-left: 1px;
+    padding-right: 1px;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.timer-button__icon {
+    flex-grow: 1;
+    -unity-background-scale-mode: scale-to-fit;
+}
