@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : InstanceRegistry.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-01
 
 # 설명
 범용 슬롯 레지스트리. 싱글톤 전용이 아니며 독립 인스턴스를 여러 개 생성할 수 있다.
 InstanceRegistry   : AsyncLocal 기반 컨텍스트 전환(Scope)과 키 검증(Normalize) 담당.
-InstanceRegistry<T>: 슬롯 이름으로 인스턴스를 저장·조회(Register, Unregister, Current, Named, Clear) 담당.
+InstanceRegistry<T>: 슬롯 이름으로 인스턴스를 저장·조회 담당.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -251,6 +251,17 @@ namespace inonego.Xeri
             }
 
             removeBuffer.Clear();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 컨텍스트의 슬롯 인스턴스를 안전하게 가져온다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool TryCurrent(out T instance)
+        {
+            var key = current.Value ?? DEFAULT_SLOT;
+            return instances.TryGetValue(key, out instance);
         }
 
         // ------------------------------------------------------------

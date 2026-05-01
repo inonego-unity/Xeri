@@ -1,6 +1,6 @@
 {
     "name": "inonego.Xeri.TEST.EDIT",
-    "references": ["inonego.Xeri"],
+    "references": ["inonego.Xeri", "Unity.Addressables", "Unity.ResourceManager"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

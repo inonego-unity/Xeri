@@ -1,6 +1,6 @@
 {
     "name": "inonego.Xeri.TEST.PLAY",
-    "references": ["inonego.Xeri"],
+    "references": ["inonego.Xeri", "Unity.Addressables", "Unity.ResourceManager", "Unity.InputSystem"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
