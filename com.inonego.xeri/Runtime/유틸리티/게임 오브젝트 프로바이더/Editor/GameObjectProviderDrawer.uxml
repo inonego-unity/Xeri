@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <ui:Foldout name="foldout" class="provider-foldout">
+        <ui:VisualElement name="button-area" class="provider-buttons" />
+        <ui:VisualElement name="fields"      class="provider-fields" />
+    </ui:Foldout>
+</ui:UXML>

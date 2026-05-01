@@ -1,0 +1,22 @@
+/* Foldout — 기본 스타일 사용 */
+.provider-foldout {
+}
+
+/* 버튼 영역 — 가로 배치 */
+.provider-buttons {
+    flex-direction: row;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+/* 버튼 — 폭 균등 분배, 높이 18 */
+.provider-button {
+    flex-grow: 1;
+    height: 18px;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* 자식 필드 영역 */
+.provider-fields {
+}

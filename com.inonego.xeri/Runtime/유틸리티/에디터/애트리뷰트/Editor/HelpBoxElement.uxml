@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <ui:Image name="icon" class="helpbox-icon" />
+    <ui:Label name="message" class="helpbox-message" />
+</ui:UXML>
