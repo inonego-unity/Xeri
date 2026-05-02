@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_RangeValue.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-03
 
 # 설명
 RangeValue<T>의 핵심 기능 테스트.
@@ -207,13 +207,31 @@ public class TEST_RangeValue
         Assert.IsFalse(valueChangeEventFired);
     }
 
+    // -----------------------------------------------------------------------
+    /// <summary>
+    /// InvokeOnRangeChange가 equality check 없이 Range.OnBaseChange를 발화하는지 테스트한다.
+    /// </summary>
+    // -----------------------------------------------------------------------
+    [Test]
+    public void RangeValue_04_InvokeOnRangeChange_강제_발화_테스트()
+    {
+        var rv = new RangeValue<int>(5, new MinMax<int>(0, 10));
+        ValueChangeEventArgs<MinMax<int>> fired = default;
+        rv.Range.OnBaseChange += (_, e) => fired = e;
+
+        rv.InvokeOnRangeChange(previousRange: new MinMax<int>(0, 20));
+
+        Assert.AreEqual(new MinMax<int>(0, 20), fired.Previous);
+        Assert.AreEqual(new MinMax<int>(0, 10), fired.Current);
+    }
+
     // ------------------------------------------------------------
     /// <summary>
     /// RangeValue의 비교 및 문자열 표현을 테스트한다.
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void RangeValue_04_비교_및_문자열_테스트()
+    public void RangeValue_05_비교_및_문자열_테스트()
     {
         // ------------------------------------------------------------
         // 테스트 준비
@@ -243,7 +261,7 @@ public class TEST_RangeValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void RangeValue_05_JSON_직렬화_테스트()
+    public void RangeValue_06_JSON_직렬화_테스트()
     {
         // ------------------------------------------------------------
         // 테스트 준비

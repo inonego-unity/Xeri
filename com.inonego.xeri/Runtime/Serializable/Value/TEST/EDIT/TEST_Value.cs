@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Value.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-03
 
 # 설명
 Value<T>의 핵심 기능 테스트.
@@ -157,13 +157,31 @@ public class TEST_Value
         Assert.AreEqual("42", value.ToString());
     }
 
+    // -----------------------------------------------------------------------
+    /// <summary>
+    /// InvokeOnBaseChange가 equality check 없이 OnBaseChange를 발화하는지 테스트한다.
+    /// </summary>
+    // -----------------------------------------------------------------------
+    [Test]
+    public void Value_04_InvokeOnBaseChange_강제_발화_테스트()
+    {
+        var value = new Value<int>(5);
+        ValueChangeEventArgs<int> fired = default;
+        value.OnBaseChange += (_, e) => fired = e;
+
+        value.InvokeOnBaseChange(previousValue: 8);
+
+        Assert.AreEqual(8, fired.Previous);
+        Assert.AreEqual(5, fired.Current);
+    }
+
     // ------------------------------------------------------------
     /// <summary>
     /// Value 상속 클래스의 ProcessBase 오버라이드를 테스트한다.
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void Value_04_상속_ProcessBase_테스트()
+    public void Value_05_상속_ProcessBase_테스트()
     {
         // ------------------------------------------------------------
         // 테스트 준비
@@ -212,7 +230,7 @@ public class TEST_Value
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void Value_05_JSON_직렬화_테스트()
+    public void Value_06_JSON_직렬화_테스트()
     {
         // ------------------------------------------------------------
         // 테스트 준비

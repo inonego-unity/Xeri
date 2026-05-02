@@ -93,7 +93,7 @@ namespace inonego.Xeri.Serializable
 
             if (invokeEvent)
             {
-                OnBaseChange?.Invoke(this, new(prev, @base));
+                InvokeOnBaseChange(prev);
             }
         }
 
@@ -103,6 +103,17 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         protected virtual void ProcessBase(in T prev, ref T next) { }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// equality check 없이 OnBaseChange를 강제 발화한다.
+        /// Undo 복원 후 backing field가 이미 복원된 상태에서 이벤트를 트리거할 때 사용한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void InvokeOnBaseChange(T previousValue)
+        {
+            OnBaseChange?.Invoke(this, new(previousValue, @base));
+        }
 
     #endregion
 

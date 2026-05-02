@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValue.cs
-수정일 : 2026-05-02
+수정일 : 2026-05-03
 
 # 설명
 Order 순서로 적용되는 IModifier<T> 목록을 가지는 Modifiable Value.
@@ -8,6 +8,7 @@ Base 또는 modifiers 변경 시 Modified(캐시값)를 재계산하고 OnModifi
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -33,25 +34,14 @@ namespace inonego.Xeri.Serializable
         [SerializeField, HideInInspector]
         private XOrdered<int, string, IModifier<T>> modifiers = new();
 
-        // ----------------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// (Modifier, Order) 튜플 리스트로 변환된 수정자 목록(Order 오름차순).
+        /// 수정자 목록(Order 오름차순).
         /// </summary>
-        // ----------------------------------------------------------------------------
-        public IReadOnlyList<(IModifier<T> Modifier, int Order)> Modifiers
-        {
-            get
-            {
-                var list = new List<(IModifier<T>, int)>(modifiers.Count);
+        // ------------------------------------------------------------
+        public IReadOnlyList<ModifierEntry<T>> Modifiers => modifierView ??= new ModifierEntryView(modifiers);
 
-                foreach (var pair in modifiers)
-                {
-                    list.Add((pair.Value, pair.Order));
-                }
-
-                return list;
-            }
-        }
+        private ModifierEntryView modifierView;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -109,8 +99,19 @@ namespace inonego.Xeri.Serializable
 
             if (invokeEvent)
             {
-                OnModifiedChange?.Invoke(this, new(prev, cached));
+                InvokeOnModifiedChange(prev);
             }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// equality check 없이 OnModifiedChange를 강제 발화한다.
+        /// Undo 복원 후 backing field가 이미 복원된 상태에서 이벤트를 트리거할 때 사용한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void InvokeOnModifiedChange(T previousValue)
+        {
+            OnModifiedChange?.Invoke(this, new(previousValue, cached));
         }
 
         // ------------------------------------------------------------
@@ -259,6 +260,43 @@ namespace inonego.Xeri.Serializable
             cached = source.cached;
 
             modifiers.CloneFrom(source.modifiers);
+        }
+
+    #endregion
+
+    #region ModifierEntryView
+
+        // =================================================================
+        /// <summary>
+        /// XOrderedBase Pair 목록을 ModifierEntry<T> IReadOnlyList로 래핑한다.
+        /// 원본 리스트를 직접 참조하므로 추가 할당 없이 최신 상태를 반영한다.
+        /// </summary>
+        // =================================================================
+        private sealed class ModifierEntryView : IReadOnlyList<ModifierEntry<T>>
+        {
+            private readonly XOrderedBase<int, IModifier<T>> source;
+
+            internal ModifierEntryView(XOrderedBase<int, IModifier<T>> source)
+            {
+                this.source = source;
+            }
+
+            public ModifierEntry<T> this[int index]
+            {
+                get { var p = source[index]; return new ModifierEntry<T>(p.Order, p.Value); }
+            }
+
+            public int Count => source.Count;
+
+            public IEnumerator<ModifierEntry<T>> GetEnumerator()
+            {
+                foreach (var p in source)
+                {
+                    yield return new ModifierEntry<T>(p.Order, p.Value);
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
     #endregion

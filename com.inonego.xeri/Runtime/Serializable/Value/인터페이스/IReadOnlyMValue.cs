@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : IReadOnlyMValue.cs
-수정일 : 2026-05-02
+수정일 : 2026-05-03
 
 # 설명
 수정자가 적용되는 Value 의 읽기 전용 뷰 인터페이스.
@@ -23,7 +23,7 @@ namespace inonego.Xeri.Serializable
         /// 수정자 목록(Order 오름차순).
         /// </summary>
         // ------------------------------------------------------------
-        IReadOnlyList<(IModifier<T> Modifier, int Order)> Modifiers { get; }
+        IReadOnlyList<ModifierEntry<T>> Modifiers { get; }
 
         // ------------------------------------------------------------
         /// <summary>

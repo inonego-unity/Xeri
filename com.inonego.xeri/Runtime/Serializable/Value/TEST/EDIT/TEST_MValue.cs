@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MValue.cs
-수정일 : 2026-05-02
+수정일 : 2026-05-03
 
 # 설명
 MValue<T> 와 4 개 구체 Modifier(BooleanModifier / NumericFModifier / NumericIModifier / StringModifier)의 핵심 기능 테스트.
@@ -130,6 +130,24 @@ public class TEST_MValue
         Assert.IsFalse(modifiedChangeFired);
     }
 
+    // -----------------------------------------------------------------------
+    /// <summary>
+    /// InvokeOnModifiedChange가 equality check 없이 OnModifiedChange를 발화하는지 테스트한다.
+    /// </summary>
+    // -----------------------------------------------------------------------
+    [Test]
+    public void MValue_04_InvokeOnModifiedChange_강제_발화_테스트()
+    {
+        var value = new MValue<int>(5);
+        ValueChangeEventArgs<int> fired = default;
+        value.OnModifiedChange += (_, e) => fired = e;
+
+        value.InvokeOnModifiedChange(previousValue: 8);
+
+        Assert.AreEqual(8, fired.Previous);
+        Assert.AreEqual(5, fired.Current);
+    }
+
 #endregion
 
 #region 수정자 추가 / 제거 / Clear 테스트
@@ -140,7 +158,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_04_AddRemoveModifier_명시키_테스트()
+    public void MValue_05_AddRemoveModifier_명시키_테스트()
     {
         // ------------------------------------------------------------
         // 테스트 준비
@@ -154,9 +172,11 @@ public class TEST_MValue
         value.AddModifier("add5", add5);
 
         Assert.AreEqual(15, value.Modified);
-        Assert.AreEqual(1,  value.Modifiers.Count);
-        Assert.AreSame(add5, value.Modifiers[0].Modifier);
-        Assert.AreEqual(0,   value.Modifiers[0].Order);
+        Assert.AreEqual(1, value.Modifiers.Count);
+
+        ModifierEntry<int> pair0 = value.Modifiers[0];
+        Assert.AreSame(add5, pair0.Modifier);
+        Assert.AreEqual(0,   pair0.Order);
 
         // ------------------------------------------------------------
         // Remove 성공 - true, Modified 원복
@@ -182,7 +202,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_05_ClearModifiers_테스트()
+    public void MValue_06_ClearModifiers_테스트()
     {
         // Arrange
         var value = new MValue<int>(10);
@@ -206,7 +226,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_06_AddModifier_키없음_예외_테스트()
+    public void MValue_07_AddModifier_키없음_예외_테스트()
     {
         // Arrange
         var value    = new MValue<int>(10);
@@ -222,7 +242,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_07_AddModifier_Null_예외_테스트()
+    public void MValue_08_AddModifier_Null_예외_테스트()
     {
         var value = new MValue<int>(10);
 
@@ -239,7 +259,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_08_Order_적용순서_테스트()
+    public void MValue_09_Order_적용순서_테스트()
     {
         // Arrange
         var value = new MValue<int>(10);
@@ -257,8 +277,11 @@ public class TEST_MValue
         // Modifiers 노출 순서도 Order 오름차순
         // ------------------------------------------------------------
         Assert.AreEqual(2, value.Modifiers.Count);
-        Assert.AreEqual(0, value.Modifiers[0].Order);
-        Assert.AreEqual(1, value.Modifiers[1].Order);
+
+        ModifierEntry<int> p0 = value.Modifiers[0];
+        ModifierEntry<int> p1 = value.Modifiers[1];
+        Assert.AreEqual(0, p0.Order);
+        Assert.AreEqual(1, p1.Order);
     }
 
 #endregion
@@ -271,7 +294,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_09_CloneFrom_깊은복제_테스트()
+    public void MValue_10_CloneFrom_깊은복제_테스트()
     {
         // Arrange
         var source = new MValue<int>(10);
@@ -292,7 +315,9 @@ public class TEST_MValue
         // ------------------------------------------------------------
         // modifier 인스턴스는 다른 객체여야 함(깊은 복제)
         // ------------------------------------------------------------
-        Assert.AreNotSame(source.Modifiers[0].Modifier, clone.Modifiers[0].Modifier);
+        ModifierEntry<int> srcPair   = source.Modifiers[0];
+        ModifierEntry<int> clonePair = clone.Modifiers[0];
+        Assert.AreNotSame(srcPair.Modifier, clonePair.Modifier);
 
         // ------------------------------------------------------------------------
         // source modifier 값 변경이 clone 에 영향 없음(cross-reference identity 검증)
@@ -315,7 +340,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_10_CloneFrom_Null_예외_테스트()
+    public void MValue_11_CloneFrom_Null_예외_테스트()
     {
         var clone = new MValue<int>();
 
@@ -332,7 +357,7 @@ public class TEST_MValue
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void MValue_11_암시적_변환_테스트()
+    public void MValue_12_암시적_변환_테스트()
     {
         // Arrange
         var value = new MValue<int>(10);

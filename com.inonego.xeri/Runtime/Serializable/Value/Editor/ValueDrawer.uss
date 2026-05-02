@@ -1,0 +1,56 @@
+/* ValueDrawer / RangeValueDrawer / MValueDrawer 공용 스타일 */
+
+/* ─── 값 필드 공용: disabled 시 회색 제거 (border는 inline style로 직접 관리) ─── */
+.xeri-set-field.unity-disabled,
+.xeri-set-field .unity-disabled {
+    opacity: 1;
+}
+
+/* ─── 행 역할 레이블 (Base / Range) ─── */
+.xeri-row-label {
+    min-width: 40px;
+    flex-shrink: 0;
+    color: rgb(166, 166, 166);
+}
+
+/* ─── 편집 토글 (체크박스) ─── */
+.xeri-edit-toggle {
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+/* ─── MValue: Modified 읽기 전용 필드 ─── */
+.xeri-modified-field {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+}
+
+.xeri-modified-field > .unity-base-field__label {
+    display: none;
+}
+
+/* ─── MValue: 화살표 ─── */
+.xeri-arrow {
+    flex-shrink: 0;
+    margin-left: 4px;
+    margin-right: 4px;
+    color: rgb(102, 102, 102);
+}
+
+/* ─── MValue: Modified 값 (파란색) ─── */
+.xeri-modified-value {
+    min-width: 40px;
+    flex-shrink: 0;
+    margin-right: 4px;
+    -unity-text-align: middle-right;
+    -unity-font-style: bold;
+    color: rgb(77, 181, 255);
+}
+
+/* ─── RangeValue: Min / Max 입력 필드 ─── */
+.xeri-range-sub-field {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+}
