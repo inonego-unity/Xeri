@@ -1,13 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TimerPropertyDrawer.cs
-수정일 : 2026-04-30
+수정일 : 2026-05-02
 
 # 설명
 Timer/ITimer/IReadOnlyTimer 의 UI Toolkit 기반 PropertyDrawer.
 fieldInfo.FieldType 기준으로 ITimer 할당 가능 여부를 판단해 모드를 결정한다.
 - 컨트롤 모드  : duration 입력 + Start/Pause/Stop/Reset 버튼 (ITimer 구현체)
 - 읽기 전용 모드: 상태·진행률 표시 전용 (IReadOnlyTimer 전용)
-진행률은 50ms 간격으로 갱신된다.
+진행률은 50ms 간격으로 갱신되며, 패널에서 분리되면 스케줄러가 정지된다.
+
+# 특이사항
+PropertyDrawer 인스턴스는 타입당 하나를 공유한다.
+인스턴스 필드에 상태를 저장하면 동일 타입의 다른 필드 갱신 시 덮어써지므로,
+모든 상태를 CreatePropertyGUI 로컬로 선언하고 클로저로 캡처한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -34,20 +39,6 @@ namespace inonego.Xeri
 
     #region 필드
 
-        private Label         stateLabel;
-        private VisualElement progressFill;
-        private Label         progressText;
-
-        private bool          isControlMode;
-        private TimerState?   lastState;
-        private FloatField    durationField;
-        private VisualElement buttonArea;
-
-        private IReadOnlyTimer     _IReadOnlyTimer;
-        private ITimer             _ITimer;
-        private SerializedObject   serializedObj;
-        private Object             targetObject;
-
         private static readonly Color ProgressColorPro      = new(0.3f, 0.6f, 1f, 0.8f);
         private static readonly Color ProgressColorPersonal = new(0.2f, 0.4f, 0.8f, 0.8f);
 
@@ -62,13 +53,12 @@ namespace inonego.Xeri
         // ------------------------------------------------------------
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            // fieldInfo.FieldType 기준: ITimer 할당 가능 여부로 모드 결정
-            // [SerializeReference] IReadOnlyTimer 선언 필드는 Timer 인스턴스가 있어도 읽기 전용.
-            isControlMode = typeof(ITimer).IsAssignableFrom(fieldInfo.FieldType);
-            _IReadOnlyTimer = SerializedPropertyHelper.GetTargetObject<IReadOnlyTimer>(property);
-            _ITimer       = isControlMode ? _IReadOnlyTimer as ITimer : null;
-            serializedObj = property.serializedObject;
-            targetObject    = property.serializedObject.targetObject;
+            // 모든 상태를 로컬로 선언해 호출마다 격리된 복사본을 만든다.
+            bool           isControlMode = typeof(ITimer).IsAssignableFrom(fieldInfo.FieldType);
+            IReadOnlyTimer readOnlyTimer = SerializedPropertyHelper.GetTargetObject<IReadOnlyTimer>(property);
+            ITimer         timer         = isControlMode ? readOnlyTimer as ITimer : null;
+            SerializedObject serializedObj = property.serializedObject;
+            Object           targetObject  = property.serializedObject.targetObject;
 
             var root = LoadRoot();
 
@@ -76,15 +66,95 @@ namespace inonego.Xeri
 
             root.Q<Label>("field-label").text = ObjectNames.NicifyVariableName(property.name);
 
-            stateLabel   = root.Q<Label>("state-label");
-            progressFill = root.Q<VisualElement>("progress-fill");
-            progressText = root.Q<Label>("progress-text");
+            var stateLabel   = root.Q<Label>("state-label");
+            var progressFill = root.Q<VisualElement>("progress-fill");
+            var progressText = root.Q<Label>("progress-text");
 
             progressFill.style.backgroundColor = EditorGUIUtility.isProSkin ? ProgressColorPro : ProgressColorPersonal;
 
+            FloatField    durationField = null;
+            VisualElement buttonArea    = null;
+            TimerState?   lastState     = null;
+
+            // 수정 전 스냅샷 등록 — 이후 변경이 Undo 대상이 된다.
+            void Execute(string undoName, Action<ITimer> action)
+            {
+                if (timer == null) return;
+
+                Undo.RecordObject(targetObject, undoName);
+
+                action(timer);
+
+                EditorUtility.SetDirty(targetObject);
+                serializedObj.Update();
+            }
+
+            // 타이머 상태가 변경된 경우에만 버튼 영역을 재구성한다.
+            void RefreshButtonArea(TimerState state)
+            {
+                if (lastState == state) return;
+                lastState = state;
+
+                buttonArea.Clear();
+
+                if (state == TimerState.Ready)
+                {
+                    // Stop/Reset 후 cached 값으로 복원
+                    if (timer != null) durationField.SetValueWithoutNotify(timer.cached);
+
+                    void Play()
+                    {
+                        var duration = timer?.cached ?? 0f;
+                        Execute("타이머 시작", t => t.Start(duration));
+                    }
+
+                    buttonArea.Add(MakeIconButton("d_PlayButton", Play));
+                    buttonArea.Add(MakeIconButton("d_Refresh",    () => Execute("타이머 리셋",  t => t.Reset())));
+                }
+                else if (state == TimerState.Run)
+                {
+                    buttonArea.Add(MakeIconButton("d_PauseButton", () => Execute("타이머 일시정지", t => t.Pause())));
+                    buttonArea.Add(MakeIconButton("d_PreMatQuad",  () => Execute("타이머 정지",    t => t.Stop())));
+                }
+                else if (state == TimerState.Pause)
+                {
+                    buttonArea.Add(MakeIconButton("d_PlayButton",  () => Execute("타이머 재개", t => t.Resume())));
+                    buttonArea.Add(MakeIconButton("d_PreMatQuad",  () => Execute("타이머 정지", t => t.Stop())));
+                }
+            }
+
+            // 50ms 간격으로 호출되어 상태·진행률 및 컨트롤 요소를 갱신한다.
+            void Refresh()
+            {
+                if (readOnlyTimer == null) return;
+
+                var state    = readOnlyTimer.Current;
+                var duration = readOnlyTimer.Duration;
+                var elapsed  = readOnlyTimer.ElapsedTime;
+
+                RefreshStateLabel(stateLabel, state);
+                RefreshProgressBar(progressFill, progressText, elapsed, duration);
+
+                if (isControlMode && timer != null)
+                {
+                    RefreshDurationField(durationField, state, duration);
+                    RefreshButtonArea(state);
+                }
+            }
+
             if (isControlMode)
             {
-                SetupControls(root);
+                durationField = root.Q<FloatField>("duration-field");
+                durationField.isDelayed = true;
+
+                if (timer != null)
+                {
+                    durationField.SetValueWithoutNotify(timer.cached);
+                }
+
+                durationField.RegisterValueChangedCallback(e => Execute("타이머 Duration 변경", t => t.cached = e.newValue));
+
+                buttonArea = root.Q<VisualElement>("button-area");
             }
             else
             {
@@ -92,7 +162,10 @@ namespace inonego.Xeri
                 root.Q<VisualElement>("button-area").style.display    = DisplayStyle.None;
             }
 
-            root.schedule.Execute(() => Refresh()).Every(50);
+            // 패널에서 분리될 때 스케줄러를 정지해 불필요한 갱신을 막는다.
+            var scheduledItem = root.schedule.Execute(Refresh).Every(50);
+            root.RegisterCallback<DetachFromPanelEvent>(_ => scheduledItem.Pause());
+
             return root;
         }
 
@@ -116,86 +189,9 @@ namespace inonego.Xeri
             return root;
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 컨트롤 요소를 초기화한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void SetupControls(VisualElement root)
-        {
-            durationField = root.Q<FloatField>("duration-field");
-            durationField.isDelayed = true;
-
-            if (_ITimer != null)
-            {
-                durationField.SetValueWithoutNotify(_ITimer.cached);
-            }
-
-            void OnDurationChanged(ChangeEvent<float> e)
-            {
-                if (_ITimer == null) return;
-                _ITimer.cached = e.newValue;
-                Apply();
-            }
-
-            durationField.RegisterValueChangedCallback(OnDurationChanged);
-
-            buttonArea = root.Q<VisualElement>("button-area");
-        }
-
-    #endregion
-
-    #region 조작
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 오브젝트를 dirty로 표시해 씬 저장 대상에 포함시킨다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void Apply()
-        {
-            serializedObj.Update();
-            EditorUtility.SetDirty(targetObject);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// _ITimer로 타이머를 조작하고 dirty 처리한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void Execute(Action<ITimer> action)
-        {
-            if (_ITimer == null) return;
-            action(_ITimer);
-            Apply();
-        }
-
     #endregion
 
     #region 갱신
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 50ms 간격으로 호출되어 상태·진행률 및 컨트롤 요소를 갱신한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void Refresh()
-        {
-            if (_IReadOnlyTimer == null) return;
-
-            var state    = _IReadOnlyTimer.Current;
-            var duration = _IReadOnlyTimer.Duration;
-            var elapsed  = _IReadOnlyTimer.ElapsedTime;
-
-            RefreshStateLabel(stateLabel, state);
-            RefreshProgressBar(progressFill, progressText, elapsed, duration);
-
-            if (isControlMode && _ITimer != null)
-            {
-                RefreshDurationField(durationField, state, duration);
-                RefreshButtonArea(buttonArea, durationField, state);
-            }
-        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -239,44 +235,6 @@ namespace inonego.Xeri
             if (!isReady)
             {
                 field.SetValueWithoutNotify(duration);
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 타이머 상태가 변경된 경우에만 버튼 영역을 재구성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void RefreshButtonArea(VisualElement area, FloatField field, TimerState state)
-        {
-            if (lastState == state) return;
-            lastState = state;
-
-            area.Clear();
-
-            if (state == TimerState.Ready)
-            {
-                // Stop/Reset 후 cached 값으로 복원
-                if (_ITimer != null) field.SetValueWithoutNotify(_ITimer.cached);
-
-                void Play()
-                {
-                    var duration = _ITimer?.cached ?? 0f;
-                    Execute(t => t.Start(duration));
-                }
-
-                area.Add(MakeIconButton("d_PlayButton", Play));
-                area.Add(MakeIconButton("d_Refresh",     () => Execute(t => t.Reset())));
-            }
-            else if (state == TimerState.Run)
-            {
-                area.Add(MakeIconButton("d_PauseButton", () => Execute(t => t.Pause())));
-                area.Add(MakeIconButton("d_PreMatQuad",  () => Execute(t => t.Stop())));
-            }
-            else if (state == TimerState.Pause)
-            {
-                area.Add(MakeIconButton("d_PlayButton",  () => Execute(t => t.Resume())));
-                area.Add(MakeIconButton("d_PreMatQuad",  () => Execute(t => t.Stop())));
             }
         }
 

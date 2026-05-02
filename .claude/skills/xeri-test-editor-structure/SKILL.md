@@ -1,14 +1,14 @@
 ---
 name: xeri-test-editor-structure
-description: UniXeri(com.inonego.xeri) 패키지에서 테스트 파일(Edit Mode / Play Mode) 또는 Unity 에디터 확장 코드를 생성할 때 사용.
+description: Use when adding editor extensions or test code to com.inonego.xeri — determines folder and file structure (asmdef/asmref placement, folder creation rules).
 user-invocable: false
 ---
 
-# UniXeri 테스트 / 에디터 파일 구조
+# UniXeri 파일 / 폴더 구조
 
 ## 개요
 
-asmdef는 이미 생성 완료. 새 테스트·에디터 코드를 추가할 때는 asmref만 추가한다.
+asmdef는 이미 생성 완료. 새 에디터·테스트 코드를 추가할 때는 asmref만 추가한다.
 모든 폴더는 내용이 생길 때 만든다 — 미리 생성 금지.
 
 ---
@@ -67,10 +67,3 @@ Runtime/{모듈}/
   "testables": ["com.inonego.xeri"]
 }
 ```
-
----
-
-## 테스트 파일 region 구성
-
-테스트 코드는 관심사/주제별로 region을 나누고 이름도 그에 맞게 작성한다.
-전체를 하나로 통으로 묶지 않으며, 헬퍼 메서드처럼 테스트가 아닌 코드도 적절히 분리한다.
