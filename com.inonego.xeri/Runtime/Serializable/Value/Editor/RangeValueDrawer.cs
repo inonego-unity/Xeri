@@ -128,12 +128,12 @@ namespace inonego.Xeri
             var fieldLabel     = ValueDrawerHelper.CreateFieldLabel(property.displayName);
             var editToggleBase = ValueDrawerHelper.CreateEditToggle();
 
+            setBaseField.label = "Base";
             setBaseField.style.flexGrow = 1;
             setBaseField.AddToClassList("xeri-set-field");
             setBaseField.SetValueWithoutNotify(instance.Base);
 
             row1.Add(fieldLabel);
-            row1.Add(ValueDrawerHelper.CreateRowLabel("Base"));
             row1.Add(setBaseField);
             row1.Add(editToggleBase);
             root.Add(row1);

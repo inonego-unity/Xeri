@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DataPackage.cs
-수정일 : 2026-05-01
+수정일 : 2026-05-03
 
 # 설명
 DataPackage 슬롯 시스템, 테이블 CRUD, REF 핵심 기능 테스트.
@@ -376,8 +376,8 @@ public class TEST_DataPackage
 
         DataPackage.Register(package);
 
-        REF<TestData> ref1 = "hero";
-        REF<TestData> ref2 = "none";
+        var ref1 = new REF<TestData>("hero");
+        var ref2 = new REF<TestData>("none");
 
         Assert.AreEqual(500,  ref1.ToValue().Value, "등록된 키는 값을 반환해야 합니다");
         Assert.IsNull(ref2.ToValue(),               "없는 키는 null을 반환해야 합니다");
@@ -391,25 +391,25 @@ public class TEST_DataPackage
     [Test]
     public void DataPackage_13_REF_미등록_슬롯_테스트()
     {
-        REF<TestData> ref1 = "hero";
+        var ref1 = new REF<TestData>("hero");
 
         Assert.IsNull(ref1.ToValue(), "DataPackage 미등록 시 null을 반환해야 합니다");
     }
 
     // ------------------------------------------------------------
     /// <summary>
-    /// REF의 string 양방향 암시적 변환을 테스트한다.
+    /// REF의 Key 프로퍼티와 HasKey를 테스트한다.
     /// </summary>
     // ------------------------------------------------------------
     [Test]
-    public void DataPackage_14_REF_string_변환_테스트()
+    public void DataPackage_14_REF_Key_HasKey_테스트()
     {
-        REF<TestData> ref1 = "hero";
+        var ref1 = new REF<TestData>("hero");
 
-        string key = ref1;
+        string key = ref1.Key;
 
-        Assert.AreEqual("hero", key,       "REF → string 변환이 Key를 반환해야 합니다");
-        Assert.IsTrue(ref1.HasKey,          "키가 있으므로 HasKey가 true이어야 합니다");
+        Assert.AreEqual("hero", key,       "Key가 생성자에 전달한 값을 반환해야 합니다");
+        Assert.IsTrue(ref1.HasKey,         "키가 있으므로 HasKey가 true이어야 합니다");
         Assert.IsFalse(default(REF<TestData>).HasKey, "빈 REF의 HasKey는 false이어야 합니다");
     }
 
@@ -441,7 +441,7 @@ public class TEST_DataPackage
         DataPackage.Register("A", pkgA);
         DataPackage.Register("B", pkgB);
 
-        REF<TestData> bossRef = "boss";
+        var bossRef = new REF<TestData>("boss");
 
         using (DataPackage.Scope("A"))
         {

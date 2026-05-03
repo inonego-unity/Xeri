@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_InstanceRegistry.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-03
 
 # 설명
 InstanceRegistry<T> 핵심 슬롯 로직 테스트.
@@ -17,7 +17,8 @@ using inonego.Xeri;
 
 // ============================================================
 /// <summary>
-/// InstanceRegistry 슬롯 로직의 핵심 기능 테스트 클래스.
+/// <br/> InstanceRegistry 슬롯 로직의 핵심 기능 테스트 클래스.
+/// <br/> OpenScope/CloseScope API를 포함한다.
 /// </summary>
 // ============================================================
 public class TEST_InstanceRegistry
@@ -236,6 +237,113 @@ public class TEST_InstanceRegistry
         Assert.Throws<InvalidOperationException>(() => { var _ = registry.Current; });
         Assert.Throws<KeyNotFoundException>(() => { var _ = registry.Named["A"]; });
         Assert.Throws<KeyNotFoundException>(() => { var _ = registry.Named["B"]; });
+    }
+
+#endregion
+
+#region OpenScope / CloseScope 테스트
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// OpenScope로 열고 CloseScope로 닫으면 이전 슬롯으로 복원됨을 테스트한다.
+    /// </summary>
+    // ------------------------------------------------------------
+    [Test]
+    public void InstanceRegistry_09_OpenScope_CloseScope_기본_테스트()
+    {
+        var main = new Item("Main");
+        var test = new Item("Test");
+
+        registry.Register(main);
+        registry.Register("TEST", test);
+
+        registry.OpenScope("TEST");
+
+        Assert.AreEqual(test, registry.Current, "OpenScope 후 TEST가 Current이어야 합니다");
+
+        registry.CloseScope();
+
+        Assert.AreEqual(main, registry.Current, "CloseScope 후 main으로 복원되어야 합니다");
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// <br/> OpenScope 중첩 후 CloseScope LIFO 복원을 테스트한다.
+    /// <br/> A 열고 B 열면, CloseScope → A, 다시 CloseScope → main.
+    /// </summary>
+    // ------------------------------------------------------------
+    [Test]
+    public void InstanceRegistry_10_OpenScope_CloseScope_중첩_테스트()
+    {
+        var main  = new Item("Main");
+        var slotA = new Item("A");
+        var slotB = new Item("B");
+
+        registry.Register(main);
+        registry.Register("A", slotA);
+        registry.Register("B", slotB);
+
+        registry.OpenScope("A");
+        Assert.AreEqual(slotA, registry.Current);
+
+        registry.OpenScope("B");
+        Assert.AreEqual(slotB, registry.Current);
+
+        registry.CloseScope();
+        Assert.AreEqual(slotA, registry.Current, "B 닫기 후 A로 복원되어야 합니다");
+
+        registry.CloseScope();
+        Assert.AreEqual(main, registry.Current, "A 닫기 후 main으로 복원되어야 합니다");
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// 열린 스코프 없이 CloseScope 호출 시 InvalidOperationException이 발생함을 테스트한다.
+    /// </summary>
+    // ------------------------------------------------------------
+    [Test]
+    public void InstanceRegistry_11_CloseScope_초과_호출_예외_테스트()
+    {
+        Assert.Throws<InvalidOperationException>(() => registry.CloseScope());
+
+        var item = new Item("X");
+        registry.Register("X", item);
+
+        registry.OpenScope("X");
+        registry.CloseScope();
+
+        Assert.Throws<InvalidOperationException>(() => registry.CloseScope());
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// <br/> Scope()와 OpenScope()가 같은 스택을 공유함을 테스트한다.
+    /// <br/> 혼용 시에도 LIFO 복원이 보장되어야 한다.
+    /// </summary>
+    // ------------------------------------------------------------
+    [Test]
+    public void InstanceRegistry_12_Scope_OpenScope_혼용_테스트()
+    {
+        var main  = new Item("Main");
+        var slotA = new Item("A");
+        var slotB = new Item("B");
+
+        registry.Register(main);
+        registry.Register("A", slotA);
+        registry.Register("B", slotB);
+
+        registry.OpenScope("A");
+        Assert.AreEqual(slotA, registry.Current);
+
+        using (registry.Scope("B"))
+        {
+            Assert.AreEqual(slotB, registry.Current);
+        }
+
+        Assert.AreEqual(slotA, registry.Current, "Scope 종료 후 A로 복원되어야 합니다");
+
+        registry.CloseScope();
+        Assert.AreEqual(main, registry.Current, "CloseScope 후 main으로 복원되어야 합니다");
     }
 
 #endregion

@@ -13,6 +13,13 @@
     color: rgb(166, 166, 166);
 }
 
+/* ─── setField 내부 "Base" 라벨 (xeri-row-label과 동일 스타일) ─── */
+.xeri-set-field > .unity-base-field__label {
+    min-width: 40px;
+    flex-shrink: 0;
+    color: rgb(166, 166, 166);
+}
+
 /* ─── 편집 토글 (체크박스) ─── */
 .xeri-edit-toggle {
     flex-shrink: 0;

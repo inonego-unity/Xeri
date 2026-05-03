@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Singleton.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-03
 
 # 설명
 순수 C# 슬롯 싱글톤 기반 클래스.
 T마다 독립된 InstanceRegistry<T>를 static으로 보유하며, 슬롯 로직은 모두 레지스트리에 위임한다.
-Register / Unregister / Scope / Current / Named 정적 API를 제공한다.
+Register / Unregister / Scope / OpenScope / CloseScope / Current / Named 정적 API를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -101,6 +101,29 @@ namespace inonego.Xeri
         public static IDisposable Scope(string key)
         {
             return registry.Scope(key);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 슬롯을 현재 컨텍스트로 설정한다.
+        /// <br/> CloseScope()로 명시적으로 닫을 때까지 유지된다.
+        /// <br/> 프로덕션 코드에서는 Scope() + using을 사용할 것.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void OpenScope(string key)
+        {
+            registry.OpenScope(key);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 가장 최근에 열린 스코프를 닫고 이전 슬롯으로 복원한다.
+        /// <br/> 열린 스코프가 없을 시 InvalidOperationException이 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void CloseScope()
+        {
+            registry.CloseScope();
         }
 
         // ------------------------------------------------------------

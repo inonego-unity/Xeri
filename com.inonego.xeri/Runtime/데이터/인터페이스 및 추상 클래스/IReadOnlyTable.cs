@@ -26,7 +26,7 @@ namespace inonego.Xeri
         // ------------------------------------------------------------
         public int Count { get; }
 
-        public IEnumerable<string>     Keys   { get; }
+        public IEnumerable<string>      Keys   { get; }
         public IEnumerable<ITableValue> Values { get; }
 
         // ------------------------------------------------------------

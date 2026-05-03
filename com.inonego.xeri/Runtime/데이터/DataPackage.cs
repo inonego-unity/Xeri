@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DataPackage.cs
-수정일 : 2026-05-01
+수정일 : 2026-05-03
 
 # 설명
 데이터 패키지 중앙 관리자.
@@ -13,6 +13,8 @@ InstanceRegistry<DataPackage>를 통한 슬롯·Scope 시스템으로 여러 Dat
 - Current                 : 현재 컨텍스트 슬롯의 DataPackage (IReadOnlyDataPackage)
 - Named[slot]             : 슬롯 이름으로 직접 접근
 - Scope(slot)             : using 블록 안에서 일시적으로 슬롯 전환, Dispose 시 복원
+- OpenScope(slot)         : 슬롯 전환 (테스트 SetUp/TearDown 용. 프로덕션은 Scope() 사용)
+- CloseScope()            : 가장 최근에 열린 스코프를 닫고 이전 슬롯으로 복원
 
 # 이벤트
 - OnChange: Register / Unregister / Clear 시 발생. Scope 전환 시에는 발생하지 않는다.
@@ -179,6 +181,23 @@ namespace inonego.Xeri
         /// </summary>
         // --------------------------------------------------------------------
         public static IDisposable Scope(string slot) => registry.Scope(slot);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정 슬롯을 현재 컨텍스트로 설정한다.
+        /// <br/> CloseScope()로 명시적으로 닫을 때까지 유지된다.
+        /// <br/> 프로덕션 코드에서는 Scope() + using을 사용할 것.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void OpenScope(string slot) => registry.OpenScope(slot);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 가장 최근에 열린 스코프를 닫고 이전 슬롯으로 복원한다.
+        /// <br/> 열린 스코프가 없을 시 InvalidOperationException이 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void CloseScope() => registry.CloseScope();
 
         // ------------------------------------------------------------
         /// <summary>

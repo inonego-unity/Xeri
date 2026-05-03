@@ -1,12 +1,20 @@
-/* BLOCK_HEADER_BEGIN =======================================================================
+/* BLOCK_HEADER_BEGIN ======================================================================================
 파일명 : InstanceRegistry.cs
-수정일 : 2026-05-01
+수정일 : 2026-05-03
 
 # 설명
-범용 슬롯 레지스트리. 싱글톤 전용이 아니며 독립 인스턴스를 여러 개 생성할 수 있다.
-InstanceRegistry   : AsyncLocal 기반 컨텍스트 전환(Scope)과 키 검증(Normalize) 담당.
-InstanceRegistry<T>: 슬롯 이름으로 인스턴스를 저장·조회 담당.
-========================================================================= BLOCK_HEADER_END */
+"이름표가 붙은 여러 인스턴스 중 지금 어떤 것을 쓸지"를 관리하는 레지스트리.
+- Register("SLOT", instance) 로 이름을 붙여 등록한다.
+- Current 로 지금 활성화된 슬롯의 인스턴스를 가져온다.
+- Scope("SLOT") / using 블록으로 일시적으로 슬롯을 전환하고, 블록 종료 시 자동 복원한다.
+- OpenScope("SLOT") + CloseScope() 는 using 없이 같은 동작을 수동으로 수행한다 (테스트 SetUp/TearDown 용).
+
+# 슬롯 전환 원리
+"현재 슬롯"은 스레드/async 컨텍스트별로 독립적으로 관리된다.
+OpenScope를 호출할 때마다 이전 슬롯 키를 기억하는 노드를 하나 쌓아 올리고,
+CloseScope 시 그 노드를 꺼내 이전 슬롯으로 되돌린다.
+Scope() + OpenScope() + CloseScope() 세 API는 모두 같은 스택을 공유하므로 혼용해도 LIFO 순서가 보장된다.
+======================================================================================== BLOCK_HEADER_END */
 
 using System;
 using System.Collections;
@@ -18,7 +26,7 @@ namespace inonego.Xeri
     // ======================================================================
     /// <summary>
     /// <br/> 슬롯 키 컨텍스트 관리 기반 클래스.
-    /// <br/> DEFAULT_SLOT, Normalize, Scope API를 제공한다.
+    /// <br/> DEFAULT_SLOT, Normalize, OpenScope/CloseScope/Scope API를 제공한다.
     /// </summary>
     // ======================================================================
     public abstract class InstanceRegistry
@@ -28,26 +36,46 @@ namespace inonego.Xeri
 
         // ============================================================
         /// <summary>
-        /// Dispose 시 이전 슬롯으로 복원하는 스코프 핸들.
+        /// <br/> 슬롯 키 이력을 추적하는 불변 연결 노드.
+        /// <br/> 각 OpenScope마다 새 인스턴스를 생성해 재할당하므로
+        /// <br/> AsyncLocal의 async 컨텍스트 격리가 보장된다.
         /// </summary>
         // ============================================================
-        private class ScopeHandle : IDisposable
+        private sealed class ScopeNode
+        {
+            public readonly string    Key;
+            public readonly ScopeNode Previous;
+
+            public ScopeNode(string key, ScopeNode previous)
+            {
+                Key      = key;
+                Previous = previous;
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// Dispose 시 CloseScope를 호출해 이전 슬롯으로 복원하는 스코프 핸들.
+        /// </summary>
+        // ============================================================
+        private sealed class CloseScopeHandle : IDisposable
         {
             private readonly InstanceRegistry owner;
-            private readonly string           previous;
+            private          bool             disposed;
 
-            public ScopeHandle(InstanceRegistry owner, string previous)
-            {
-                this.owner    = owner;
-                this.previous = previous;
-            }
+            public CloseScopeHandle(InstanceRegistry owner) => this.owner = owner;
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 이전 슬롯으로 복원한다.
+            /// CloseScope를 호출해 이전 슬롯으로 복원한다.
             /// </summary>
             // ------------------------------------------------------------
-            public void Dispose() => owner.current.Value = previous;
+            public void Dispose()
+            {
+                if (disposed) return;
+                disposed = true;
+                owner.CloseScope();
+            }
         }
 
     #endregion
@@ -61,15 +89,20 @@ namespace inonego.Xeri
         // ------------------------------------------------------------
         public const string DEFAULT_SLOT = "";
 
-        protected readonly AsyncLocal<string> current = new();
+        private readonly AsyncLocal<ScopeNode> scopeStack = new();
 
-    #endregion
-
-    #region 생성자
-
-        protected InstanceRegistry()
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 컨텍스트의 슬롯 키. 열린 스코프가 없으면 DEFAULT_SLOT을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected string CurrentKey
         {
-            current.Value = DEFAULT_SLOT;
+            get
+            {
+                var node = scopeStack.Value;
+                return node != null ? node.Key : DEFAULT_SLOT;
+            }
         }
 
     #endregion
@@ -93,17 +126,39 @@ namespace inonego.Xeri
 
         // ------------------------------------------------------------
         /// <summary>
+        /// <br/> 지정한 슬롯을 현재 컨텍스트로 설정한다.
+        /// <br/> CloseScope()로 명시적으로 닫을 때까지 유지된다.
+        /// <br/> 프로덕션 코드에서는 Scope() + using을 사용할 것.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void OpenScope(string key)
+        {
+            scopeStack.Value = new ScopeNode(Normalize(key), scopeStack.Value);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 가장 최근에 열린 스코프를 닫고 이전 슬롯으로 복원한다.
+        /// <br/> 열린 스코프가 없을 시 InvalidOperationException이 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloseScope()
+        {
+            var node = scopeStack.Value ?? throw new InvalidOperationException("닫을 스코프가 없습니다. OpenScope를 먼저 호출하세요.");
+
+            scopeStack.Value = node.Previous;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// <br/> 지정한 슬롯을 현재 컨텍스트로 설정하는 스코프를 반환한다.
         /// <br/> Dispose 시 이전 슬롯으로 자동 복원된다.
         /// </summary>
         // ------------------------------------------------------------
         public IDisposable Scope(string key)
         {
-            var normalized = Normalize(key);
-            var previous   = current.Value;
-            current.Value  = normalized;
-
-            return new ScopeHandle(this, previous);
+            OpenScope(key);
+            return new CloseScopeHandle(this);
         }
 
     #endregion
@@ -113,7 +168,7 @@ namespace inonego.Xeri
     // ======================================================================
     /// <summary>
     /// <br/> 이름 기반 인스턴스 레지스트리.
-    /// <br/> Register / Current / Named / Scope / Clear API를 제공한다.
+    /// <br/> Register / Current / Named / Scope / OpenScope / CloseScope / Clear API를 제공한다.
     /// </summary>
     // ======================================================================
     public class InstanceRegistry<T> : InstanceRegistry
@@ -167,7 +222,7 @@ namespace inonego.Xeri
         {
             get
             {
-                var key = Normalize(current.Value);
+                var key = Normalize(CurrentKey);
 
                 if (!instances.TryGetValue(key, out var inst))
                 {
@@ -260,8 +315,7 @@ namespace inonego.Xeri
         // ------------------------------------------------------------
         public bool TryCurrent(out T instance)
         {
-            var key = current.Value ?? DEFAULT_SLOT;
-            return instances.TryGetValue(key, out instance);
+            return instances.TryGetValue(CurrentKey, out instance);
         }
 
         // ------------------------------------------------------------

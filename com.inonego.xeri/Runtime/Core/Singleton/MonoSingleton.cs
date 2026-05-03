@@ -1,11 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MonoSingleton.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-03
 
 # 설명
 Singleton<T>와 구조·API 동일한 MonoBehaviour 슬롯 싱글톤 기반 클래스.
 MonoBehaviour 단일 상속 제약으로 Singleton<T>를 상속할 수 없어 독립 구현한다.
 Register로 수동 등록하며, OnDestroy 시 등록된 모든 슬롯에서 자동 해제된다.
+Register / Unregister / Scope / OpenScope / CloseScope / Current / Named 정적 API를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -103,6 +104,29 @@ namespace inonego.Xeri
         public static IDisposable Scope(string key)
         {
             return registry.Scope(key);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 슬롯을 현재 컨텍스트로 설정한다.
+        /// <br/> CloseScope()로 명시적으로 닫을 때까지 유지된다.
+        /// <br/> 프로덕션 코드에서는 Scope() + using을 사용할 것.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void OpenScope(string key)
+        {
+            registry.OpenScope(key);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 가장 최근에 열린 스코프를 닫고 이전 슬롯으로 복원한다.
+        /// <br/> 열린 스코프가 없을 시 InvalidOperationException이 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void CloseScope()
+        {
+            registry.CloseScope();
         }
 
         // ------------------------------------------------------------

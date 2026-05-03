@@ -93,6 +93,7 @@ namespace inonego.Xeri
             var arrowLabel = new Label("→");
             arrowLabel.AddToClassList("xeri-arrow");
 
+            setField.label = "Base";
             setField.style.flexGrow   = 1;
             setField.style.flexShrink = 1;
             setField.style.flexBasis  = 0;
@@ -106,7 +107,6 @@ namespace inonego.Xeri
             modifiedField.SetEnabled(false);
 
             row.Add(fieldLabel);
-            row.Add(ValueDrawerHelper.CreateRowLabel("Base"));
             row.Add(setField);
             row.Add(arrowLabel);
             row.Add(modifiedField);
