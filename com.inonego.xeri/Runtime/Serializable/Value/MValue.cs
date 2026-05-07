@@ -21,7 +21,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class MValue<T> : Value<T>, IReadOnlyMValue<T>, IDeepCloneable<MValue<T>>
+    public class MValue<T> : Value<T>, IMValue<T>, IDeepCloneable<MValue<T>>
     {
 
     #region 필드

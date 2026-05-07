@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EditorAssetHelper.cs
-수정일 : 2026-04-29
+수정일 : 2026-05-07
 
 # 설명
 에디터 어셈블리용 에셋 경로 헬퍼.
@@ -45,6 +45,25 @@ namespace inonego.Xeri
             }
 
             return null;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// AssetDatabase를 통해 에셋 폴더를 재귀적으로 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void MakeDirectory(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+
+            var (parent, current) = (Path.GetDirectoryName(path), Path.GetFileName(path));
+
+            if (!AssetDatabase.IsValidFolder(parent))
+            {
+                MakeDirectory(parent);
+            }
+
+            AssetDatabase.CreateFolder(parent, current);
         }
 
     }

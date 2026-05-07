@@ -23,13 +23,14 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class RangeValue<T> : Value<T>, IReadOnlyRangeValue<T>, IDeepCloneable<RangeValue<T>>
+    public class RangeValue<T> : Value<T>, IRangeValue<T>, IDeepCloneable<RangeValue<T>>
     where T : struct, IComparable<T>
     {
 
     #region 필드
 
         IReadOnlyValue<MinMax<T>> IReadOnlyRangeValue<T>.Range => range;
+        IValue<MinMax<T>>         IRangeValue<T>        .Range => range;
 
         // ------------------------------------------------------------
         /// <summary>

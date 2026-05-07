@@ -443,9 +443,9 @@ public class TEST_GroundChecker2D
 
                 if (rigidbody != null)
                 {
-                    rigidbody.bodyType        = RigidbodyType2D.Kinematic;
                     rigidbody.linearVelocity  = Vector2.zero;
                     rigidbody.angularVelocity = 0f;
+                    rigidbody.bodyType        = RigidbodyType2D.Kinematic;
                 }
             }
 

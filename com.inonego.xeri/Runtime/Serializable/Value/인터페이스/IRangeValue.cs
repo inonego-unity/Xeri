@@ -1,10 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : IReadOnlyRangeValue.cs
-수정일 : 2026-04-29
+파일명 : IRangeValue.cs
+수정일 : 2026-05-07
 
 # 설명
-범위 제한이 있는 값의 읽기 전용 뷰 인터페이스.
-IReadOnlyValue<T>와 IComparable<T>를 함께 상속한다.
+RangeValue 인터페이스 모음.
+
+- IReadOnlyRangeValue<T> : 외부 노출용. Range·Min·Max 를 읽기 전용으로 노출.
+- IRangeValue<T>        : 시스템 내부용. Range 를 mutable 로 노출.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -23,7 +25,7 @@ namespace inonego.Xeri.Serializable
     {
         // ------------------------------------------------------------
         /// <summary>
-        /// 값을 제한하는 범위.
+        /// 값을 제한하는 범위(읽기 전용).
         /// </summary>
         // ------------------------------------------------------------
         IReadOnlyValue<MinMax<T>> Range { get; }
@@ -41,5 +43,21 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         T Max { get; }
+    }
+
+    // ===================================================================
+    /// <summary>
+    /// 범위 제한 Value 변경 가능 인터페이스.
+    /// </summary>
+    // ===================================================================
+    public interface IRangeValue<T> : IReadOnlyRangeValue<T>, IValue<T>
+    where T : struct, IComparable<T>
+    {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 값을 제한하는 범위.
+        /// </summary>
+        // ------------------------------------------------------------
+        new IValue<MinMax<T>> Range { get; }
     }
 }

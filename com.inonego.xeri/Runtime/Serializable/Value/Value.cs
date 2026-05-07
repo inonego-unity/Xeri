@@ -23,7 +23,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class Value<T> : IReadOnlyValue<T>, IValueSetter<T>, IDeepCloneable<Value<T>>
+    public class Value<T> : IValue<T>, IDeepCloneable<Value<T>>
     {
         protected static readonly EqualityComparer<T> comparer = EqualityComparer<T>.Default;
 
@@ -71,16 +71,9 @@ namespace inonego.Xeri.Serializable
 
         // ------------------------------------------------------------
         /// <summary>
-        /// IValueSetter 명시적 구현. invokeEvent: true로 위임한다.
+        /// 값을 설정한다. invokeEvent 가 false 이면 이벤트를 발행하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
-        void IValueSetter<T>.Set(T value) => Set(value, invokeEvent: true);
-
-        // -----------------------------------------------------------------------
-        /// <summary>
-        /// 값을 설정한다. invokeEvent가 false이면 이벤트를 발행하지 않는다.
-        /// </summary>
-        // -----------------------------------------------------------------------
         public virtual void Set(T value, bool invokeEvent = true)
         {
             var (prev, next) = (@base, value);

@@ -449,9 +449,9 @@ public class TEST_GroundChecker3D
 
                 if (rigidbody != null)
                 {
-                    rigidbody.isKinematic    = true;
-                    rigidbody.linearVelocity = Vector3.zero;
+                    rigidbody.linearVelocity  = Vector3.zero;
                     rigidbody.angularVelocity = Vector3.zero;
+                    rigidbody.isKinematic     = true;
                 }
             }
 

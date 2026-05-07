@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MockHP_IF.cs
-수정일 : 2026-04-28
+수정일 : 2026-05-07
 
 # 설명
 값 직접 설정 및 이벤트 수동 발화가 가능한 HP Mock 추상 클래스 및 구현체.
 상태 자동 전환 로직 없이 필드·프로퍼티만 제공한다.
+ApplyHeal·ApplyDamage 는 노옵, MakeAlive·MakeDead 는 상태만 직접 설정한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -22,7 +23,7 @@ namespace inonego.Xeri.Game
     /// </summary>
     // ===========================================================================
     public abstract class MockHP<TNumeric, TValue>
-        : IReadOnlyHP<TValue>
+        : IHP<TValue>
     where TNumeric : struct, INumeric<TNumeric, TValue>
     {
 
@@ -177,6 +178,34 @@ namespace inonego.Xeri.Game
 
             return value.FromFloat(baseVal * ratio).Get();
         }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 상태를 살아있는 상태로 설정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void MakeAlive(bool autoChangeValue = true) => current = HPState.Alive;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 상태를 죽어있는 상태로 설정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void MakeDead(bool autoChangeValue = true) => current = HPState.Dead;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 힐 적용. Mock 은 값 변경·이벤트 발화 없음. InvokeOnHeal 로 수동 발화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ApplyHeal(TValue amount) {}
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 데미지 적용. Mock 은 값 변경·이벤트 발화 없음. InvokeOnDamage 로 수동 발화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ApplyDamage(TValue amount) {}
 
     #endregion
 

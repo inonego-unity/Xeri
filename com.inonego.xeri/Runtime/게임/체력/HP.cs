@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : HP.cs
-수정일 : 2026-04-28
+수정일 : 2026-05-07
 
 # 설명
 제너릭 체력(HP) 추상 클래스 및 관련 열거형·구조체 정의.
@@ -47,7 +47,7 @@ namespace inonego.Xeri.Game
     /// </summary>
     // ===========================================================================
     public abstract class HP<TNumeric, TValue>
-        : IReadOnlyHP<TValue>,
+        : IHP<TValue>,
           IDeepCloneableFrom<HP<TNumeric, TValue>>
     where TNumeric : struct, INumeric<TNumeric, TValue>
     {
