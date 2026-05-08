@@ -1,11 +1,11 @@
-Shader "Xeri/UIRadialGrad"
+Shader "XeriUI/ConicGrad"
 {
     Properties
     {
-        _Color0     ("Color 0", Color) = (1, 1, 1, 1)
-        _Color1     ("Color 1", Color) = (0, 0, 0, 1)
-        _Color2     ("Color 2", Color) = (0, 0, 0, 1)
-        _Color3     ("Color 3", Color) = (0, 0, 0, 1)
+        _Color0     ("Color 0", Color) = (1, 0, 0, 1)
+        _Color1     ("Color 1", Color) = (0, 0, 1, 1)
+        _Color2     ("Color 2", Color) = (0, 1, 0, 1)
+        _Color3     ("Color 3", Color) = (1, 1, 0, 1)
         _Color4     ("Color 4", Color) = (0, 0, 0, 1)
         _Color5     ("Color 5", Color) = (0, 0, 0, 1)
         _Color6     ("Color 6", Color) = (0, 0, 0, 1)
@@ -19,9 +19,8 @@ Shader "Xeri/UIRadialGrad"
         _Stop5      ("Stop 5 (start end)", Vector) = (0, 0, 0, 0)
         _Stop6      ("Stop 6 (start end)", Vector) = (0, 0, 0, 0)
         _Stop7      ("Stop 7 (start end)", Vector) = (0, 0, 0, 0)
+        _Angle      ("From Angle (deg)", Float) = 0
         _Center     ("Center", Vector) = (0.5, 0.5, 0, 0)
-        _Radius     ("Radius", Vector) = (1, 1, 0, 0)
-        _Tiling     ("Tiling", Float) = 1
     }
 
     SubShader
@@ -96,9 +95,8 @@ Shader "Xeri/UIRadialGrad"
                 float4 _Stop5;
                 float4 _Stop6;
                 float4 _Stop7;
+                float  _Angle;
                 float4 _Center;
-                float4 _Radius;
-                float  _Tiling;
             CBUFFER_END
 
             struct Attributes
@@ -205,13 +203,17 @@ Shader "Xeri/UIRadialGrad"
                 float  Alpha;
             };
 
+            #ifndef UNITY_PI
+            #define UNITY_PI 3.14159265358979
+            #endif
+
             #ifndef UNITY_COLORSPACE_GAMMA
             float4 ToSRGB(float4 c) { return float4(LinearToSRGB(c.rgb), c.a); }
             #endif
 
             float4 MultiGrad(float t)
             {
-                float tc = saturate(t);
+                float tc = frac(t);
 
                 float4 colors[8];
                 #ifdef UNITY_COLORSPACE_GAMMA
@@ -245,6 +247,10 @@ Shader "Xeri/UIRadialGrad"
                     c = lerp(c, colors[i + 1], tSeg * step(tStart, tc));
                 }
 
+                float wrapStart = stopsEnd[count - 1];
+                float tWrap = saturate((tc - wrapStart) / max(1.0 - wrapStart, 1e-4));
+                c = lerp(c, colors[0], tWrap * step(wrapStart, tc));
+
                 c.rgb /= max(c.a, 1e-4);
                 return c;
             }
@@ -253,18 +259,10 @@ Shader "Xeri/UIRadialGrad"
             {
                 SurfaceDescription surface = (SurfaceDescription)0;
 
-                float2 center = float2(_Center.x, 1.0 - _Center.y);
-                float2 uv     = IN.layoutUV - center;
-
-                float d0 = length(center);
-                float d1 = length(float2(1.0, 0.0) - center);
-                float d2 = length(float2(0.0, 1.0) - center);
-                float d3 = length(float2(1.0, 1.0) - center);
-                float fc = max(max(d0, d1), max(d2, d3));
-
-                float dist = length(uv / (_Radius.xy * fc));
-
-                float t = _Tiling > 1.001 ? frac(dist * _Tiling) : saturate(dist);
+                float2 uv = IN.layoutUV - float2(_Center.x, 1.0 - _Center.y);
+                float offset = _Angle * (UNITY_PI / 180.0);
+                float angle = atan2(uv.x, uv.y) - offset;
+                float t = frac(angle / (2.0 * UNITY_PI));
 
                 float4 grad       = MultiGrad(t);
                 float4 bg         = IN.color;

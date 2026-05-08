@@ -1,10 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MonoBoardBase.cs
-수정일 : 2026-05-01
+수정일 : 2026-05-08
 
 # 설명
 MonoBoardBase 시스템의 핵심 기능 테스트. Play Mode.
 Connect/Disconnect, OnAddSpace/OnRemoveSpace 이벤트, ReloadTileMap 등을 검증한다.
+
+# 테스트 구성
+ E: 기본 기능 (Connect/이벤트/ReloadTileMap/Disconnect 통합 흐름)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -20,335 +23,330 @@ using UnityEngine.TestTools;
 using UnityEngine.InputSystem;
 #endif
 
-using inonego.Xeri;
 using inonego.Xeri.Game;
 
 using Object = UnityEngine.Object;
 
-// ============================================================
-/// <summary>
-/// MonoBoardBase 시스템의 핵심 기능 테스트 클래스입니다.
-/// </summary>
-// ============================================================
-public class TEST_MonoBoardBase
+namespace inonego.Xeri.TEST.Game._Board
 {
 
-#region 헬퍼 타입
-
-    // ------------------------------------------------------------
+    // ============================================================
     /// <summary>
-    /// 테스트용 기물입니다.
+    /// MonoBoardBase 시스템의 핵심 기능 테스트 클래스.
     /// </summary>
-    // ------------------------------------------------------------
-    public class TestPiece
+    // ============================================================
+    public class TEST_MonoBoardBase
     {
-        public string Name;
-        public TestPiece() {}
-        public TestPiece(string name) { Name = name; }
-        public override string ToString() => Name;
-    }
 
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 공간입니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    [Serializable]
-    public class TestSpace : BoardSpace<TestPiece>
-    {
-        public TestSpace() {}
-    }
+    #region 헬퍼
 
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 타일입니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    public class TestMonoTile : MonoBehaviour { }
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 MonoBoardBase 구현체입니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    public class TestMonoBoard2D : MonoBoardBase<Board2D<int, TestSpace, TestPiece>, Vector2Int, int, TestSpace, TestPiece, TestMonoTile>
-    {
-        [SerializeField]
-        private float lTileSize = 1f;
-
-        public override Vector3 ToLocalPos(Vector2Int vector)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트용 기물입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public class TestPiece
         {
-            return new Vector3(vector.x * lTileSize, 0f, vector.y * lTileSize);
-        }
-
-        public override Vector3 ToLocalPos(Vector2Int vector, int index)
-        {
-            return ToLocalPos(vector) + Vector3.zero;
+            public string Name;
+            public TestPiece() {}
+            public TestPiece(string name) { Name = name; }
+            public override string ToString() => Name;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 타일 프로바이더를 설정합니다.
+        /// 테스트용 공간입니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void SetTileProvider(IGameObjectProvider provider)
+        [Serializable]
+        public class TestSpace : BoardSpace<TestPiece>
         {
-            lTileProvider = provider;
-        }
-    }
-
-#endregion
-
-#region 설정 / 해제
-
-    private MonoForTEST monoForTEST;
-    private GameObject cameraObject;
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 각 테스트 시작 전에 실행됩니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    [UnitySetUp]
-    public IEnumerator SetUp()
-    {
-        monoForTEST  = new GameObject("MonoForTEST").AddComponent<MonoForTEST>();
-        cameraObject = CreateCameraObject();
-
-        yield return null;
-    }
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 각 테스트 종료 후에 실행됩니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    [UnityTearDown]
-    public IEnumerator TearDown()
-    {
-        if (monoForTEST != null)
-        {
-            Object.Destroy(monoForTEST.gameObject);
+            public TestSpace() {}
         }
 
-        if (cameraObject != null)
-        {
-            Object.Destroy(cameraObject);
-        }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트용 타일입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public class TestMonoTile : MonoBehaviour { }
 
-        var allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-
-        foreach (var obj in allObjects)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트용 MonoBoardBase 구현체입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public class TestMonoBoard2D : MonoBoardBase<Board2D<int, TestSpace, TestPiece>, Vector2Int, int, TestSpace, TestPiece, TestMonoTile>
         {
-            if (obj != null && obj.name != "Main Camera" && obj.name != "Directional Light")
+            [SerializeField]
+            private float lTileSize = 1f;
+
+            public override Vector3 ToLocalPos(Vector2Int vector)
             {
-                Object.Destroy(obj);
+                return new Vector3(vector.x * lTileSize, 0f, vector.y * lTileSize);
+            }
+
+            public override Vector3 ToLocalPos(Vector2Int vector, int index)
+            {
+                return ToLocalPos(vector) + Vector3.zero;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 타일 프로바이더를 설정합니다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void SetTileProvider(IGameObjectProvider provider)
+            {
+                lTileProvider = provider;
             }
         }
 
-        yield return null;
-    }
-
-#endregion
-
-#region 헬퍼 메서드
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// Space키 입력을 체크합니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    private bool IsSpaceKeyPressed()
-    {
-    #if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-    #else
-        return Input.GetKeyDown(KeyCode.Space);
-    #endif
-    }
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 타일 프로바이더를 생성합니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    private PrefabGameObjectProvider CreateTileProvider()
-    {
-        var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        prefab.AddComponent<TestMonoTile>();
-        prefab.name = "TilePrefab";
-        prefab.transform.localScale = Vector3.one * 0.9f;
-
-        return new PrefabGameObjectProvider(prefab, null);
-    }
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 카메라 오브젝트를 생성합니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    private GameObject CreateCameraObject()
-    {
-        var cameraObject = new GameObject("Camera");
-
-        var camera = cameraObject.AddComponent<Camera>();
-        camera.transform.position = new Vector3(0f, 5f, -10f);
-        camera.transform.rotation = Quaternion.Euler(30f, 0f, 0f);
-
-        return cameraObject;
-    }
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 MonoBoard2D를 생성합니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    private TestMonoBoard2D CreateMonoBoard()
-    {
-        var monoBoardObject = new GameObject("TestMonoBoard2D");
-        var monoBoard = monoBoardObject.AddComponent<TestMonoBoard2D>();
-
-        monoBoard.SetTileProvider(CreateTileProvider());
-
-        return monoBoard;
-    }
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// Space 키 입력을 기다립니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    private IEnumerator WaitForSpaceKey(string message)
-    {
-        Debug.Log(message);
-
-        while (!IsSpaceKeyPressed())
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Space키 입력을 체크합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool IsSpaceKeyPressed()
         {
+        #if ENABLE_INPUT_SYSTEM
+            return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+        #else
+            return Input.GetKeyDown(KeyCode.Space);
+        #endif
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트용 타일 프로바이더를 생성합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private PrefabGameObjectProvider CreateTileProvider()
+        {
+            var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            prefab.AddComponent<TestMonoTile>();
+            prefab.name = "TilePrefab";
+            prefab.transform.localScale = Vector3.one * 0.9f;
+
+            return new PrefabGameObjectProvider(prefab, null);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 카메라 오브젝트를 생성합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private GameObject CreateCameraObject()
+        {
+            var cameraObject = new GameObject("Camera");
+
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0f, 5f, -10f);
+            camera.transform.rotation = Quaternion.Euler(30f, 0f, 0f);
+
+            return cameraObject;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트용 MonoBoard2D를 생성합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private TestMonoBoard2D CreateMonoBoard()
+        {
+            var monoBoardObject = new GameObject("TestMonoBoard2D");
+            var monoBoard = monoBoardObject.AddComponent<TestMonoBoard2D>();
+
+            monoBoard.SetTileProvider(CreateTileProvider());
+
+            return monoBoard;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Space 키 입력을 기다립니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private IEnumerator WaitForSpaceKey(string message)
+        {
+            Debug.Log(message);
+
+            while (!IsSpaceKeyPressed())
+            {
+                yield return null;
+            }
+
+            Debug.Log("테스트 완료!");
+        }
+
+    #endregion
+
+    #region 픽스처
+
+        private MonoForTEST monoForTEST;
+        private GameObject cameraObject;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 각 테스트 시작 전에 실행됩니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            monoForTEST  = new GameObject("MonoForTEST").AddComponent<MonoForTEST>();
+            cameraObject = CreateCameraObject();
+
             yield return null;
         }
 
-        Debug.Log("테스트 완료!");
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 각 테스트 종료 후에 실행됩니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [UnityTearDown]
+        public IEnumerator TearDown()
+        {
+            if (monoForTEST != null)
+            {
+                Object.Destroy(monoForTEST.gameObject);
+            }
+
+            if (cameraObject != null)
+            {
+                Object.Destroy(cameraObject);
+            }
+
+            var allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+
+            foreach (var obj in allObjects)
+            {
+                if (obj != null && obj.name != "Main Camera" && obj.name != "Directional Light")
+                {
+                    Object.Destroy(obj);
+                }
+            }
+
+            yield return null;
+        }
+
+    #endregion
+
+    #region E-1: Connect/이벤트/ReloadTileMap/Disconnect 통합
+
+        [UnityTest]
+        public IEnumerator TEST_MonoBoardBase_Connect_이벤트_Reload_Disconnect_통합()
+        {
+            // ------------------------------------------------------------
+            // 테스트 준비 — 3x3 보드 (공간 자동 생성 비활성화)
+            // ------------------------------------------------------------
+            var board    = new Board2D<int, TestSpace, TestPiece>(3, 3, init: false);
+            var monoBoard = CreateMonoBoard();
+
+            var basePoints = new[]
+            {
+                new Vector2Int(0, 0),
+                new Vector2Int(1, 0),
+                new Vector2Int(0, 1),
+                new Vector2Int(1, 1),
+            };
+
+            foreach (var point in basePoints)
+            {
+                board.AddSpace(point);
+            }
+
+            // ------------------------------------------------------------
+            // Connect 전 초기 상태 확인
+            // ------------------------------------------------------------
+            Assert.That(monoBoard.Board,          Is.Null);
+            Assert.That(monoBoard.TileMap.Count,  Is.EqualTo(0));
+
+            monoBoard.Connect(board);
+
+            yield return new WaitForSeconds(0.5f);
+
+            Assert.That(monoBoard.Board,          Is.EqualTo(board));
+            Assert.That(monoBoard.TileMap.Count,  Is.EqualTo(basePoints.Length));
+
+            foreach (var point in basePoints)
+            {
+                var lTile       = monoBoard.TileMap[point];
+                var expectedPos = monoBoard.ToLocalPos(point);
+
+                Assert.That(monoBoard.TileMap.ContainsKey(point), Is.True);
+                Assert.That(lTile,                                Is.Not.Null);
+                Assert.That(Vector3.Distance(lTile.transform.localPosition, expectedPos), Is.LessThan(0.01f));
+            }
+
+            // ------------------------------------------------------------
+            // OnAddSpace 이벤트 확인
+            // ------------------------------------------------------------
+            var newPointA = new Vector2Int(2, 0);
+            board.AddSpace(newPointA);
+
+            yield return null;
+
+            Assert.That(monoBoard.TileMap.ContainsKey(newPointA), Is.True);
+
+            var newPointB = new Vector2Int(2, 1);
+            board.AddSpace(newPointB);
+
+            yield return null;
+
+            // ------------------------------------------------------------
+            // OnRemoveSpace 이벤트 확인
+            // ------------------------------------------------------------
+            var removePoint = new Vector2Int(0, 0);
+            board.RemoveSpace(removePoint);
+
+            yield return null;
+
+            Assert.That(monoBoard.TileMap.ContainsKey(removePoint), Is.False);
+
+            // ------------------------------------------------------------
+            // ReloadTileMap 확인
+            // ------------------------------------------------------------
+            monoBoard.ReloadTileMap();
+
+            yield return null;
+
+            int spaceCount = 0;
+
+            foreach (var kvp in board)
+            {
+                var point       = kvp.Key;
+                var expectedPos = monoBoard.ToLocalPos(point);
+                var lTile       = monoBoard.TileMap[point];
+
+                spaceCount++;
+
+                Assert.That(monoBoard.TileMap.ContainsKey(point), Is.True);
+                Assert.That(lTile,                                Is.Not.Null);
+                Assert.That(Vector3.Distance(lTile.transform.localPosition, expectedPos), Is.LessThan(0.01f));
+            }
+
+            Assert.That(monoBoard.TileMap.Count, Is.EqualTo(spaceCount));
+
+            // ------------------------------------------------------------
+            // Disconnect 확인
+            // ------------------------------------------------------------
+            monoBoard.Disconnect();
+
+            yield return null;
+
+            Assert.That(monoBoard.Board,         Is.Null);
+            Assert.That(monoBoard.TileMap.Count, Is.EqualTo(0));
+
+            // ------------------------------------------------------------
+            // 시각 확인 완료 — Space바로 종료
+            // ------------------------------------------------------------
+            yield return WaitForSpaceKey("초기화/이벤트/동기화/해제 통합 테스트 성공! Space바를 눌러서 종료하세요.");
+        }
+
+    #endregion
+
     }
-
-#endregion
-
-#region 종합 시나리오
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// Connect, 이벤트, ReloadTileMap, Disconnect를 통합 테스트합니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    [UnityTest]
-    public IEnumerator MonoBoardBase_종합_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비 — 3x3 보드 (공간 자동 생성 비활성화)
-        // ------------------------------------------------------------
-        var board    = new Board2D<int, TestSpace, TestPiece>(3, 3, init: false);
-        var monoBoard = CreateMonoBoard();
-
-        var basePoints = new[]
-        {
-            new Vector2Int(0, 0),
-            new Vector2Int(1, 0),
-            new Vector2Int(0, 1),
-            new Vector2Int(1, 1),
-        };
-
-        foreach (var point in basePoints)
-        {
-            board.AddSpace(point);
-        }
-
-        // ------------------------------------------------------------
-        // Connect 전 초기 상태 확인
-        // ------------------------------------------------------------
-        Assert.That(monoBoard.Board,          Is.Null);
-        Assert.That(monoBoard.TileMap.Count,  Is.EqualTo(0));
-
-        monoBoard.Connect(board);
-
-        yield return new WaitForSeconds(0.5f);
-
-        Assert.That(monoBoard.Board,          Is.EqualTo(board));
-        Assert.That(monoBoard.TileMap.Count,  Is.EqualTo(basePoints.Length));
-
-        foreach (var point in basePoints)
-        {
-            var lTile       = monoBoard.TileMap[point];
-            var expectedPos = monoBoard.ToLocalPos(point);
-
-            Assert.That(monoBoard.TileMap.ContainsKey(point), Is.True);
-            Assert.That(lTile,                                Is.Not.Null);
-            Assert.That(Vector3.Distance(lTile.transform.localPosition, expectedPos), Is.LessThan(0.01f));
-        }
-
-        // ------------------------------------------------------------
-        // OnAddSpace 이벤트 확인
-        // ------------------------------------------------------------
-        var newPointA = new Vector2Int(2, 0);
-        board.AddSpace(newPointA);
-
-        yield return null;
-
-        Assert.That(monoBoard.TileMap.ContainsKey(newPointA), Is.True);
-
-        var newPointB = new Vector2Int(2, 1);
-        board.AddSpace(newPointB);
-
-        yield return null;
-
-        // ------------------------------------------------------------
-        // OnRemoveSpace 이벤트 확인
-        // ------------------------------------------------------------
-        var removePoint = new Vector2Int(0, 0);
-        board.RemoveSpace(removePoint);
-
-        yield return null;
-
-        Assert.That(monoBoard.TileMap.ContainsKey(removePoint), Is.False);
-
-        // ------------------------------------------------------------
-        // ReloadTileMap 확인
-        // ------------------------------------------------------------
-        monoBoard.ReloadTileMap();
-
-        yield return null;
-
-        int spaceCount = 0;
-
-        foreach (var kvp in board)
-        {
-            var point       = kvp.Key;
-            var expectedPos = monoBoard.ToLocalPos(point);
-            var lTile       = monoBoard.TileMap[point];
-
-            spaceCount++;
-
-            Assert.That(monoBoard.TileMap.ContainsKey(point), Is.True);
-            Assert.That(lTile,                                Is.Not.Null);
-            Assert.That(Vector3.Distance(lTile.transform.localPosition, expectedPos), Is.LessThan(0.01f));
-        }
-
-        Assert.That(monoBoard.TileMap.Count, Is.EqualTo(spaceCount));
-
-        // ------------------------------------------------------------
-        // Disconnect 확인
-        // ------------------------------------------------------------
-        monoBoard.Disconnect();
-
-        yield return null;
-
-        Assert.That(monoBoard.Board,         Is.Null);
-        Assert.That(monoBoard.TileMap.Count, Is.EqualTo(0));
-
-        // ------------------------------------------------------------
-        // 시각 확인 완료 — Space바로 종료
-        // ------------------------------------------------------------
-        yield return WaitForSpaceKey("초기화/이벤트/동기화/해제 통합 테스트 성공! Space바를 눌러서 종료하세요.");
-    }
-
-#endregion
 
 }

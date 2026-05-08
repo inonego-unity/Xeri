@@ -5,19 +5,29 @@
 # 설명
 DraggableUI Play Mode 통합 테스트.
 실제 GameObject + Canvas + EventSystem 을 셋업하고 PointerEventData 를 직접 주입한다.
+
+# 테스트 구성
+ L: 드래그 lifecycle (BeginDrag/EndDrag)
+ A: ActiveCollection 추적
+ B: 버튼 매칭 (허용/거부)
+ F: 강제 종료 (ForceDragEnd)
+ R: RaycastTarget / blocksRaycasts
 ========================================================================= BLOCK_HEADER_END */
 
 using System.Collections;
 using System.Linq;
+
+using NUnit.Framework;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
-using NUnit.Framework;
+namespace inonego.Xeri.TEST.UI._Drag_Drop
+{
 
-using inonego.Xeri.UI;
+    using inonego.Xeri.UI;
 
 // ============================================================
 /// <summary>
@@ -27,7 +37,25 @@ using inonego.Xeri.UI;
 public class TEST_DraggableUI
 {
 
-#region 셋업 / 정리
+#region 헬퍼
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// 좌클릭 PointerEventData 를 생성한다.
+    /// </summary>
+    // ------------------------------------------------------------
+    private PointerEventData CreateEventData(PointerEventData.InputButton button = PointerEventData.InputButton.Left)
+    {
+        return new PointerEventData(EventSystem.current)
+        {
+            button   = button,
+            position = new Vector2(100, 100),
+        };
+    }
+
+#endregion
+
+#region 픽스처
 
     private GameObject  eventSystemGO;
     private GameObject  canvasGO;
@@ -54,6 +82,11 @@ public class TEST_DraggableUI
         draggable = dragGO.AddComponent<DraggableUI>();
     }
 
+    // ----------------------------------------------------------------------
+    /// <summary>
+    /// 셋업한 GameObject 를 모두 정리한다.
+    /// </summary>
+    // ----------------------------------------------------------------------
     [TearDown]
     public void TearDown()
     {
@@ -64,20 +97,7 @@ public class TEST_DraggableUI
 
 #endregion
 
-#region 헬퍼
-
-    private PointerEventData CreateEventData(PointerEventData.InputButton button = PointerEventData.InputButton.Left)
-    {
-        return new PointerEventData(EventSystem.current)
-        {
-            button   = button,
-            position = new Vector2(100, 100),
-        };
-    }
-
-#endregion
-
-#region 드래그 lifecycle
+#region L-1: OnBeginDrag
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -85,7 +105,7 @@ public class TEST_DraggableUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DraggableUI_01_OnBeginDrag_이벤트_발화_테스트()
+    public IEnumerator TEST_DraggableUI_OnBeginDrag_OnDragBegin_발화()
     {
         bool fired = false;
         draggable.OnDragBegin += (_, _) => fired = true;
@@ -101,13 +121,17 @@ public class TEST_DraggableUI
         yield return null;
     }
 
+#endregion
+
+#region L-2: OnEndDrag
+
     // ----------------------------------------------------------------------
     /// <summary>
     /// OnEndDrag 호출 시 IsDragging=false · OnDragEnd 이벤트 발화 확인.
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DraggableUI_02_OnEndDrag_이벤트_발화_테스트()
+    public IEnumerator TEST_DraggableUI_OnEndDrag_OnDragEnd_발화()
     {
         var eventData = CreateEventData();
 
@@ -127,7 +151,7 @@ public class TEST_DraggableUI
 
 #endregion
 
-#region ActiveCollection
+#region A-1: ActiveCollection 추적
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -135,7 +159,7 @@ public class TEST_DraggableUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DraggableUI_03_ActiveCollection_추적_테스트()
+    public IEnumerator TEST_DraggableUI_ActiveCollection_드래그_중_추가_종료_제거()
     {
         var eventData = CreateEventData();
 
@@ -155,7 +179,7 @@ public class TEST_DraggableUI
 
 #endregion
 
-#region 버튼 매칭
+#region B-1: 허용되지 않은 버튼
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -163,7 +187,7 @@ public class TEST_DraggableUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DraggableUI_04_허용되지_않은_버튼_무시_테스트()
+    public IEnumerator TEST_DraggableUI_허용되지_않은_버튼_pointerDrag_null()
     {
         draggable.Button = MouseButton.Left;
 
@@ -179,7 +203,7 @@ public class TEST_DraggableUI
 
 #endregion
 
-#region 강제 종료
+#region F-1: ForceDragEnd
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -187,7 +211,7 @@ public class TEST_DraggableUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DraggableUI_05_ForceDragEnd_종료_테스트()
+    public IEnumerator TEST_DraggableUI_ForceDragEnd_종료_및_이벤트_발화()
     {
         var eventData = CreateEventData();
 
@@ -209,7 +233,7 @@ public class TEST_DraggableUI
 
 #endregion
 
-#region RaycastTarget
+#region R-1: RaycastTarget / blocksRaycasts
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -217,7 +241,7 @@ public class TEST_DraggableUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DraggableUI_06_RaycastTarget_blocksRaycasts_테스트()
+    public IEnumerator TEST_DraggableUI_RaycastTarget_false_blocksRaycasts_전환()
     {
         var canvasGroup = dragGO.GetComponent<CanvasGroup>();
         canvasGroup.blocksRaycasts = true;
@@ -239,5 +263,7 @@ public class TEST_DraggableUI
     }
 
 #endregion
+
+}
 
 }

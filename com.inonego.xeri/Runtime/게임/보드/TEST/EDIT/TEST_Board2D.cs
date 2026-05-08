@@ -1,14 +1,16 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Board2D.cs
-수정일 : 2026-05-01
+수정일 : 2026-05-08
 
 # 설명
 Board2D 시스템의 핵심 기능 테스트. Edit Mode.
+
+# 테스트 구성
+ E: 기본 기능 (크기/배치/제거/공간/이벤트/종합)
+ X: 예외 처리 (범위 밖 배치 / 중복 AddSpace)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 
 using NUnit.Framework;
 
@@ -16,447 +18,370 @@ using UnityEngine;
 
 using inonego.Xeri.Game;
 
-// ============================================================
-/// <summary>
-/// Board2D 시스템의 핵심 기능 테스트 클래스입니다.
-/// </summary>
-// ============================================================
-public class TEST_Board2D
+namespace inonego.Xeri.TEST.Game._Board
 {
-    // ------------------------------------------------------------
+
+    // ============================================================
     /// <summary>
-    /// 테스트용 기물입니다.
+    /// Board2D 시스템의 핵심 기능 테스트 클래스.
     /// </summary>
-    // ------------------------------------------------------------
-    public class TestPiece
+    // ============================================================
+    public class TEST_Board2D
     {
-        public string Name;
-        public TestPiece() {}
-        public TestPiece(string name) { Name = name; }
-        public override string ToString() => Name;
-    }
 
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 공간입니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    [Serializable]
-    public class TestSpace : BoardSpace<TestPiece>
-    {
-        public TestSpace() {}
-    }
-
-#region 크기 및 경계
-
-    [Test]
-    public void Board2D_01_크기_경계_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(3, 2);
+    #region 헬퍼
 
         // ------------------------------------------------------------
-        // 크기 확인
+        /// <summary>
+        /// 테스트용 기물입니다.
+        /// </summary>
         // ------------------------------------------------------------
-        Assert.That(board.Width, Is.EqualTo(3));
-        Assert.That(board.Height, Is.EqualTo(2));
-        Assert.That(board.Size, Is.EqualTo(new Vector2Int(3, 2)));
-
-        // ------------------------------------------------------------
-        // 경계 확인
-        // ------------------------------------------------------------
-        Assert.That(board[new Vector2Int(+0, +0)], Is.Not.Null);
-        Assert.That(board[new Vector2Int(+2, +1)], Is.Not.Null);
-        Assert.That(board[new Vector2Int(-1, +0)], Is.Null);
-        Assert.That(board[new Vector2Int(+3, +1)], Is.Null);
-        Assert.That(board[new Vector2Int(+2, +2)], Is.Null);
-    }
-
-#endregion
-
-#region 배치 및 제거
-
-    [Test]
-    public void Board2D_02_배치_및_인덱서_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var a = new TestPiece("A");
-        var b = new TestPiece("B");
-
-        var p0 = new Vector2Int(0, 0);
-        var p1 = new Vector2Int(1, 1);
-
-        // ------------------------------------------------------------
-        // Vector와 Index로 배치 및 인덱서 확인
-        // ------------------------------------------------------------
-        board.Place(p0, 0, a);
-        Assert.That(board[p0, 0], Is.EqualTo(a));
-        Assert.That(board[p0][0], Is.EqualTo(a));
-
-        // ------------------------------------------------------------
-        // 같은 Vector, 같은 Index에 다른 기물 배치 시 예외
-        // ------------------------------------------------------------
-        Assert.Throws<InvalidOperationException>(() => board.Place(p0, 0, b));
-
-        // ------------------------------------------------------------
-        // 같은 Vector, 다른 Index에는 배치 가능
-        // ------------------------------------------------------------
-        board.Place(p0, 1, b);
-        Assert.That(board[p0, 0], Is.EqualTo(a));
-        Assert.That(board[p0, 1], Is.EqualTo(b));
-
-        // ------------------------------------------------------------
-        // 다른 Vector에 배치
-        // ------------------------------------------------------------
-        var c = new TestPiece("C");
-        board.Place(p1, 0, c);
-        Assert.That(board[p1, 0], Is.EqualTo(c));
-        Assert.That(board[p1][0], Is.EqualTo(c));
-    }
-
-    [Test]
-    public void Board2D_03_단일_Index_제거_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var a = new TestPiece("A");
-        var b = new TestPiece("B");
-        var p = new Vector2Int(1, 0);
-
-        // ------------------------------------------------------------
-        // 여러 Index 배치
-        // ------------------------------------------------------------
-        board.Place(p, 0, a);
-        board.Place(p, 1, b);
-
-        // ------------------------------------------------------------
-        // 특정 Index만 제거 (Vector, Index)
-        // ------------------------------------------------------------
-        board.Remove(p, 0);
-        Assert.That(board[p], Is.Not.Null);  // 공간은 유지
-        Assert.That(board[p, 0], Is.Null);   // Index 0 제거됨
-        Assert.That(board[p, 1], Is.EqualTo(b));  // Index 1은 유지
-
-        // ------------------------------------------------------------
-        // Placeable 객체로 제거
-        // ------------------------------------------------------------
-        board.Remove(b);
-        Assert.That(board[p, 1], Is.Null);
-    }
-
-    [Test]
-    public void Board2D_04_Vector_전체_제거_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var p = new Vector2Int(0, 0);
-
-        // ------------------------------------------------------------
-        // 같은 Vector에 여러 Index로 배치
-        // ------------------------------------------------------------
-        var pieces = new[]
+        public class TestPiece
         {
-            new TestPiece("P0"),
-            new TestPiece("P1"),
-            new TestPiece("P2"),
-            new TestPiece("P3"),
-        };
-
-        for (int i = 0; i < pieces.Length; i++)
-        {
-            board.Place(p, i, pieces[i]);
-        }
-
-        for (int i = 0; i < pieces.Length; i++)
-        {
-            Assert.That(board[p, i], Is.EqualTo(pieces[i]));
+            public string Name;
+            public TestPiece() {}
+            public TestPiece(string name) { Name = name; }
+            public override string ToString() => Name;
         }
 
         // ------------------------------------------------------------
-        // Vector 전체 제거 (모든 Index 한 번에 제거)
+        /// <summary>
+        /// 테스트용 공간입니다.
+        /// </summary>
         // ------------------------------------------------------------
-        board.Remove(p);
-
-        Assert.That(board[p], Is.Not.Null);  // 공간은 유지
-        for (int i = 0; i < pieces.Length; i++)
+        [Serializable]
+        public class TestSpace : BoardSpace<TestPiece>
         {
-            Assert.That(board[p, i], Is.Null);  // 모든 Index 제거됨
-        }
-    }
-
-#endregion
-
-#region 공간 관리
-
-    [Test]
-    public void Board2D_05_공간_추가_제거_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(1, 1);
-        var pt = new Vector2Int(0, 0);
-
-        Vector2Int? addEventVector = null;
-        Vector2Int? removeEventVector = null;
-
-        board.OnAddSpace += (v) => { addEventVector = v; };
-        board.OnRemoveSpace += (v) => { removeEventVector = v; };
-
-        // ------------------------------------------------------------
-        // 기본 공간 확인
-        // ------------------------------------------------------------
-        Assert.That(board[pt], Is.Not.Null);
-
-        // ------------------------------------------------------------
-        // 공간 제거 및 이벤트 확인
-        // ------------------------------------------------------------
-        board.RemoveSpace(pt);
-        Assert.That(board[pt], Is.Null);
-        Assert.That(removeEventVector, Is.EqualTo(pt));
-
-        // ------------------------------------------------------------
-        // 공간 다시 추가 및 이벤트 확인
-        // ------------------------------------------------------------
-        board.AddSpace(pt);
-        Assert.That(board[pt], Is.Not.Null);
-        Assert.That(addEventVector, Is.EqualTo(pt));
-
-        // ------------------------------------------------------------
-        // 객체 배치 후 공간 제거 시 객체도 제거됨
-        // ------------------------------------------------------------
-        var pieces = new[] { new TestPiece("A"), new TestPiece("B"), new TestPiece("C") };
-        for (int i = 0; i < pieces.Length; i++)
-        {
-            board.Place(pt, i, pieces[i]);
+            public TestSpace() {}
         }
 
-        board.RemoveSpace(pt);
-        Assert.That(board[pt], Is.Null);
-    }
+    #endregion
 
-#endregion
+    #region E-1: 크기 및 경계
 
-#region 이벤트
-
-    [Test]
-    public void Board2D_06_OnPlace_이벤트_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var piece = new TestPiece("E");
-        var p = new Vector2Int(0, 0);
-
-        Vector2Int? eventVector = null;
-        int? eventIndex = null;
-        TestPiece eventPiece = null;
-        int eventCount = 0;
-
-        board.OnPlace += (v, i, pl) =>
+        [Test]
+        public void TEST_Board2D_크기_경계_확인()
         {
-            eventVector = v;
-            eventIndex = i;
-            eventPiece = pl;
-            eventCount++;
-        };
+            var board = new Board2D<int, TestSpace, TestPiece>(3, 2);
 
-        // ------------------------------------------------------------
-        // 배치 시 이벤트 발생 확인 (Vector, Index, Placeable)
-        // ------------------------------------------------------------
-        board.Place(p, 5, piece);
+            Assert.That(board.Width, Is.EqualTo(3));
+            Assert.That(board.Height, Is.EqualTo(2));
+            Assert.That(board.Size, Is.EqualTo(new Vector2Int(3, 2)));
 
-        Assert.That(eventCount, Is.EqualTo(1));
-        Assert.That(eventVector, Is.EqualTo(p));
-        Assert.That(eventIndex, Is.EqualTo(5));
-        Assert.That(eventPiece, Is.EqualTo(piece));
-    }
+            Assert.That(board[new Vector2Int(+0, +0)], Is.Not.Null);
+            Assert.That(board[new Vector2Int(+2, +1)], Is.Not.Null);
+            Assert.That(board[new Vector2Int(-1, +0)], Is.Null);
+            Assert.That(board[new Vector2Int(+3, +1)], Is.Null);
+            Assert.That(board[new Vector2Int(+2, +2)], Is.Null);
+        }
 
-    [Test]
-    public void Board2D_07_OnRemove_이벤트_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var piece = new TestPiece("R");
-        var p = new Vector2Int(1, 0);
+    #endregion
 
-        Vector2Int? eventVector = null;
-        int? eventIndex = null;
-        TestPiece eventPiece = null;
-        int eventCount = 0;
+    #region E-2: 배치 및 인덱서
 
-        board.OnRemove += (v, i, pl) =>
+        [Test]
+        public void TEST_Board2D_Place_인덱서_접근()
         {
-            eventVector = v;
-            eventIndex = i;
-            eventPiece = pl;
-            eventCount++;
-        };
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var a = new TestPiece("A");
+            var b = new TestPiece("B");
 
-        // ------------------------------------------------------------
-        // 제거 시 이벤트 발생 확인 (Vector, Index, Placeable)
-        // ------------------------------------------------------------
-        board.Place(p, 3, piece);
-        board.Remove(p, 3);
+            var p0 = new Vector2Int(0, 0);
+            var p1 = new Vector2Int(1, 1);
 
-        Assert.That(eventCount, Is.EqualTo(1));
-        Assert.That(eventVector, Is.EqualTo(p));
-        Assert.That(eventIndex, Is.EqualTo(3));
-        Assert.That(eventPiece, Is.EqualTo(piece));
+            board.Place(p0, 0, a);
+            Assert.That(board[p0, 0], Is.EqualTo(a));
+            Assert.That(board[p0][0], Is.EqualTo(a));
 
-        // ------------------------------------------------------------
-        // Remove(Vector)로 여러 객체 제거 시 이벤트 여러 번 발생
-        // ------------------------------------------------------------
-        eventCount = 0;
-        board.Place(p, 0, new TestPiece("A"));
-        board.Place(p, 1, new TestPiece("B"));
-        board.Place(p, 2, new TestPiece("C"));
+            Assert.Throws<InvalidOperationException>(() => board.Place(p0, 0, b));
 
-        board.Remove(p);  // 모든 Index 제거
-        Assert.That(eventCount, Is.EqualTo(3));  // 3번 발생
-    }
+            board.Place(p0, 1, b);
+            Assert.That(board[p0, 0], Is.EqualTo(a));
+            Assert.That(board[p0, 1], Is.EqualTo(b));
 
-    [Test]
-    public void Board2D_08_invokeEvent_파라미터_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var piece = new TestPiece("Q");
-        var p = new Vector2Int(0, 0);
+            var c = new TestPiece("C");
+            board.Place(p1, 0, c);
+            Assert.That(board[p1, 0], Is.EqualTo(c));
+            Assert.That(board[p1][0], Is.EqualTo(c));
+        }
 
-        int placeEventCount = 0;
-        int removeEventCount = 0;
+    #endregion
 
-        board.OnPlace += (v, i, pl) => placeEventCount++;
-        board.OnRemove += (v, i, pl) => removeEventCount++;
+    #region E-3: 단일 Index 제거
 
-        // ------------------------------------------------------------
-        // invokeEvent = false로 배치 및 제거 시 이벤트 미발생
-        // ------------------------------------------------------------
-        board.Place(p, 0, piece, invokeEvent: false);
-        Assert.That(placeEventCount, Is.EqualTo(0));
-        Assert.That(board[p, 0], Is.EqualTo(piece));
-
-        board.Remove(p, 0, invokeEvent: false);
-        Assert.That(removeEventCount, Is.EqualTo(0));
-        Assert.That(board[p, 0], Is.Null);
-
-        // ------------------------------------------------------------
-        // invokeEvent = true (기본값)로 배치 및 제거 시 이벤트 발생
-        // ------------------------------------------------------------
-        board.Place(p, 0, piece);
-        Assert.That(placeEventCount, Is.EqualTo(1));
-
-        board.Remove(p, 0);
-        Assert.That(removeEventCount, Is.EqualTo(1));
-    }
-
-#endregion
-
-#region 예외
-
-    [Test]
-    public void Board2D_09_범위밖_배치시_예외()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
-        var piece = new TestPiece("O");
-        var point = new Vector2Int(5, 5);
-
-        // ------------------------------------------------------------
-        // 범위 밖 배치 시 예외
-        // ------------------------------------------------------------
-        Assert.Throws<InvalidOperationException>(() => board.Place(point, 0, piece));
-    }
-
-    [Test]
-    public void Board2D_10_중복_AddSpace시_예외()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(1, 1);
-        var point = new Vector2Int(0, 0);
-
-        // ------------------------------------------------------------
-        // 중복 공간 추가 시 예외
-        // ------------------------------------------------------------
-        Assert.Throws<InvalidOperationException>(() => board.AddSpace(point));
-    }
-
-#endregion
-
-#region 종합 시나리오
-
-    [Test]
-    public void Board2D_11_복합_시나리오_테스트()
-    {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
-        var board = new Board2D<int, TestSpace, TestPiece>(3, 3);
-
-        // ------------------------------------------------------------
-        // 여러 Vector에 여러 Index로 배치
-        // ------------------------------------------------------------
-        for (int x = 0; x < 3; x++)
+        [Test]
+        public void TEST_Board2D_Remove_단일_Index()
         {
-            for (int y = 0; y < 3; y++)
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var a = new TestPiece("A");
+            var b = new TestPiece("B");
+            var p = new Vector2Int(1, 0);
+
+            board.Place(p, 0, a);
+            board.Place(p, 1, b);
+
+            board.Remove(p, 0);
+            Assert.That(board[p], Is.Not.Null);
+            Assert.That(board[p, 0], Is.Null);
+            Assert.That(board[p, 1], Is.EqualTo(b));
+
+            board.Remove(b);
+            Assert.That(board[p, 1], Is.Null);
+        }
+
+    #endregion
+
+    #region E-4: Vector 전체 제거
+
+        [Test]
+        public void TEST_Board2D_Remove_Vector_전체()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var p = new Vector2Int(0, 0);
+
+            var pieces = new[]
             {
-                var vector = new Vector2Int(x, y);
-                for (int index = 0; index < 2; index++)
-                {
-                    var piece = new TestPiece($"[{x},{y}][{index}]");
-                    board.Place(vector, index, piece);
-                }
+                new TestPiece("P0"),
+                new TestPiece("P1"),
+                new TestPiece("P2"),
+                new TestPiece("P3"),
+            };
+
+            for (int i = 0; i < pieces.Length; i++)
+            {
+                board.Place(p, i, pieces[i]);
+            }
+
+            for (int i = 0; i < pieces.Length; i++)
+            {
+                Assert.That(board[p, i], Is.EqualTo(pieces[i]));
+            }
+
+            board.Remove(p);
+
+            Assert.That(board[p], Is.Not.Null);
+            for (int i = 0; i < pieces.Length; i++)
+            {
+                Assert.That(board[p, i], Is.Null);
             }
         }
 
-        // 모든 배치 확인
-        for (int x = 0; x < 3; x++)
+    #endregion
+
+    #region E-5: 공간 추가/제거
+
+        [Test]
+        public void TEST_Board2D_AddSpace_RemoveSpace_이벤트()
         {
-            for (int y = 0; y < 3; y++)
+            var board = new Board2D<int, TestSpace, TestPiece>(1, 1);
+            var pt = new Vector2Int(0, 0);
+
+            Vector2Int? addEventVector = null;
+            Vector2Int? removeEventVector = null;
+
+            board.OnAddSpace += (v) => { addEventVector = v; };
+            board.OnRemoveSpace += (v) => { removeEventVector = v; };
+
+            Assert.That(board[pt], Is.Not.Null);
+
+            board.RemoveSpace(pt);
+            Assert.That(board[pt], Is.Null);
+            Assert.That(removeEventVector, Is.EqualTo(pt));
+
+            board.AddSpace(pt);
+            Assert.That(board[pt], Is.Not.Null);
+            Assert.That(addEventVector, Is.EqualTo(pt));
+
+            var pieces = new[] { new TestPiece("A"), new TestPiece("B"), new TestPiece("C") };
+            for (int i = 0; i < pieces.Length; i++)
             {
-                var vector = new Vector2Int(x, y);
-                for (int index = 0; index < 2; index++)
-                {
-                    Assert.That(board[vector, index], Is.Not.Null);
-                    Assert.That(board[vector, index].Name, Is.EqualTo($"[{x},{y}][{index}]"));
-                }
+                board.Place(pt, i, pieces[i]);
             }
+
+            board.RemoveSpace(pt);
+            Assert.That(board[pt], Is.Null);
         }
 
-        // ------------------------------------------------------------
-        // 특정 Vector의 모든 Index 제거
-        // ------------------------------------------------------------
-        var targetVector = new Vector2Int(1, 1);
-        board.Remove(targetVector);
+    #endregion
 
-        Assert.That(board[targetVector], Is.Not.Null);  // 공간 유지
-        Assert.That(board[targetVector, 0], Is.Null);
-        Assert.That(board[targetVector, 1], Is.Null);
+    #region E-6: OnPlace 이벤트
 
-        // 다른 Vector는 영향 없음
-        Assert.That(board[new Vector2Int(0, 0), 0], Is.Not.Null);
-        Assert.That(board[new Vector2Int(2, 2), 1], Is.Not.Null);
+        [Test]
+        public void TEST_Board2D_OnPlace_이벤트_발생()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var piece = new TestPiece("E");
+            var p = new Vector2Int(0, 0);
+
+            Vector2Int? eventVector = null;
+            int? eventIndex = null;
+            TestPiece eventPiece = null;
+            int eventCount = 0;
+
+            board.OnPlace += (v, i, pl) =>
+            {
+                eventVector = v;
+                eventIndex = i;
+                eventPiece = pl;
+                eventCount++;
+            };
+
+            board.Place(p, 5, piece);
+
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(eventVector, Is.EqualTo(p));
+            Assert.That(eventIndex, Is.EqualTo(5));
+            Assert.That(eventPiece, Is.EqualTo(piece));
+        }
+
+    #endregion
+
+    #region E-7: OnRemove 이벤트
+
+        [Test]
+        public void TEST_Board2D_OnRemove_이벤트_발생()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var piece = new TestPiece("R");
+            var p = new Vector2Int(1, 0);
+
+            Vector2Int? eventVector = null;
+            int? eventIndex = null;
+            TestPiece eventPiece = null;
+            int eventCount = 0;
+
+            board.OnRemove += (v, i, pl) =>
+            {
+                eventVector = v;
+                eventIndex = i;
+                eventPiece = pl;
+                eventCount++;
+            };
+
+            board.Place(p, 3, piece);
+            board.Remove(p, 3);
+
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(eventVector, Is.EqualTo(p));
+            Assert.That(eventIndex, Is.EqualTo(3));
+            Assert.That(eventPiece, Is.EqualTo(piece));
+
+            eventCount = 0;
+            board.Place(p, 0, new TestPiece("A"));
+            board.Place(p, 1, new TestPiece("B"));
+            board.Place(p, 2, new TestPiece("C"));
+
+            board.Remove(p);
+            Assert.That(eventCount, Is.EqualTo(3));
+        }
+
+    #endregion
+
+    #region E-8: invokeEvent 파라미터
+
+        [Test]
+        public void TEST_Board2D_invokeEvent_false시_이벤트_미발생()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var piece = new TestPiece("Q");
+            var p = new Vector2Int(0, 0);
+
+            int placeEventCount = 0;
+            int removeEventCount = 0;
+
+            board.OnPlace += (v, i, pl) => placeEventCount++;
+            board.OnRemove += (v, i, pl) => removeEventCount++;
+
+            board.Place(p, 0, piece, invokeEvent: false);
+            Assert.That(placeEventCount, Is.EqualTo(0));
+            Assert.That(board[p, 0], Is.EqualTo(piece));
+
+            board.Remove(p, 0, invokeEvent: false);
+            Assert.That(removeEventCount, Is.EqualTo(0));
+            Assert.That(board[p, 0], Is.Null);
+
+            board.Place(p, 0, piece);
+            Assert.That(placeEventCount, Is.EqualTo(1));
+
+            board.Remove(p, 0);
+            Assert.That(removeEventCount, Is.EqualTo(1));
+        }
+
+    #endregion
+
+    #region E-9: 종합 시나리오
+
+        [Test]
+        public void TEST_Board2D_복합_시나리오()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(3, 3);
+
+            for (int x = 0; x < 3; x++)
+            {
+                for (int y = 0; y < 3; y++)
+                {
+                    var vector = new Vector2Int(x, y);
+                    for (int index = 0; index < 2; index++)
+                    {
+                        var piece = new TestPiece($"[{x},{y}][{index}]");
+                        board.Place(vector, index, piece);
+                    }
+                }
+            }
+
+            for (int x = 0; x < 3; x++)
+            {
+                for (int y = 0; y < 3; y++)
+                {
+                    var vector = new Vector2Int(x, y);
+                    for (int index = 0; index < 2; index++)
+                    {
+                        Assert.That(board[vector, index], Is.Not.Null);
+                        Assert.That(board[vector, index].Name, Is.EqualTo($"[{x},{y}][{index}]"));
+                    }
+                }
+            }
+
+            var targetVector = new Vector2Int(1, 1);
+            board.Remove(targetVector);
+
+            Assert.That(board[targetVector], Is.Not.Null);
+            Assert.That(board[targetVector, 0], Is.Null);
+            Assert.That(board[targetVector, 1], Is.Null);
+
+            Assert.That(board[new Vector2Int(0, 0), 0], Is.Not.Null);
+            Assert.That(board[new Vector2Int(2, 2), 1], Is.Not.Null);
+        }
+
+    #endregion
+
+    #region X-1: 범위 밖 배치 예외
+
+        [Test]
+        public void TEST_Board2D_범위밖_Place_InvalidOperationException()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(2, 2);
+            var piece = new TestPiece("O");
+            var point = new Vector2Int(5, 5);
+
+            Assert.Throws<InvalidOperationException>(() => board.Place(point, 0, piece));
+        }
+
+    #endregion
+
+    #region X-2: 중복 AddSpace 예외
+
+        [Test]
+        public void TEST_Board2D_중복_AddSpace_InvalidOperationException()
+        {
+            var board = new Board2D<int, TestSpace, TestPiece>(1, 1);
+            var point = new Vector2Int(0, 0);
+
+            Assert.Throws<InvalidOperationException>(() => board.AddSpace(point));
+        }
+
+    #endregion
+
     }
-
-#endregion
 
 }

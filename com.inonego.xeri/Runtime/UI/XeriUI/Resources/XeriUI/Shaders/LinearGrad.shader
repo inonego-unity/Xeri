@@ -1,4 +1,4 @@
-Shader "Xeri/UIConicGrad"
+Shader "XeriUI/LinearGrad"
 {
     Properties
     {
@@ -19,8 +19,8 @@ Shader "Xeri/UIConicGrad"
         _Stop5      ("Stop 5 (start end)", Vector) = (0, 0, 0, 0)
         _Stop6      ("Stop 6 (start end)", Vector) = (0, 0, 0, 0)
         _Stop7      ("Stop 7 (start end)", Vector) = (0, 0, 0, 0)
-        _Angle      ("From Angle (deg)", Float) = 0
-        _Center     ("Center", Vector) = (0.5, 0.5, 0, 0)
+        _Angle      ("Angle (deg)", Float) = 0
+        _Tiling     ("Tiling", Float) = 1
     }
 
     SubShader
@@ -96,7 +96,7 @@ Shader "Xeri/UIConicGrad"
                 float4 _Stop6;
                 float4 _Stop7;
                 float  _Angle;
-                float4 _Center;
+                float  _Tiling;
             CBUFFER_END
 
             struct Attributes
@@ -213,7 +213,7 @@ Shader "Xeri/UIConicGrad"
 
             float4 MultiGrad(float t)
             {
-                float tc = frac(t);
+                float tc = saturate(t);
 
                 float4 colors[8];
                 #ifdef UNITY_COLORSPACE_GAMMA
@@ -247,10 +247,6 @@ Shader "Xeri/UIConicGrad"
                     c = lerp(c, colors[i + 1], tSeg * step(tStart, tc));
                 }
 
-                float wrapStart = stopsEnd[count - 1];
-                float tWrap = saturate((tc - wrapStart) / max(1.0 - wrapStart, 1e-4));
-                c = lerp(c, colors[0], tWrap * step(wrapStart, tc));
-
                 c.rgb /= max(c.a, 1e-4);
                 return c;
             }
@@ -259,10 +255,10 @@ Shader "Xeri/UIConicGrad"
             {
                 SurfaceDescription surface = (SurfaceDescription)0;
 
-                float2 uv = IN.layoutUV - float2(_Center.x, 1.0 - _Center.y);
-                float offset = _Angle * (UNITY_PI / 180.0);
-                float angle = atan2(uv.x, uv.y) - offset;
-                float t = frac(angle / (2.0 * UNITY_PI));
+                float rad = _Angle * (UNITY_PI / 180.0);
+                float2 dir = float2(sin(rad), cos(rad));
+                float t_raw = dot(IN.layoutUV - 0.5, dir) + 0.5;
+                float t = _Tiling > 1.001 ? frac(t_raw * _Tiling) : saturate(t_raw);
 
                 float4 grad       = MultiGrad(t);
                 float4 bg         = IN.color;

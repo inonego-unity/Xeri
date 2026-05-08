@@ -1,11 +1,11 @@
-Shader "Xeri/UILinearGrad"
+Shader "XeriUI/RadialGrad"
 {
     Properties
     {
-        _Color0     ("Color 0", Color) = (1, 0, 0, 1)
-        _Color1     ("Color 1", Color) = (0, 0, 1, 1)
-        _Color2     ("Color 2", Color) = (0, 1, 0, 1)
-        _Color3     ("Color 3", Color) = (1, 1, 0, 1)
+        _Color0     ("Color 0", Color) = (1, 1, 1, 1)
+        _Color1     ("Color 1", Color) = (0, 0, 0, 1)
+        _Color2     ("Color 2", Color) = (0, 0, 0, 1)
+        _Color3     ("Color 3", Color) = (0, 0, 0, 1)
         _Color4     ("Color 4", Color) = (0, 0, 0, 1)
         _Color5     ("Color 5", Color) = (0, 0, 0, 1)
         _Color6     ("Color 6", Color) = (0, 0, 0, 1)
@@ -19,7 +19,8 @@ Shader "Xeri/UILinearGrad"
         _Stop5      ("Stop 5 (start end)", Vector) = (0, 0, 0, 0)
         _Stop6      ("Stop 6 (start end)", Vector) = (0, 0, 0, 0)
         _Stop7      ("Stop 7 (start end)", Vector) = (0, 0, 0, 0)
-        _Angle      ("Angle (deg)", Float) = 0
+        _Center     ("Center", Vector) = (0.5, 0.5, 0, 0)
+        _Radius     ("Radius", Vector) = (1, 1, 0, 0)
         _Tiling     ("Tiling", Float) = 1
     }
 
@@ -95,7 +96,8 @@ Shader "Xeri/UILinearGrad"
                 float4 _Stop5;
                 float4 _Stop6;
                 float4 _Stop7;
-                float  _Angle;
+                float4 _Center;
+                float4 _Radius;
                 float  _Tiling;
             CBUFFER_END
 
@@ -203,10 +205,6 @@ Shader "Xeri/UILinearGrad"
                 float  Alpha;
             };
 
-            #ifndef UNITY_PI
-            #define UNITY_PI 3.14159265358979
-            #endif
-
             #ifndef UNITY_COLORSPACE_GAMMA
             float4 ToSRGB(float4 c) { return float4(LinearToSRGB(c.rgb), c.a); }
             #endif
@@ -255,10 +253,18 @@ Shader "Xeri/UILinearGrad"
             {
                 SurfaceDescription surface = (SurfaceDescription)0;
 
-                float rad = _Angle * (UNITY_PI / 180.0);
-                float2 dir = float2(sin(rad), cos(rad));
-                float t_raw = dot(IN.layoutUV - 0.5, dir) + 0.5;
-                float t = _Tiling > 1.001 ? frac(t_raw * _Tiling) : saturate(t_raw);
+                float2 center = float2(_Center.x, 1.0 - _Center.y);
+                float2 uv     = IN.layoutUV - center;
+
+                float d0 = length(center);
+                float d1 = length(float2(1.0, 0.0) - center);
+                float d2 = length(float2(0.0, 1.0) - center);
+                float d3 = length(float2(1.0, 1.0) - center);
+                float fc = max(max(d0, d1), max(d2, d3));
+
+                float dist = length(uv / (_Radius.xy * fc));
+
+                float t = _Tiling > 1.001 ? frac(dist * _Tiling) : saturate(dist);
 
                 float4 grad       = MultiGrad(t);
                 float4 bg         = IN.color;

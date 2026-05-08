@@ -1,9 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Pool_GOCompPool.cs
-수정일 : 2026-05-01
+수정일 : 2026-05-08
 
 # 설명
 GOCompPool 시스템의 핵심 기능 테스트. Edit Mode.
+
+# 테스트 구성
+ E: 기본 기능 (생성/Acquire/Release/재사용)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -15,35 +18,40 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-using inonego.Xeri;
-using inonego.Xeri.Pool;
+namespace inonego.Xeri.TEST._Pool
+{
 
-// ============================================================================
+    using inonego.Xeri.Pool;
+
+// ============================================================
 /// <summary>
-/// GOCompPool 시스템의 핵심 기능 테스트 클래스입니다.
+/// GOCompPool 시스템의 핵심 기능 테스트 클래스.
 /// </summary>
-// ============================================================================
+// ============================================================
 public class TEST_Pool_GOCompPool
 {
 
-#region GOCompPool 기본 기능 테스트
+#region 헬퍼
 
     // ------------------------------------------------------------
     /// <summary>
-    /// GOCompPool의 기본 생성 및 초기값을 테스트합니다.
+    /// 테스트용 컴포넌트 클래스.
     /// </summary>
     // ------------------------------------------------------------
-    [UnityTest]
-    public IEnumerator GOCompPool_01_기본_생성_테스트()
+    private class TestComponent : MonoBehaviour
     {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
+        public int Value { get; set; }
+    }
+
+#endregion
+
+#region E-1: 기본 생성
+
+    [UnityTest]
+    public IEnumerator TEST_Pool_GOCompPool_기본_생성_초기값()
+    {
         var pool = new GOCompPool<TestComponent>();
 
-        // ------------------------------------------------------------
-        // 초기 상태 확인
-        // ------------------------------------------------------------
         Assert.IsNotNull(pool);
         Assert.IsNotNull(pool.GameObjectProvider);
         Assert.AreEqual(0, pool.Released.Count);
@@ -52,17 +60,13 @@ public class TEST_Pool_GOCompPool
         yield return null;
     }
 
-    // ------------------------------------------------------------
-    /// <summary>
-    /// GOCompPool의 컴포넌트 획득을 테스트합니다.
-    /// </summary>
-    // ------------------------------------------------------------
+#endregion
+
+#region E-2: Acquire
+
     [UnityTest]
-    public IEnumerator GOCompPool_02_Acquire_테스트()
+    public IEnumerator TEST_Pool_GOCompPool_Acquire_컴포넌트_획득()
     {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
         var prefab = new GameObject("TestPrefab");
         prefab.AddComponent<TestComponent>();
         var provider = new PrefabGameObjectProvider { Prefab = prefab };
@@ -73,9 +77,6 @@ public class TEST_Pool_GOCompPool
 
         try
         {
-            // ------------------------------------------------------------
-            // Acquire
-            // ------------------------------------------------------------
             comp1 = pool.Acquire();
             comp2 = pool.Acquire();
 
@@ -97,17 +98,13 @@ public class TEST_Pool_GOCompPool
         }
     }
 
-    // ------------------------------------------------------------
-    /// <summary>
-    /// GOCompPool의 컴포넌트 반환을 테스트합니다.
-    /// </summary>
-    // ------------------------------------------------------------
+#endregion
+
+#region E-3: Release
+
     [UnityTest]
-    public IEnumerator GOCompPool_03_Release_테스트()
+    public IEnumerator TEST_Pool_GOCompPool_Release_컴포넌트_반환()
     {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
         var prefab = new GameObject("TestPrefab");
         prefab.AddComponent<TestComponent>();
         var provider = new PrefabGameObjectProvider { Prefab = prefab };
@@ -122,9 +119,6 @@ public class TEST_Pool_GOCompPool
 
             yield return null;
 
-            // ------------------------------------------------------------
-            // Release
-            // ------------------------------------------------------------
             pool.Release(comp);
 
             yield return null;
@@ -142,17 +136,13 @@ public class TEST_Pool_GOCompPool
         }
     }
 
-    // ------------------------------------------------------------
-    /// <summary>
-    /// GOCompPool의 컴포넌트 재사용을 테스트합니다.
-    /// </summary>
-    // ------------------------------------------------------------
+#endregion
+
+#region E-4: 재사용
+
     [UnityTest]
-    public IEnumerator GOCompPool_04_재사용_테스트()
+    public IEnumerator TEST_Pool_GOCompPool_Release_후_Acquire_재사용()
     {
-        // ------------------------------------------------------------
-        // 테스트 준비
-        // ------------------------------------------------------------
         var prefab = new GameObject("TestPrefab");
         prefab.AddComponent<TestComponent>();
         var provider = new PrefabGameObjectProvider { Prefab = prefab };
@@ -173,9 +163,6 @@ public class TEST_Pool_GOCompPool
 
             yield return null;
 
-            // ------------------------------------------------------------
-            // 재사용
-            // ------------------------------------------------------------
             comp2 = pool.Acquire();
 
             yield return null;
@@ -195,18 +182,6 @@ public class TEST_Pool_GOCompPool
 
 #endregion
 
-#region 테스트용 컴포넌트 클래스
-
-    // ------------------------------------------------------------
-    /// <summary>
-    /// 테스트용 컴포넌트 클래스입니다.
-    /// </summary>
-    // ------------------------------------------------------------
-    private class TestComponent : MonoBehaviour
-    {
-        public int Value { get; set; }
-    }
-
-#endregion
+}
 
 }

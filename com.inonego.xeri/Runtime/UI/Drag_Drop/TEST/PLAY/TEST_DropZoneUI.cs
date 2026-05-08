@@ -4,17 +4,24 @@
 
 # 설명
 DropZoneUI Play Mode 통합 테스트. DraggableUI 와의 페어링 동작을 검증한다.
+
+# 테스트 구성
+ L: 드롭 lifecycle (Enter/Exit/Drop)
+ M: 매칭 (SpecificDropZone/CanDrop)
 ========================================================================= BLOCK_HEADER_END */
 
 using System.Collections;
+
+using NUnit.Framework;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 
-using NUnit.Framework;
+namespace inonego.Xeri.TEST.UI._Drag_Drop
+{
 
-using inonego.Xeri.UI;
+    using inonego.Xeri.UI;
 
 // ============================================================
 /// <summary>
@@ -23,45 +30,6 @@ using inonego.Xeri.UI;
 // ============================================================
 public class TEST_DropZoneUI
 {
-
-#region 셋업 / 정리
-
-    private GameObject  eventSystemGO;
-    private GameObject  canvasGO;
-    private GameObject  dragGO;
-    private GameObject  zoneGO;
-    private DraggableUI draggable;
-    private DropZoneUI  dropZone;
-
-    [SetUp]
-    public void SetUp()
-    {
-        eventSystemGO = new GameObject("EventSystem");
-        eventSystemGO.AddComponent<EventSystem>();
-
-        canvasGO = new GameObject("Canvas", typeof(RectTransform));
-        var canvas = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-
-        dragGO = new GameObject("Draggable", typeof(RectTransform));
-        dragGO.transform.SetParent(canvasGO.transform, worldPositionStays: false);
-        draggable = dragGO.AddComponent<DraggableUI>();
-
-        zoneGO = new GameObject("DropZone", typeof(RectTransform));
-        zoneGO.transform.SetParent(canvasGO.transform, worldPositionStays: false);
-        dropZone = zoneGO.AddComponent<DropZoneUI>();
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        if (zoneGO        != null) Object.DestroyImmediate(zoneGO);
-        if (dragGO        != null) Object.DestroyImmediate(dragGO);
-        if (canvasGO      != null) Object.DestroyImmediate(canvasGO);
-        if (eventSystemGO != null) Object.DestroyImmediate(eventSystemGO);
-    }
-
-#endregion
 
 #region 헬퍼
 
@@ -86,7 +54,56 @@ public class TEST_DropZoneUI
 
 #endregion
 
-#region 드롭 lifecycle
+#region 픽스처
+
+    private GameObject  eventSystemGO;
+    private GameObject  canvasGO;
+    private GameObject  dragGO;
+    private GameObject  zoneGO;
+    private DraggableUI draggable;
+    private DropZoneUI  dropZone;
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// EventSystem · Canvas · DraggableUI · DropZoneUI 셋업.
+    /// </summary>
+    // ------------------------------------------------------------
+    [SetUp]
+    public void SetUp()
+    {
+        eventSystemGO = new GameObject("EventSystem");
+        eventSystemGO.AddComponent<EventSystem>();
+
+        canvasGO = new GameObject("Canvas", typeof(RectTransform));
+        var canvas = canvasGO.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+        dragGO = new GameObject("Draggable", typeof(RectTransform));
+        dragGO.transform.SetParent(canvasGO.transform, worldPositionStays: false);
+        draggable = dragGO.AddComponent<DraggableUI>();
+
+        zoneGO = new GameObject("DropZone", typeof(RectTransform));
+        zoneGO.transform.SetParent(canvasGO.transform, worldPositionStays: false);
+        dropZone = zoneGO.AddComponent<DropZoneUI>();
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// 셋업한 GameObject 를 모두 정리한다.
+    /// </summary>
+    // ------------------------------------------------------------
+    [TearDown]
+    public void TearDown()
+    {
+        if (zoneGO        != null) Object.DestroyImmediate(zoneGO);
+        if (dragGO        != null) Object.DestroyImmediate(dragGO);
+        if (canvasGO      != null) Object.DestroyImmediate(canvasGO);
+        if (eventSystemGO != null) Object.DestroyImmediate(eventSystemGO);
+    }
+
+#endregion
+
+#region L-1: OnPointerEnter — 진입
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -94,7 +111,7 @@ public class TEST_DropZoneUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DropZoneUI_01_OnPointerEnter_드롭존_진입_테스트()
+    public IEnumerator TEST_DropZoneUI_OnPointerEnter_드롭존_진입()
     {
         var eventData = StartDragAndCreateEvent();
 
@@ -110,13 +127,17 @@ public class TEST_DropZoneUI
         yield return null;
     }
 
+#endregion
+
+#region L-2: OnPointerExit — 이탈
+
     // ----------------------------------------------------------------------
     /// <summary>
     /// 드롭존에서 이탈 시 IsDropping=false · OnDropExit 발화.
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DropZoneUI_02_OnPointerExit_드롭존_이탈_테스트()
+    public IEnumerator TEST_DropZoneUI_OnPointerExit_드롭존_이탈()
     {
         var eventData = StartDragAndCreateEvent();
 
@@ -133,13 +154,17 @@ public class TEST_DropZoneUI
         yield return null;
     }
 
+#endregion
+
+#region L-3: OnDrop — 완료
+
     // ----------------------------------------------------------------------
     /// <summary>
     /// 드롭 완료 시 OnDropDone 발화 + 이후 IsDropping=false.
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DropZoneUI_03_OnDrop_완료_테스트()
+    public IEnumerator TEST_DropZoneUI_OnDrop_완료_OnDropDone_발화()
     {
         var eventData = StartDragAndCreateEvent();
 
@@ -158,7 +183,7 @@ public class TEST_DropZoneUI
 
 #endregion
 
-#region 매칭
+#region M-1: SpecificDropZone 매칭 거부
 
     // ----------------------------------------------------------------------
     /// <summary>
@@ -166,7 +191,7 @@ public class TEST_DropZoneUI
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DropZoneUI_04_SpecificDropZone_매칭_거부_테스트()
+    public IEnumerator TEST_DropZoneUI_SpecificDropZone_불일치_진입_거부()
     {
         // 다른 DropZone 생성
         var otherZoneGO = new GameObject("OtherZone", typeof(RectTransform));
@@ -190,13 +215,17 @@ public class TEST_DropZoneUI
         yield return null;
     }
 
+#endregion
+
+#region M-2: CanDrop 거부
+
     // ----------------------------------------------------------------------
     /// <summary>
     /// CanDrop=false 인 드롭존은 드래그 진입을 거부한다.
     /// </summary>
     // ----------------------------------------------------------------------
     [UnityTest]
-    public IEnumerator DropZoneUI_05_CanDrop_false_거부_테스트()
+    public IEnumerator TEST_DropZoneUI_CanDrop_false_진입_거부()
     {
         dropZone.CanDrop = false;
 
@@ -214,5 +243,7 @@ public class TEST_DropZoneUI
     }
 
 #endregion
+
+}
 
 }

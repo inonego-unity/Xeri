@@ -204,6 +204,28 @@ namespace inonego.Xeri
                     return owner.instances[normalized];
                 }
             }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 지정한 이름의 슬롯 인스턴스를 시도해 반환한다. 없으면 false.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool TryGet(string key, out T instance)
+            {
+                var normalized = Normalize(key);
+                return owner.instances.TryGetValue(normalized, out instance);
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 지정한 이름의 슬롯이 등록되어 있는지 확인한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool Contains(string key)
+            {
+                var normalized = Normalize(key);
+                return owner.instances.ContainsKey(normalized);
+            }
         }
 
     #endregion
