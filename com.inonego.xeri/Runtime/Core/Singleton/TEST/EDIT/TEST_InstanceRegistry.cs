@@ -154,15 +154,15 @@ namespace inonego.Xeri.TEST.Core._Singleton
         {
             var test = new Item("Test");
 
-            Assert.IsFalse(registry.Named.Contains("TEST"));
+            Assert.IsFalse(registry.Named.Has("TEST"));
 
             registry.Register("TEST", test);
-            Assert.IsTrue(registry.Named.Contains("TEST"));
+            Assert.IsTrue(registry.Named.Has("TEST"));
 
             registry.Unregister("TEST");
-            Assert.IsFalse(registry.Named.Contains("TEST"));
+            Assert.IsFalse(registry.Named.Has("TEST"));
 
-            Assert.Throws<ArgumentNullException>(() => registry.Named.Contains(null));
+            Assert.Throws<ArgumentNullException>(() => registry.Named.Has(null));
         }
 
     #endregion

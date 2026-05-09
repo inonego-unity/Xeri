@@ -77,7 +77,7 @@ namespace inonego.Xeri.TEST.Core._Singleton
             Assert.AreSame(main, current);
 
             Assert.AreSame(sub, Singleton<SingletonItem>.Named["SUB"]);
-            Assert.IsTrue(Singleton<SingletonItem>.Named.Contains("SUB"));
+            Assert.IsTrue(Singleton<SingletonItem>.Named.Has("SUB"));
 
             using (Singleton<SingletonItem>.Scope("SUB"))
             {
@@ -100,7 +100,7 @@ namespace inonego.Xeri.TEST.Core._Singleton
             Singleton<SingletonItem>.Clear();
 
             Assert.IsFalse(Singleton<SingletonItem>.TryCurrent(out _));
-            Assert.IsFalse(Singleton<SingletonItem>.Named.Contains("SLOT"));
+            Assert.IsFalse(Singleton<SingletonItem>.Named.Has("SLOT"));
         }
 
     #endregion

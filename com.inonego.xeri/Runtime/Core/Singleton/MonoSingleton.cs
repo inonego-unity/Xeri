@@ -82,6 +82,46 @@ namespace inonego.Xeri
             registry.Register(key, instance);
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> DEFAULT_SLOT 에 등록을 시도하고, 이미 다른 인스턴스가 점유 중이면
+        /// <br/> 호출자의 GameObject 를 파괴한다. 점유 성공 시 true, 양보 시 false.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool TryRegisterOrDestroy(T instance)
+        {
+            return TryRegisterOrDestroy(DEFAULT_SLOT, instance);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 슬롯에 등록을 시도하고, 이미 다른 인스턴스가 점유 중이면
+        /// <br/> 호출자의 GameObject 를 파괴한다. 점유 성공 시 true, 양보 시 false.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool TryRegisterOrDestroy(string key, T instance)
+        {
+            // 살아있는 다른 인스턴스가 슬롯을 이미 차지한 경우 — 호출자가 양보한다.
+            // existing != null 은 Unity fake-null 을 걸러내며, ReferenceEquals 로
+            // 같은 인스턴스가 재등록을 시도하는 경우는 통과시킨다.
+            if (Named.TryGet(key, out var existing) && existing != null && !ReferenceEquals(existing, instance))
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(instance.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(instance.gameObject);
+                }
+
+                return false;
+            }
+
+            Register(key, instance);
+            return true;
+        }
+
         // ------------------------------------------------------------
         /// <summary>
         /// 지정한 슬롯 등록을 해제한다.

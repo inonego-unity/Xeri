@@ -221,7 +221,7 @@ namespace inonego.Xeri
             /// 지정한 이름의 슬롯이 등록되어 있는지 확인한다.
             /// </summary>
             // ------------------------------------------------------------
-            public bool Contains(string key)
+            public bool Has(string key)
             {
                 var normalized = Normalize(key);
                 return owner.instances.ContainsKey(normalized);
