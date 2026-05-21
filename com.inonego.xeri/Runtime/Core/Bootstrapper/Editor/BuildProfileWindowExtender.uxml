@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:VisualElement name="bootstrapper-header-ext">
+        <ui:Label text="N/A -> N/A" name="status" />
+        <ui:Button text="+ Bootstrapper" name="btn-create" tooltip="Create or move Bootstrapper scene to index 0" />
+        <ui:Button text="Select Bootstrapper" name="btn-select-boot" />
+        <ui:Button text="Select Init" name="btn-select-init" />
+        <ui:Button text="Open Settings" name="btn-config" tooltip="Open Bootstrapper Settings" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -7,6 +7,8 @@ List·IReadOnlyList·IEnumerable을 대상으로 하는 컬렉션 확장 메서�
 CheckInRange, ClearAndAddRange, Resize를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri
