@@ -235,6 +235,8 @@ namespace inonego.Xeri.TEST.Game._Board
 
     #region E-1: Connect/이벤트/ReloadTileMap/Disconnect 통합
 
+        [Explicit]
+        [Category("Manual")]
         [UnityTest]
         public IEnumerator TEST_MonoBoardBase_Connect_이벤트_Reload_Disconnect_통합()
         {

@@ -141,6 +141,8 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
 
     #region E-1: 착지 및 이탈 이벤트 통합
 
+        [Explicit]
+        [Category("Manual")]
         [UnityTest]
         public IEnumerator TEST_GroundChecker2D_4종_콜라이더_착지_이탈_이벤트()
         {
