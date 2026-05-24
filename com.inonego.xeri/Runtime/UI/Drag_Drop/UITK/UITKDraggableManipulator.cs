@@ -102,9 +102,9 @@ namespace inonego.Xeri.UI.DragDrop
             set
             {
                 forceAbsolutePosition = value;
-                if (coordinateProvider != null)
+                if (coordinateProvider is UITKDragCoordinateProvider uitkProvider)
                 {
-                    coordinateProvider.ForceAbsolutePosition = value;
+                    uitkProvider.ForceAbsolutePosition = value;
                 }
             }
         }
@@ -140,7 +140,23 @@ namespace inonego.Xeri.UI.DragDrop
 
         private DragDropCoordinator coordinator = null;
 
-        private UITKDragCoordinateProvider coordinateProvider = null;
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Drag 좌표 변환 provider.
+        /// </summary>
+        // ------------------------------------------------------------
+        public IDragCoordinateProvider CoordinateProvider
+        {
+            get => coordinateProvider;
+            set
+            {
+                if (draggable != null) return;
+
+                coordinateProvider = value;
+            }
+        }
+
+        private IDragCoordinateProvider coordinateProvider = null;
         private readonly UITKMouseButtonFilter mouseButtonFilter = new();
         private InputPoint beginInput = default;
         private int activeID = -1;
@@ -232,7 +248,7 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (draggable != null) return;
 
-            coordinateProvider = new UITKDragCoordinateProvider(target, forceAbsolutePosition);
+            coordinateProvider ??= new UITKDragCoordinateProvider(target, forceAbsolutePosition);
             draggable          = new Draggable(target, coordinateProvider)
             {
                 CanMove = canMove,
