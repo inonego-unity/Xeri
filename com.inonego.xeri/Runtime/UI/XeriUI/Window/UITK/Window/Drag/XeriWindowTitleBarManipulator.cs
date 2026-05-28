@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowTitleBarManipulator.cs
-수정일 : 2026-05-25
+수정일 : 2026-05-28
 
 # 설명
 XeriWindowPanel titlebar drag와 double click 상태 전환을 처리하는 wrapper manipulator.
@@ -140,7 +140,13 @@ namespace inonego.Xeri.UI.Window
         {
             ResetTitleBarClickState();
 
-            if (controller.Driver.State == XeriWindowState.Maximized)
+            if (controller.IsTransitionRunning)
+            {
+                beginWindowPos = controller.Driver.Pos;
+                return;
+            }
+
+            if (controller.EffectiveState == XeriWindowState.Maximized)
             {
                 RestoreMaximizedWindowForDrag(e);
                 return;
@@ -156,6 +162,8 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         private void OnDrag(Draggable sender, DragEventArgs e)
         {
+            if (controller.IsTransitionRunning) return;
+
             var delta = e.GoalPos - e.OriginPos;
 
             controller.Move(beginWindowPos + delta);
@@ -178,9 +186,18 @@ namespace inonego.Xeri.UI.Window
                 GetTitleBarHeight()
             );
 
-            controller.ShowNormal();
+            controller.RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Restore,
+                    XeriWindowCommandSource.TitleBar,
+                    new Rect(restoredPos, controller.Driver.Size),
+                    false
+                )
+            );
 
-            if (controller.Driver.State != XeriWindowState.Normal)
+            if (controller.EffectiveState != XeriWindowState.Normal)
             {
                 beginWindowPos = controller.Driver.Pos;
                 return;
@@ -242,13 +259,18 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         private void ToggleMaximize()
         {
-            if (controller.Driver.State == XeriWindowState.Maximized)
-            {
-                controller.ShowNormal();
-                return;
-            }
+            var kind = controller.EffectiveState == XeriWindowState.Maximized
+                ? XeriWindowStateCommandKind.Restore
+                : XeriWindowStateCommandKind.Maximize;
 
-            controller.Maximize();
+            controller.RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    kind,
+                    XeriWindowCommandSource.TitleBar
+                )
+            );
         }
 
     #endregion

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowCanvas.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 Xeri 커스텀 윈도우 패널을 배치하는 UITK 작업 공간.
@@ -12,6 +12,8 @@ using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.UIElements;
+
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.UI.Window
 {
@@ -53,7 +55,17 @@ namespace inonego.Xeri.UI.Window
 
         private readonly IXeriWindowRegistry registry = null;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window record의 ViewSourceID를 UITK view source로 해석한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public IXeriUIViewResolver ViewResolver => viewResolver;
+
+        private readonly IXeriUIViewResolver viewResolver = null;
+
         private readonly IXeriWindowDragFactory dragFactory = null;
+        private readonly XeriWindowAnimationOptions animationOptions;
         private readonly Dictionary<XeriWindowHandle, WindowBinding> bindings = new();
 
     #endregion
@@ -79,7 +91,7 @@ namespace inonego.Xeri.UI.Window
 
     #region 생성자
 
-        public XeriWindowCanvas() : this(null, null) {}
+        public XeriWindowCanvas() : this(null, null, null, null) {}
 
         // ------------------------------------------------------------
         /// <summary>
@@ -89,7 +101,9 @@ namespace inonego.Xeri.UI.Window
         public XeriWindowCanvas
         (
             IXeriWindowRegistry registry,
-            IXeriWindowDragFactory dragFactory = null
+            IXeriWindowDragFactory dragFactory = null,
+            XeriWindowAnimationOptions? animationOptions = null,
+            IXeriUIViewResolver viewResolver = null
         ) : base()
         {
             name = "xeri-window-canvas";
@@ -97,8 +111,10 @@ namespace inonego.Xeri.UI.Window
             ApplyDefaultLayout();
             LoadStyleSheet();
 
-            this.registry    = registry ?? new XeriWindowRegistry();
-            this.dragFactory = dragFactory ?? new XeriWindowDragFactory();
+            this.registry     = registry ?? new XeriWindowRegistry();
+            this.dragFactory  = dragFactory ?? new XeriWindowDragFactory();
+            this.viewResolver = viewResolver ?? new XeriUIViewResolver();
+            this.animationOptions = animationOptions ?? XeriWindowAnimationOptions.Immediate();
 
             windowLayer = CreateWindowLayer();
 
@@ -145,6 +161,20 @@ namespace inonego.Xeri.UI.Window
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 저장 가능한 record의 ViewSourceID로 view를 생성해 window를 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public XeriWindowHandle AddWindow
+        (
+            XeriWindowRecord record,
+            XeriWindowOptions? options = null
+        )
+        {
+            return AddWindow(record, null, options);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 저장 가능한 record를 기반으로 window panel과 controller를 생성해 등록한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -178,7 +208,12 @@ namespace inonego.Xeri.UI.Window
                 State = record.State,
             };
 
-            var controller = new XeriWindowController(driver, options);
+            var controller = new XeriWindowController
+            (
+                driver,
+                options,
+                CreateTransitioner(panel)
+            );
             var handle = registry.Register(record.ID, controller, record);
             var binding = CreateBinding(handle, panel, controller);
 
@@ -190,6 +225,33 @@ namespace inonego.Xeri.UI.Window
             return handle;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window를 canvas와 registry에서 제거하고 session을 저장한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool RemoveWindow(XeriWindowHandle handle)
+        {
+            if (handle == null) return false;
+            if (!bindings.TryGetValue(handle, out var binding)) return false;
+
+            SaveWindowSession(handle, binding.Panel);
+
+            if (binding.Controller != null)
+            {
+                binding.Controller.OnClose -= OnControllerClose;
+            }
+
+            binding.ControlManipulator?.Detach();
+            binding.ResizeManipulator?.Detach();
+            binding.TitleBarManipulator?.Detach();
+            binding.Panel?.RemoveFromHierarchy();
+
+            bindings.Remove(handle);
+
+            return registry.Unregister(handle);
+        }
+
     #endregion
 
     #region 내부 메서드
@@ -199,7 +261,7 @@ namespace inonego.Xeri.UI.Window
         /// Window panel을 생성하고 content와 option을 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static XeriWindowPanel CreatePanel
+        private XeriWindowPanel CreatePanel
         (
             XeriWindowRecord record,
             VisualElement view,
@@ -207,6 +269,12 @@ namespace inonego.Xeri.UI.Window
         )
         {
             var panel = new XeriWindowPanel();
+
+            if (view == null)
+            {
+                view = ResolveView(record, panel.ContentSlot);
+            }
+
             panel.AttachView(view);
             panel.ApplyOptions(options ?? XeriWindowOptions.Default());
             panel.ApplyTheme(record.ThemeID);
@@ -218,6 +286,75 @@ namespace inonego.Xeri.UI.Window
             }
 
             return panel;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Record의 ViewSourceID로 window content view를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private VisualElement ResolveView(XeriWindowRecord record, VisualElement viewSlot)
+        {
+            if (string.IsNullOrEmpty(record.ViewSourceID))
+            {
+                throw new InvalidOperationException("ViewSourceID가 비어 있어 Window view를 생성할 수 없습니다.");
+            }
+
+            if (!viewResolver.TryGetViewSource(record.ViewSourceID, out var viewSource))
+            {
+                throw new InvalidOperationException($"등록되지 않은 ViewSourceID입니다. ID: {record.ViewSourceID}");
+            }
+
+            var scope = CreateViewScope(record, viewSlot);
+
+            viewSource.LoadSession(scope);
+
+            var view = viewSource.CreateView(scope);
+
+            if (view == null)
+            {
+                throw new InvalidOperationException($"ViewSource가 null view를 반환했습니다. ID: {record.ViewSourceID}");
+            }
+
+            if (!string.IsNullOrEmpty(record.ViewDataKey))
+            {
+                view.viewDataKey = record.ViewDataKey;
+            }
+
+            return view;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window view source 호출에 사용할 scope를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private XeriUIViewScope CreateViewScope(XeriWindowRecord record, VisualElement viewSlot)
+        {
+            return new XeriUIViewScope
+            (
+                record.ViewSourceID,
+                record.ViewDataKey,
+                record.UISession,
+                Root,
+                viewSlot
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window record의 view source에 현재 session 저장을 요청한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void SaveWindowSession(XeriWindowHandle handle, XeriWindowPanel panel)
+        {
+            if (!registry.TryGetRecord(handle, out var record)) return;
+            if (string.IsNullOrEmpty(record.ViewSourceID)) return;
+            if (!viewResolver.TryGetViewSource(record.ViewSourceID, out var viewSource)) return;
+
+            var scope = CreateViewScope(record, panel?.ContentSlot);
+
+            viewSource.SaveSession(scope);
         }
 
         // ------------------------------------------------------------
@@ -320,6 +457,8 @@ namespace inonego.Xeri.UI.Window
             binding.ResizeManipulator.Attach();
             binding.TitleBarManipulator.Attach();
 
+            controller.OnClose += OnControllerClose;
+
             panel.RegisterCallback<PointerDownEvent>
             (
                 _ => registry.Focus(handle),
@@ -327,6 +466,24 @@ namespace inonego.Xeri.UI.Window
             );
 
             return binding;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window panel에 사용할 상태 전환 transitioner를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private IXeriWindowStateTransitioner CreateTransitioner(XeriWindowPanel panel)
+        {
+            if (!animationOptions.Enabled || animationOptions.Duration <= 0f)
+            {
+                return new XeriImmediateWindowStateTransitioner();
+            }
+
+            return new XeriUITKWindowStateTransitioner
+            (
+                new XeriUITKWindowStateAnimator(panel, animationOptions)
+            );
         }
 
         // ------------------------------------------------------------
@@ -380,6 +537,37 @@ namespace inonego.Xeri.UI.Window
         private void OnRegistryOrderChange(object sender, EventArgs e)
         {
             ApplyWindowOrder();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Controller close 완료를 canvas 제거 흐름으로 연결한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnControllerClose(object sender, XeriWindowEventArgs e)
+        {
+            if (e?.Handle != null)
+            {
+                RemoveWindow(e.Handle);
+                return;
+            }
+
+            if (sender is not XeriWindowController controller) return;
+
+            XeriWindowHandle targetHandle = null;
+
+            foreach (var pair in bindings)
+            {
+                if (pair.Value.Controller != controller) continue;
+
+                targetHandle = pair.Key;
+                break;
+            }
+
+            if (targetHandle != null)
+            {
+                RemoveWindow(targetHandle);
+            }
         }
 
     #endregion

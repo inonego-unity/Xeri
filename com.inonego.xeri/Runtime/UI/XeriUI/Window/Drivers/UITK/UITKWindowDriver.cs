@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKWindowDriver.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 Xeri 커스텀 윈도우 상태를 UITK VisualElement style에 반영하는 driver.
@@ -25,9 +25,8 @@ namespace inonego.Xeri.UI.Window
 
         private Vector2 pos = Vector2.zero;
         private Vector2 size = new Vector2(200f, 120f);
-        private Vector2 normalPos = Vector2.zero;
-        private Vector2 normalSize = new Vector2(200f, 120f);
         private XeriWindowState state = XeriWindowState.Normal;
+        private XeriWindowState visualState = XeriWindowState.Normal;
 
     #endregion
 
@@ -44,7 +43,7 @@ namespace inonego.Xeri.UI.Window
             set
             {
                 pos = value;
-                ApplyBounds();
+                ApplyCurrentBounds();
             }
         }
 
@@ -59,7 +58,7 @@ namespace inonego.Xeri.UI.Window
             set
             {
                 size = value;
-                ApplyBounds();
+                ApplyCurrentBounds();
             }
         }
 
@@ -71,28 +70,18 @@ namespace inonego.Xeri.UI.Window
         public XeriWindowState State
         {
             get => state;
-            set
-            {
-                if (state == value) return;
+            set => CommitState(value);
+        }
 
-                var previous = state;
-
-                if (value == XeriWindowState.Maximized)
-                {
-                    normalPos  = pos;
-                    normalSize = size;
-                }
-
-                if (previous == XeriWindowState.Maximized && value == XeriWindowState.Normal)
-                {
-                    pos  = normalPos;
-                    size = normalSize;
-                }
-
-                state = value;
-                ApplyState(previous, state);
-                ApplyBounds();
-            }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 위치와 크기를 하나의 bounds로 반환하거나 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Rect Bounds
+        {
+            get => new Rect(pos, size);
+            set => ApplyBounds(value);
         }
 
     #endregion
@@ -108,28 +97,78 @@ namespace inonego.Xeri.UI.Window
         {
             this.target = target;
 
-            ApplyBounds();
-            ApplyState(state, state);
+            ApplyBounds(Bounds);
+            CommitState(state);
+            SetVisible(true);
         }
 
     #endregion
 
-    #region 내부 메서드
+    #region 메서드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 위치와 크기를 대상 style에 반영한다.
+        /// 표시 여부만 대상에 반영한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void ApplyBounds()
+        public void SetVisible(bool visible)
         {
             if (target == null) return;
 
-            if (state == XeriWindowState.Maximized)
+            target.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 class와 상태 값을 대상에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CommitState(XeriWindowState next)
+        {
+            state = next;
+            ApplyVisualState(next);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 값은 유지하고 상태 class만 대상에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ApplyVisualState(XeriWindowState next)
+        {
+            if (target == null)
             {
-                ApplyMaximizedBounds();
+                visualState = next;
                 return;
             }
+
+            if (visualState == next)
+            {
+                target.AddToClassList(GetStateClass(visualState));
+                return;
+            }
+
+            target.RemoveFromClassList(GetStateClass(visualState));
+            visualState = next;
+            target.AddToClassList(GetStateClass(visualState));
+
+            if (target is XeriWindowPanel panel)
+            {
+                panel.ApplyState(visualState);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 위치와 크기를 대상 style에 즉시 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ApplyBounds(Rect bounds)
+        {
+            pos = bounds.position;
+            size = bounds.size;
+
+            if (target == null) return;
 
             target.style.left = pos.x;
             target.style.top = pos.y;
@@ -144,8 +183,10 @@ namespace inonego.Xeri.UI.Window
         /// 대상이 부모 영역을 채우도록 최대화 영역을 반영한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void ApplyMaximizedBounds()
+        public void ApplyMaximizedBounds()
         {
+            if (target == null) return;
+
             target.style.left = 0f;
             target.style.top = 0f;
             target.style.right = 0f;
@@ -154,27 +195,21 @@ namespace inonego.Xeri.UI.Window
             target.style.height = StyleKeyword.Auto;
         }
 
+    #endregion
+
+    #region 내부 메서드
+
         // ------------------------------------------------------------
         /// <summary>
-        /// 상태 클래스와 표시 여부를 대상에 반영한다.
+        /// 현재 상태에서 즉시 반영 가능한 bounds를 target에 반영한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void ApplyState(XeriWindowState previous, XeriWindowState next)
+        private void ApplyCurrentBounds()
         {
             if (target == null) return;
+            if (state != XeriWindowState.Normal) return;
 
-            target.RemoveFromClassList(GetStateClass(previous));
-            target.AddToClassList(GetStateClass(next));
-
-            target.style.display = next == XeriWindowState.Minimized ||
-                                   next == XeriWindowState.Closed
-                ? DisplayStyle.None
-                : DisplayStyle.Flex;
-
-            if (target is XeriWindowPanel panel)
-            {
-                panel.ApplyState(next);
-            }
+            ApplyBounds(Bounds);
         }
 
         // ------------------------------------------------------------

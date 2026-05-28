@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowResizeManipulator.cs
-수정일 : 2026-05-24
+수정일 : 2026-05-28
 
 # 설명
 XeriWindowPanel의 resize handle 입력을 controller resize 명령으로 연결한다.
@@ -386,8 +386,9 @@ namespace inonego.Xeri.UI.Window
         {
             if (controller == null) return true;
             if (!controller.Options.CanResize) return true;
+            if (controller.IsTransitionRunning) return true;
 
-            return controller.Driver.State != XeriWindowState.Normal;
+            return controller.EffectiveState != XeriWindowState.Normal;
         }
 
     #endregion

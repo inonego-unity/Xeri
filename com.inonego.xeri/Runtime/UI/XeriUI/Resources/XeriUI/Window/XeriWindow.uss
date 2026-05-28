@@ -7,7 +7,7 @@
 
     position: absolute;
     flex-direction: column;
-    min-width: 120px;
+    min-width: 152px;
     min-height: 80px;
     overflow: hidden;
     border-top-left-radius: 4px;

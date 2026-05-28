@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UITKWindowDriver.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 UITKWindowDriver style 반영 테스트.
@@ -55,23 +55,57 @@ namespace inonego.Xeri.TEST.UI._Window
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Minimized와 Closed 상태는 target을 숨긴다.
+        /// CommitState는 표시 여부를 변경하지 않고 상태 class만 반영한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UITKWindowDriver_State_Minimized_Closed_Display_None()
+        public void TEST_UITKWindowDriver_CommitState_Display_유지()
         {
             var target = new VisualElement();
             var driver = new UITKWindowDriver(target);
 
-            driver.State = XeriWindowState.Minimized;
-            Assert.AreEqual(DisplayStyle.None, target.style.display.value);
+            driver.SetVisible(true);
+            driver.CommitState(XeriWindowState.Minimized);
 
-            driver.State = XeriWindowState.Normal;
             Assert.AreEqual(DisplayStyle.Flex, target.style.display.value);
+            Assert.IsTrue(target.ClassListContains("xeri-window--minimized"));
+        }
 
-            driver.State = XeriWindowState.Closed;
+        // ------------------------------------------------------------
+        /// <summary>
+        /// ApplyVisualState는 완료 상태 값을 바꾸지 않고 상태 class만 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UITKWindowDriver_ApplyVisualState_State_유지()
+        {
+            var target = new VisualElement();
+            var driver = new UITKWindowDriver(target);
+
+            driver.CommitState(XeriWindowState.Maximized);
+            driver.ApplyVisualState(XeriWindowState.Normal);
+
+            Assert.AreEqual(XeriWindowState.Maximized, driver.State);
+            Assert.IsTrue(target.ClassListContains("xeri-window--normal"));
+            Assert.IsFalse(target.ClassListContains("xeri-window--maximized"));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// SetVisible은 표시 여부만 변경한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UITKWindowDriver_SetVisible_Display_명시_반영()
+        {
+            var target = new VisualElement();
+            var driver = new UITKWindowDriver(target);
+
+            driver.SetVisible(false);
             Assert.AreEqual(DisplayStyle.None, target.style.display.value);
+
+            driver.SetVisible(true);
+            Assert.AreEqual(DisplayStyle.Flex, target.style.display.value);
         }
 
     #endregion
@@ -80,11 +114,11 @@ namespace inonego.Xeri.TEST.UI._Window
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Maximized에서 Normal로 돌아오면 이전 위치와 크기를 복원한다.
+        /// State setter는 driver 내부에서 restore bounds를 소유하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UITKWindowDriver_Maximized_Normal_이전_Bounds_복원()
+        public void TEST_UITKWindowDriver_State_Setter_RestoreBounds_미소유()
         {
             var target = new VisualElement();
             var driver = new UITKWindowDriver(target);
@@ -96,12 +130,31 @@ namespace inonego.Xeri.TEST.UI._Window
             driver.Size = new Vector2(600f, 480f);
             driver.State = XeriWindowState.Normal;
 
-            Assert.AreEqual(new Vector2(10f, 20f), driver.Pos);
-            Assert.AreEqual(new Vector2(300f, 240f), driver.Size);
-            Assert.AreEqual(10f, target.style.left.value.value);
-            Assert.AreEqual(20f, target.style.top.value.value);
-            Assert.AreEqual(300f, target.style.width.value.value);
-            Assert.AreEqual(240f, target.style.height.value.value);
+            Assert.AreEqual(new Vector2(0f, 0f), driver.Pos);
+            Assert.AreEqual(new Vector2(600f, 480f), driver.Size);
+        }
+
+    #endregion
+
+    #region B-2: Maximized Bounds
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// ApplyMaximizedBounds는 부모 영역 기준 layout 값을 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UITKWindowDriver_ApplyMaximizedBounds_부모영역_반영()
+        {
+            var target = new VisualElement();
+            var driver = new UITKWindowDriver(target);
+
+            driver.ApplyMaximizedBounds();
+
+            Assert.AreEqual(0f, target.style.left.value.value);
+            Assert.AreEqual(0f, target.style.top.value.value);
+            Assert.AreEqual(0f, target.style.right.value.value);
+            Assert.AreEqual(0f, target.style.bottom.value.value);
         }
 
     #endregion

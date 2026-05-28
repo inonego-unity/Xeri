@@ -122,7 +122,12 @@ namespace inonego.Xeri.TEST.UI._Window
             guideLabel = CreateGuideLabel();
             rootElement.Add(guideLabel);
 
-            canvas = new XeriWindowCanvas();
+            canvas = new XeriWindowCanvas
+            (
+                null,
+                null,
+                CreateManualAnimationOptions()
+            );
             rootElement.Add(canvas);
 
             CreateManualTray();
@@ -184,6 +189,21 @@ namespace inonego.Xeri.TEST.UI._Window
             label.style.whiteSpace = WhiteSpace.Normal;
 
             return label;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Manual 테스트에서 눈으로 확인 가능한 window animation 옵션을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static XeriWindowAnimationOptions CreateManualAnimationOptions()
+        {
+            return new XeriWindowAnimationOptions
+            {
+                Enabled = true,
+                Duration = 0.18f,
+                HiddenOpacity = 0f,
+            };
         }
 
         // ------------------------------------------------------------
@@ -513,14 +533,14 @@ namespace inonego.Xeri.TEST.UI._Window
             yield return WaitForSpaceAndAssert
             (
                 () => mainController.Driver.State == XeriWindowState.Maximized,
-                "Main Window의 maximize button을 눌러 최대화한 뒤 Space 키를 누르세요.",
+                "Main Window의 maximize button을 눌러 최대화 animation이 끝난 뒤 Space 키를 누르세요.",
                 "Maximize button 입력 후 window가 Maximized 상태여야 합니다."
             );
 
             yield return WaitForSpaceAndAssert
             (
                 () => mainController.Driver.State == XeriWindowState.Normal,
-                "Main Window의 maximize button을 다시 눌러 원래 크기로 되돌린 뒤 Space 키를 누르세요.",
+                "Main Window의 maximize button을 다시 눌러 restore animation이 끝난 뒤 Space 키를 누르세요.",
                 "Maximize button 재입력 후 window가 Normal 상태여야 합니다."
             );
 
@@ -528,7 +548,7 @@ namespace inonego.Xeri.TEST.UI._Window
             (
                 () => mainController.Driver.State == XeriWindowState.Minimized &&
                       trayPanel.Q<VisualElement>("entry-container").childCount > 0,
-                "Main Window의 minimize button을 눌러 Tray entry가 나타나면 Space 키를 누르세요.",
+                "Main Window의 minimize button을 눌러 minimize animation 후 Tray entry가 나타나면 Space 키를 누르세요.",
                 "Minimize 후 Tray entry가 표시되어야 합니다."
             );
 

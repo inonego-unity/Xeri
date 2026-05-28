@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriWindowController.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 Xeri 커스텀 윈도우 controller와 core 옵션 테스트.
@@ -12,6 +12,8 @@ Xeri 커스텀 윈도우 controller와 core 옵션 테스트.
  C: 취소 가능한 요청
  E: 이벤트
 ========================================================================= BLOCK_HEADER_END */
+
+using System.Collections.Generic;
 
 using UnityEngine;
 
@@ -42,6 +44,87 @@ namespace inonego.Xeri.TEST.UI._Window
             public Vector2 Pos { get; set; } = new Vector2(10f, 20f);
             public Vector2 Size { get; set; } = new Vector2(200f, 120f);
             public XeriWindowState State { get; set; } = XeriWindowState.Normal;
+            public XeriWindowState VisualState { get; private set; } = XeriWindowState.Normal;
+            public bool Visible { get; private set; } = true;
+            public bool MaximizedBoundsApplied { get; private set; } = false;
+
+            public Rect Bounds
+            {
+                get => new Rect(Pos, Size);
+                set
+                {
+                    Pos = value.position;
+                    Size = value.size;
+                }
+            }
+
+            public void SetVisible(bool visible)
+            {
+                Visible = visible;
+            }
+
+            public void CommitState(XeriWindowState state)
+            {
+                State = state;
+                ApplyVisualState(state);
+            }
+
+            public void ApplyVisualState(XeriWindowState state)
+            {
+                VisualState = state;
+            }
+
+            public void ApplyBounds(Rect bounds)
+            {
+                Bounds = bounds;
+            }
+
+            public void ApplyMaximizedBounds()
+            {
+                MaximizedBoundsApplied = true;
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// 테스트용 상태 전환 transitioner.
+        /// </summary>
+        // ============================================================
+        private sealed class TestTransitioner : IXeriWindowStateTransitioner
+        {
+            public XeriWindowTransitionStatus Status => IsRunning
+                ? XeriWindowTransitionStatus.Running
+                : XeriWindowTransitionStatus.Idle;
+            public bool IsRunning { get; private set; } = false;
+            public XeriWindowState? PendingState { get; private set; } = null;
+            public List<XeriWindowStateTransitionRequest> Requests { get; } = new();
+
+            public bool Transition(XeriWindowStateTransitionRequest request)
+            {
+                Requests.Add(request);
+                PendingState = request.NextState;
+
+                if (request.NextState == XeriWindowState.Maximized)
+                {
+                    request.Driver.ApplyMaximizedBounds();
+                }
+                else if (request.TargetBounds.HasValue)
+                {
+                    request.Driver.ApplyBounds(request.TargetBounds.Value);
+                }
+
+                request.Driver.CommitState(request.NextState);
+                PendingState = null;
+                request.OnComplete?.Invoke();
+
+                return true;
+            }
+
+            public void Cancel(bool restoreVisual)
+            {
+                PendingState = null;
+                IsRunning = false;
+            }
         }
 
     #endregion
@@ -66,7 +149,7 @@ namespace inonego.Xeri.TEST.UI._Window
             Assert.IsTrue(options.CanFocus);
             Assert.IsTrue(options.CanTitleBarDoubleClickMaximize);
             Assert.IsFalse(options.HideDisabledButtons);
-            Assert.AreEqual(new Vector2(120f, 80f), options.MinSize);
+            Assert.AreEqual(new Vector2(152f, 80f), options.MinSize);
         }
 
     #endregion
@@ -130,20 +213,116 @@ namespace inonego.Xeri.TEST.UI._Window
 
             controller.Minimize();
             Assert.AreEqual(XeriWindowState.Minimized, driver.State);
+            Assert.IsFalse(driver.Visible);
 
             controller.ShowNormal();
             Assert.AreEqual(XeriWindowState.Normal, driver.State);
+            Assert.IsTrue(driver.Visible);
 
             controller.Maximize();
             Assert.AreEqual(XeriWindowState.Maximized, driver.State);
+            Assert.IsTrue(driver.MaximizedBoundsApplied);
 
             controller.Close();
             Assert.AreEqual(XeriWindowState.Closed, driver.State);
+            Assert.IsFalse(driver.Visible);
         }
 
     #endregion
 
-    #region S-2: Disabled Option
+    #region S-1-1: State Transitioner
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 명령은 controller 내부 transitioner를 경유한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_StateCommand_Transitioner_경유()
+        {
+            var driver = new TestWindowDriver();
+            var transitioner = new TestTransitioner();
+            var controller = new XeriWindowController(driver, null, transitioner);
+
+            controller.Minimize();
+
+            Assert.AreEqual(1, transitioner.Requests.Count);
+            Assert.AreEqual(XeriWindowState.Minimized, transitioner.Requests[0].NextState);
+        }
+
+    #endregion
+
+    #region S-2: State Rule
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Closed 상태에서는 후속 상태 전환 명령을 무시한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_Closed_후_StateCommand_무시()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+
+            controller.Close();
+            controller.Maximize();
+            controller.ShowNormal();
+            controller.Minimize();
+
+            Assert.AreEqual(XeriWindowState.Closed, driver.State);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Maximized에서 Normal로 돌아오면 controller snapshot bounds로 복구한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_Maximized_ShowNormal_RestoreBounds_복구()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+            var normalPos = driver.Pos;
+            var normalSize = driver.Size;
+
+            controller.Maximize();
+            controller.ShowNormal();
+
+            Assert.AreEqual(normalPos, driver.Pos);
+            Assert.AreEqual(normalSize, driver.Size);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Restore 명령은 명시적 target bounds가 있으면 snapshot 대신 해당 bounds를 사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_Restore_TargetBounds_우선_사용()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+            var targetBounds = new Rect(50f, 60f, 210f, 130f);
+
+            controller.Maximize();
+            controller.RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Restore,
+                    XeriWindowCommandSource.TitleBar,
+                    targetBounds
+                )
+            );
+
+            Assert.AreEqual(targetBounds.position, driver.Pos);
+            Assert.AreEqual(targetBounds.size, driver.Size);
+        }
+
+    #endregion
+
+    #region S-3: Disabled Option
 
         // ------------------------------------------------------------
         /// <summary>
@@ -176,7 +355,7 @@ namespace inonego.Xeri.TEST.UI._Window
 
     #endregion
 
-    #region S-3: Closed State
+    #region S-4: Closed State
 
         // ------------------------------------------------------------
         /// <summary>

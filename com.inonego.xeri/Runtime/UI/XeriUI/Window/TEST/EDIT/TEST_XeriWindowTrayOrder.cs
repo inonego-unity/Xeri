@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriWindowTrayOrder.cs
-수정일 : 2026-05-25
+수정일 : 2026-05-28
 
 # 설명
 XeriWindowTraySource의 minimized window projection과 Tray 표시 순서를 검증한다.
@@ -37,6 +37,37 @@ namespace inonego.Xeri.TEST.UI._Window
             public Vector2 Pos { get; set; } = Vector2.zero;
             public Vector2 Size { get; set; } = new Vector2(200f, 120f);
             public XeriWindowState State { get; set; } = XeriWindowState.Normal;
+            public XeriWindowState VisualState { get; private set; } = XeriWindowState.Normal;
+
+            public Rect Bounds
+            {
+                get => new Rect(Pos, Size);
+                set
+                {
+                    Pos = value.position;
+                    Size = value.size;
+                }
+            }
+
+            public void SetVisible(bool visible) {}
+
+            public void CommitState(XeriWindowState state)
+            {
+                State = state;
+                ApplyVisualState(state);
+            }
+
+            public void ApplyVisualState(XeriWindowState state)
+            {
+                VisualState = state;
+            }
+
+            public void ApplyBounds(Rect bounds)
+            {
+                Bounds = bounds;
+            }
+
+            public void ApplyMaximizedBounds() {}
         }
 
     #endregion

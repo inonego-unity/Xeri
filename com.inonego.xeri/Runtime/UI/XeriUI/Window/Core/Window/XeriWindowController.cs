@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowController.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 Xeri 커스텀 윈도우 상태 전환, 명령, 이벤트를 관리하는 controller.
@@ -32,6 +32,10 @@ namespace inonego.Xeri.UI.Window
         public IXeriWindowDriver Driver => driver;
 
         private readonly IXeriWindowDriver driver = null;
+        private readonly IXeriWindowStateTransitioner transitioner = null;
+
+        private readonly XeriWindowBoundsSnapshot boundsSnapshot = null;
+        private XeriWindowState? pendingState = null;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -45,6 +49,27 @@ namespace inonego.Xeri.UI.Window
         }
 
         private XeriWindowOptions options = XeriWindowOptions.Default();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 진행 중 전환 목표가 있으면 해당 상태를, 없으면 완료된 driver 상태를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public XeriWindowState EffectiveState => pendingState ?? transitioner.PendingState ?? driver.State;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 전환 실행 중 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsTransitionRunning => transitioner.IsRunning;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 진행 중 전환 목표 상태.
+        /// </summary>
+        // ------------------------------------------------------------
+        public XeriWindowState? PendingState => pendingState ?? transitioner.PendingState;
 
     #endregion
 
@@ -167,11 +192,14 @@ namespace inonego.Xeri.UI.Window
         public XeriWindowController
         (
             IXeriWindowDriver driver,
-            XeriWindowOptions? options = null
+            XeriWindowOptions? options = null,
+            IXeriWindowStateTransitioner transitioner = null
         ) : base()
         {
             this.driver  = driver ?? throw new ArgumentNullException(nameof(driver));
             this.options = options ?? XeriWindowOptions.Default();
+            this.transitioner = transitioner ?? new XeriImmediateWindowStateTransitioner();
+            boundsSnapshot = new XeriWindowBoundsSnapshot(this.driver.Bounds);
 
         }
 
@@ -193,6 +221,7 @@ namespace inonego.Xeri.UI.Window
             if (previous == pos) return;
 
             driver.Pos = pos;
+            boundsSnapshot.UpdateNormalBounds(EffectiveState, driver.Bounds);
 
             OnMove?.Invoke(this, CreateEventArgs());
             OnPosChange?.Invoke(this, new ValueChangeEventArgs<Vector2>(previous, pos));
@@ -213,6 +242,7 @@ namespace inonego.Xeri.UI.Window
             if (previous == clamped) return;
 
             driver.Size = clamped;
+            boundsSnapshot.UpdateNormalBounds(EffectiveState, driver.Bounds);
 
             OnResize?.Invoke(this, CreateEventArgs());
             OnSizeChange?.Invoke(this, new ValueChangeEventArgs<Vector2>(previous, clamped));
@@ -225,12 +255,14 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         public void Minimize()
         {
-            if (!options.CanMinimize) return;
-            if (driver.State == XeriWindowState.Minimized) return;
-            if (driver.State == XeriWindowState.Closed) return;
-            if (IsCancelled(OnPreMinimize)) return;
-
-            SetState(XeriWindowState.Minimized, OnMinimize);
+            RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Minimize,
+                    XeriWindowCommandSource.API
+                )
+            );
         }
 
         // ------------------------------------------------------------
@@ -240,12 +272,14 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         public void Maximize()
         {
-            if (!options.CanMaximize) return;
-            if (driver.State == XeriWindowState.Maximized) return;
-            if (driver.State == XeriWindowState.Closed) return;
-            if (IsCancelled(OnPreMaximize)) return;
-
-            SetState(XeriWindowState.Maximized, OnMaximize);
+            RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Maximize,
+                    XeriWindowCommandSource.API
+                )
+            );
         }
 
         // ------------------------------------------------------------
@@ -255,11 +289,14 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         public void ShowNormal()
         {
-            if (driver.State == XeriWindowState.Normal) return;
-            if (driver.State == XeriWindowState.Closed) return;
-            if (IsCancelled(OnPreShowNormal)) return;
-
-            SetState(XeriWindowState.Normal, OnShowNormal);
+            RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Restore,
+                    XeriWindowCommandSource.API
+                )
+            );
         }
 
         // ------------------------------------------------------------
@@ -269,11 +306,14 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         public void Close()
         {
-            if (!options.CanClose) return;
-            if (driver.State == XeriWindowState.Closed) return;
-            if (IsCancelled(OnPreClose)) return;
-
-            SetState(XeriWindowState.Closed, OnClose);
+            RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Close,
+                    XeriWindowCommandSource.API
+                )
+            );
         }
 
         // ------------------------------------------------------------
@@ -284,7 +324,7 @@ namespace inonego.Xeri.UI.Window
         public void Focus()
         {
             if (!options.CanFocus) return;
-            if (driver.State == XeriWindowState.Closed) return;
+            if (EffectiveState == XeriWindowState.Closed) return;
 
             OnFocus?.Invoke(this, CreateEventArgs());
         }
@@ -296,9 +336,27 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         public void LoseFocus()
         {
-            if (driver.State == XeriWindowState.Closed) return;
+            if (EffectiveState == XeriWindowState.Closed) return;
 
             OnLoseFocus?.Invoke(this, CreateEventArgs());
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 전환 요청을 처리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool RequestStateCommand(XeriWindowStateCommandRequest request)
+        {
+            if (!CanExecuteStateCommand(request)) return false;
+            if (!XeriWindowStateTransitionRule.TryResolveNextState(EffectiveState, request, out var nextState))
+            {
+                return false;
+            }
+
+            if (IsCancelled(GetPreStateEvent(request.Kind))) return false;
+
+            return CommitStateTransition(nextState, request);
         }
 
     #endregion
@@ -312,7 +370,7 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         private bool CanChangeBounds()
         {
-            return driver.State == XeriWindowState.Normal;
+            return EffectiveState == XeriWindowState.Normal;
         }
 
         // ------------------------------------------------------------
@@ -342,7 +400,7 @@ namespace inonego.Xeri.UI.Window
             {
                 Pos    = driver.Pos,
                 Size   = driver.Size,
-                State  = driver.State,
+                State  = EffectiveState,
                 Cancel = false,
             };
 
@@ -356,21 +414,138 @@ namespace inonego.Xeri.UI.Window
         /// 윈도우 상태를 변경하고 관련 이벤트를 호출한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void SetState
+        private bool CommitStateTransition
         (
             XeriWindowState state,
-            EventHandler<XeriWindowEventArgs> stateEvent
+            XeriWindowStateCommandRequest request
         )
         {
             var previous = driver.State;
-            if (previous == state) return;
+            if (previous == state) return false;
 
-            driver.State = state;
+            var targetBounds = default(Rect?);
+            if (state == XeriWindowState.Maximized)
+            {
+                boundsSnapshot.UpdateNormalBounds(previous, driver.Bounds);
+                boundsSnapshot.CaptureRestoreBounds();
+            }
+            else if (state == XeriWindowState.Normal)
+            {
+                if (request.TargetBounds.HasValue)
+                {
+                    targetBounds = request.TargetBounds;
+                }
+                else if (previous == XeriWindowState.Maximized)
+                {
+                    targetBounds = boundsSnapshot.RestoreBounds;
+                }
+            }
+
+            pendingState = state;
+
+            var transitionStarted = transitioner.Transition
+            (
+                new XeriWindowStateTransitionRequest
+                {
+                    Driver = driver,
+                    PreviousState = previous,
+                    NextState = state,
+                    TargetBounds = targetBounds,
+                    Animate = request.Animate,
+                    InterruptPolicy = XeriWindowTransitionInterruptPolicy.CancelAndReplace,
+                    OnComplete = () => CompleteStateTransition(previous, state, request),
+                    OnCancel = ClearPendingState,
+                    OnError = _ => ClearPendingState(),
+                }
+            );
+
+            if (!transitionStarted)
+            {
+                pendingState = null;
+            }
+
+            return transitionStarted;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 전환 완료 후 상태 이벤트를 발행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CompleteStateTransition
+        (
+            XeriWindowState previous,
+            XeriWindowState state,
+            XeriWindowStateCommandRequest request
+        )
+        {
+            pendingState = null;
 
             var eventArgs = CreateEventArgs();
 
-            stateEvent?.Invoke(this, eventArgs);
+            GetStateEvent(request.Kind)?.Invoke(this, eventArgs);
             OnStateChange?.Invoke(this, new ValueChangeEventArgs<XeriWindowState>(previous, state));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 진행 중 상태 전환 목표를 해제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ClearPendingState()
+        {
+            pendingState = null;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 전환 명령의 옵션 허용 여부를 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool CanExecuteStateCommand(XeriWindowStateCommandRequest request)
+        {
+            return request.Kind switch
+            {
+                XeriWindowStateCommandKind.Minimize => options.CanMinimize,
+                XeriWindowStateCommandKind.Maximize => options.CanMaximize,
+                XeriWindowStateCommandKind.Close    => options.CanClose,
+                XeriWindowStateCommandKind.Restore  => true,
+                _                                   => false,
+            };
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 전환 명령에 대응하는 사전 이벤트를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private EventHandler<XeriWindowCancelEventArgs> GetPreStateEvent(XeriWindowStateCommandKind kind)
+        {
+            return kind switch
+            {
+                XeriWindowStateCommandKind.Minimize => OnPreMinimize,
+                XeriWindowStateCommandKind.Maximize => OnPreMaximize,
+                XeriWindowStateCommandKind.Restore  => OnPreShowNormal,
+                XeriWindowStateCommandKind.Close    => OnPreClose,
+                _                                   => null,
+            };
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 상태 전환 명령에 대응하는 완료 이벤트를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private EventHandler<XeriWindowEventArgs> GetStateEvent(XeriWindowStateCommandKind kind)
+        {
+            return kind switch
+            {
+                XeriWindowStateCommandKind.Minimize => OnMinimize,
+                XeriWindowStateCommandKind.Maximize => OnMaximize,
+                XeriWindowStateCommandKind.Restore  => OnShowNormal,
+                XeriWindowStateCommandKind.Close    => OnClose,
+                _                                   => null,
+            };
         }
 
         // ------------------------------------------------------------
@@ -384,7 +559,7 @@ namespace inonego.Xeri.UI.Window
             {
                 Pos   = driver.Pos,
                 Size  = driver.Size,
-                State = driver.State,
+                State = EffectiveState,
             };
         }
 

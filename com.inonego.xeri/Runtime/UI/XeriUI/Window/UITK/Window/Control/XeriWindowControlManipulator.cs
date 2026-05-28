@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowControlManipulator.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 XeriWindowPanel control button 입력을 controller 명령으로 연결한다.
@@ -58,9 +58,9 @@ namespace inonego.Xeri.UI.Window
             if (isAttached) return;
             if (panel == null || controller == null) return;
 
-            panel.MinimizeButton.clicked += controller.Minimize;
+            panel.MinimizeButton.clicked += OnMinimizeClick;
             panel.MaximizeButton.clicked += OnMaximizeClick;
-            panel.CloseButton.clicked += controller.Close;
+            panel.CloseButton.clicked += OnCloseClick;
             panel.TitleActions.RegisterCallback<PointerDownEvent>(OnTitleActionsPointerDown);
 
             isAttached = true;
@@ -76,9 +76,9 @@ namespace inonego.Xeri.UI.Window
             if (!isAttached) return;
             if (panel == null || controller == null) return;
 
-            panel.MinimizeButton.clicked -= controller.Minimize;
+            panel.MinimizeButton.clicked -= OnMinimizeClick;
             panel.MaximizeButton.clicked -= OnMaximizeClick;
-            panel.CloseButton.clicked -= controller.Close;
+            panel.CloseButton.clicked -= OnCloseClick;
             panel.TitleActions.UnregisterCallback<PointerDownEvent>(OnTitleActionsPointerDown);
 
             isAttached = false;
@@ -90,18 +90,57 @@ namespace inonego.Xeri.UI.Window
 
         // ------------------------------------------------------------
         /// <summary>
+        /// Minimize button 입력을 상태 전환 요청으로 변환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnMinimizeClick()
+        {
+            controller.RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Minimize,
+                    XeriWindowCommandSource.ControlButton
+                )
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// Maximize button으로 maximize/show normal을 토글한다.
         /// </summary>
         // ------------------------------------------------------------
         private void OnMaximizeClick()
         {
-            if (controller.Driver.State == XeriWindowState.Maximized)
-            {
-                controller.ShowNormal();
-                return;
-            }
+            var kind = controller.EffectiveState == XeriWindowState.Maximized
+                ? XeriWindowStateCommandKind.Restore
+                : XeriWindowStateCommandKind.Maximize;
 
-            controller.Maximize();
+            controller.RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    kind,
+                    XeriWindowCommandSource.ControlButton
+                )
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Close button 입력을 상태 전환 요청으로 변환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnCloseClick()
+        {
+            controller.RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
+                    XeriWindowStateCommandKind.Close,
+                    XeriWindowCommandSource.ControlButton
+                )
+            );
         }
 
         // ------------------------------------------------------------

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowOptions.cs
-수정일 : 2026-05-23
+수정일 : 2026-05-28
 
 # 설명
 Xeri 커스텀 윈도우 기능 활성화와 크기 제한 옵션.
@@ -113,7 +113,7 @@ namespace inonego.Xeri.UI.Window
         {
             return new XeriWindowOptions
             {
-                MinSize = new Vector2(120f, 80f),
+                MinSize = new Vector2(152f, 80f),
                 MaxSize = new Vector2(float.MaxValue, float.MaxValue),
                 CanMove = true,
                 CanResize = true,
