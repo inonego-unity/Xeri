@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ISpawnable.cs
-수정일 : 2026-05-07
+수정일 : 2026-05-28
 
 # 설명
 스폰 시스템 기본 인터페이스 모음.
 
 - ISpawnRegistryObject<TKey> : SpawnRegistry 등록 가능한 객체 (IKeyable + ISpawnable + IDespawnable)
-- ISpawnable                 : 스폰 훅(Before/After)
-- IDespawnable               : 디스폰 훅(Before/After) + 레지스트리 디스폰 콜백 슬롯
+- ISpawnable                 : 스폰 훅(Pre/Complete)
+- IDespawnable               : 디스폰 훅(Pre/Complete) + 레지스트리 디스폰 콜백 슬롯
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -46,14 +46,14 @@ namespace inonego.Xeri.Game
         /// 스폰 직전에 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public void OnBeforeSpawn();
+        public void OnPreSpawn();
 
         // ------------------------------------------------------------
         /// <summary>
         /// 스폰 직후에 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public void OnAfterSpawn();
+        public void OnSpawn();
     }
 
     // ============================================================
@@ -68,14 +68,14 @@ namespace inonego.Xeri.Game
         /// 디스폰 직전에 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public void OnBeforeDespawn();
+        public void OnPreDespawn();
 
         // ------------------------------------------------------------
         /// <summary>
         /// 디스폰 직후에 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public void OnAfterDespawn();
+        public void OnDespawn();
 
         // ------------------------------------------------------------
         /// <summary>

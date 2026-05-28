@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : TEST_MonoBoardBase.cs
-수정일 : 2026-05-08
+파일명 : TEST_BoardViewBase.cs
+수정일 : 2026-05-28
 
 # 설명
-MonoBoardBase 시스템의 핵심 기능 테스트. Play Mode.
+BoardViewBase 시스템의 핵심 기능 테스트. Play Mode.
 Connect/Disconnect, OnAddSpace/OnRemoveSpace 이벤트, ReloadTileMap 등을 검증한다.
 
 # 테스트 구성
@@ -23,6 +23,7 @@ using UnityEngine.TestTools;
 using UnityEngine.InputSystem;
 #endif
 
+using inonego.Xeri;
 using inonego.Xeri.Game;
 
 using Object = UnityEngine.Object;
@@ -32,10 +33,10 @@ namespace inonego.Xeri.TEST.Game._Board
 
     // ============================================================
     /// <summary>
-    /// MonoBoardBase 시스템의 핵심 기능 테스트 클래스.
+    /// BoardViewBase 시스템의 핵심 기능 테스트 클래스.
     /// </summary>
     // ============================================================
-    public class TEST_MonoBoardBase
+    public class TEST_BoardViewBase
     {
 
     #region 헬퍼
@@ -73,10 +74,10 @@ namespace inonego.Xeri.TEST.Game._Board
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 테스트용 MonoBoardBase 구현체입니다.
+        /// 테스트용 BoardViewBase 구현체입니다.
         /// </summary>
         // ------------------------------------------------------------
-        public class TestMonoBoard2D : MonoBoardBase<Board2D<int, TestSpace, TestPiece>, Vector2Int, int, TestSpace, TestPiece, TestMonoTile>
+        public class TestBoardView2D : BoardViewBase<Board2D<int, TestSpace, TestPiece>, Vector2Int, int, TestSpace, TestPiece, TestMonoTile>
         {
             [SerializeField]
             private float lTileSize = 1f;
@@ -98,7 +99,7 @@ namespace inonego.Xeri.TEST.Game._Board
             // ------------------------------------------------------------
             public void SetTileProvider(IGameObjectProvider provider)
             {
-                lTileProvider = provider;
+                TileProvider = provider;
             }
         }
 
@@ -149,17 +150,17 @@ namespace inonego.Xeri.TEST.Game._Board
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 테스트용 MonoBoard2D를 생성합니다.
+        /// 테스트용 BoardView2D를 생성합니다.
         /// </summary>
         // ------------------------------------------------------------
-        private TestMonoBoard2D CreateMonoBoard()
+        private TestBoardView2D CreateBoardView()
         {
-            var monoBoardObject = new GameObject("TestMonoBoard2D");
-            var monoBoard = monoBoardObject.AddComponent<TestMonoBoard2D>();
+            var boardViewObject = new GameObject("TestBoardView2D");
+            var boardView = boardViewObject.AddComponent<TestBoardView2D>();
 
-            monoBoard.SetTileProvider(CreateTileProvider());
+            boardView.SetTileProvider(CreateTileProvider());
 
-            return monoBoard;
+            return boardView;
         }
 
         // ------------------------------------------------------------
@@ -238,13 +239,13 @@ namespace inonego.Xeri.TEST.Game._Board
         [Explicit]
         [Category("Manual")]
         [UnityTest]
-        public IEnumerator TEST_MonoBoardBase_Connect_이벤트_Reload_Disconnect_통합()
+        public IEnumerator TEST_BoardViewBase_Connect_이벤트_Reload_Disconnect_통합()
         {
             // ------------------------------------------------------------
             // 테스트 준비 — 3x3 보드 (공간 자동 생성 비활성화)
             // ------------------------------------------------------------
             var board    = new Board2D<int, TestSpace, TestPiece>(3, 3, init: false);
-            var monoBoard = CreateMonoBoard();
+            var boardView = CreateBoardView();
 
             var basePoints = new[]
             {
@@ -262,22 +263,22 @@ namespace inonego.Xeri.TEST.Game._Board
             // ------------------------------------------------------------
             // Connect 전 초기 상태 확인
             // ------------------------------------------------------------
-            Assert.That(monoBoard.Board,          Is.Null);
-            Assert.That(monoBoard.TileMap.Count,  Is.EqualTo(0));
+            Assert.That(boardView.Board,          Is.Null);
+            Assert.That(boardView.TileMap.Count,  Is.EqualTo(0));
 
-            monoBoard.Connect(board);
+            boardView.Connect(board);
 
             yield return new WaitForSeconds(0.5f);
 
-            Assert.That(monoBoard.Board,          Is.EqualTo(board));
-            Assert.That(monoBoard.TileMap.Count,  Is.EqualTo(basePoints.Length));
+            Assert.That(boardView.Board,          Is.EqualTo(board));
+            Assert.That(boardView.TileMap.Count,  Is.EqualTo(basePoints.Length));
 
             foreach (var point in basePoints)
             {
-                var lTile       = monoBoard.TileMap[point];
-                var expectedPos = monoBoard.ToLocalPos(point);
+                var lTile       = boardView.TileMap[point];
+                var expectedPos = boardView.ToLocalPos(point);
 
-                Assert.That(monoBoard.TileMap.ContainsKey(point), Is.True);
+                Assert.That(boardView.TileMap.ContainsKey(point), Is.True);
                 Assert.That(lTile,                                Is.Not.Null);
                 Assert.That(Vector3.Distance(lTile.transform.localPosition, expectedPos), Is.LessThan(0.01f));
             }
@@ -290,7 +291,7 @@ namespace inonego.Xeri.TEST.Game._Board
 
             yield return null;
 
-            Assert.That(monoBoard.TileMap.ContainsKey(newPointA), Is.True);
+            Assert.That(boardView.TileMap.ContainsKey(newPointA), Is.True);
 
             var newPointB = new Vector2Int(2, 1);
             board.AddSpace(newPointB);
@@ -305,12 +306,12 @@ namespace inonego.Xeri.TEST.Game._Board
 
             yield return null;
 
-            Assert.That(monoBoard.TileMap.ContainsKey(removePoint), Is.False);
+            Assert.That(boardView.TileMap.ContainsKey(removePoint), Is.False);
 
             // ------------------------------------------------------------
             // ReloadTileMap 확인
             // ------------------------------------------------------------
-            monoBoard.ReloadTileMap();
+            boardView.ReloadTileMap();
 
             yield return null;
 
@@ -319,27 +320,27 @@ namespace inonego.Xeri.TEST.Game._Board
             foreach (var kvp in board)
             {
                 var point       = kvp.Key;
-                var expectedPos = monoBoard.ToLocalPos(point);
-                var lTile       = monoBoard.TileMap[point];
+                var expectedPos = boardView.ToLocalPos(point);
+                var lTile       = boardView.TileMap[point];
 
                 spaceCount++;
 
-                Assert.That(monoBoard.TileMap.ContainsKey(point), Is.True);
+                Assert.That(boardView.TileMap.ContainsKey(point), Is.True);
                 Assert.That(lTile,                                Is.Not.Null);
                 Assert.That(Vector3.Distance(lTile.transform.localPosition, expectedPos), Is.LessThan(0.01f));
             }
 
-            Assert.That(monoBoard.TileMap.Count, Is.EqualTo(spaceCount));
+            Assert.That(boardView.TileMap.Count, Is.EqualTo(spaceCount));
 
             // ------------------------------------------------------------
             // Disconnect 확인
             // ------------------------------------------------------------
-            monoBoard.Disconnect();
+            boardView.Disconnect();
 
             yield return null;
 
-            Assert.That(monoBoard.Board,         Is.Null);
-            Assert.That(monoBoard.TileMap.Count, Is.EqualTo(0));
+            Assert.That(boardView.Board,         Is.Null);
+            Assert.That(boardView.TileMap.Count, Is.EqualTo(0));
 
             // ------------------------------------------------------------
             // 시각 확인 완료 — Space바로 종료

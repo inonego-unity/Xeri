@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntitySpawnRegistry.cs
-수정일 : 2026-05-07
+수정일 : 2026-05-28
 
 # 설명
 엔티티 전용 스폰 레지스트리 베이스·구현체.
@@ -74,18 +74,18 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 스폰 직전 키를 자동 생성해 엔티티에 설정한다. 자식 hook 은 _OnBeforeSpawn.
+        /// 스폰 직전 키를 자동 생성해 엔티티에 설정한다. 자식 hook 은 OnPreSpawnEntity.
         /// </summary>
         // ------------------------------------------------------------
-        protected sealed override void OnBeforeSpawn(TEntity spawnable)
+        protected sealed override void OnPreSpawnObject(TEntity spawnable)
         {
             var key = keyGenerator.Generate();
 
             spawnable.SetKey(key);
 
-            _OnBeforeSpawn(spawnable);
+            OnPreSpawnEntity(spawnable);
 
-            base.OnBeforeSpawn(spawnable);
+            base.OnPreSpawnObject(spawnable);
         }
 
         // ------------------------------------------------------------
@@ -93,18 +93,18 @@ namespace inonego.Xeri.Game
         /// 스폰 직전 자식 hook.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void _OnBeforeSpawn(TEntity spawnable) {}
+        protected virtual void OnPreSpawnEntity(TEntity spawnable) {}
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 디스폰 직후 엔티티의 키를 초기화한다. 자식 hook 은 _OnAfterDespawn.
+        /// 디스폰 직후 엔티티의 키를 초기화한다. 자식 hook 은 OnDespawnEntity.
         /// </summary>
         // ------------------------------------------------------------
-        protected sealed override void OnAfterDespawn(TEntity despawnable)
+        protected sealed override void OnDespawnObject(TEntity despawnable)
         {
-            base.OnAfterDespawn(despawnable);
+            base.OnDespawnObject(despawnable);
 
-            _OnAfterDespawn(despawnable);
+            OnDespawnEntity(despawnable);
 
             despawnable.ClearKey();
         }
@@ -114,7 +114,7 @@ namespace inonego.Xeri.Game
         /// 디스폰 직후 자식 hook.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void _OnAfterDespawn(TEntity despawnable) {}
+        protected virtual void OnDespawnEntity(TEntity despawnable) {}
 
     #endregion
 

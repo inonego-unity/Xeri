@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : TEST_MonoEntitySpawnRegistry.cs
-수정일 : 2026-05-08
+파일명 : TEST_EntityViewBinder.cs
+수정일 : 2026-05-28
 
 # 설명
-MonoEntitySpawnRegistry 핵심 동작 테스트.
-EntitySpawnRegistry 와 Connect 후 자동 동기화·디스폰을 검증한다.
+EntityViewBinder 핵심 동작 테스트.
+EntitySpawnRegistry 와 Connect 후 자동 view 동기화·회수를 검증한다.
 Unity Test Runner (Play Mode) 에서 실행 — GameObject·Prefab 생성·소멸이 필요.
 
 # 테스트 구성
@@ -20,6 +20,7 @@ using UnityEngine.TestTools;
 
 using NUnit.Framework;
 
+using inonego.Xeri;
 using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri.TEST.Game._EntitySpawn
@@ -29,10 +30,10 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
     // ============================================================
     /// <summary>
-    /// MonoEntitySpawnRegistry 핵심 기능 테스트.
+    /// EntityViewBinder 핵심 기능 테스트.
     /// </summary>
     // ============================================================
-    public class TEST_MonoEntitySpawnRegistry
+    public class TEST_EntityViewBinder
     {
 
     #region 헬퍼
@@ -42,7 +43,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         /// HP_I 를 주입받는 테스트 엔티티.
         /// </summary>
         // ------------------------------------------------------------
-        private class TestEntity : Entity
+        private class TestEntity : EntityBase
         {
             private readonly HP_I       hp    = new HP_I { MaxValue = 100 };
             private readonly Value<int> group = new Value<int>();
@@ -55,10 +56,10 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 테스트용 모노 엔티티.
+        /// 테스트용 엔티티 view.
         /// </summary>
         // ------------------------------------------------------------
-        private class TestMonoEntity : MonoEntity<TestEntity> {}
+        private class TestEntityView : EntityViewBase<TestEntity> {}
 
         // ------------------------------------------------------------
         /// <summary>
@@ -82,32 +83,21 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
         // ------------------------------------------------------------
         /// <summary>
-        /// PrefabGameObjectProvider 를 주입받는 테스트 모노 레지스트리.
-        /// </summary>
-        // ------------------------------------------------------------
-        private class TestMonoRegistry : MonoEntitySpawnRegistry<TestMonoEntity, TestEntity>
-        {
-            public TestMonoRegistry(IGameObjectProvider provider) : base(provider) {}
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// 코드로 prefab 대용 GameObject 를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        private (TestMonoRegistry mono, TestEntityRegistry entity) CreateRegistries()
+        private (EntityViewBinder<TestEntityView, TestEntity> view, TestEntityRegistry entity) CreateRegistries()
         {
             prefab = new GameObject("TestPrefab");
-            prefab.AddComponent<TestMonoEntity>();
+            prefab.AddComponent<TestEntityView>();
             prefab.SetActive(false);
 
-            var provider = new PrefabGameObjectProvider();
-            provider.Prefab = prefab;
+            var provider = new PrefabGameObjectProvider(prefab, null);
+            var factory  = new EntityViewFactory<TestEntityView, TestEntity>(provider);
+            var view     = new EntityViewBinder<TestEntityView, TestEntity>(factory);
+            var entity   = new TestEntityRegistry();
 
-            var mono   = new TestMonoRegistry(provider);
-            var entity = new TestEntityRegistry();
-
-            return (mono, entity);
+            return (view, entity);
         }
 
     #endregion
@@ -137,18 +127,18 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
     #region C-1: Connect 시 기존 엔티티 동기화
 
         [UnityTest]
-        public IEnumerator TEST_MonoEntitySpawnRegistry_Connect_기존_엔티티_자동_스폰()
+        public IEnumerator TEST_EntityViewBinder_Connect_기존_엔티티_자동_view_생성()
         {
-            var (mono, entity) = CreateRegistries();
+            var (view, entity) = CreateRegistries();
 
             entity.TrySpawn(out _);
             entity.TrySpawn(out _);
 
-            mono.Connect(entity);
+            view.Connect(entity);
 
-            Assert.AreEqual(2, mono.Spawned.Count);
+            Assert.AreEqual(2, view.Views.Count);
 
-            mono.Disconnect();
+            view.Disconnect();
 
             yield return null;
         }
@@ -158,19 +148,19 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
     #region C-2: Disconnect 시 일괄 디스폰
 
         [UnityTest]
-        public IEnumerator TEST_MonoEntitySpawnRegistry_Disconnect_DespawnAll()
+        public IEnumerator TEST_EntityViewBinder_Disconnect_ReleaseAll()
         {
-            var (mono, entity) = CreateRegistries();
+            var (view, entity) = CreateRegistries();
 
-            mono.Connect(entity);
+            view.Connect(entity);
             entity.TrySpawn(out _);
             entity.TrySpawn(out _);
 
-            Assert.AreEqual(2, mono.Spawned.Count);
+            Assert.AreEqual(2, view.Views.Count);
 
-            mono.Disconnect();
+            view.Disconnect();
 
-            Assert.AreEqual(0, mono.Spawned.Count);
+            Assert.AreEqual(0, view.Views.Count);
 
             yield return null;
         }
@@ -180,18 +170,18 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
     #region S-1: 엔티티 스폰 시 모노 엔티티 자동 스폰
 
         [UnityTest]
-        public IEnumerator TEST_MonoEntitySpawnRegistry_엔티티_스폰_시_모노엔티티_자동_스폰()
+        public IEnumerator TEST_EntityViewBinder_엔티티_스폰_시_view_자동_생성()
         {
-            var (mono, entity) = CreateRegistries();
+            var (view, entity) = CreateRegistries();
 
-            mono.Connect(entity);
+            view.Connect(entity);
 
             entity.TrySpawn(out var spawned);
 
-            Assert.AreEqual(1, mono.Spawned.Count);
-            Assert.IsTrue(mono.Spawned.ContainsKey(spawned.Key));
+            Assert.AreEqual(1, view.Views.Count);
+            Assert.IsTrue(view.Views.ContainsKey(spawned.Key));
 
-            mono.Disconnect();
+            view.Disconnect();
 
             yield return null;
         }
@@ -201,21 +191,21 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
     #region S-2: 엔티티 디스폰 시 모노 엔티티 자동 디스폰
 
         [UnityTest]
-        public IEnumerator TEST_MonoEntitySpawnRegistry_엔티티_디스폰_시_모노엔티티_자동_디스폰()
+        public IEnumerator TEST_EntityViewBinder_엔티티_디스폰_시_view_자동_회수()
         {
-            var (mono, entity) = CreateRegistries();
+            var (view, entity) = CreateRegistries();
 
-            mono.Connect(entity);
+            view.Connect(entity);
 
             entity.TrySpawn(out var spawned);
-            Assert.AreEqual(1, mono.Spawned.Count);
+            Assert.AreEqual(1, view.Views.Count);
 
             spawned.Damage(100);
-            // HP=0 → 자동 디스폰 → mono 도 자동 디스폰
+            // HP=0 → 자동 디스폰 → view 도 자동 회수
 
-            Assert.AreEqual(0, mono.Spawned.Count);
+            Assert.AreEqual(0, view.Views.Count);
 
-            mono.Disconnect();
+            view.Disconnect();
 
             yield return null;
         }
@@ -225,21 +215,21 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
     #region R-1: ReSpawnAll 재스폰
 
         [UnityTest]
-        public IEnumerator TEST_MonoEntitySpawnRegistry_ReSpawnAll_동일_엔티티_재대응()
+        public IEnumerator TEST_EntityViewBinder_ReSpawnAll_동일_엔티티_재대응()
         {
-            var (mono, entity) = CreateRegistries();
+            var (view, entity) = CreateRegistries();
 
-            mono.Connect(entity);
+            view.Connect(entity);
             entity.TrySpawn(out _);
             entity.TrySpawn(out _);
 
-            Assert.AreEqual(2, mono.Spawned.Count);
+            Assert.AreEqual(2, view.Views.Count);
 
-            mono.ReSpawnAll();
+            view.ReSpawnAll();
 
-            Assert.AreEqual(2, mono.Spawned.Count);
+            Assert.AreEqual(2, view.Views.Count);
 
-            mono.Disconnect();
+            view.Disconnect();
 
             yield return null;
         }

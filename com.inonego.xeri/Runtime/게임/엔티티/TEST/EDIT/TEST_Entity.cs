@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Entity.cs
-수정일 : 2026-05-08
+수정일 : 2026-05-28
 
 # 설명
-Entity 추상 클래스 유닛 테스트.
+EntityBase 추상 클래스 유닛 테스트.
 TestEntity / TestRegistry 콘크리트를 파일 내부에 정의해 추상 동작을 검증한다.
 Unity Test Runner (Edit Mode) 에서 실행한다.
 
@@ -17,6 +17,7 @@ using System;
 
 using NUnit.Framework;
 
+using inonego.Xeri;
 using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri.TEST.Game._Entity
@@ -26,7 +27,7 @@ namespace inonego.Xeri.TEST.Game._Entity
 
     // ============================================================
     /// <summary>
-    /// Entity 핵심 기능 테스트.
+    /// EntityBase 핵심 기능 테스트.
     /// </summary>
     // ============================================================
     public class TEST_Entity
@@ -39,7 +40,7 @@ namespace inonego.Xeri.TEST.Game._Entity
         /// HP_I 를 주입받아 int 데미지/힐을 적용 가능한 테스트 엔티티.
         /// </summary>
         // ------------------------------------------------------------
-        private class TestEntity : Entity
+        private class TestEntity : EntityBase
         {
             private readonly HP_I       hp    = new HP_I { MaxValue = 100 };
             private readonly Value<int> group = new Value<int>();
@@ -54,7 +55,7 @@ namespace inonego.Xeri.TEST.Game._Entity
             public Value<int> InternalGroup => group;
 
             // 자식이 자기 데이터(HP·Group) 깊은 복제 책임 — 베이스는 키·스폰만 처리
-            public override void CloneFrom(Entity source)
+            public override void CloneFrom(EntityBase source)
             {
                 base.CloneFrom(source);
 

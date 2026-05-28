@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SpawnRegistry.cs
-수정일 : 2026-05-07
+수정일 : 2026-05-28
 
 # 설명
 스폰 레지스트리 베이스·구현체와 스폰된 객체 사전, 디스폰 확장 메서드 정의.
@@ -166,28 +166,28 @@ namespace inonego.Xeri.Game
         /// 자식 클래스에서 스폰 직전에 추가 작업을 수행하기 위한 훅.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void OnBeforeSpawn(T spawnable) {}
+        protected virtual void OnPreSpawnObject(T spawnable) {}
 
         // ------------------------------------------------------------
         /// <summary>
         /// 자식 클래스에서 스폰 직후에 추가 작업을 수행하기 위한 훅.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void OnAfterSpawn(T spawnable) {}
+        protected virtual void OnSpawnObject(T spawnable) {}
 
         // ------------------------------------------------------------
         /// <summary>
         /// 자식 클래스에서 디스폰 직전에 추가 작업을 수행하기 위한 훅.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void OnBeforeDespawn(T despawnable) {}
+        protected virtual void OnPreDespawnObject(T despawnable) {}
 
         // ------------------------------------------------------------
         /// <summary>
         /// 자식 클래스에서 디스폰 직후에 추가 작업을 수행하기 위한 훅.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void OnAfterDespawn(T despawnable) {}
+        protected virtual void OnDespawnObject(T despawnable) {}
 
     #endregion
 
@@ -226,8 +226,8 @@ namespace inonego.Xeri.Game
         {
             try
             {
-                OnBeforeSpawn(spawnable);
-                spawnable.OnBeforeSpawn();
+                OnPreSpawnObject(spawnable);
+                spawnable.OnPreSpawn();
 
                 if (initAction != null)
                 {
@@ -259,8 +259,8 @@ namespace inonego.Xeri.Game
 
             spawned.Add(spawnable.Key, spawnable);
 
-            OnAfterSpawn(spawnable);
-            spawnable.OnAfterSpawn();
+            OnSpawnObject(spawnable);
+            spawnable.OnSpawn();
         }
 
     #endregion
@@ -306,8 +306,8 @@ namespace inonego.Xeri.Game
         // ----------------------------------------------------------------------
         private void DespawnInternal(T despawnable, bool removeFromDictionary = true)
         {
-            despawnable.OnBeforeDespawn();
-            OnBeforeDespawn(despawnable);
+            despawnable.OnPreDespawn();
+            OnPreDespawnObject(despawnable);
 
             if (removeFromDictionary)
             {
@@ -320,8 +320,8 @@ namespace inonego.Xeri.Game
             despawnable.IsSpawned = false;
             despawnable.DespawnFromRegistry = null;
 
-            despawnable.OnAfterDespawn();
-            OnAfterDespawn(despawnable);
+            despawnable.OnDespawn();
+            OnDespawnObject(despawnable);
         }
 
         // ------------------------------------------------------------

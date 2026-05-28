@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SpawnRegistry.cs
-수정일 : 2026-05-08
+수정일 : 2026-05-28
 
 # 설명
 SpawnRegistryBase / SpawnRegistry 핵심 동작 테스트.
@@ -66,10 +66,10 @@ namespace inonego.Xeri.TEST.Game._Spawn
                 HasKey = false;
             }
 
-            public void OnBeforeSpawn()   {}
-            public void OnAfterSpawn()    {}
-            public void OnBeforeDespawn() {}
-            public void OnAfterDespawn()  {}
+            public void OnPreSpawn()   {}
+            public void OnSpawn()      {}
+            public void OnPreDespawn() {}
+            public void OnDespawn()    {}
         }
 
         // ------------------------------------------------------------

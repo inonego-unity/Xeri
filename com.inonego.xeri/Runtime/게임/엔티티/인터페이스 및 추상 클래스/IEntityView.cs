@@ -1,48 +1,48 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : IMonoEntity.cs
-수정일 : 2026-05-07
+파일명 : IEntityView.cs
+수정일 : 2026-05-28
 
 # 설명
-MonoBehaviour 와 엔티티를 연결하는 인터페이스 모음.
+Entity 모델을 Unity view로 표현하기 위한 인터페이스 모음.
 
-- IReadOnlyMonoEntity : 외부 노출용. 엔티티(IReadOnlyEntity)·IsSpawned·Key 를 읽기 전용으로 노출.
-- IMonoEntity        : 시스템 내부용. SpawnRegistry 등록·IEntity 노출.
+- IReadOnlyEntityView : 외부 노출용. Entity·IsSpawned·Key를 읽기 전용으로 노출한다.
+- IEntityView         : 시스템 내부용. SpawnRegistry 등록·IEntity 노출을 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 namespace inonego.Xeri.Game
 {
     // ============================================================
     /// <summary>
-    /// MonoEntity 읽기 전용 뷰 인터페이스.
+    /// Entity view 읽기 전용 인터페이스.
     /// </summary>
     // ============================================================
-    public interface IReadOnlyMonoEntity : IKeyable<ulong>
+    public interface IReadOnlyEntityView : IKeyable<ulong>
     {
         // ------------------------------------------------------------
         /// <summary>
-        /// 대응되는 논리 엔티티(읽기 전용).
+        /// 대응되는 논리 엔티티.
         /// </summary>
         // ------------------------------------------------------------
         IReadOnlyEntity Entity { get; }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 스폰되어 있는지 여부.
+        /// 현재 view가 스폰되어 있는지 여부.
         /// </summary>
         // ------------------------------------------------------------
         bool IsSpawned { get; }
     }
 
-    // ==========================================================================
+    // ============================================================
     /// <summary>
-    /// 시스템 내부 MonoEntity 인터페이스. SpawnRegistry 등록 + IEntity 노출.
+    /// Entity view 시스템 내부 인터페이스.
     /// </summary>
-    // ==========================================================================
-    public interface IMonoEntity : IReadOnlyMonoEntity, ISpawnRegistryObject<ulong>
+    // ============================================================
+    public interface IEntityView : IReadOnlyEntityView, ISpawnRegistryObject<ulong>
     {
         // ------------------------------------------------------------
         /// <summary>
-        /// 대응되는 논리 엔티티(시스템 내부 mutable 노출).
+        /// 대응되는 논리 엔티티.
         /// </summary>
         // ------------------------------------------------------------
         new IEntity Entity { get; }

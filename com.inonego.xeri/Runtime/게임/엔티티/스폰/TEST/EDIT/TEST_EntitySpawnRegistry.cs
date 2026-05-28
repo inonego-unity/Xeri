@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_EntitySpawnRegistry.cs
-수정일 : 2026-05-08
+수정일 : 2026-05-28
 
 # 설명
 EntitySpawnRegistry 핵심 동작 테스트.
@@ -14,6 +14,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 
 using NUnit.Framework;
 
+using inonego.Xeri;
 using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri.TEST.Game._EntitySpawn
@@ -36,7 +37,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         /// HP_I 를 주입받는 테스트 엔티티.
         /// </summary>
         // ------------------------------------------------------------
-        private class TestEntity : Entity
+        private class TestEntity : EntityBase
         {
             private readonly HP_I       hp    = new HP_I { MaxValue = 100 };
             private readonly Value<int> group = new Value<int>();

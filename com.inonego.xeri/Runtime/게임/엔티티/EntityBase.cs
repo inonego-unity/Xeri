@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : Entity.cs
-수정일 : 2026-05-07
+파일명 : EntityBase.cs
+수정일 : 2026-05-28
 
 # 설명
 엔티티 추상 베이스 클래스. SpawnRegistry 등록 가능한 키·스폰 상태를 보유한다.
@@ -22,7 +22,7 @@ namespace inonego.Xeri.Game
     /// </summary>
     // ============================================================
     [Serializable]
-    public abstract class Entity : IEntity, IDeepCloneableFrom<Entity>
+    public abstract class EntityBase : IEntity, IDeepCloneableFrom<EntityBase>
     {
 
     #region 키 설정
@@ -173,7 +173,7 @@ namespace inonego.Xeri.Game
         /// 기본 생성자.
         /// </summary>
         // ------------------------------------------------------------
-        protected Entity() {}
+        protected EntityBase() : base() {}
 
     #endregion
 
@@ -206,14 +206,14 @@ namespace inonego.Xeri.Game
         /// 스폰 직전 훅. 자식이 override 가능.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void OnBeforeSpawn() {}
+        public virtual void OnPreSpawn() {}
 
-        void ISpawnable.OnAfterSpawn()
+        void ISpawnable.OnSpawn()
         {
             InitHP();
         }
 
-        void IDespawnable.OnBeforeDespawn()
+        void IDespawnable.OnPreDespawn()
         {
             ReleaseHP();
         }
@@ -223,7 +223,7 @@ namespace inonego.Xeri.Game
         /// 디스폰 직후 훅. 자식이 override 가능.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void OnAfterDespawn() {}
+        public virtual void OnDespawn() {}
 
     #endregion
 
@@ -234,11 +234,11 @@ namespace inonego.Xeri.Game
         /// source 의 키·스폰 상태를 this 로 복사한다. HP·Group 의 깊은 복제는 자식 책임.
         /// </summary>
         // ----------------------------------------------------------------------
-        public virtual void CloneFrom(Entity source)
+        public virtual void CloneFrom(EntityBase source)
         {
             if (source == null)
             {
-                throw new ArgumentNullException("Entity.CloneFrom()의 인자가 null입니다.");
+                throw new ArgumentNullException("EntityBase.CloneFrom()의 인자가 null입니다.");
             }
 
             key       = source.key;
