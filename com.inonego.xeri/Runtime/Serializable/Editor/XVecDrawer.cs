@@ -10,6 +10,7 @@ Integer·Float 축은 레이블 드래그로 값 조정이 가능하다.
 
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri

@@ -11,6 +11,7 @@ XeriWindowTraySource의 minimized window projection과 Tray 표시 순서를 검
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Window;

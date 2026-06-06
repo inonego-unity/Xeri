@@ -12,6 +12,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
  U: 유틸리티 (CloneFrom / CalculateApplyAmount)
 ========================================================================= BLOCK_HEADER_END */
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.Game;

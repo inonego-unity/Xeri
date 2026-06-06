@@ -17,6 +17,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 
 using System;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Utility._Paging

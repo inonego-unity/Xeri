@@ -7,6 +7,7 @@ Xeri 커스텀 윈도우 controller와 저장 record를 관리하는 registry.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using inonego.Xeri;

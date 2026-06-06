@@ -15,6 +15,7 @@ MValue<T> 와 4 개 구체 Modifier(BooleanModifier / NumericFModifier / Numeric
 
 using System;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Serializable._Value

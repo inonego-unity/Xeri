@@ -15,6 +15,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 
 using System;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri;

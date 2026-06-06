@@ -7,6 +7,8 @@ BootStrapper 모듈 목록을 순차 실행하는 런타임 헬퍼.
 실제 MonoBehaviour 생명주기와 분리하여 모듈 실행 규칙을 단위 테스트할 수 있게 한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;

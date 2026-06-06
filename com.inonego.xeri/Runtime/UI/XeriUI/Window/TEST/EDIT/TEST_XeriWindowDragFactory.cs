@@ -10,11 +10,11 @@ XeriWindowDragFactory titlebar drag binding 테스트.
  T: Titlebar 상호작용
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-using UnityEditor;
-
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Window;

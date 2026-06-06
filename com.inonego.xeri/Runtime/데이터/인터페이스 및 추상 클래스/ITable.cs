@@ -6,6 +6,8 @@
 읽기/쓰기 데이터 테이블 인터페이스.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri

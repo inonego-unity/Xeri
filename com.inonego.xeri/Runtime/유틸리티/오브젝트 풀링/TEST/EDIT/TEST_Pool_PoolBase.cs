@@ -18,9 +18,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-using NUnit.Framework;
-
 using UnityEngine;
+
+using NUnit;
+using NUnit.Framework;
 
 namespace inonego.Xeri.TEST._Pool
 {

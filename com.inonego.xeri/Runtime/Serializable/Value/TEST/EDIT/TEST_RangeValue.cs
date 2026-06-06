@@ -15,6 +15,7 @@ using System;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Serializable._Value

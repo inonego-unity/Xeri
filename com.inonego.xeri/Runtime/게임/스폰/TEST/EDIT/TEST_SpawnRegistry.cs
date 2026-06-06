@@ -17,6 +17,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Game._Spawn

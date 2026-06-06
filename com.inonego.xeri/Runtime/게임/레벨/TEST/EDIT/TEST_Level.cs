@@ -12,9 +12,10 @@ Level 및 LevelxEXP 클래스에 대한 Edit Mode 테스트.
  X: 예외 처리 (음수 Max/음수 EXP/null 테이블/음수 테이블/빈 테이블/0포함 테이블)
 ========================================================================= BLOCK_HEADER_END */
 
-using NUnit.Framework;
-
 using UnityEngine;
+
+using NUnit;
+using NUnit.Framework;
 
 using inonego.Xeri.Game;
 

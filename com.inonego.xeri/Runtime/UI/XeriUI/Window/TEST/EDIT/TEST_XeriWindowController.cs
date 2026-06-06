@@ -13,10 +13,13 @@ Xeri 커스텀 윈도우 controller와 core 옵션 테스트.
  E: 이벤트
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri;

@@ -7,6 +7,8 @@ BootStrapper 실행에 필요한 씬 인덱스와 초기화 모듈 에셋 목록
 에디터에서는 Assets/Resources/BootstrapperSettings.asset 이 없으면 자동 생성한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 

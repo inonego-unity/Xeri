@@ -6,6 +6,7 @@
 UGUI PointerEventData 버튼 값으로 드래그 시작 가능 여부를 판단한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace inonego.Xeri.UI.DragDrop

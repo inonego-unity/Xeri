@@ -13,6 +13,7 @@ push 모델이라 ILocalizedUI 씬 순회와 독립적으로 동작 (둘 다 Lan
 
 using System;
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri.Localization

@@ -10,10 +10,13 @@ Runtime UI Toolkit DragDrop Manipulator 기본 연결 테스트.
  R: UITK resolver 등록
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.DragDrop;

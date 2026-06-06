@@ -14,6 +14,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Tray;

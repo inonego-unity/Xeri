@@ -7,7 +7,7 @@ Unity toolbar Tray 주입 실패 시 공통 XeriTrayPanel을 표시하는 fallba
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEditor;
-
+using UnityEngine;
 using UnityEngine.UIElements;
 
 using inonego.Xeri.UI.Tray;

@@ -12,6 +12,7 @@ Xeri 윈도우 record와 handle을 공통 Tray entry로 변환하는 mapper/sour
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Tray;

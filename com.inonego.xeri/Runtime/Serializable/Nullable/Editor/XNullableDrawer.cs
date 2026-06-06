@@ -10,6 +10,7 @@ Toggle이 체크 해제되면 Value field를 비활성화한다.
 
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri

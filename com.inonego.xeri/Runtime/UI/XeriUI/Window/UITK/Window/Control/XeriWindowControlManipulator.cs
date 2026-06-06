@@ -6,6 +6,7 @@
 XeriWindowPanel control button 입력을 controller 명령으로 연결한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri.UI.Window

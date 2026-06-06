@@ -6,6 +6,7 @@
 Tray reorder preview 애니메이션을 사용하지 않는 구현이다.
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri.UI.Tray

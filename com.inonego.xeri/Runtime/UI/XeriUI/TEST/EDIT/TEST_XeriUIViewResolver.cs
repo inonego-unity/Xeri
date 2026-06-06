@@ -10,8 +10,10 @@
  S: UI session 전달
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI;

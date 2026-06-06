@@ -10,10 +10,12 @@ Core DropZone 드롭 생명주기와 드롭 규칙 테스트.
  M: 매칭 조건 (CanDrop/Draggable.CanDrop/IDropRule)
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.DragDrop;

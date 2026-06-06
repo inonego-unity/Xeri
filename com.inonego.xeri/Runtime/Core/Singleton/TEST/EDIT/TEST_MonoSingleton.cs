@@ -22,6 +22,7 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Core._Singleton

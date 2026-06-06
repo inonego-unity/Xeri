@@ -6,6 +6,7 @@
 UGUI EventSystem 입력을 Core Draggable에 연결하는 드래그 가능 UI 컴포넌트.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;

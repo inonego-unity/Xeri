@@ -7,6 +7,7 @@ EditorWindow 내부에 XeriWindowCanvas를 배치하는 기본 Editor host.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri.UI.Window.Editor

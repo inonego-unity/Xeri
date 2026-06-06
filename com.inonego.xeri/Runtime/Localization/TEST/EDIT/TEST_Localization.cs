@@ -15,6 +15,7 @@ Localization Singleton + 정적 facade + InMemoryLocaleStorage 주입 단위 테
 
 using System;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST._Localization

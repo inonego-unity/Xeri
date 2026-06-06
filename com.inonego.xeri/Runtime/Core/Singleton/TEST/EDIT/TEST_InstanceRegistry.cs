@@ -15,6 +15,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Core._Singleton

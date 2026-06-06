@@ -11,17 +11,16 @@ Kinematic→Dynamic 전환 후 착지(OnLand) → 점프 → 이탈(OnLeave) 흐
  E: 기본 기능 (착지/이탈 이벤트 통합 흐름)
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
-using NUnit.Framework;
-
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
+using NUnit;
+using NUnit.Framework;
 
 using inonego.Xeri.Game.Controller;
 

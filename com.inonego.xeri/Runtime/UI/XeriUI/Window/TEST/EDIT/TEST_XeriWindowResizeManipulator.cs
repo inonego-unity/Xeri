@@ -11,6 +11,7 @@ XeriWindowResizeManipulator 확장 지점 테스트.
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Window;

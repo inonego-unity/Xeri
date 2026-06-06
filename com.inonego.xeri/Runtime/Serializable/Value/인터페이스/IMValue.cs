@@ -9,6 +9,8 @@ MValue(수정자 적용 Value) 인터페이스 모음.
 - IMValue<T>        : 시스템 내부용. 수정자 추가·제거 메서드 제공.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri.Serializable

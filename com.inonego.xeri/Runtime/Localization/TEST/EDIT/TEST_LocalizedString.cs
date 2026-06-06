@@ -12,6 +12,7 @@ LocalizedString 데이터 구조 단위 테스트.
 
 using System;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST._LocalizedString

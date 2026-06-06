@@ -11,10 +11,12 @@ Core Draggable 드래그 생명주기 테스트.
  I: 입력 ID 매칭
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.DragDrop;

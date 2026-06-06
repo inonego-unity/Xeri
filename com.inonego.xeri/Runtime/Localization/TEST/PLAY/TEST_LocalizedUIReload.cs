@@ -12,12 +12,14 @@ LangCode 변경 시 ILocalizedUI 구현 MonoBehaviour 의 ReloadLocalizedUI 자�
 PlayMode 필요 — 씬에 GameObject 부착 + Awake/OnEnable 이 정상 호출되어야 ILocalizedUI 가 잡힌다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.TestTools;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST._LocalizedUI
@@ -71,7 +73,7 @@ namespace inonego.Xeri.TEST._LocalizedUI
         {
             foreach (var go in spawned)
             {
-                if (go != null) Object.DestroyImmediate(go);
+                if (go != null) UnityEngine.Object.DestroyImmediate(go);
             }
             spawned.Clear();
 

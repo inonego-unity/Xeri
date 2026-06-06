@@ -14,6 +14,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
  V: 이벤트 (OnStateChanged)
 ========================================================================= BLOCK_HEADER_END */
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Game._State

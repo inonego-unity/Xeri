@@ -6,6 +6,8 @@
 UITK pointer 입력을 Tray entry reorder drag로 변환한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;

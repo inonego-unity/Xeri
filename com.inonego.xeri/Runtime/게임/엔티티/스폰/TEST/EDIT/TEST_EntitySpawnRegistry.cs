@@ -12,6 +12,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
  H: HP 연동 (HP 사망 자동 디스폰)
 ========================================================================= BLOCK_HEADER_END */
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri;

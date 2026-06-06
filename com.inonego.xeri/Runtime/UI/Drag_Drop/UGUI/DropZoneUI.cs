@@ -6,6 +6,7 @@
 UGUI 오브젝트를 Core DropZone으로 등록하는 드롭 가능 UI 컴포넌트.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 

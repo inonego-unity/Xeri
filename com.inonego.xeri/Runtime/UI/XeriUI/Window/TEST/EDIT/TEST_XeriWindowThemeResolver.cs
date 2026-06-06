@@ -9,10 +9,12 @@ Xeri 커스텀 윈도우 theme resolver 테스트.
  R: Theme 조회
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Reflection;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Window;

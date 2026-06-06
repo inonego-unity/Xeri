@@ -9,7 +9,7 @@ m_Script 필드는 제외하고 표시 가능한 직계 프로퍼티를 순회�
 
 using UnityEditor;
 using UnityEditor.UIElements;
-
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri

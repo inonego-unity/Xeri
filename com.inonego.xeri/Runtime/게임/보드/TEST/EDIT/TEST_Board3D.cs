@@ -12,9 +12,10 @@ Board3D 시스템의 핵심 기능 테스트. Edit Mode.
 
 using System;
 
-using NUnit.Framework;
-
 using UnityEngine;
+
+using NUnit;
+using NUnit.Framework;
 
 using inonego.Xeri.Game;
 

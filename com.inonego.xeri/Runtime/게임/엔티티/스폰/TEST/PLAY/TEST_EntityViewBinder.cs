@@ -13,11 +13,13 @@ Unity Test Runner (Play Mode) 에서 실행 — GameObject·Prefab 생성·소�
  R: ReSpawnAll (재스폰)
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;
 using UnityEngine.TestTools;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri;
@@ -116,7 +118,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         {
             if (prefab != null)
             {
-                Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(prefab);
 
                 prefab = null;
             }

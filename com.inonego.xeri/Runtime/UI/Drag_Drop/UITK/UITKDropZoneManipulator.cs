@@ -6,9 +6,11 @@
 UI Toolkit VisualElement 를 Core DropZone으로 등록하는 Manipulator.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri.UI.DragDrop

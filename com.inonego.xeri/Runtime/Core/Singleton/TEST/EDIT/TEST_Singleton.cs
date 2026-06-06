@@ -15,6 +15,7 @@ Singleton<T> 의 static 레지스트리는 T 별로 영속 상태이다.
 테스트 간 격리를 위해 [SetUp] 에서 Clear() 를 호출한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Core._Singleton

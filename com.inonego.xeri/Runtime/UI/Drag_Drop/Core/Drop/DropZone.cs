@@ -6,6 +6,7 @@
 UI 시스템에 독립적인 드롭존 상태 객체.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 

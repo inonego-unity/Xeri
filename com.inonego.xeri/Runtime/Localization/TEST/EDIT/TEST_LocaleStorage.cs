@@ -9,6 +9,7 @@ ILocaleStorage / InMemoryLocaleStorage 단위 테스트.
  S: Save/Load 왕복
 ========================================================================= BLOCK_HEADER_END */
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST._LocaleStorage

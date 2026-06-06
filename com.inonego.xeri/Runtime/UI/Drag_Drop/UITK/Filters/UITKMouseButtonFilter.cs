@@ -6,6 +6,7 @@
 UI Toolkit PointerDownEvent 버튼 값으로 드래그 시작 가능 여부를 판단한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri.UI.DragDrop

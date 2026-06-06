@@ -18,6 +18,7 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Serializable._XPriorityQueue

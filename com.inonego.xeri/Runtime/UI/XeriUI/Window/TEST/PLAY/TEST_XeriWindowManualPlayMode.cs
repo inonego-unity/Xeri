@@ -17,13 +17,11 @@ using System;
 using System.Collections;
 
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
-
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Tray;

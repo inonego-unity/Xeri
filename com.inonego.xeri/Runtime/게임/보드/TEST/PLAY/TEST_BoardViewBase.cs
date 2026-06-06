@@ -14,14 +14,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-using NUnit.Framework;
-
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
+using NUnit;
+using NUnit.Framework;
 
 using inonego.Xeri;
 using inonego.Xeri.Game;

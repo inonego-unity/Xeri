@@ -12,6 +12,7 @@ DraggableUI Play Mode 통합 테스트.
  P: UGUI policy
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;
@@ -19,6 +20,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.DragDrop;
@@ -90,9 +92,9 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [TearDown]
         public void TearDown()
         {
-            if (dragGO        != null) Object.DestroyImmediate(dragGO);
-            if (canvasGO      != null) Object.DestroyImmediate(canvasGO);
-            if (eventSystemGO != null) Object.DestroyImmediate(eventSystemGO);
+            if (dragGO        != null) UnityEngine.Object.DestroyImmediate(dragGO);
+            if (canvasGO      != null) UnityEngine.Object.DestroyImmediate(canvasGO);
+            if (eventSystemGO != null) UnityEngine.Object.DestroyImmediate(eventSystemGO);
         }
 
     #endregion

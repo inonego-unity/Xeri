@@ -6,9 +6,11 @@
 UGUI EventSystem raycast 결과로 현재 드롭존을 찾는다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace inonego.Xeri.UI.DragDrop

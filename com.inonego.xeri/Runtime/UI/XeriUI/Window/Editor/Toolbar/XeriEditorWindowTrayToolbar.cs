@@ -6,6 +6,7 @@
 EditorWindow 내부에서 공통 XeriTrayPanel을 배치하는 toolbar view.
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
 using inonego.Xeri.UI.Tray;

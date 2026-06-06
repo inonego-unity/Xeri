@@ -11,10 +11,12 @@ DragDropCoordinator 활성 드래그 추적과 드롭 라우팅 테스트.
  C: 취소 처리
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.DragDrop;

@@ -14,6 +14,7 @@ XeriWindowCanvas 기본 host 동작 테스트.
 using UnityEngine;
 using UnityEngine.UIElements;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI;

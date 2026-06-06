@@ -11,8 +11,10 @@ XeriWindowPanel UITK view 테스트.
  S: State class 반영
 ========================================================================= BLOCK_HEADER_END */
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Window;

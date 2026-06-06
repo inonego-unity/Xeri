@@ -10,6 +10,7 @@ IGameObjectProvider 인터페이스 필드용 UI Toolkit PropertyDrawer.
 
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace inonego.Xeri

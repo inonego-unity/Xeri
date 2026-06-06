@@ -6,6 +6,8 @@
 Tray reorder 입력 계층이 사용하는 최소 view 계약을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;

@@ -25,6 +25,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+using NUnit;
 using NUnit.Framework;
 
 namespace inonego.Xeri.TEST.Serializable._Value

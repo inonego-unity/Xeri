@@ -11,6 +11,7 @@ XeriWindowMaximizedDragCalculator 테스트.
 
 using UnityEngine;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego.Xeri.UI.Window;
