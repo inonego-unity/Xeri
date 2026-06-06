@@ -1,0 +1,85 @@
+/* Theme tokens shared by every Picker view stylesheet.
+ * Keep concrete colors, spacing, type, and fixed layout sizes here so a host can
+ * replace this file or override the same variables from a higher-level theme.
+ */
+:root {
+    /* Unity dark palette */
+    --xeri-picker-color-window: #2b2b2b;
+    --xeri-picker-color-panel: #323232;
+    --xeri-picker-color-panel-low: #242424;
+    --xeri-picker-color-panel-lower: #1f1f1f;
+    --xeri-picker-color-image-panel: #26282c;
+    --xeri-picker-color-control: #383838;
+    --xeri-picker-color-control-hover: #4b4b4b;
+    --xeri-picker-color-control-pressed: #272727;
+    --xeri-picker-color-border: #3f3f3f;
+    --xeri-picker-color-border-light: #4a4a4a;
+
+    /* Text */
+    --xeri-picker-color-text: #d6d6d6;
+    --xeri-picker-color-text-accent: #d8e6f2;
+    --xeri-picker-color-text-muted: #a5a5a5;
+    --xeri-picker-color-text-dim: #7e7e7e;
+
+    /* Accent tones */
+    --xeri-picker-color-accent: #365f86;
+    --xeri-picker-color-accent-hover: #4d7194;
+    --xeri-picker-color-accent-pressed: #294b69;
+    --xeri-picker-color-accent-border: #557595;
+    --xeri-picker-color-green: #3e694f;
+    --xeri-picker-color-green-hover: #507b60;
+    --xeri-picker-color-green-pressed: #2f503c;
+    --xeri-picker-color-green-border: #5c8265;
+    --xeri-picker-color-orange: #715c3c;
+    --xeri-picker-color-orange-hover: #826b48;
+    --xeri-picker-color-orange-pressed: #59482f;
+    --xeri-picker-color-orange-border: #8c744f;
+    --xeri-picker-color-gray-blue: #545962;
+    --xeri-picker-color-gray-blue-hover: #666b75;
+    --xeri-picker-color-gray-blue-border: #727986;
+
+    /* Table */
+    --xeri-picker-color-row-even: #202020;
+    --xeri-picker-color-row-odd: #252525;
+    --xeri-picker-color-row-hover: #2d2d2d;
+    --xeri-picker-color-row-selected: #356b9b;
+    --xeri-picker-color-header: #383838;
+
+    /* Spacing scale */
+    --xeri-picker-space-xxs: 2px;
+    --xeri-picker-space-xs: 3px;
+    --xeri-picker-space-sm: 6px;
+    --xeri-picker-space-md: 10px;
+    --xeri-picker-space-lg: 14px;
+    --xeri-picker-space-desc-right: 18px;
+
+    /* Font scale */
+    --xeri-picker-font-xs: 10px;
+    --xeri-picker-font-sm: 11px;
+    --xeri-picker-font-md: 12px;
+    --xeri-picker-font-lg: 16px;
+
+    /* Radius */
+    --xeri-picker-radius-sm: 3px;
+    --xeri-picker-radius-md: 4px;
+
+    /* Fixed layout sizes */
+    --xeri-picker-preview-height: 164px;
+    --xeri-picker-preview-row-height: 56px;
+    --xeri-picker-preview-image-size: 56px;
+    --xeri-picker-preview-desc-height: 62px;
+    --xeri-picker-toolbar-search-height: 22px;
+    --xeri-picker-toolbar-search-row-height: 24px;
+    --xeri-picker-filter-chip-height: 22px;
+    --xeri-picker-row-height: 30px;
+    --xeri-picker-table-image-size: 22px;
+    --xeri-picker-footer-height: 28px;
+    --xeri-picker-select-button-width: 54px;
+    --xeri-picker-select-button-height: 24px;
+    --xeri-picker-page-button-width: 38px;
+    --xeri-picker-page-label-width: 52px;
+    --xeri-picker-scrollbar-width: 14px;
+    --xeri-picker-scrollbar-edge-gap: 4px;
+    --xeri-picker-scrollbar-slider-margin: 4px;
+    --xeri-picker-scrollbar-thumb-width: 6px;
+}

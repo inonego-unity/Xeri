@@ -1,0 +1,36 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement name="picker-root" class="xeri-picker">
+        <ui:VisualElement name="preview-pane" class="xeri-picker__preview">
+            <ui:VisualElement class="xeri-picker__preview-row">
+                <ui:Image name="preview-image" class="xeri-picker__preview-image" />
+                <ui:VisualElement class="xeri-picker__preview-title-block">
+                    <ui:Label name="preview-name" class="xeri-picker__preview-name" />
+                    <ui:Label name="preview-sub-label" class="xeri-picker__preview-sub-label" />
+                </ui:VisualElement>
+                <ui:Button name="select-button" text="선택" class="xeri-picker__select-button" />
+            </ui:VisualElement>
+            <ui:ScrollView name="preview-desc-scroll" class="xeri-picker__preview-desc-scroll" mode="Vertical">
+                <ui:Label name="preview-desc" class="xeri-picker__preview-desc" />
+            </ui:ScrollView>
+            <ui:VisualElement name="preview-tags" class="xeri-picker__preview-tags" />
+        </ui:VisualElement>
+        <ui:VisualElement name="toolbar-pane" class="xeri-picker__toolbar">
+            <uie:ToolbarSearchField name="search-field" class="xeri-picker__search-field" />
+            <ui:VisualElement name="filter-chip-container" class="xeri-picker__filter-row" />
+        </ui:VisualElement>
+        <ui:VisualElement name="table-pane" class="xeri-picker__table-pane">
+            <ui:MultiColumnListView name="entry-table" class="xeri-picker__table" />
+            <ui:Label name="empty-label" text="비어있음" class="xeri-picker__empty-label" />
+        </ui:VisualElement>
+        <ui:VisualElement name="footer-pane" class="xeri-picker__footer">
+            <ui:Label name="count-label" class="xeri-picker__count-label" />
+            <ui:VisualElement class="xeri-picker__page-controls">
+                <ui:Button name="first-page-button" text="◀◀" class="xeri-picker__page-button" />
+                <ui:Button name="prev-page-button" text="◀" class="xeri-picker__page-button" />
+                <ui:Label name="page-label" class="xeri-picker__page-label" />
+                <ui:Button name="next-page-button" text="▶" class="xeri-picker__page-button" />
+                <ui:Button name="last-page-button" text="▶▶" class="xeri-picker__page-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
