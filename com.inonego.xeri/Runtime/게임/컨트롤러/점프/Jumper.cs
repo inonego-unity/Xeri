@@ -12,8 +12,6 @@ using System;
 
 using UnityEngine;
 
-using inonego.Xeri;
-
 namespace inonego.Xeri.Game.Controller
 {
     using Utility;
