@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowTraySource.cs
-수정일 : 2026-05-23
+수정일 : 2026-06-08
 
 # 설명
 Registry의 최소화된 Xeri 윈도우 목록을 공통 Tray entry 목록으로 공급한다.
@@ -91,14 +91,14 @@ namespace inonego.Xeri.UI.Window
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Tray entry payload의 handle로 윈도우를 normal 상태로 되돌린다.
+        /// Tray entry payload의 handle로 윈도우를 최소화 이전 표시 상태로 복구한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void ShowNormal(XeriTrayEntry entry)
+        public void Restore(XeriTrayEntry entry)
         {
             if (entry?.Payload is not XeriWindowHandle handle) return;
 
-            registry?.ShowNormal(handle);
+            registry?.Restore(handle);
         }
 
         // ------------------------------------------------------------

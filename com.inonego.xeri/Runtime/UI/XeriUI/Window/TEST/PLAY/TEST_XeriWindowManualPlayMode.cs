@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriWindowManualPlayMode.cs
-수정일 : 2026-05-23
+수정일 : 2026-06-09
 
 # 설명
 Xeri Window 시스템을 PlayMode 화면에서 직접 조작해 확인하는 수동 테스트.
@@ -24,6 +24,7 @@ using UnityEngine.UIElements;
 using NUnit;
 using NUnit.Framework;
 
+using inonego.Xeri.TEST.UI;
 using inonego.Xeri.UI.Tray;
 using inonego.Xeri.UI.Window;
 
@@ -40,11 +41,14 @@ namespace inonego.Xeri.TEST.UI._Window
     #region 필드
 
         private const string MANUAL_TEST_USS_PATH = "XeriUI/TEST/Window/TEST_XeriWindowManualPlayMode";
+        private const string MAIN_NORMAL_TITLE = "Main Window";
+        private const string SECOND_NORMAL_TITLE = "Second Window";
+        private const string MAIN_LONG_TITLE = "Main Window - Very Long Windows Style Title For Layout Check";
+        private const string SECOND_LONG_TITLE = "Second Window - Very Long Mac Style Title For Layout Check";
 
         private GameObject cameraGO = null;
         private GameObject documentGO = null;
         private PanelSettings panelSettings = null;
-        private ThemeStyleSheet themeStyleSheet = null;
         private XeriWindowCanvas canvas = null;
         private Label guideLabel = null;
         private XeriWindowPanel mainPanel = null;
@@ -55,10 +59,15 @@ namespace inonego.Xeri.TEST.UI._Window
         private XeriTrayController trayController = null;
         private XeriTrayPanel trayPanel = null;
         private VisualElement trayLayer = null;
+        private VisualElement optionBar = null;
         private VisualElement rootElement = null;
+        private Button longTitleButton = null;
+        private Button titleIconButton = null;
         private Texture2D mainIcon = null;
         private Texture2D secondIcon = null;
         private bool cancelNextClose = false;
+        private bool useLongTitle = false;
+        private bool showTitleIcon = false;
 
     #endregion
 
@@ -103,10 +112,7 @@ namespace inonego.Xeri.TEST.UI._Window
             panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             panelSettings.name = "TEST_XeriWindow_PanelSettings";
             panelSettings.scaleMode = PanelScaleMode.ConstantPixelSize;
-
-            themeStyleSheet = ScriptableObject.CreateInstance<ThemeStyleSheet>();
-            themeStyleSheet.name = "TEST_XeriWindow_ThemeStyleSheet";
-            panelSettings.themeStyleSheet = themeStyleSheet;
+            XeriUITKManualTestPanelSettings.ApplyDefaultRuntimeTheme(panelSettings);
 
             documentGO = new GameObject("TEST_XeriWindow_Document");
             var document = documentGO.AddComponent<UIDocument>();
@@ -134,7 +140,7 @@ namespace inonego.Xeri.TEST.UI._Window
             mainHandle = canvas.AddWindow
             (
                 "main",
-                "Main Window",
+                MAIN_NORMAL_TITLE,
                 CreateContent("Main content"),
                 new Vector2(180f, 150f),
                 new Vector2(340f, 220f)
@@ -152,7 +158,7 @@ namespace inonego.Xeri.TEST.UI._Window
             secondHandle = canvas.AddWindow
             (
                 "second",
-                "Second Window",
+                SECOND_NORMAL_TITLE,
                 CreateContent("Second content"),
                 new Vector2(440f, 260f),
                 new Vector2(300f, 180f)
@@ -166,6 +172,9 @@ namespace inonego.Xeri.TEST.UI._Window
                 new Color(0.30f, 0.80f, 0.38f, 1f),
                 "M"
             );
+
+            CreateOptionBar();
+            ApplyTitleOptions();
         }
 
         // ------------------------------------------------------------
@@ -187,6 +196,159 @@ namespace inonego.Xeri.TEST.UI._Window
             label.style.whiteSpace = WhiteSpace.Normal;
 
             return label;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 긴 제목과 title icon 표시를 즉시 바꿔 볼 수 있는 수동 확인 버튼을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CreateOptionBar()
+        {
+            optionBar = new VisualElement { name = "TEST_XeriWindow_OptionBar" };
+            optionBar.style.position = Position.Absolute;
+            optionBar.style.top = 72f;
+            optionBar.style.left = 0f;
+            optionBar.style.right = 0f;
+            optionBar.style.height = 32f;
+            optionBar.style.flexDirection = FlexDirection.Row;
+            optionBar.style.alignItems = Align.Center;
+            optionBar.style.justifyContent = Justify.Center;
+            optionBar.pickingMode = PickingMode.Position;
+
+            longTitleButton = CreateOptionButton();
+            titleIconButton = CreateOptionButton();
+
+            longTitleButton.clicked += ToggleLongTitle;
+            titleIconButton.clicked += ToggleTitleIcon;
+
+            optionBar.Add(longTitleButton);
+            optionBar.Add(titleIconButton);
+            rootElement.Add(optionBar);
+            optionBar.BringToFront();
+
+            RefreshOptionButtons();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 수동 확인 option button을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static Button CreateOptionButton()
+        {
+            var button = new Button();
+            button.style.height = 26f;
+            button.style.minWidth = 112f;
+            button.style.marginLeft = 4f;
+            button.style.marginRight = 4f;
+            button.style.paddingLeft = 10f;
+            button.style.paddingRight = 10f;
+            button.style.borderTopLeftRadius = 4f;
+            button.style.borderTopRightRadius = 4f;
+            button.style.borderBottomLeftRadius = 4f;
+            button.style.borderBottomRightRadius = 4f;
+            button.style.fontSize = 12f;
+
+            return button;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 긴 title 표시 여부를 전환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ToggleLongTitle()
+        {
+            useLongTitle = !useLongTitle;
+
+            ApplyTitleOptions();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// title icon 표시 여부를 전환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ToggleTitleIcon()
+        {
+            showTitleIcon = !showTitleIcon;
+
+            ApplyTitleOptions();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 option 상태를 window record와 panel titlebar에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyTitleOptions()
+        {
+            ApplyWindowTitleOptions
+            (
+                mainHandle,
+                mainPanel,
+                MAIN_NORMAL_TITLE,
+                MAIN_LONG_TITLE
+            );
+            ApplyWindowTitleOptions
+            (
+                secondHandle,
+                secondPanel,
+                SECOND_NORMAL_TITLE,
+                SECOND_LONG_TITLE
+            );
+
+            RefreshOptionButtons();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 window의 title과 title icon 표시 상태를 갱신한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyWindowTitleOptions
+        (
+            XeriWindowHandle handle,
+            XeriWindowPanel panel,
+            string normalTitle,
+            string longTitle
+        )
+        {
+            if (handle == null || panel == null) return;
+            if (!canvas.Registry.TryGetRecord(handle, out var record)) return;
+
+            record.Title = useLongTitle ? longTitle : normalTitle;
+
+            panel.ApplyTitle(record.Title);
+            panel.ApplyTitleIcon(showTitleIcon ? record.Icon : null);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Option button text와 색을 현재 상태에 맞춘다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RefreshOptionButtons()
+        {
+            RefreshOptionButton(longTitleButton, "긴 제목", useLongTitle);
+            RefreshOptionButton(titleIconButton, "아이콘", showTitleIcon);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 단일 option button 표시 상태를 갱신한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void RefreshOptionButton(Button button, string label, bool active)
+        {
+            if (button == null) return;
+
+            button.text = active ? $"{label} ON" : $"{label} OFF";
+            button.style.color = Color.white;
+            button.style.backgroundColor = active
+                ? new Color(0.20f, 0.44f, 0.96f, 1f)
+                : new Color(0.20f, 0.20f, 0.22f, 1f);
         }
 
         // ------------------------------------------------------------
@@ -475,7 +637,6 @@ namespace inonego.Xeri.TEST.UI._Window
             if (cameraGO != null) UnityEngine.Object.DestroyImmediate(cameraGO);
             if (documentGO != null) UnityEngine.Object.DestroyImmediate(documentGO);
             if (panelSettings != null) UnityEngine.Object.DestroyImmediate(panelSettings);
-            if (themeStyleSheet != null) UnityEngine.Object.DestroyImmediate(themeStyleSheet);
             if (mainIcon != null) UnityEngine.Object.DestroyImmediate(mainIcon);
             if (secondIcon != null) UnityEngine.Object.DestroyImmediate(secondIcon);
 
@@ -634,7 +795,7 @@ namespace inonego.Xeri.TEST.UI._Window
         // ------------------------------------------------------------
         private void OnTrayEntrySelect(object sender, XeriTrayEventArgs e)
         {
-            traySource.ShowNormal(e.Entry);
+            traySource.Restore(e.Entry);
         }
 
         // ------------------------------------------------------------

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowCanvas.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-09
 
 # 설명
 Xeri 커스텀 윈도우 패널을 배치하는 UITK 작업 공간.
@@ -278,12 +278,8 @@ namespace inonego.Xeri.UI.Window
             panel.AttachView(view);
             panel.ApplyOptions(options ?? XeriWindowOptions.Default());
             panel.ApplyTheme(record.ThemeID);
-
-            var titleLabel = panel.Q<Label>("title-label");
-            if (titleLabel != null)
-            {
-                titleLabel.text = record.Title ?? string.Empty;
-            }
+            panel.ApplyTitle(record.Title);
+            panel.ApplyTitleIcon(record.Icon);
 
             return panel;
         }

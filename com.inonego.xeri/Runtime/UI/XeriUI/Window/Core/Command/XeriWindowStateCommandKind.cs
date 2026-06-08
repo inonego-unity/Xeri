@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowStateCommandKind.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 Xeri 커스텀 윈도우 상태 전환 명령 종류.
@@ -20,6 +20,7 @@ namespace inonego.Xeri.UI.Window
     {
         Minimize,
         Maximize,
+        ShowNormal,
         Restore,
         Close,
     }

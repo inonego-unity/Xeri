@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowStateTransitionRule.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 Xeri 커스텀 윈도우 상태 전환 가능 여부와 다음 상태를 계산한다.
@@ -44,9 +44,13 @@ namespace inonego.Xeri.UI.Window
                     nextState = XeriWindowState.Maximized;
                     return currentState != XeriWindowState.Maximized;
 
-                case XeriWindowStateCommandKind.Restore:
+                case XeriWindowStateCommandKind.ShowNormal:
                     nextState = XeriWindowState.Normal;
                     return currentState != XeriWindowState.Normal;
+
+                case XeriWindowStateCommandKind.Restore:
+                    nextState = XeriWindowState.Normal;
+                    return currentState == XeriWindowState.Minimized;
 
                 case XeriWindowStateCommandKind.Close:
                     nextState = XeriWindowState.Closed;

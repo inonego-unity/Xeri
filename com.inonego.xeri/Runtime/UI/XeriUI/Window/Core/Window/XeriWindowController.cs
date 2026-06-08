@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowController.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 Xeri 커스텀 윈도우 상태 전환, 명령, 이벤트를 관리하는 controller.
@@ -36,6 +36,7 @@ namespace inonego.Xeri.UI.Window
 
         private readonly XeriWindowBoundsSnapshot boundsSnapshot = null;
         private XeriWindowState? pendingState = null;
+        private XeriWindowState minimizedRestoreState = XeriWindowState.Normal;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -151,6 +152,20 @@ namespace inonego.Xeri.UI.Window
         /// </summary>
         // ------------------------------------------------------------
         public event EventHandler<XeriWindowCancelEventArgs> OnPreShowNormal = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 윈도우 최소화 이전 표시 상태 복구 시 호출된다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event EventHandler<XeriWindowEventArgs> OnRestore = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 윈도우 최소화 이전 표시 상태 복구 요청 전에 호출된다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event EventHandler<XeriWindowCancelEventArgs> OnPreRestore = null;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -293,6 +308,23 @@ namespace inonego.Xeri.UI.Window
             (
                 new XeriWindowStateCommandRequest
                 (
+                    XeriWindowStateCommandKind.ShowNormal,
+                    XeriWindowCommandSource.API
+                )
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 최소화 이전 표시 상태로 복구한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Restore()
+        {
+            RequestStateCommand
+            (
+                new XeriWindowStateCommandRequest
+                (
                     XeriWindowStateCommandKind.Restore,
                     XeriWindowCommandSource.API
                 )
@@ -349,7 +381,8 @@ namespace inonego.Xeri.UI.Window
         public bool RequestStateCommand(XeriWindowStateCommandRequest request)
         {
             if (!CanExecuteStateCommand(request)) return false;
-            if (!XeriWindowStateTransitionRule.TryResolveNextState(EffectiveState, request, out var nextState))
+
+            if (!TryResolveNextState(request, out var nextState))
             {
                 return false;
             }
@@ -362,6 +395,32 @@ namespace inonego.Xeri.UI.Window
     #endregion
 
     #region 내부 메서드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 상태와 요청을 기준으로 다음 완료 상태를 계산한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool TryResolveNextState
+        (
+            XeriWindowStateCommandRequest request,
+            out XeriWindowState nextState
+        )
+        {
+            var currentState = EffectiveState;
+            if (!XeriWindowStateTransitionRule.TryResolveNextState(currentState, request, out nextState))
+            {
+                return false;
+            }
+
+            if (request.Kind == XeriWindowStateCommandKind.Restore &&
+                currentState == XeriWindowState.Minimized)
+            {
+                nextState = minimizedRestoreState;
+            }
+
+            return currentState != nextState;
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -424,6 +483,9 @@ namespace inonego.Xeri.UI.Window
             if (previous == state) return false;
 
             var targetBounds = default(Rect?);
+
+            CaptureMinimizedRestoreState(previous, state);
+
             if (state == XeriWindowState.Maximized)
             {
                 boundsSnapshot.UpdateNormalBounds(previous, driver.Bounds);
@@ -469,6 +531,24 @@ namespace inonego.Xeri.UI.Window
 
         // ------------------------------------------------------------
         /// <summary>
+        /// Minimized에서 Restore할 때 돌아갈 표시 상태를 보존한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CaptureMinimizedRestoreState
+        (
+            XeriWindowState previous,
+            XeriWindowState next
+        )
+        {
+            if (next != XeriWindowState.Minimized) return;
+
+            minimizedRestoreState = previous == XeriWindowState.Maximized
+                ? XeriWindowState.Maximized
+                : XeriWindowState.Normal;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 상태 전환 완료 후 상태 이벤트를 발행한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -506,11 +586,12 @@ namespace inonego.Xeri.UI.Window
         {
             return request.Kind switch
             {
-                XeriWindowStateCommandKind.Minimize => options.CanMinimize,
-                XeriWindowStateCommandKind.Maximize => options.CanMaximize,
-                XeriWindowStateCommandKind.Close    => options.CanClose,
-                XeriWindowStateCommandKind.Restore  => true,
-                _                                   => false,
+                XeriWindowStateCommandKind.Minimize   => options.CanMinimize,
+                XeriWindowStateCommandKind.Maximize   => options.CanMaximize,
+                XeriWindowStateCommandKind.Close      => options.CanClose,
+                XeriWindowStateCommandKind.ShowNormal => true,
+                XeriWindowStateCommandKind.Restore    => true,
+                _                                      => false,
             };
         }
 
@@ -523,11 +604,12 @@ namespace inonego.Xeri.UI.Window
         {
             return kind switch
             {
-                XeriWindowStateCommandKind.Minimize => OnPreMinimize,
-                XeriWindowStateCommandKind.Maximize => OnPreMaximize,
-                XeriWindowStateCommandKind.Restore  => OnPreShowNormal,
-                XeriWindowStateCommandKind.Close    => OnPreClose,
-                _                                   => null,
+                XeriWindowStateCommandKind.Minimize   => OnPreMinimize,
+                XeriWindowStateCommandKind.Maximize   => OnPreMaximize,
+                XeriWindowStateCommandKind.ShowNormal => OnPreShowNormal,
+                XeriWindowStateCommandKind.Restore    => OnPreRestore,
+                XeriWindowStateCommandKind.Close      => OnPreClose,
+                _                                      => null,
             };
         }
 
@@ -540,11 +622,12 @@ namespace inonego.Xeri.UI.Window
         {
             return kind switch
             {
-                XeriWindowStateCommandKind.Minimize => OnMinimize,
-                XeriWindowStateCommandKind.Maximize => OnMaximize,
-                XeriWindowStateCommandKind.Restore  => OnShowNormal,
-                XeriWindowStateCommandKind.Close    => OnClose,
-                _                                   => null,
+                XeriWindowStateCommandKind.Minimize   => OnMinimize,
+                XeriWindowStateCommandKind.Maximize   => OnMaximize,
+                XeriWindowStateCommandKind.ShowNormal => OnShowNormal,
+                XeriWindowStateCommandKind.Restore    => OnRestore,
+                XeriWindowStateCommandKind.Close      => OnClose,
+                _                                      => null,
             };
         }
 

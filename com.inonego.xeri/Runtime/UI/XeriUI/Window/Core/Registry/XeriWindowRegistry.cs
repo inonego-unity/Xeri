@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowRegistry.cs
-수정일 : 2026-05-23
+수정일 : 2026-06-08
 
 # 설명
 Xeri 커스텀 윈도우 controller와 저장 record를 관리하는 registry.
@@ -330,6 +330,19 @@ namespace inonego.Xeri.UI.Window
             if (!TryGetEntry(handle, out var entry)) return;
 
             entry.Controller.ShowNormal();
+            Focus(handle);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 최소화 이전 표시 상태로 복구한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Restore(XeriWindowHandle handle)
+        {
+            if (!TryGetEntry(handle, out var entry)) return;
+
+            entry.Controller.Restore();
             Focus(handle);
         }
 

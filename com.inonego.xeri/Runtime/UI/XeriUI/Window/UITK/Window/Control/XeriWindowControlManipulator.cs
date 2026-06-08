@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowControlManipulator.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 XeriWindowPanel control button 입력을 controller 명령으로 연결한다.
@@ -114,7 +114,7 @@ namespace inonego.Xeri.UI.Window
         private void OnMaximizeClick()
         {
             var kind = controller.EffectiveState == XeriWindowState.Maximized
-                ? XeriWindowStateCommandKind.Restore
+                ? XeriWindowStateCommandKind.ShowNormal
                 : XeriWindowStateCommandKind.Maximize;
 
             controller.RequestStateCommand

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriWindowController.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 Xeri 커스텀 윈도우 controller와 core 옵션 테스트.
@@ -298,11 +298,64 @@ namespace inonego.Xeri.TEST.UI._Window
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Restore 명령은 명시적 target bounds가 있으면 snapshot 대신 해당 bounds를 사용한다.
+        /// ShowNormal은 Minimized 이전 표시 상태와 무관하게 Normal 상태로 전환한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_XeriWindowController_Restore_TargetBounds_우선_사용()
+        public void TEST_XeriWindowController_Maximized_Minimized_ShowNormal_Normal_전환()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+
+            controller.Maximize();
+            controller.Minimize();
+            controller.ShowNormal();
+
+            Assert.AreEqual(XeriWindowState.Normal, driver.State);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Restore는 Minimized 이전 표시 상태로 전환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_Maximized_Minimized_Restore_Maximized_복구()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+
+            controller.Maximize();
+            controller.Minimize();
+            controller.Restore();
+
+            Assert.AreEqual(XeriWindowState.Maximized, driver.State);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Restore는 Minimized가 아닌 표시 상태를 Normal로 토글하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_Maximized_Restore_무시()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+
+            controller.Maximize();
+            controller.Restore();
+
+            Assert.AreEqual(XeriWindowState.Maximized, driver.State);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// ShowNormal 명령은 명시적 target bounds가 있으면 snapshot 대신 해당 bounds를 사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_ShowNormal_TargetBounds_우선_사용()
         {
             var driver = new TestWindowDriver();
             var controller = new XeriWindowController(driver);
@@ -313,7 +366,7 @@ namespace inonego.Xeri.TEST.UI._Window
             (
                 new XeriWindowStateCommandRequest
                 (
-                    XeriWindowStateCommandKind.Restore,
+                    XeriWindowStateCommandKind.ShowNormal,
                     XeriWindowCommandSource.TitleBar,
                     targetBounds
                 )
@@ -480,6 +533,52 @@ namespace inonego.Xeri.TEST.UI._Window
 
             Assert.AreEqual(XeriWindowState.Normal, stateArgs.Previous);
             Assert.AreEqual(XeriWindowState.Minimized, stateArgs.Current);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Restore 명령은 ShowNormal 이벤트가 아니라 Restore 이벤트를 발화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_Restore_Event_ShowNormal_Event_분리()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+            var restoreFired = false;
+            var showNormalFired = false;
+
+            controller.OnRestore += (_, _) => restoreFired = true;
+            controller.OnShowNormal += (_, _) => showNormalFired = true;
+
+            controller.Maximize();
+            controller.Minimize();
+            controller.Restore();
+
+            Assert.IsTrue(restoreFired);
+            Assert.IsFalse(showNormalFired);
+            Assert.AreEqual(XeriWindowState.Maximized, driver.State);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// OnPreRestore에서 Cancel을 설정하면 Restore는 상태를 변경하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowController_OnPreRestore_Cancel_Restore_취소()
+        {
+            var driver = new TestWindowDriver();
+            var controller = new XeriWindowController(driver);
+
+            controller.Maximize();
+            controller.Minimize();
+
+            controller.OnPreRestore += (_, e) => e.Cancel = true;
+
+            controller.Restore();
+
+            Assert.AreEqual(XeriWindowState.Minimized, driver.State);
         }
 
     #endregion

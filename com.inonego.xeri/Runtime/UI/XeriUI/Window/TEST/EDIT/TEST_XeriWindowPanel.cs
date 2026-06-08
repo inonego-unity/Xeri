@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriWindowPanel.cs
-수정일 : 2026-05-23
+수정일 : 2026-06-09
 
 # 설명
 XeriWindowPanel UITK view 테스트.
@@ -42,6 +42,8 @@ namespace inonego.Xeri.TEST.UI._Window
             var panel = new XeriWindowPanel();
 
             Assert.IsNotNull(panel.TitleBar);
+            Assert.IsNotNull(panel.TitleIcon);
+            Assert.IsNotNull(panel.TitleLabel);
             Assert.IsNotNull(panel.ContentSlot);
             Assert.IsNotNull(panel.TitleActions);
             Assert.IsNotNull(panel.MinimizeButton);
@@ -60,7 +62,48 @@ namespace inonego.Xeri.TEST.UI._Window
 
     #endregion
 
-    #region Q-2: Control Button Icon
+    #region Q-2: Title 표시
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// ApplyTitle은 title label text를 갱신한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowPanel_ApplyTitle_TitleLabel_Text_갱신()
+        {
+            var panel = new XeriWindowPanel();
+
+            panel.ApplyTitle("Inventory");
+
+            Assert.AreEqual("Inventory", panel.TitleLabel.text);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// ApplyTitleIcon은 icon 유무에 따라 title icon 표시를 갱신한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowPanel_ApplyTitleIcon_Icon_표시_갱신()
+        {
+            var panel = new XeriWindowPanel();
+            var icon = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+
+            panel.ApplyTitleIcon(icon);
+
+            Assert.AreEqual(DisplayStyle.Flex, panel.TitleIcon.style.display.value);
+
+            panel.ApplyTitleIcon(null);
+
+            Assert.AreEqual(DisplayStyle.None, panel.TitleIcon.style.display.value);
+
+            Object.DestroyImmediate(icon);
+        }
+
+    #endregion
+
+    #region Q-3: Control Button Icon
 
         // ------------------------------------------------------------
         /// <summary>
@@ -112,7 +155,7 @@ namespace inonego.Xeri.TEST.UI._Window
 
     #endregion
 
-    #region Q-3: Attach View
+    #region Q-4: Attach View
 
         // ------------------------------------------------------------
         /// <summary>

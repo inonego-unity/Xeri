@@ -27,10 +27,14 @@
 
 .xeri-window--theme-windows .xeri-window__title-icon {
     background-color: var(--xeri-window-windows-title-icon-color);
+    width: 14px;
+    height: 14px;
+    margin-right: 0;
 }
 
 .xeri-window--theme-windows .xeri-window__title-label {
     color: var(--xeri-window-windows-text-color);
+    padding-left: 6px;
 }
 
 .xeri-window--theme-windows .xeri-window__button {

@@ -86,7 +86,7 @@ namespace inonego.Xeri.UI.Window.Editor
         // ------------------------------------------------------------
         private void OnTrayEntrySelect(object sender, XeriTrayEventArgs e)
         {
-            source.ShowNormal(e.Entry);
+            source.Restore(e.Entry);
         }
 
         // ------------------------------------------------------------

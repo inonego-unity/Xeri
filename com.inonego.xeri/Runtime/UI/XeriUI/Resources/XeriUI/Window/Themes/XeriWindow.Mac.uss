@@ -40,6 +40,11 @@
 }
 
 .xeri-window--theme-mac .xeri-window__title-icon {
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    margin-left: 0;
+    margin-right: 0;
     display: none;
 }
 

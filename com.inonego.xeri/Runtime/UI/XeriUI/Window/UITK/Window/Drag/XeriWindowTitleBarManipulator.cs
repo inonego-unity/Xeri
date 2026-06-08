@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowTitleBarManipulator.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 XeriWindowPanel titlebar drag와 double click 상태 전환을 처리하는 wrapper manipulator.
@@ -190,7 +190,7 @@ namespace inonego.Xeri.UI.Window
             (
                 new XeriWindowStateCommandRequest
                 (
-                    XeriWindowStateCommandKind.Restore,
+                    XeriWindowStateCommandKind.ShowNormal,
                     XeriWindowCommandSource.TitleBar,
                     new Rect(restoredPos, controller.Driver.Size),
                     false
@@ -260,7 +260,7 @@ namespace inonego.Xeri.UI.Window
         private void ToggleMaximize()
         {
             var kind = controller.EffectiveState == XeriWindowState.Maximized
-                ? XeriWindowStateCommandKind.Restore
+                ? XeriWindowStateCommandKind.ShowNormal
                 : XeriWindowStateCommandKind.Maximize;
 
             controller.RequestStateCommand

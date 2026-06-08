@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragDropManualPlayMode.cs
-수정일 : 2026-05-22
+수정일 : 2026-06-09
 
 # 설명
 UGUI / Runtime UI Toolkit DragDrop 을 PlayMode 화면에서 직접 드래그해 확인하는 수동 테스트.
@@ -27,6 +27,7 @@ using UnityEngine.UIElements;
 using NUnit;
 using NUnit.Framework;
 
+using inonego.Xeri.TEST.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -46,7 +47,6 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         private GameObject uguiRoot = null;
         private GameObject uitkRoot = null;
         private PanelSettings panelSettings = null;
-        private ThemeStyleSheet themeStyleSheet = null;
 
     #endregion
 
@@ -202,10 +202,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             panelSettings.name = "TEST_DragDrop_PanelSettings";
             panelSettings.scaleMode = PanelScaleMode.ConstantPixelSize;
-
-            themeStyleSheet = ScriptableObject.CreateInstance<ThemeStyleSheet>();
-            themeStyleSheet.name = "TEST_DragDrop_ThemeStyleSheet";
-            panelSettings.themeStyleSheet = themeStyleSheet;
+            XeriUITKManualTestPanelSettings.ApplyDefaultRuntimeTheme(panelSettings);
 
             uitkRoot = new GameObject("TEST_UITK_DragDrop");
             var document = uitkRoot.AddComponent<UIDocument>();
@@ -330,7 +327,6 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             if (eventSystemGO != null) UnityEngine.Object.DestroyImmediate(eventSystemGO);
             if (cameraGO      != null) UnityEngine.Object.DestroyImmediate(cameraGO);
             if (panelSettings != null) UnityEngine.Object.DestroyImmediate(panelSettings);
-            if (themeStyleSheet != null) UnityEngine.Object.DestroyImmediate(themeStyleSheet);
         }
 
     #endregion

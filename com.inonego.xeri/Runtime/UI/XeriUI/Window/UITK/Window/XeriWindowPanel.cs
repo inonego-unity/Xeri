@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명: XeriWindowPanel.cs
-수정일: 2026-05-23
+파일명 : XeriWindowPanel.cs
+수정일 : 2026-06-09
 
 # 설명
 Xeri 커스텀 윈도우 하나를 표시하는 UITK VisualElement.
@@ -44,6 +44,24 @@ namespace inonego.Xeri.UI.Window
         public VisualElement TitleBar => titleBar;
 
         private readonly VisualElement titleBar = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Titlebar icon 영역.
+        /// </summary>
+        // ------------------------------------------------------------
+        public VisualElement TitleIcon => titleIcon;
+
+        private readonly VisualElement titleIcon = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Titlebar text label.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Label TitleLabel => titleLabel;
+
+        private readonly Label titleLabel = null;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -219,6 +237,8 @@ namespace inonego.Xeri.UI.Window
             CreateElements
             (
                 out var createdTitleBar,
+                out var createdTitleIcon,
+                out var createdTitleLabel,
                 out var createdContentSlot,
                 out var createdTitleActions,
                 out var createdMinimizeButton,
@@ -235,6 +255,8 @@ namespace inonego.Xeri.UI.Window
             );
 
             titleBar       = createdTitleBar;
+            titleIcon      = createdTitleIcon;
+            titleLabel     = createdTitleLabel;
             contentSlot    = createdContentSlot;
             titleActions   = createdTitleActions;
             minimizeButton = createdMinimizeButton;
@@ -300,6 +322,38 @@ namespace inonego.Xeri.UI.Window
             {
                 contentSlot.Add(view);
             }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window titlebar 텍스트를 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ApplyTitle(string title)
+        {
+            if (titleLabel == null) return;
+
+            titleLabel.text = title ?? string.Empty;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Window titlebar icon을 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ApplyTitleIcon(Texture2D icon)
+        {
+            if (titleIcon == null) return;
+
+            if (icon == null)
+            {
+                titleIcon.style.display = DisplayStyle.None;
+                titleIcon.style.backgroundImage = StyleKeyword.Null;
+                return;
+            }
+
+            titleIcon.style.display = DisplayStyle.Flex;
+            titleIcon.style.backgroundImage = new StyleBackground(icon);
         }
 
         // ------------------------------------------------------------
@@ -398,6 +452,8 @@ namespace inonego.Xeri.UI.Window
         private static void CreateElements
         (
             out VisualElement titleBar,
+            out VisualElement titleIcon,
+            out Label titleLabel,
             out VisualElement contentSlot,
             out VisualElement titleActions,
             out Button minimizeButton,
@@ -423,6 +479,8 @@ namespace inonego.Xeri.UI.Window
             var tree = template.CloneTree();
 
             titleBar       = tree.Q<VisualElement>("title-bar");
+            titleIcon      = tree.Q<VisualElement>("title-icon");
+            titleLabel     = tree.Q<Label>("title-label");
             contentSlot    = tree.Q<VisualElement>("content");
             titleActions   = tree.Q<VisualElement>("title-actions");
             minimizeButton = tree.Q<Button>("minimize-button");
@@ -437,7 +495,8 @@ namespace inonego.Xeri.UI.Window
             resizeBottomLeft  = tree.Q<VisualElement>("resize-bottom-left");
             resizeBottomRight = tree.Q<VisualElement>("resize-bottom-right");
 
-            if (titleBar == null || contentSlot == null || titleActions == null ||
+            if (titleBar == null || titleIcon == null || titleLabel == null ||
+                contentSlot == null || titleActions == null ||
                 minimizeButton == null || maximizeButton == null || closeButton == null ||
                 resizeLeft == null || resizeTop == null || resizeRight == null ||
                 resizeBottom == null || resizeTopLeft == null || resizeTopRight == null ||
@@ -466,6 +525,8 @@ namespace inonego.Xeri.UI.Window
         private void ApplyStructuralLayout()
         {
             titleBar.style.position       = Position.Relative;
+            titleLabel.style.overflow     = Overflow.Hidden;
+            titleLabel.style.whiteSpace   = WhiteSpace.NoWrap;
             minimizeButton.style.position = Position.Relative;
             maximizeButton.style.position = Position.Relative;
             closeButton.style.position    = Position.Relative;

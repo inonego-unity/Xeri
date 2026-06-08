@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriWindowTrayMapper.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-08
 
 # 설명
 Xeri 윈도우 record와 handle을 공통 Tray entry로 변환하는 mapper/source 테스트.
@@ -143,15 +143,15 @@ namespace inonego.Xeri.TEST.UI._Window
 
     #endregion
 
-    #region S-2: ShowNormal
+    #region S-2: Restore
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Tray entry payload handle은 registry show normal 요청으로 전달된다.
+        /// Tray entry payload handle은 registry restore 요청으로 전달된다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_XeriWindowTraySource_ShowNormal_EntryPayload_Handle_사용()
+        public void TEST_XeriWindowTraySource_Restore_EntryPayload_Handle_사용()
         {
             var registry = new XeriWindowRegistry();
             var handle = registry.Register("inventory", CreateController());
@@ -161,9 +161,31 @@ namespace inonego.Xeri.TEST.UI._Window
             controller.Minimize();
 
             var entry = source.GetEntries()[0];
-            source.ShowNormal(entry);
+            source.Restore(entry);
 
             Assert.AreEqual(XeriWindowState.Normal, controller.Driver.State);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Tray 선택은 maximized에서 minimize된 window를 maximized 상태로 복구한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriWindowTraySource_Restore_Maximized_Minimized_Maximized_복구()
+        {
+            var registry = new XeriWindowRegistry();
+            var handle = registry.Register("inventory", CreateController());
+            var source = new XeriWindowTraySource(registry);
+
+            registry.TryGetController(handle, out var controller);
+            controller.Maximize();
+            controller.Minimize();
+
+            var entry = source.GetEntries()[0];
+            source.Restore(entry);
+
+            Assert.AreEqual(XeriWindowState.Maximized, controller.Driver.State);
         }
 
     #endregion
