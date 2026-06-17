@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityViewBinder.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-17
 
 # 설명
-EntitySpawnRegistry 이벤트를 Entity view 생성/회수 흐름으로 연결한다.
+EntitySpawnRegistry 이벤트를 Entity view 생성/회수 흐름으로 바인딩한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -14,11 +14,11 @@ namespace inonego.Xeri.Game
 {
     // ============================================================
     /// <summary>
-    /// Entity 모델 registry와 Entity view 계층을 연결한다.
+    /// Entity 모델 registry와 Entity view 계층을 바인딩한다.
     /// </summary>
     // ============================================================
     [Serializable]
-    public sealed class EntityViewBinder<TEntityView, TEntity> : INeedToConnect<EntitySpawnRegistryBase<TEntity>>
+    public sealed class EntityViewBinder<TEntityView, TEntity> : IBindable<EntitySpawnRegistryBase<TEntity>>
     where TEntityView : EntityViewBase<TEntity>
     where TEntity : class, IEntity
     {
@@ -28,14 +28,14 @@ namespace inonego.Xeri.Game
         private readonly EntityViewFactory<TEntityView, TEntity> factory = null;
         private readonly EntityViewRegistry<TEntityView, TEntity> registry = null;
 
-        private EntitySpawnRegistryBase<TEntity> connectedRegistry = null;
+        private EntitySpawnRegistryBase<TEntity> boundRegistry = null;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 연결된 Entity registry.
+        /// 현재 바인딩된 Entity registry.
         /// </summary>
         // ------------------------------------------------------------
-        public EntitySpawnRegistryBase<TEntity> ConnectedRegistry => connectedRegistry;
+        public EntitySpawnRegistryBase<TEntity> BoundRegistry => boundRegistry;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -65,26 +65,26 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-    #region 연결
+    #region 바인딩
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity registry에 연결하고 기존 스폰 상태를 view로 동기화한다.
+        /// Entity registry에 바인딩하고 기존 스폰 상태를 view로 동기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Connect(EntitySpawnRegistryBase<TEntity> registry)
+        public void Bind(EntitySpawnRegistryBase<TEntity> registry)
         {
             if (registry == null)
             {
                 throw new ArgumentNullException(nameof(registry));
             }
 
-            if (connectedRegistry != null)
+            if (boundRegistry != null)
             {
-                Disconnect();
+                Unbind();
             }
 
-            connectedRegistry = registry;
+            boundRegistry = registry;
 
             foreach (var (key, entity) in registry.Spawned)
             {
@@ -97,20 +97,20 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity registry 연결을 해제하고 모든 view를 회수한다.
+        /// Entity registry 바인딩을 해제하고 모든 view를 회수한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Disconnect()
+        public void Unbind()
         {
-            if (connectedRegistry != null)
+            if (boundRegistry != null)
             {
-                connectedRegistry.OnSpawn   -= OnEntitySpawn;
-                connectedRegistry.OnDespawn -= OnEntityDespawn;
+                boundRegistry.OnSpawn   -= OnEntitySpawn;
+                boundRegistry.OnDespawn -= OnEntityDespawn;
             }
 
             DespawnViewAll();
 
-            connectedRegistry = null;
+            boundRegistry = null;
         }
 
         // ------------------------------------------------------------
@@ -120,14 +120,14 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         public void ReSpawnAll()
         {
-            if (connectedRegistry == null)
+            if (boundRegistry == null)
             {
-                throw new InvalidOperationException("Entity registry가 연결되어 있지 않습니다.");
+                throw new InvalidOperationException("Entity registry가 바인딩되어 있지 않습니다.");
             }
 
             DespawnViewAll();
 
-            foreach (var (key, entity) in connectedRegistry.Spawned)
+            foreach (var (key, entity) in boundRegistry.Spawned)
             {
                 SpawnView(key, entity);
             }

@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BoardViewBinder.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-17
 
 # 설명
-Board 모델 이벤트를 tile view 생성/회수 흐름으로 연결한다.
+Board 모델 이벤트를 tile view 생성/회수 흐름으로 바인딩한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -20,7 +20,7 @@ namespace inonego.Xeri.Game
     /// </summary>
     // ============================================================
     [Serializable]
-    public sealed class BoardViewBinder<TBoard, TVector, TIndex, TSpace, TPlaceable, TTileView> : INeedToConnect<TBoard>
+    public sealed class BoardViewBinder<TBoard, TVector, TIndex, TSpace, TPlaceable, TTileView> : IBindable<TBoard>
     where TBoard : class, IBoard<TVector, TIndex, TPlaceable>
     where TVector : struct
     where TIndex : struct
@@ -35,14 +35,14 @@ namespace inonego.Xeri.Game
         private readonly BoardTileFactory<TTileView> factory = null;
         private readonly BoardTileViewMap<TVector, TTileView> tileMap = null;
 
-        private TBoard connectedBoard = null;
+        private TBoard boundBoard = null;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 연결된 Board 모델.
+        /// 현재 바인딩된 Board 모델.
         /// </summary>
         // ------------------------------------------------------------
-        public TBoard ConnectedBoard => connectedBoard;
+        public TBoard BoundBoard => boundBoard;
 
     #endregion
 
@@ -67,26 +67,26 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-    #region 연결
+    #region 바인딩
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Board 모델에 연결하고 현재 space를 tile view로 동기화한다.
+        /// Board 모델에 바인딩하고 현재 space를 tile view로 동기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Connect(TBoard board)
+        public void Bind(TBoard board)
         {
             if (board == null)
             {
                 throw new ArgumentNullException(nameof(board));
             }
 
-            if (connectedBoard != null)
+            if (boundBoard != null)
             {
-                Disconnect();
+                Unbind();
             }
 
-            connectedBoard = board;
+            boundBoard = board;
 
             ReloadTileMap();
 
@@ -96,20 +96,20 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Board 모델 연결을 해제하고 모든 tile view를 회수한다.
+        /// Board 모델 바인딩을 해제하고 모든 tile view를 회수한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Disconnect()
+        public void Unbind()
         {
-            if (connectedBoard != null)
+            if (boundBoard != null)
             {
-                connectedBoard.OnAddSpace    -= OnAddSpace;
-                connectedBoard.OnRemoveSpace -= OnRemoveSpace;
+                boundBoard.OnAddSpace    -= OnAddSpace;
+                boundBoard.OnRemoveSpace -= OnRemoveSpace;
             }
 
             RemoveTileAll();
 
-            connectedBoard = null;
+            boundBoard = null;
         }
 
         // ------------------------------------------------------------
@@ -119,14 +119,14 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         public void ReloadTileMap()
         {
-            if (connectedBoard == null)
+            if (boundBoard == null)
             {
-                throw new InvalidOperationException("Board 모델이 연결되어 있지 않습니다.");
+                throw new InvalidOperationException("Board 모델이 바인딩되어 있지 않습니다.");
             }
 
             RemoveTileAll();
 
-            foreach (var (vector, _) in connectedBoard)
+            foreach (var (vector, _) in boundBoard)
             {
                 PlaceTile(vector);
             }
@@ -148,12 +148,12 @@ namespace inonego.Xeri.Game
                 return;
             }
 
-            if (connectedBoard == null)
+            if (boundBoard == null)
             {
                 return;
             }
 
-            if (connectedBoard[vector] is not TSpace space)
+            if (boundBoard[vector] is not TSpace space)
             {
                 return;
             }

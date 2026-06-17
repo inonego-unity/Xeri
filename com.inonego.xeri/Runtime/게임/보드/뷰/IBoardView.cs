@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : IBoardView.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-17
 
 # 설명
 Board 모델을 Unity view로 표현하기 위한 인터페이스.
@@ -19,7 +19,7 @@ namespace inonego.Xeri.Game
     /// Board 모델을 Unity view로 표현하는 인터페이스.
     /// </summary>
     // ============================================================
-    public interface IBoardView<TBoard, TVector, TIndex, TSpace, TPlaceable, TTileView> : INeedToConnect<TBoard>
+    public interface IBoardView<TBoard, TVector, TIndex, TSpace, TPlaceable, TTileView> : IBindable<TBoard>
     where TBoard : class, IBoard<TVector, TIndex, TPlaceable>
     where TVector : struct
     where TIndex : struct
@@ -29,7 +29,7 @@ namespace inonego.Xeri.Game
     {
         // ------------------------------------------------------------
         /// <summary>
-        /// 연결된 Board 모델.
+        /// 바인딩된 Board 모델.
         /// </summary>
         // ------------------------------------------------------------
         TBoard Board { get; }

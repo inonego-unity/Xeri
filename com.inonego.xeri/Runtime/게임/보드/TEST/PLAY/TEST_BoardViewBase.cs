@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_BoardViewBase.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-17
 
 # 설명
 BoardViewBase 시스템의 핵심 기능 테스트. Play Mode.
-Connect/Disconnect, OnAddSpace/OnRemoveSpace 이벤트, ReloadTileMap 등을 검증한다.
+Bind/Unbind, OnAddSpace/OnRemoveSpace 이벤트, ReloadTileMap 등을 검증한다.
 
 # 테스트 구성
- E: 기본 기능 (Connect/이벤트/ReloadTileMap/Disconnect 통합 흐름)
+ E: 기본 기능 (Bind/이벤트/ReloadTileMap/Unbind 통합 흐름)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -232,12 +232,12 @@ namespace inonego.Xeri.TEST.Game._Board
 
     #endregion
 
-    #region E-1: Connect/이벤트/ReloadTileMap/Disconnect 통합
+    #region E-1: Bind/이벤트/ReloadTileMap/Unbind 통합
 
         [Explicit]
         [Category("Manual")]
         [UnityTest]
-        public IEnumerator TEST_BoardViewBase_Connect_이벤트_Reload_Disconnect_통합()
+        public IEnumerator TEST_BoardViewBase_Bind_이벤트_Reload_Unbind_통합()
         {
             // ------------------------------------------------------------
             // 테스트 준비 — 3x3 보드 (공간 자동 생성 비활성화)
@@ -259,12 +259,12 @@ namespace inonego.Xeri.TEST.Game._Board
             }
 
             // ------------------------------------------------------------
-            // Connect 전 초기 상태 확인
+            // Bind 전 초기 상태 확인
             // ------------------------------------------------------------
             Assert.That(boardView.Board,          Is.Null);
             Assert.That(boardView.TileMap.Count,  Is.EqualTo(0));
 
-            boardView.Connect(board);
+            boardView.Bind(board);
 
             yield return new WaitForSeconds(0.5f);
 
@@ -331,9 +331,9 @@ namespace inonego.Xeri.TEST.Game._Board
             Assert.That(boardView.TileMap.Count, Is.EqualTo(spaceCount));
 
             // ------------------------------------------------------------
-            // Disconnect 확인
+            // Unbind 확인
             // ------------------------------------------------------------
-            boardView.Disconnect();
+            boardView.Unbind();
 
             yield return null;
 

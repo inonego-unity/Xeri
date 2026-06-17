@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BoardViewBase.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-17
 
 # 설명
 Board 모델을 Unity에서 표현하는 view host.
-Board 연결, 좌표 변환, tile view hook 표면 API를 제공한다.
+Board 바인딩, 좌표 변환, tile view hook 표면 API를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -46,7 +46,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 연결된 Board 모델.
+        /// 바인딩된 Board 모델.
         /// </summary>
         // ------------------------------------------------------------
         public TBoard Board => board;
@@ -110,14 +110,14 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-    #region 연결
+    #region 바인딩
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Board 모델에 연결한다.
+        /// Board 모델에 바인딩한다.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void Connect(TBoard board)
+        public virtual void Bind(TBoard board)
         {
             if (board == null)
             {
@@ -126,22 +126,22 @@ namespace inonego.Xeri.Game
 
             if (this.board != null)
             {
-                Disconnect();
+                Unbind();
             }
 
             this.board = board;
 
-            Binder.Connect(board);
+            Binder.Bind(board);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Board 모델 연결을 해제한다.
+        /// Board 모델 바인딩을 해제한다.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void Disconnect()
+        public virtual void Unbind()
         {
-            Binder.Disconnect();
+            Binder.Unbind();
 
             board = null;
         }
@@ -155,7 +155,7 @@ namespace inonego.Xeri.Game
         {
             if (board == null)
             {
-                throw new InvalidOperationException("보드가 초기화되지 않았습니다. Connect()를 먼저 호출해주세요.");
+                throw new InvalidOperationException("보드가 초기화되지 않았습니다. Bind()를 먼저 호출해주세요.");
             }
 
             Binder.ReloadTileMap();

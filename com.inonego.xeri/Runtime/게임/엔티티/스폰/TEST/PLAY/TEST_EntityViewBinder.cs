@@ -1,14 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_EntityViewBinder.cs
-수정일 : 2026-05-28
+수정일 : 2026-06-17
 
 # 설명
 EntityViewBinder 핵심 동작 테스트.
-EntitySpawnRegistry 와 Connect 후 자동 view 동기화·회수를 검증한다.
+EntitySpawnRegistry 와 Bind 후 자동 view 동기화·회수를 검증한다.
 Unity Test Runner (Play Mode) 에서 실행 — GameObject·Prefab 생성·소멸이 필요.
 
 # 테스트 구성
- C: Connect / Disconnect (기존 엔티티 동기화 / 일괄 디스폰)
+ C: Bind / Unbind (기존 엔티티 동기화 / 일괄 디스폰)
  S: 자동 동기화 (스폰/디스폰 전파)
  R: ReSpawnAll (재스폰)
 ========================================================================= BLOCK_HEADER_END */
@@ -126,41 +126,41 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
     #endregion
 
-    #region C-1: Connect 시 기존 엔티티 동기화
+    #region C-1: Bind 시 기존 엔티티 동기화
 
         [UnityTest]
-        public IEnumerator TEST_EntityViewBinder_Connect_기존_엔티티_자동_view_생성()
+        public IEnumerator TEST_EntityViewBinder_Bind_기존_엔티티_자동_view_생성()
         {
             var (view, entity) = CreateRegistries();
 
             entity.TrySpawn(out _);
             entity.TrySpawn(out _);
 
-            view.Connect(entity);
+            view.Bind(entity);
 
             Assert.AreEqual(2, view.Views.Count);
 
-            view.Disconnect();
+            view.Unbind();
 
             yield return null;
         }
 
     #endregion
 
-    #region C-2: Disconnect 시 일괄 디스폰
+    #region C-2: Unbind 시 일괄 디스폰
 
         [UnityTest]
-        public IEnumerator TEST_EntityViewBinder_Disconnect_ReleaseAll()
+        public IEnumerator TEST_EntityViewBinder_Unbind_ReleaseAll()
         {
             var (view, entity) = CreateRegistries();
 
-            view.Connect(entity);
+            view.Bind(entity);
             entity.TrySpawn(out _);
             entity.TrySpawn(out _);
 
             Assert.AreEqual(2, view.Views.Count);
 
-            view.Disconnect();
+            view.Unbind();
 
             Assert.AreEqual(0, view.Views.Count);
 
@@ -176,14 +176,14 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         {
             var (view, entity) = CreateRegistries();
 
-            view.Connect(entity);
+            view.Bind(entity);
 
             entity.TrySpawn(out var spawned);
 
             Assert.AreEqual(1, view.Views.Count);
             Assert.IsTrue(view.Views.ContainsKey(spawned.Key));
 
-            view.Disconnect();
+            view.Unbind();
 
             yield return null;
         }
@@ -197,7 +197,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         {
             var (view, entity) = CreateRegistries();
 
-            view.Connect(entity);
+            view.Bind(entity);
 
             entity.TrySpawn(out var spawned);
             Assert.AreEqual(1, view.Views.Count);
@@ -207,7 +207,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
             Assert.AreEqual(0, view.Views.Count);
 
-            view.Disconnect();
+            view.Unbind();
 
             yield return null;
         }
@@ -221,7 +221,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         {
             var (view, entity) = CreateRegistries();
 
-            view.Connect(entity);
+            view.Bind(entity);
             entity.TrySpawn(out _);
             entity.TrySpawn(out _);
 
@@ -231,7 +231,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
             Assert.AreEqual(2, view.Views.Count);
 
-            view.Disconnect();
+            view.Unbind();
 
             yield return null;
         }
