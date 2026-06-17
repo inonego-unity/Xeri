@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerManualEditorWindow.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 Picker EditorWindow 선택 UI를 직접 조작해 확인하는 수동 Editor 테스트.
-기본 Picker, ListPicker, DictionaryPicker의 선택과 취소 처리를 직접 확인한다.
+기본 Picker의 preview overflow와 column layout, ListPicker, DictionaryPicker의 선택과 취소 처리를 직접 확인한다.
 
 # 테스트 구성
  M: 수동 확인
@@ -53,6 +53,7 @@ namespace inonego.Xeri.TEST.UI._Picker
          public string Code;
          public string Status;
          public string Source;
+         public string InternalMeta;
          public string Desc;
          public Texture2D Thumbnail;
       }
@@ -73,12 +74,44 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Tag("점수", entry => entry.Score.ToString())
             .Tag("출처", entry => entry.Source)
             .Tag("상태", entry => entry.Status)
-            .DefaultPreviewTags("요약", "원본", "참조", "검증")
-            .Column("이름", entry => entry.Name, 190f)
-            .Column("점수", entry => entry.Score, 70f)
-            .Column("코드", entry => entry.Code, 130f)
-            .Column("상태", entry => entry.Status, 100f)
-            .Column("출처", entry => entry.Source, 130f)
+            .DefaultPreviewTags("preview-name ellipsis", "column layout", "hidden column", "search policy")
+            .Column
+            (
+               "이름",
+               entry => entry.Name,
+               PickerColumnOptions.Flexible(width: 220f, minWidth: 120f, overflow: PickerColumnOverflow.Ellipsis)
+            )
+            .Column
+            (
+               "점수",
+               entry => entry.Score,
+               PickerColumnOptions.Fixed(width: 64f, alignment: PickerColumnAlignment.Right)
+            )
+            .Column
+            (
+               "긴 코드",
+               entry => entry.Code,
+               PickerColumnOptions.Flexible(width: 180f, minWidth: 100f, searchable: false)
+            )
+            .Column
+            (
+               "상태",
+               entry => entry.Status,
+               PickerColumnOptions.Fixed(width: 84f, sortable: false)
+            )
+            .Column
+            (
+               "출처",
+               entry => entry.Source,
+               PickerColumnOptions.Fixed(width: 90f, alignment: PickerColumnAlignment.Center)
+            )
+            .Column
+            (
+               "internal-meta",
+               "숨김 메타",
+               entry => entry.InternalMeta,
+               PickerColumnOptions.Fixed(width: 120f, searchable: false, visibility: PickerColumnVisibility.Hidden)
+            )
             .FilterByEntry("active", "활성", false, entry => entry.Status == "활성")
             .FilterByEntry("external", "외부", false, entry => entry.Source == "외부")
             .FilterByEntry("valid", "유효", false, entry => entry.Status != "잠김")
@@ -100,15 +133,25 @@ namespace inonego.Xeri.TEST.UI._Picker
       {
          return new[]
          {
-            CreateEntry("항목-001", "ALPHA", 18, "코드-1001", "잠김", "데이터", "ALPHA 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-002", "BETA", 20, "코드-1012", "활성", "외부", "BETA 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-003", "GAMMA", 22, "코드-1023", "활성", "사전", "GAMMA 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-004", "DELTA", 24, "코드-1024", "활성", "외부", CreateLongDesc()),
-            CreateEntry("항목-005", "EPSILON", 16, "코드-1025", "잠김", "데이터", "EPSILON 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-006", "ZETA", 21, "코드-1026", "활성", "사전", "ZETA 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-007", "ETA", 28, "코드-1027", "활성", "외부", "ETA 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-008", "THETA", 14, "코드-1028", "잠김", "데이터", "THETA 항목의 예시 미리보기입니다."),
-            CreateEntry("항목-009", "IOTA", 19, "코드-1029", "활성", "사전", "IOTA 항목의 예시 미리보기입니다."),
+            CreateEntry
+            (
+               "sample://very/long/current/value/path/that/should/stay/inside/preview-sub-label/selected-delta",
+               "EXTREMELY_LONG_PREVIEW_NAME_THAT_SHOULD_NOT_PUSH_THE_SELECT_BUTTON_OR_BREAK_THE_PREVIEW_ROW_DELTA_SAMPLE",
+               24,
+               "CODE-1024-VERY-LONG-COLUMN-VALUE-THAT-SHOULD-STAY-INSIDE-THE-CODE-COLUMN",
+               "활성",
+               "외부",
+               "hidden-meta-delta",
+               CreateLongDesc()
+            ),
+            CreateEntry("항목-001", "ALPHA_SHORT_REFERENCE", 18, "코드-1001", "잠김", "데이터", "hidden-meta-alpha", "ALPHA 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-002", "BETA_FIXED_COLUMN_SAMPLE", 20, "코드-1012", "활성", "외부", "hidden-meta-beta", "BETA 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-003", "GAMMA_FLEXIBLE_COLUMN_SAMPLE", 22, "코드-1023", "활성", "사전", "hidden-meta-gamma", "GAMMA 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-005", "EPSILON_LOCKED_SAMPLE", 16, "코드-1025", "잠김", "데이터", "hidden-meta-epsilon", "EPSILON 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-006", "ZETA_SEARCH_SAMPLE", 21, "코드-1026", "활성", "사전", "hidden-meta-zeta", "ZETA 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-007", "ETA_EXTERNAL_SAMPLE", 28, "코드-1027", "활성", "외부", "hidden-meta-eta", "ETA 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-008", "THETA_DISABLED_SAMPLE", 14, "코드-1028", "잠김", "데이터", "hidden-meta-theta", "THETA 항목의 예시 미리보기입니다."),
+            CreateEntry("항목-009", "IOTA_PAGE_SAMPLE", 19, "코드-1029", "활성", "사전", "hidden-meta-iota", "IOTA 항목의 예시 미리보기입니다."),
          };
       }
 
@@ -161,11 +204,11 @@ namespace inonego.Xeri.TEST.UI._Picker
       // ------------------------------------------------------------
       private static string CreateLongDesc()
       {
-         return "DELTA 항목은 설명 스크롤 테스트를 위한 긴 데이터입니다.\n" +
-                "첫 번째 줄은 일반 요약, 두 번째 줄은 원본 경로나 외부 API 응답 요약을 가정합니다.\n" +
-                "세 번째 줄부터는 preview desc 영역 안에서만 세로 스크롤되어야 합니다.\n" +
-                "테이블, 태그, 선택 버튼, footer 영역은 설명이 길어져도 밀려 내려가면 안 됩니다.\n" +
-                "마지막 줄이 보이면 desc ScrollView의 스크롤 범위가 정상입니다.";
+         return "이 항목은 preview name ellipsis 검증용 데이터입니다.\n" +
+                "두 번째 줄은 desc 영역이 여러 줄을 표시하는지 확인합니다.\n" +
+                "세 번째 줄은 선택 버튼과 table 영역이 밀리지 않는지 확인합니다.\n" +
+                "네 번째 줄은 desc ScrollView가 자기 영역 안에서만 처리되는지 확인합니다.\n" +
+                "다섯 번째 줄은 좁은 창에서도 레이아웃이 유지되는지 확인합니다.";
       }
 
       // ------------------------------------------------------------
@@ -181,6 +224,7 @@ namespace inonego.Xeri.TEST.UI._Picker
          string code,
          string status,
          string source,
+         string internalMeta,
          string desc
       )
       {
@@ -192,6 +236,7 @@ namespace inonego.Xeri.TEST.UI._Picker
             Code = code,
             Status = status,
             Source = source,
+            InternalMeta = internalMeta,
             Desc = desc,
             Thumbnail = null,
          };

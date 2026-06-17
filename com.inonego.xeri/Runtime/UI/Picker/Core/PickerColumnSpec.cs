@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerColumnSpec.cs
-수정일 : 2026-06-06
+수정일 : 2026-06-17
 
 # 설명
-Picker table column의 header, width, 정렬 가능 여부, 값 생성 규칙.
+Picker table column의 header, 표시/동작 옵션, 값 생성 규칙.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -37,17 +37,10 @@ namespace inonego.Xeri.UI.Picker
 
       // ------------------------------------------------------------
       /// <summary>
-      /// column 너비.
+      /// column 표시/동작 옵션.
       /// </summary>
       // ------------------------------------------------------------
-      public readonly float Width;
-
-      // ------------------------------------------------------------
-      /// <summary>
-      /// 정렬 가능 여부.
-      /// </summary>
-      // ------------------------------------------------------------
-      public readonly bool Sortable;
+      public readonly PickerColumnOptions Options;
 
       private readonly Func<TEntry, object> valueGetter;
 
@@ -64,15 +57,13 @@ namespace inonego.Xeri.UI.Picker
       (
          string id,
          string header,
-         float width,
-         bool sortable,
+         PickerColumnOptions options,
          Func<TEntry, object> valueGetter
       ) : base()
       {
          ID               = string.IsNullOrEmpty(id) ? header ?? string.Empty : id;
          Header           = header ?? string.Empty;
-         Width            = width;
-         Sortable         = sortable;
+         Options          = options ?? PickerColumnOptions.Flexible();
          this.valueGetter = valueGetter ?? (_ => null);
       }
 
@@ -89,7 +80,7 @@ namespace inonego.Xeri.UI.Picker
       {
          var value = valueGetter(entry);
 
-         return new PickerColumnValue(ID, Header, value);
+         return new PickerColumnValue(ID, Header, value, Options.Searchable);
       }
 
    #endregion

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ListPicker.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 IReadOnlyList 기반 picker spec 구성을 돕는 facade.
@@ -56,7 +56,7 @@ namespace inonego.Xeri.UI.Picker
             .Desc(DefaultDesc)
             .DefaultPreviewTags("Value")
             .Tag("Value", DefaultLabel)
-            .Column("Value", entry => entry);
+            .Column("Value", entry => entry, PickerColumnOptions.Flexible());
       }
 
    #endregion

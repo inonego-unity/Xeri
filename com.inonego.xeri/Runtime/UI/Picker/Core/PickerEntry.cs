@@ -214,6 +214,8 @@ namespace inonego.Xeri.UI.Picker
 
          foreach (var column in Columns)
          {
+            if (!column.Searchable) continue;
+
             AppendSearchPart(builder, column.DisplayText);
          }
 

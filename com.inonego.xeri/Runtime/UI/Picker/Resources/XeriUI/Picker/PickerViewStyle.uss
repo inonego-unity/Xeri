@@ -44,18 +44,27 @@
 
 .xeri-picker__preview-title-block {
     flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .xeri-picker__preview-name {
     font-size: var(--xeri-picker-font-lg);
     -unity-font-style: bold;
     color: var(--xeri-picker-color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .xeri-picker__preview-sub-label {
     margin-top: var(--xeri-picker-space-xxs);
     font-size: var(--xeri-picker-font-sm);
     color: var(--xeri-picker-color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .xeri-picker__select-button {
@@ -316,6 +325,37 @@
     padding-left: var(--xeri-picker-space-sm);
     -unity-text-align: middle-left;
     color: var(--xeri-picker-color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.xeri-picker__table-cell-label--align-left {
+    -unity-text-align: middle-left;
+}
+
+.xeri-picker__table-cell-label--align-center {
+    -unity-text-align: middle-center;
+}
+
+.xeri-picker__table-cell-label--align-right {
+    -unity-text-align: middle-right;
+}
+
+.xeri-picker__table-cell-label--overflow-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.xeri-picker__table-cell-label--overflow-clip {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.xeri-picker__table-cell-label--overflow-wrap {
+    white-space: normal;
+    overflow: hidden;
 }
 
 .xeri-picker__table-cell-image-frame {

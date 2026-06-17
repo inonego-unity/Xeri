@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerSession.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 Picker session의 검색, 필터, 정렬, 페이징, 현재 선택, 확정 선택 상태 전이 테스트.
@@ -66,8 +66,8 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Value(entry => entry.ID)
             .Label(entry => entry.Name)
             .Desc(entry => entry.Status)
-            .Column("이름", entry => entry.Name)
-            .Column("점수", entry => entry.Score)
+            .Column("이름", entry => entry.Name, PickerColumnOptions.Flexible())
+            .Column("점수", entry => entry.Score, PickerColumnOptions.Fixed(70f))
             .Filter("active", "활성", false, entry => entry.Desc == "활성")
             .Build();
 
@@ -289,7 +289,7 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Create("행 선택")
             .Value(entry => entry.Name)
             .Label(entry => entry.Name)
-            .Column("점수", entry => entry.Score)
+            .Column("점수", entry => entry.Score, PickerColumnOptions.Fixed(70f))
             .Build();
 
          var entries = new[]
@@ -317,7 +317,7 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Create("행 선택")
             .Value(entry => entry.Name)
             .Label(entry => entry.Name)
-            .Column("가중치", entry => entry.Weight)
+            .Column("가중치", entry => entry.Weight, PickerColumnOptions.Fixed(80f))
             .Build();
 
          var entries = new[]
@@ -345,7 +345,7 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Create("행 선택")
             .Value(entry => entry.Name)
             .Label(entry => entry.Name)
-            .Column("코드", entry => entry.Code)
+            .Column("코드", entry => entry.Code, PickerColumnOptions.Flexible())
             .Build();
 
          var entries = new[]
@@ -373,7 +373,7 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Create("행 선택")
             .Value(entry => entry.Name)
             .Label(entry => entry.Name)
-            .Column("썸네일", entry => entry.Thumbnail, 48f, sortable: false)
+            .Column("썸네일", entry => entry.Thumbnail, PickerColumnOptions.Fixed(48f, sortable: false, searchable: false))
             .Build();
 
          var entries = new[]

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerTableBinder.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 Picker MultiColumnListView의 column, row, selection, double click, sorting 입력을 관리한다.
@@ -139,19 +139,28 @@ namespace inonego.Xeri.UI.Picker
          foreach (var pickerColumn in session.Columns)
          {
             var column = pickerColumn;
+            if (column.Options.Visibility == PickerColumnVisibility.Hidden) continue;
+
+            var listColumn = new Column
+            {
+               name = column.ID,
+               title = column.Header,
+               width = column.Options.Layout.Width,
+               minWidth = column.Options.Layout.MinWidth,
+               stretchable = column.Options.Layout.Mode == PickerColumnLayoutMode.Flexible,
+               sortable = column.Options.Sortable,
+               makeCell = MakeTextCell,
+               bindCell = (element, index) => BindTextCell(element, index, column),
+            };
+
+            if (column.Options.Layout.MaxWidth > 0f)
+            {
+               listColumn.maxWidth = column.Options.Layout.MaxWidth;
+            }
+
             listView.columns.Add
             (
-               new Column
-               {
-                  name = column.ID,
-                  title = column.Header,
-                  width = column.Width,
-                  minWidth = 40f,
-                  stretchable = true,
-                  sortable = column.Sortable,
-                  makeCell = MakeTextCell,
-                  bindCell = (element, index) => BindTextCell(element, index, column),
-               }
+               listColumn
             );
          }
       }
@@ -224,6 +233,7 @@ namespace inonego.Xeri.UI.Picker
          if (label == null) return;
 
          ApplyRowTone(label, index);
+         ApplyColumnOptions(label, column.Options);
 
          if (index < 0 || index >= pageItems.Count)
          {
@@ -232,6 +242,21 @@ namespace inonego.Xeri.UI.Picker
          }
 
          label.text = pageItems[index].GetColumn(column.ID).DisplayText;
+      }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// column 옵션을 재사용 cell label에 반영한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      private static void ApplyColumnOptions(Label label, PickerColumnOptions options)
+      {
+         label.EnableInClassList("xeri-picker__table-cell-label--align-left", options.Alignment == PickerColumnAlignment.Left);
+         label.EnableInClassList("xeri-picker__table-cell-label--align-center", options.Alignment == PickerColumnAlignment.Center);
+         label.EnableInClassList("xeri-picker__table-cell-label--align-right", options.Alignment == PickerColumnAlignment.Right);
+         label.EnableInClassList("xeri-picker__table-cell-label--overflow-ellipsis", options.Overflow == PickerColumnOverflow.Ellipsis);
+         label.EnableInClassList("xeri-picker__table-cell-label--overflow-clip", options.Overflow == PickerColumnOverflow.Clip);
+         label.EnableInClassList("xeri-picker__table-cell-label--overflow-wrap", options.Overflow == PickerColumnOverflow.Wrap);
       }
 
       // ------------------------------------------------------------

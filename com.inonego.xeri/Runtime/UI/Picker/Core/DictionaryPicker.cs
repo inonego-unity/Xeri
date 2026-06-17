@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DictionaryPicker.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 IReadOnlyDictionary 기반 picker spec 구성과 entry 변환을 돕는 facade.
@@ -76,8 +76,8 @@ namespace inonego.Xeri.UI.Picker
             .DefaultPreviewTags("Key", "Value")
             .Tag("Key", entry => ToDisplayText(entry.Key))
             .Tag("Value", entry => ToDisplayText(entry.Value))
-            .Column("Key", entry => entry.Key)
-            .Column("Value", entry => entry.Value);
+            .Column("Key", entry => entry.Key, PickerColumnOptions.Flexible())
+            .Column("Value", entry => entry.Value, PickerColumnOptions.Flexible());
       }
 
    #endregion

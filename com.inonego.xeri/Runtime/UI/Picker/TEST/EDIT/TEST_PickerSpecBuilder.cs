@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerSpecBuilder.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 PickerSpec builder가 entry, column, tag, filter 계약을 구성하는지 검증한다.
@@ -66,9 +66,9 @@ namespace inonego.Xeri.TEST.UI._Picker
             .Desc(entry => $"점수 {entry.Score}")
             .Tag("상태", entry => entry.Status)
             .DefaultPreviewTags("정보", "경로")
-            .Column("이름", entry => entry.Name)
-            .Column("점수", entry => entry.Score)
-            .Column("아이콘", entry => entry.Icon, 48f, sortable: false)
+            .Column("이름", entry => entry.Name, PickerColumnOptions.Flexible(width: 160f))
+            .Column("점수", entry => entry.Score, PickerColumnOptions.Fixed(70f, alignment: PickerColumnAlignment.Right))
+            .Column("아이콘", entry => entry.Icon, PickerColumnOptions.Fixed(48f, sortable: false, searchable: false))
             .Build();
 
          var sourceEntry = new Entry { ID = "S-1001", Name = "ALPHA", Score = 18, Status = "활성", Icon = new object() };
@@ -79,7 +79,9 @@ namespace inonego.Xeri.TEST.UI._Picker
          Assert.AreEqual("S-1001", pickerEntry.Value);
          Assert.AreEqual("ALPHA", pickerEntry.Label);
          Assert.AreEqual(3, pickerEntry.Columns.Count);
-         Assert.IsFalse(spec.Columns[2].Sortable);
+         Assert.IsFalse(spec.Columns[2].Options.Sortable);
+         Assert.IsFalse(spec.Columns[2].Options.Searchable);
+         Assert.AreEqual(PickerColumnAlignment.Right, spec.Columns[1].Options.Alignment);
          Assert.That(spec.DefaultPreviewTags, Is.EqualTo(new[] { "정보", "경로" }));
          Assert.AreEqual("활성", pickerEntry.Tags.Single().Value);
       }

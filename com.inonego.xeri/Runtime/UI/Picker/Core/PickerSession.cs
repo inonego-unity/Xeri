@@ -582,7 +582,7 @@ namespace inonego.Xeri.UI.Picker
       {
          foreach (var column in spec.Columns)
          {
-            if (column.ID == columnID && column.Sortable)
+            if (column.ID == columnID && column.Options.Sortable)
             {
                return true;
             }

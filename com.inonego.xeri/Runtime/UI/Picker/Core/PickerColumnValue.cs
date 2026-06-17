@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerColumnValue.cs
-수정일 : 2026-06-06
+수정일 : 2026-06-17
 
 # 설명
-Picker column의 원본 값과 표시 문자열을 함께 보관하는 모델.
+Picker column의 원본 값, 표시 문자열, 검색 포함 여부를 함께 보관하는 모델.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -49,6 +49,13 @@ namespace inonego.Xeri.UI.Picker
       // ------------------------------------------------------------
       public readonly string DisplayText;
 
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 검색 문자열에 포함할지 여부.
+      /// </summary>
+      // ------------------------------------------------------------
+      public readonly bool Searchable;
+
    #endregion
 
    #region 생성자
@@ -58,12 +65,13 @@ namespace inonego.Xeri.UI.Picker
       /// 원본 값과 표시 문자열을 생성한다.
       /// </summary>
       // ------------------------------------------------------------
-      public PickerColumnValue(string columnID, string header, object value) : this()
+      public PickerColumnValue(string columnID, string header, object value, bool searchable = true) : this()
       {
          ColumnID    = columnID ?? string.Empty;
          Header      = header ?? string.Empty;
          Value       = value;
          DisplayText = value?.ToString() ?? string.Empty;
+         Searchable  = searchable;
       }
 
    #endregion

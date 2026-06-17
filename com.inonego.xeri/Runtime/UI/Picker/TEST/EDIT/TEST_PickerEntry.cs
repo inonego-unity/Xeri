@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerEntry.cs
-수정일 : 2026-06-06
+수정일 : 2026-06-17
 
 # 설명
 Picker entry의 표시 metadata, 검색 텍스트, null 표시 정책 테스트.
@@ -43,6 +43,35 @@ namespace inonego.Xeri.TEST.UI._Picker
    #endregion
 
    #region E-1: Entry metadata
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 검색 제외 column 값은 entry 검색 문자열에 포함되지 않는다.
+      /// </summary>
+      // ------------------------------------------------------------
+      [Test]
+      public void TEST_PickerEntry_SearchText_SearchableFalse_Column_제외()
+      {
+         var pickerEntry = new PickerEntry<Entry, string>
+         (
+            new Entry { ID = "S-1001", Name = "ALPHA" },
+            "S-1001",
+            "ALPHA",
+            "항목 설명",
+            null,
+            null,
+            new[]
+            {
+               new PickerColumnValue("visible", "표시", "VISIBLE-CODE", true),
+               new PickerColumnValue("hidden", "숨김", "HIDDEN-CODE", false),
+            },
+            true,
+            string.Empty
+         );
+
+         Assert.IsTrue(pickerEntry.SearchText.Contains("VISIBLE-CODE"));
+         Assert.IsFalse(pickerEntry.SearchText.Contains("HIDDEN-CODE"));
+      }
 
       // ------------------------------------------------------------
       /// <summary>

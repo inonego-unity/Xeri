@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerSpecBuilder.cs
-수정일 : 2026-06-07
+수정일 : 2026-06-17
 
 # 설명
 Provider 직접 구현 없이 PickerSpec을 구성하기 위한 fluent builder.
@@ -159,8 +159,23 @@ namespace inonego.Xeri.UI.Picker
       (
          string header,
          Func<TEntry, TColumnValue> getter,
-         float width = 120f,
-         bool sortable = true
+         PickerColumnOptions options
+      )
+      {
+         return Column(header, header, getter, options);
+      }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// table column을 식별자와 header를 분리해 추가한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public PickerSpecBuilder<TEntry, TValue> Column<TColumnValue>
+      (
+         string id,
+         string header,
+         Func<TEntry, TColumnValue> getter,
+         PickerColumnOptions options
       )
       {
          Func<TEntry, object> valueGetter = entry => getter == null ? null : getter(entry);
@@ -168,10 +183,9 @@ namespace inonego.Xeri.UI.Picker
          (
             new PickerColumnSpec<TEntry>
             (
+               id,
                header,
-               header,
-               width,
-               sortable,
+               options,
                valueGetter
             )
          );
