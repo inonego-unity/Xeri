@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentSession.cs
-수정일 : 2026-06-19
+수정일 : 2026-06-23
 
 # 설명
 Workspace에서 열린 문서의 문서 정보, 모델, location, dirty 상태를 보관하는 기본 세션 구현체.
@@ -54,14 +54,32 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       public bool IsDirty => dirtyFlag.IsDirty;
 
+      private readonly DirtyFlag dirtyFlag = new DirtyFlag();
+
+   #endregion
+
+   #region 이벤트
+
       // ------------------------------------------------------------
       /// <summary>
-      /// 현재 세션을 저장할 수 있는지 여부.
+      /// 세션의 문서 정보가 변경될 때 발생한다.
       /// </summary>
       // ------------------------------------------------------------
-      public bool CanSave => Document != null && Model != null && Location != null;
+      public event ValueChangeEventHandler<IDocument> OnDocumentChange = null;
 
-      private readonly DirtyFlag dirtyFlag = new DirtyFlag();
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 세션의 문서 location이 변경될 때 발생한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public event ValueChangeEventHandler<IDocumentLocation> OnLocationChange = null;
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 세션의 dirty 상태가 변경될 때 발생한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public event ValueChangeEventHandler<bool> OnDirtyChange = null;
 
    #endregion
 
@@ -95,7 +113,17 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       public void SetDocument(IDocument document)
       {
-         Document = document ?? throw new ArgumentNullException(nameof(document));
+         if (document == null)
+         {
+            throw new ArgumentNullException(nameof(document));
+         }
+
+         if (Equals(Document, document)) return;
+
+         var previous = Document;
+
+         Document = document;
+         OnDocumentChange?.Invoke(this, new ValueChangeEventArgs<IDocument>(previous, Document));
       }
 
       // ------------------------------------------------------------
@@ -105,7 +133,12 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       public void SetLocation(IDocumentLocation location)
       {
+         if (Equals(Location, location)) return;
+
+         var previous = Location;
+
          Location = location;
+         OnLocationChange?.Invoke(this, new ValueChangeEventArgs<IDocumentLocation>(previous, Location));
       }
 
       // ------------------------------------------------------------
@@ -115,7 +148,12 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       public void SetDirty()
       {
+         if (IsDirty) return;
+
+         var previous = IsDirty;
+
          dirtyFlag.SetDirty();
+         OnDirtyChange?.Invoke(this, new ValueChangeEventArgs<bool>(previous, IsDirty));
       }
 
       // ------------------------------------------------------------
@@ -125,7 +163,12 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       public void ClearDirty()
       {
+         if (!IsDirty) return;
+
+         var previous = IsDirty;
+
          dirtyFlag.Clear();
+         OnDirtyChange?.Invoke(this, new ValueChangeEventArgs<bool>(previous, IsDirty));
       }
 
    #endregion

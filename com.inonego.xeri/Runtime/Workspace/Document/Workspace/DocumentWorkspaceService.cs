@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentWorkspaceService.cs
-수정일 : 2026-06-20
+수정일 : 2026-06-23
 
 # 설명
 DocumentWorkspace와 IDocumentHandler를 조율하여 문서 create/open/save/close 흐름을 수행한다.
@@ -30,7 +30,7 @@ namespace inonego.Xeri.Workspace.Document
       /// 서비스가 조율하는 document workspace.
       /// </summary>
       // ------------------------------------------------------------
-      public DocumentWorkspace Workspace { get; }
+      private readonly DocumentWorkspace workspace = null;
 
       // ------------------------------------------------------------
       /// <summary>
@@ -66,7 +66,7 @@ namespace inonego.Xeri.Workspace.Document
          IEnumerable<IDocumentHandler> handlers
       ) : base()
       {
-         Workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
+         this.workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
 
          CopyHandlers(handlers);
       }
@@ -121,6 +121,11 @@ namespace inonego.Xeri.Workspace.Document
             throw new ArgumentNullException(nameof(location));
          }
 
+         if (workspace.TryFindOpenSession(_TypeID, location, out var existingSession))
+         {
+            return DocumentOpenResponse.Succeed(existingSession, DocumentOpenKind.AlreadyOpen);
+         }
+
          var handler = FindHandlerByTypeID(_TypeID);
          if (handler == null)
          {
@@ -139,7 +144,7 @@ namespace inonego.Xeri.Workspace.Document
             return response;
          }
 
-         var addError = AddSessionFromHandler(response.Session, handler);
+         var addError = AddOpenSessionFromHandler(response.Session, handler, location);
          return string.IsNullOrEmpty(addError) ? response : DocumentOpenResponse.Fail(addError);
       }
 
@@ -149,14 +154,35 @@ namespace inonego.Xeri.Workspace.Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Session의 현재 location에 저장하고 성공하면 dirty 상태를 해제한다.
+      /// Service가 조율하는 workspace에 지정 session이 포함되어 있는지 확인한다.
       /// </summary>
       // ------------------------------------------------------------
-      public DocumentSaveResponse Save(DocumentSession session)
+      public bool HasSession(IDocumentSession session)
       {
          if (session == null)
          {
             throw new ArgumentNullException(nameof(session));
+         }
+
+         return workspace.HasSession(session);
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// <br/> Session의 현재 location에 저장하고 성공하면 dirty 상태를 해제한다.
+      /// <br/> Location이 없는 새 문서는 실패하며, 사용자-facing 저장 흐름은 상위 계층에서 SaveAs로 전환한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      public DocumentSaveResponse Save(IDocumentSession session)
+      {
+         if (session == null)
+         {
+            throw new ArgumentNullException(nameof(session));
+         }
+
+         if (!workspace.HasSession(session))
+         {
+            return DocumentSaveResponse.Fail("workspace에 포함되지 않은 session입니다.");
          }
 
          if (session.Location == null)
@@ -179,7 +205,7 @@ namespace inonego.Xeri.Workspace.Document
       /// 지정한 location에 저장하고 성공하면 session의 기준 location을 변경한다.
       /// </summary>
       // ------------------------------------------------------------
-      public DocumentSaveResponse SaveAs(DocumentSession session, IDocumentLocation location)
+      public DocumentSaveResponse SaveAs(IDocumentSession session, IDocumentLocation location)
       {
          if (session == null)
          {
@@ -189,6 +215,11 @@ namespace inonego.Xeri.Workspace.Document
          if (location == null)
          {
             throw new ArgumentNullException(nameof(location));
+         }
+
+         if (!workspace.HasSession(session))
+         {
+            return DocumentSaveResponse.Fail("workspace에 포함되지 않은 session입니다.");
          }
 
          var response = SaveCore(session, location);
@@ -220,6 +251,11 @@ namespace inonego.Xeri.Workspace.Document
             throw new ArgumentNullException(nameof(location));
          }
 
+         if (!workspace.HasSession(session))
+         {
+            return DocumentSaveResponse.Fail("workspace에 포함되지 않은 session입니다.");
+         }
+
          return SaveCore(session, location);
       }
 
@@ -235,7 +271,7 @@ namespace inonego.Xeri.Workspace.Document
             throw new ArgumentNullException(nameof(session));
          }
 
-         return Workspace.RemoveSession(session);
+         return workspace.RemoveSession(session);
       }
 
    #endregion
@@ -308,40 +344,104 @@ namespace inonego.Xeri.Workspace.Document
             return validationError;
          }
 
-         if (Workspace.HasSession(session))
+         if (workspace.HasSession(session))
          {
             return "이미 workspace에 추가된 session입니다.";
          }
 
-         Workspace.AddSession(session);
+         workspace.AddSession(session);
          return "";
       }
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Handler가 생성한 session의 document type이 handler와 일치하는지 확인한다.
+      /// Handler가 연 session을 검증하고 workspace에 추가한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      private string AddOpenSessionFromHandler
+      (
+         IDocumentSession session,
+         IDocumentHandler handler,
+         IDocumentLocation location
+      )
+      {
+         var validationError = ValidateOpenSessionForHandler(session, handler, location);
+         if (!string.IsNullOrEmpty(validationError))
+         {
+            return validationError;
+         }
+
+         if (workspace.HasSession(session))
+         {
+            return "이미 workspace에 추가된 session입니다.";
+         }
+
+         workspace.AddSession(session);
+         return "";
+      }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// Handler가 반환한 session의 기본 계약이 handler와 일치하는지 확인한다.
       /// </summary>
       // ------------------------------------------------------------
       private string ValidateSessionForHandler(IDocumentSession session, IDocumentHandler handler)
       {
          if (session == null)
          {
-            return "handler가 생성한 session이 없습니다.";
+            return "handler가 반환한 session이 없습니다.";
          }
 
          if (session.Document == null)
          {
-            return "handler가 생성한 session에 document가 없습니다.";
+            return "handler가 반환한 session에 document가 없습니다.";
+         }
+
+         if (session.Model == null)
+         {
+            return "handler가 반환한 session에 model이 없습니다.";
          }
 
          if (string.IsNullOrEmpty(session.Document.TypeID))
          {
-            return "handler가 생성한 session의 document type id가 비어 있습니다.";
+            return "handler가 반환한 session의 document type id가 비어 있습니다.";
          }
 
          if (session.Document.TypeID != handler.TypeID)
          {
             return "handler의 type id와 session document type id가 일치하지 않습니다.";
+         }
+
+         return "";
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// <br/> Handler가 연 session의 공통 session 계약과 요청 location 일치 여부를 확인한다.
+      /// <br/> Open 성공 session의 location은 이후 AlreadyOpen lookup 기준이므로 요청 location과 같아야 한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      private string ValidateOpenSessionForHandler
+      (
+         IDocumentSession session,
+         IDocumentHandler handler,
+         IDocumentLocation location
+      )
+      {
+         var validationError = ValidateSessionForHandler(session, handler);
+         if (!string.IsNullOrEmpty(validationError))
+         {
+            return validationError;
+         }
+
+         if (session.Location == null)
+         {
+            return "handler가 연 session에 location이 없습니다.";
+         }
+
+         if (!session.Location.Equals(location))
+         {
+            return "handler가 연 session location이 요청 location과 일치하지 않습니다.";
          }
 
          return "";
@@ -353,16 +453,11 @@ namespace inonego.Xeri.Workspace.Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 저장 흐름의 공통 검증과 handler 호출을 수행한다.
+      /// Workspace 소속 검증이 끝난 저장 흐름의 handler 검증과 호출을 수행한다.
       /// </summary>
       // ------------------------------------------------------------
       private DocumentSaveResponse SaveCore(IDocumentSession session, IDocumentLocation location)
       {
-         if (!Workspace.HasSession(session))
-         {
-            return DocumentSaveResponse.Fail("workspace에 포함되지 않은 session입니다.");
-         }
-
          if (session.Document == null)
          {
             return DocumentSaveResponse.Fail("session에 document가 없습니다.");

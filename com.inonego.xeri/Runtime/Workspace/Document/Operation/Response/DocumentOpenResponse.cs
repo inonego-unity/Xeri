@@ -1,15 +1,27 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentOpenResponse.cs
-수정일 : 2026-06-19
+수정일 : 2026-06-22
 
 # 설명
-문서 열기 요청의 성공 여부와 생성된 문서 세션 또는 실패 메시지를 담는 응답 값을 정의한다.
+문서 열기 요청의 성공 여부, session 확보 방식, 생성된 문서 세션 또는 실패 메시지를 담는 응답 값을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 
 namespace inonego.Xeri.Workspace.Document
 {
+   // ============================================================
+   /// <summary>
+   /// 문서 열기 성공 결과의 세부 종류.
+   /// </summary>
+   // ============================================================
+   public enum DocumentOpenKind
+   {
+      None        = 0,
+      NewSession  = 1,
+      AlreadyOpen = 2,
+   }
+
    // ============================================================
    /// <summary>
    /// 문서 열기 요청 결과.
@@ -26,6 +38,13 @@ namespace inonego.Xeri.Workspace.Document
       /// </summary>
       // ------------------------------------------------------------
       public bool Success { get; }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 문서 열기 성공 시 session이 확보된 방식.
+      /// </summary>
+      // ------------------------------------------------------------
+      public DocumentOpenKind Kind { get; }
 
       // ------------------------------------------------------------
       /// <summary>
@@ -52,12 +71,16 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       private DocumentOpenResponse
       (
-         bool success, IDocumentSession session, string error
+         bool success,
+         DocumentOpenKind kind,
+         IDocumentSession session,
+         string error
       ) : this()
       {
-         Success = success;
-         Session = session;
-         Error   = error ?? "";
+         Success  = success;
+         Kind     = kind;
+         Session  = session;
+         Error    = error ?? "";
       }
 
    #endregion
@@ -71,12 +94,31 @@ namespace inonego.Xeri.Workspace.Document
       // ------------------------------------------------------------
       public static DocumentOpenResponse Succeed(IDocumentSession session)
       {
+         return Succeed(session, DocumentOpenKind.NewSession);
+      }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 성공 응답을 생성한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public static DocumentOpenResponse Succeed
+      (
+         IDocumentSession session,
+         DocumentOpenKind kind
+      )
+      {
          if (session == null)
          {
             throw new ArgumentNullException(nameof(session));
          }
 
-         return new DocumentOpenResponse(true, session, "");
+         if (kind == DocumentOpenKind.None)
+         {
+            throw new ArgumentException("문서 열기 성공 종류가 지정되지 않았습니다.", nameof(kind));
+         }
+
+         return new DocumentOpenResponse(true, kind, session, "");
       }
 
       // ------------------------------------------------------------
@@ -84,7 +126,10 @@ namespace inonego.Xeri.Workspace.Document
       /// 실패 응답을 생성한다.
       /// </summary>
       // ------------------------------------------------------------
-      public static DocumentOpenResponse Fail(string error) => new DocumentOpenResponse(false, null, error);
+      public static DocumentOpenResponse Fail(string error)
+      {
+         return new DocumentOpenResponse(false, DocumentOpenKind.None, null, error);
+      }
 
    #endregion
 

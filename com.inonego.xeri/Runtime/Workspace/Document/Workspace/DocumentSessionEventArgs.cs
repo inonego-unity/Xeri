@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentSessionEventArgs.cs
-수정일 : 2026-06-19
+수정일 : 2026-06-22
 
 # 설명
 DocumentWorkspace의 session collection 변경 이벤트에서 전달할 event args를 정의한다.

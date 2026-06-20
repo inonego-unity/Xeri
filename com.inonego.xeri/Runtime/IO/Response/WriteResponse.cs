@@ -1,60 +1,93 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : IDocumentHandler.cs
-수정일 : 2026-06-22
+파일명 : WriteResponse.cs
+수정일 : 2026-06-21
 
 # 설명
-하나의 문서 타입에 대한 create, open, save 흐름을 일관되게 처리하는 handler 인터페이스를 정의한다.
+IO write operation의 성공 여부와 실패 정보를 담는 응답 값을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
-namespace inonego.Xeri.Workspace.Document
+using System;
+
+namespace inonego.Xeri.IO
 {
    // ============================================================
    /// <summary>
-   /// 하나의 문서 타입에 대한 생성, 열기, 저장 흐름을 처리하는 인터페이스.
+   /// IO write operation 결과.
    /// </summary>
    // ============================================================
-   public interface IDocumentHandler
+   public readonly struct WriteResponse
    {
-      // ------------------------------------------------------------
-      /// <summary>
-      /// Handler가 담당하는 문서 종류 식별자.
-      /// </summary>
-      // ------------------------------------------------------------
-      string TypeID { get; }
+
+   #region 필드
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 이름으로 새 문서 세션을 생성한다.
+      /// write operation 성공 여부.
       /// </summary>
       // ------------------------------------------------------------
-      DocumentCreateResponse Create(string name);
+      public bool Success { get; }
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 location을 열 수 있는지 확인한다.
+      /// 쓰기에 실패했을 때 사용할 실패 메시지.
       /// </summary>
       // ------------------------------------------------------------
-      bool CanOpen(IDocumentLocation location);
+      public string Error { get; }
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 location을 문서 세션으로 연다.
+      /// 쓰기에 실패했을 때 보관할 원본 예외.
       /// </summary>
       // ------------------------------------------------------------
-      DocumentOpenResponse Open(IDocumentLocation location);
+      public Exception Exception { get; }
+
+   #endregion
+
+   #region 생성자
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 문서 세션을 location에 저장할 수 있는지 확인한다.
+      /// write response를 생성한다.
       /// </summary>
       // ------------------------------------------------------------
-      bool CanSave(IDocumentSession session, IDocumentLocation location);
+      private WriteResponse
+      (
+         bool success,
+         string error,
+         Exception exception
+      ) : this()
+      {
+         Success   = success;
+         Error     = error ?? "";
+         Exception = exception;
+      }
+
+   #endregion
+
+   #region 메서드
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 문서 세션을 location에 저장한다.
+      /// 성공 응답을 생성한다.
       /// </summary>
       // ------------------------------------------------------------
-      DocumentSaveResponse Save(IDocumentSession session, IDocumentLocation location);
+      public static WriteResponse Succeed() => new WriteResponse(true, "", null);
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 실패 응답을 생성한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public static WriteResponse Fail
+      (
+         string error,
+         Exception exception = null
+      )
+      {
+         return new WriteResponse(false, error, exception);
+      }
+
+   #endregion
+
    }
 }
