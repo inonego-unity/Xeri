@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ObjectDocumentLocation.cs
-수정일 : 2026-06-22
+수정일 : 2026-07-01
 
 # 설명
 이미 존재하는 객체 인스턴스를 문서 location으로 다루는 구현체를 정의한다.
@@ -81,6 +81,16 @@ namespace inonego.Xeri.Workspace.Document
    #endregion
 
    #region 메서드
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// Object reference location은 object reference를 복구할 수 없으므로 기본 recovery record를 제공하지 않는다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public IDocumentLocationRecord Record()
+      {
+         return null;
+      }
 
       // ------------------------------------------------------------
       /// <summary>

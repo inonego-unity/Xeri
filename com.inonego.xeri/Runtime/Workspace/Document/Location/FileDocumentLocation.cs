@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : FileDocumentLocation.cs
-수정일 : 2026-06-22
+수정일 : 2026-07-01
 
 # 설명
 파일 시스템 경로를 문서 location으로 다루는 구현체를 정의한다.
@@ -100,6 +100,16 @@ namespace inonego.Xeri.Workspace.Document
    #endregion
 
    #region 메서드
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// File location을 path/name 기반 recovery record로 만든다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public IDocumentLocationRecord Record()
+      {
+         return new FileDocumentLocationRecord(name, path);
+      }
 
       // ------------------------------------------------------------
       /// <summary>

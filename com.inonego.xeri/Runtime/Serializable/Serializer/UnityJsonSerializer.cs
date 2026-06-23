@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityJsonSerializer.cs
-수정일 : 2026-06-12
+수정일 : 2026-06-28
 
 # 설명
 UnityEngine.JsonUtility 기반 ISerializer 구현.
-Unity 직렬화 규칙을 그대로 따르는 기본 JSON serializer를 제공한다.
+Unity 직렬화 규칙을 그대로 따르는 JSON serializer를 제공한다.
+출력 formatting은 serializer 인스턴스의 prettyPrint 설정으로 결정한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -31,16 +32,35 @@ namespace inonego.Xeri.Serializable
       // ------------------------------------------------------------
       public static UnityJsonSerializer Default { get; } = new();
 
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 들여쓰기 JSON serializer 인스턴스.
+      /// </summary>
+      // ------------------------------------------------------------
+      public static UnityJsonSerializer Pretty { get; } = new(true);
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// JSON 출력에 들여쓰기를 적용할지 여부.
+      /// </summary>
+      // ------------------------------------------------------------
+      public bool PrettyPrint => prettyPrint;
+
+      private readonly bool prettyPrint = false;
+
    #endregion
 
    #region 생성자
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 기본 JSON serializer를 생성한다.
+      /// JSON serializer를 생성한다.
       /// </summary>
       // ------------------------------------------------------------
-      private UnityJsonSerializer() : base() {}
+      public UnityJsonSerializer(bool prettyPrint = false) : base()
+      {
+         this.prettyPrint = prettyPrint;
+      }
 
    #endregion
 
@@ -53,7 +73,7 @@ namespace inonego.Xeri.Serializable
       // ------------------------------------------------------------
       public string Serialize<T>(T value)
       {
-         return JsonUtility.ToJson(value);
+         return JsonUtility.ToJson(value, prettyPrint);
       }
 
       // ------------------------------------------------------------

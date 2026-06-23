@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MemoryDocumentLocation.cs
-수정일 : 2026-06-22
+수정일 : 2026-07-01
 
 # 설명
 Workspace 안에서만 식별되는 임시 문서 location 구현체를 정의한다.
@@ -97,6 +97,16 @@ namespace inonego.Xeri.Workspace.Document
    #endregion
 
    #region 메서드
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// Memory location은 in-memory value를 복구할 수 없으므로 기본 recovery record를 제공하지 않는다.
+      /// </summary>
+      // ------------------------------------------------------------
+      public IDocumentLocationRecord Record()
+      {
+         return null;
+      }
 
       // ------------------------------------------------------------
       /// <summary>

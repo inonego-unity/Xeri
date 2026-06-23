@@ -1,16 +1,16 @@
-/* BLOCK_HEADER_BEGIN =======================================================================
+/* BLOCK_HEADER_BEGIN ===============================================================================================
 파일명 : IDocumentHandler.cs
-수정일 : 2026-06-22
+수정일 : 2026-07-01
 
 # 설명
-하나의 문서 타입에 대한 create, open, save 흐름을 일관되게 처리하는 handler 인터페이스를 정의한다.
-========================================================================= BLOCK_HEADER_END */
+하나의 문서 타입에 대한 create, open, save, recovery 흐름을 일관되게 처리하는 handler 인터페이스를 정의한다.
+================================================================================================= BLOCK_HEADER_END */
 
 namespace inonego.Xeri.Workspace.Document
 {
    // ============================================================
    /// <summary>
-   /// 하나의 문서 타입에 대한 생성, 열기, 저장 흐름을 처리하는 인터페이스.
+   /// 하나의 문서 타입에 대한 생성, 열기, 저장, 복구 흐름을 처리하는 인터페이스.
    /// </summary>
    // ============================================================
    public interface IDocumentHandler
@@ -31,13 +31,6 @@ namespace inonego.Xeri.Workspace.Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 location을 열 수 있는지 확인한다.
-      /// </summary>
-      // ------------------------------------------------------------
-      bool CanOpen(IDocumentLocation location);
-
-      // ------------------------------------------------------------
-      /// <summary>
       /// 지정한 location을 문서 세션으로 연다.
       /// </summary>
       // ------------------------------------------------------------
@@ -45,16 +38,28 @@ namespace inonego.Xeri.Workspace.Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 지정한 문서 세션을 location에 저장할 수 있는지 확인한다.
-      /// </summary>
-      // ------------------------------------------------------------
-      bool CanSave(IDocumentSession session, IDocumentLocation location);
-
-      // ------------------------------------------------------------
-      /// <summary>
       /// 지정한 문서 세션을 location에 저장한다.
       /// </summary>
       // ------------------------------------------------------------
       DocumentSaveResponse Save(IDocumentSession session, IDocumentLocation location);
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 지정한 문서 세션의 body를 recovery record로 만든다.
+      /// </summary>
+      // ------------------------------------------------------------
+      DocumentBodyRecoveryRecord RecordSessionBody(IDocumentSession session);
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 지정한 document, body record, location에서 문서 세션을 복구한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      DocumentOpenResponse RecoverSession
+      (
+         IDocument document,
+         DocumentBodyRecoveryRecord bodyRecord,
+         IDocumentLocation location
+      );
    }
 }

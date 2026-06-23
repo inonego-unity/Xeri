@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DocumentWorkspaceController.cs
-수정일 : 2026-06-23
+수정일 : 2026-06-28
 
 # 설명
 DocumentWorkspaceController의 사용자-facing 문서 흐름 테스트.
@@ -23,7 +23,7 @@ namespace inonego.Xeri.TEST.Workspace._Document
    /// DocumentWorkspaceController 사용자 흐름 테스트.
    /// </summary>
    // ============================================================
-   public class TEST_DocumentWorkspaceController : DocumentWorkspaceTestFixture
+   public class TEST_DocumentWorkspaceController : TEST_DocumentWorkspaceBase
    {
 
    #region O-1: 생성과 열기 입력 검증
@@ -123,10 +123,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceController_Save_Workspace밖Session_Failed반환()
       {
          var controller = CreateController(out var workspace);
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             null
          );
 
@@ -151,10 +150,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceController_SaveAs_Workspace밖Session_Failed반환()
       {
          var controller = CreateController(out var workspace);
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             CreateLocation("Detached")
          );
 
@@ -179,10 +177,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceController_SaveTo_Workspace밖Session_Failed반환()
       {
          var controller = CreateController(out var workspace);
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             CreateLocation("Detached")
          );
 
@@ -360,10 +357,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceController_Close_Workspace밖DirtySession_Failed반환()
       {
          var controller = CreateController(out var workspace);
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             CreateLocation("Detached")
          );
 
@@ -388,10 +384,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceController_CloseDiscardingChanges_Workspace밖Session_Failed반환()
       {
          var controller = CreateController(out var workspace);
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             CreateLocation("Detached")
          );
 

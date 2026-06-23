@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentWorkspaceService.cs
-수정일 : 2026-06-23
+수정일 : 2026-07-01
 
 # 설명
 DocumentWorkspace와 IDocumentHandler를 조율하여 문서 create/open/save/close 흐름을 수행한다.
@@ -12,6 +12,8 @@ DocumentWorkspace는 session container로 유지하고, 사용자 작업의 의�
 using System;
 using System.Collections;
 using System.Collections.Generic;
+
+using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri.Workspace.Document
 {
@@ -41,6 +43,20 @@ namespace inonego.Xeri.Workspace.Document
 
       private readonly Dictionary<string, IDocumentHandler> handlers = new Dictionary<string, IDocumentHandler>();
 
+      // ------------------------------------------------------------
+      /// <summary>
+      /// Workspace recovery 흐름 처리기.
+      /// </summary>
+      // ------------------------------------------------------------
+      private readonly DocumentWorkspaceRecovery recovery = null;
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// Workspace recovery record 문자열 변환 serializer.
+      /// </summary>
+      // ------------------------------------------------------------
+      private readonly ISerializer recoverySerializer = UnityJsonSerializer.Pretty;
+
    #endregion
 
    #region 생성자
@@ -69,6 +85,8 @@ namespace inonego.Xeri.Workspace.Document
          this.workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
 
          CopyHandlers(handlers);
+
+         recovery = new DocumentWorkspaceRecovery(this.workspace, this.handlers);
       }
 
    #endregion
@@ -130,12 +148,6 @@ namespace inonego.Xeri.Workspace.Document
          if (handler == null)
          {
             return DocumentOpenResponse.Fail("문서 종류를 열 수 있는 handler를 찾을 수 없습니다.");
-         }
-
-         // CanOpen은 handler 선택이 아니라 선택된 handler의 입력 검증이다.
-         if (!handler.CanOpen(location))
-         {
-            return DocumentOpenResponse.Fail("handler가 지정 location을 열 수 없습니다.");
          }
 
          var response = handler.Open(location);
@@ -276,6 +288,85 @@ namespace inonego.Xeri.Workspace.Document
 
    #endregion
 
+   #region Recovery Record
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// <br/> 현재 workspace의 열린 session 목록을 recovery record 문자열로 만든다.
+      /// <br/> 외부 host adapter는 이 문자열을 domain reload boundary 밖에 보관한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      public DocumentWorkspaceRecordResponse RecordRecovery()
+      {
+         var response = recovery.Record();
+         var record = recoverySerializer.Serialize(response.Record);
+
+         return response.Success
+            ? DocumentWorkspaceRecordResponse.Succeed(record)
+            : DocumentWorkspaceRecordResponse.Fail(record, response.Error);
+      }
+
+   #endregion
+
+   #region Recovery Recover
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// <br/> Recovery record 문자열에서 document sessions를 복구하고 성공한 session을 workspace에 추가한다.
+      /// <br/> 이미 같은 location으로 열린 session이 있으면 새 session을 만들지 않고 기존 session을 반환한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      public DocumentWorkspaceRecoveryResponse Recover(string record)
+      {
+         if (string.IsNullOrEmpty(record))
+         {
+            return DocumentWorkspaceRecoveryResponse.Fail
+            (
+               Array.Empty<DocumentSessionRecoveryResponse>(),
+               "workspace recovery record가 비어 있습니다."
+            );
+         }
+
+         DocumentWorkspaceRecoveryRecord recoveryRecord = null;
+
+         try
+         {
+            recoveryRecord = recoverySerializer.Deserialize<DocumentWorkspaceRecoveryRecord>(record);
+         }
+         catch (Exception exception)
+         {
+            return DocumentWorkspaceRecoveryResponse.Fail
+            (
+               Array.Empty<DocumentSessionRecoveryResponse>(),
+               exception.Message
+            );
+         }
+
+         if (recoveryRecord == null)
+         {
+            return DocumentWorkspaceRecoveryResponse.Fail
+            (
+               Array.Empty<DocumentSessionRecoveryResponse>(),
+               "workspace recovery record를 복원할 수 없습니다."
+            );
+         }
+
+         return Recover(recoveryRecord);
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// <br/> Recovery record DTO에서 document sessions를 복구하고 성공한 session을 workspace에 추가한다.
+      /// <br/> 문자열 API가 외부 계약이고, DTO 기반 복구는 내부 조립 흐름에서만 사용한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      private DocumentWorkspaceRecoveryResponse Recover(DocumentWorkspaceRecoveryRecord record)
+      {
+         return recovery.Recover(record);
+      }
+
+   #endregion
+
    #region Handler 관리
 
       // ------------------------------------------------------------
@@ -314,13 +405,13 @@ namespace inonego.Xeri.Workspace.Document
 
             if (string.IsNullOrEmpty(handler.TypeID))
             {
-               throw new ArgumentException("handler type id가 비어 있습니다.", nameof(source));
+               throw new ArgumentException("handler TypeID가 비어 있습니다.", nameof(source));
             }
 
             // 하나의 document type은 하나의 handler만 책임진다.
             if (handlers.ContainsKey(handler.TypeID))
             {
-               throw new ArgumentException("중복된 handler type id가 포함되어 있습니다.", nameof(source));
+               throw new ArgumentException("중복된 handler TypeID가 포함되어 있습니다.", nameof(source));
             }
 
             handlers.Add(handler.TypeID, handler);
@@ -397,19 +488,19 @@ namespace inonego.Xeri.Workspace.Document
             return "handler가 반환한 session에 document가 없습니다.";
          }
 
-         if (session.Model == null)
+         if (session.Body == null)
          {
-            return "handler가 반환한 session에 model이 없습니다.";
+            return "handler가 반환한 session에 body가 없습니다.";
          }
 
          if (string.IsNullOrEmpty(session.Document.TypeID))
          {
-            return "handler가 반환한 session의 document type id가 비어 있습니다.";
+            return "handler가 반환한 session의 document TypeID가 비어 있습니다.";
          }
 
          if (session.Document.TypeID != handler.TypeID)
          {
-            return "handler의 type id와 session document type id가 일치하지 않습니다.";
+            return "handler의 TypeID와 session document TypeID가 일치하지 않습니다.";
          }
 
          return "";
@@ -467,12 +558,6 @@ namespace inonego.Xeri.Workspace.Document
          if (handler == null)
          {
             return DocumentSaveResponse.Fail("session document type을 처리할 수 있는 handler를 찾을 수 없습니다.");
-         }
-
-         // CanSave는 handler 선택이 아니라 선택된 handler의 저장 가능성 검증이다.
-         if (!handler.CanSave(session, location))
-         {
-            return DocumentSaveResponse.Fail("session을 지정 location에 저장할 수 없습니다.");
          }
 
          return handler.Save(session, location);

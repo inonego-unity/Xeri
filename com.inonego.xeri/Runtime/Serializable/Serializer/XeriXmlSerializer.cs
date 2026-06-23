@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriXmlSerializer.cs
-수정일 : 2026-06-12
+수정일 : 2026-06-28
 
 # 설명
 System.Xml.Serialization.XmlSerializer 기반 ISerializer 구현.
 타입별 XmlSerializer 생성 비용을 줄이기 위해 제네릭 static 캐시를 사용한다.
+출력 formatting은 serializer 인스턴스의 prettyPrint 설정으로 결정한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -51,16 +52,35 @@ namespace inonego.Xeri.Serializable
       // ------------------------------------------------------------
       public static XeriXmlSerializer Default { get; } = new();
 
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 들여쓰기 XML serializer 인스턴스.
+      /// </summary>
+      // ------------------------------------------------------------
+      public static XeriXmlSerializer Pretty { get; } = new(true);
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// XML 출력에 들여쓰기를 적용할지 여부.
+      /// </summary>
+      // ------------------------------------------------------------
+      public bool PrettyPrint => prettyPrint;
+
+      private readonly bool prettyPrint = false;
+
    #endregion
 
    #region 생성자
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 기본 XML serializer를 생성한다.
+      /// XML serializer를 생성한다.
       /// </summary>
       // ------------------------------------------------------------
-      private XeriXmlSerializer() : base() {}
+      public XeriXmlSerializer(bool prettyPrint = false) : base()
+      {
+         this.prettyPrint = prettyPrint;
+      }
 
    #endregion
 
@@ -75,7 +95,18 @@ namespace inonego.Xeri.Serializable
       {
          using var writer = new StringWriter();
 
-         XmlSerializerCache<T>.Default.Serialize(writer, value);
+         var settings = new XmlWriterSettings
+         {
+            Indent = prettyPrint,
+            IndentChars = "   ",
+            NewLineChars = "\n",
+            NewLineHandling = NewLineHandling.Replace,
+            OmitXmlDeclaration = true,
+         };
+
+         using var xmlWriter = XmlWriter.Create(writer, settings);
+
+         XmlSerializerCache<T>.Default.Serialize(xmlWriter, value);
 
          return writer.ToString();
       }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DocumentWorkspaceService.cs
-수정일 : 2026-06-23
+수정일 : 2026-07-01
 
 # 설명
 DocumentWorkspaceService의 create/open/save/close 실행 계약을 검증한다.
@@ -10,14 +10,17 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
  F: Flow - create/open/save 대표 흐름
  O: Open - 이미 열린 session 재사용 흐름
  S: Save - save/saveAs/saveTo 상태 변화
+ R: Recovery - workspace/session 복구 흐름
  H: Handler - handler 등록과 반환값 검증
  X: Failure - 실패 응답과 실패 후 상태 보존
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.IO;
 
 using NUnit.Framework;
 
+using inonego.Xeri.Serializable;
 using inonego.Xeri.Workspace.Document;
 
 namespace inonego.Xeri.TEST.Workspace._Document
@@ -27,8 +30,34 @@ namespace inonego.Xeri.TEST.Workspace._Document
    /// DocumentWorkspaceService 실행 흐름 테스트.
    /// </summary>
    // ============================================================
-   public class TEST_DocumentWorkspaceService : DocumentWorkspaceTestFixture
+   public class TEST_DocumentWorkspaceService : TEST_DocumentWorkspaceBase
    {
+
+   #region 헬퍼
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 테스트용 파일 document service를 생성한다.
+      /// </summary>
+      // ------------------------------------------------------------
+      private static DocumentWorkspaceService CreateFileService(out DocumentWorkspace workspace)
+      {
+         workspace = new DocumentWorkspace();
+
+         return new DocumentWorkspaceService(workspace, new IDocumentHandler[] { new FileDocumentHandler() });
+      }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 테스트용 임시 파일 경로를 만든다.
+      /// </summary>
+      // ------------------------------------------------------------
+      private static string CreateTempPath()
+      {
+         return Path.Combine(Path.GetTempPath(), "UniXeri_" + Guid.NewGuid().ToString("N") + ".json");
+      }
+
+   #endregion
 
    #region F-1: Create / SaveAs / Open 라운드트립
 
@@ -117,10 +146,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
          var loc = CreateLocation("SameLocation");
          var seedService = CreateService(out var seedWorkspace);
          var seedSession = CreateSavedSession(seedService, loc, "seed", 1);
-         var foreignSession = new DocumentSession
-         (
+         var foreignSession = new DocumentSession<DocumentBody>(
             new Document(ForeignTypeID, Version, "Foreign"),
-            new DocumentModel(new Payload("foreign", 1)),
+            new DocumentBody(new Payload("foreign", 1)),
             loc
          );
          var service = new DocumentWorkspaceService
@@ -266,6 +294,367 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
    #endregion
 
+   #region R-1: Recovery record 생성과 복구
+
+      // --------------------------------------------------------------------------------
+      /// <summary>
+      /// Location이 없는 dirty session도 serialized recovery record로 복구된다.
+      /// </summary>
+      // --------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_RecordRecovery_UnsavedDirtySession_Record와Dirty복구()
+      {
+         var sourceService = CreateService(out _);
+         var createResponse = sourceService.Create(TypeID, "Unsaved");
+
+         Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+         SetPayload(createResponse.Session, "draft", 15);
+
+         var recordResponse = sourceService.RecordRecovery();
+         Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+         var record = recordResponse.Record;
+         var targetService = CreateService(out var targetWorkspace);
+         var recoverResponse = targetService.Recover(record);
+
+         Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+         Assert.AreEqual(1, targetWorkspace.Sessions.Count);
+
+         var session = targetWorkspace.Sessions[0];
+         var payload = GetPayload(session);
+
+         Assert.IsNull(session.Location);
+         Assert.IsTrue(session.IsDirty);
+         Assert.AreEqual("draft", payload.Text);
+         Assert.AreEqual(15, payload.Count);
+      }
+
+      // --------------------------------------------------------------------------------
+      /// <summary>
+      /// FileDocumentLocation을 가진 session은 location과 record를 함께 복구한다.
+      /// </summary>
+      // --------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_RecordRecovery_FileSession_파일Location과Record복구()
+      {
+         var path = CreateTempPath();
+
+         try
+         {
+            var sourceService = CreateFileService(out _);
+            var loc = new FileDocumentLocation(path, "FileRecovery");
+            var createResponse = sourceService.Create(TypeID, "FileRecovery");
+
+            Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+            SetPayload(createResponse.Session, "file", 27);
+
+            var saveResponse = sourceService.SaveAs(createResponse.Session, loc);
+
+            Assert.IsTrue(saveResponse.Success, saveResponse.Error);
+
+            var recordResponse = sourceService.RecordRecovery();
+            Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+            var record = recordResponse.Record;
+            var restoredRecord = UnityJsonSerializer.Pretty.Deserialize<DocumentWorkspaceRecoveryRecord>(record);
+
+            Assert.AreEqual(1, restoredRecord.Sessions.Count);
+            Assert.AreEqual(TypeID, restoredRecord.Sessions[0].TypeID);
+            Assert.AreEqual(Version, restoredRecord.Sessions[0].Version);
+            Assert.IsNotNull(restoredRecord.Sessions[0].Location);
+            Assert.IsInstanceOf<FileDocumentLocationRecord>(restoredRecord.Sessions[0].Location);
+            Assert.IsNotNull(restoredRecord.Sessions[0].Body);
+            Assert.IsFalse(string.IsNullOrEmpty(restoredRecord.Sessions[0].Body.Record));
+
+            var targetService = CreateFileService(out var targetWorkspace);
+            var recoverResponse = targetService.Recover(record);
+
+            Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+            Assert.AreEqual(1, targetWorkspace.Sessions.Count);
+
+            var session = targetWorkspace.Sessions[0];
+            var payload = GetPayload(session);
+
+            Assert.IsFalse(session.IsDirty);
+            Assert.AreEqual(DocumentSessionRecoveryKind.Recovered, recoverResponse.Sessions[0].Kind);
+            Assert.IsTrue(session.Location.Equals(loc));
+            Assert.AreEqual("file", payload.Text);
+            Assert.AreEqual(27, payload.Count);
+         }
+         finally
+         {
+            if (File.Exists(path))
+            {
+               File.Delete(path);
+            }
+         }
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// 저장 이후 변경된 file session은 recovery record의 body와 dirty 상태를 함께 복구한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_RecordRecovery_DirtyFileSession_Record와Dirty복구()
+      {
+         var path = CreateTempPath();
+
+         try
+         {
+            var sourceService = CreateFileService(out _);
+            var loc = new FileDocumentLocation(path, "DirtyFileRecovery");
+            var createResponse = sourceService.Create(TypeID, "DirtyFileRecovery");
+
+            Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+            SetPayload(createResponse.Session, "saved", 31);
+
+            var saveResponse = sourceService.SaveAs(createResponse.Session, loc);
+
+            Assert.IsTrue(saveResponse.Success, saveResponse.Error);
+
+            SetPayload(createResponse.Session, "dirty", 32);
+
+            var recordResponse = sourceService.RecordRecovery();
+            Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+            var record = recordResponse.Record;
+            var targetService = CreateFileService(out var targetWorkspace);
+            var recoverResponse = targetService.Recover(record);
+
+            Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+            Assert.AreEqual(1, targetWorkspace.Sessions.Count);
+            Assert.AreEqual(DocumentSessionRecoveryKind.Recovered, recoverResponse.Sessions[0].Kind);
+
+            var session = targetWorkspace.Sessions[0];
+            var payload = GetPayload(session);
+
+            Assert.IsTrue(session.IsDirty);
+            Assert.IsTrue(session.Location.Equals(loc));
+            Assert.AreEqual("dirty", payload.Text);
+            Assert.AreEqual(32, payload.Count);
+         }
+         finally
+         {
+            if (File.Exists(path))
+            {
+               File.Delete(path);
+            }
+         }
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// Recovery record를 문자열로 저장했다가 다시 읽어도 file session과 dirty 상태가 복구된다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_RecordRecovery_JsonRoundTrip_파일Session복구()
+      {
+         var path = CreateTempPath();
+
+         try
+         {
+            var sourceService = CreateFileService(out _);
+            var loc = new FileDocumentLocation(path, "JsonRoundTripRecovery");
+            var createResponse = sourceService.Create(TypeID, "JsonRoundTripRecovery");
+
+            Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+            SetPayload(createResponse.Session, "saved", 51);
+
+            var saveResponse = sourceService.SaveAs(createResponse.Session, loc);
+
+            Assert.IsTrue(saveResponse.Success, saveResponse.Error);
+
+            SetPayload(createResponse.Session, "serialized", 52);
+
+            var recordResponse = sourceService.RecordRecovery();
+            Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+            var record = recordResponse.Record;
+            var targetService = CreateFileService(out var targetWorkspace);
+            var recoverResponse = targetService.Recover(record);
+
+            Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+            Assert.AreEqual(1, targetWorkspace.Sessions.Count);
+            Assert.AreEqual(DocumentSessionRecoveryKind.Recovered, recoverResponse.Sessions[0].Kind);
+
+            var session = targetWorkspace.Sessions[0];
+            var payload = GetPayload(session);
+
+            Assert.IsTrue(session.IsDirty);
+            Assert.IsTrue(session.Location.Equals(loc));
+            Assert.AreEqual("serialized", payload.Text);
+            Assert.AreEqual(52, payload.Count);
+         }
+         finally
+         {
+            if (File.Exists(path))
+            {
+               File.Delete(path);
+            }
+         }
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// Recovery record는 Unity JSON round-trip 이후에도 file location record 타입을 유지한다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_RecordRecovery_JsonRoundTrip_LocationRecord타입보존()
+      {
+         var path = CreateTempPath();
+
+         try
+         {
+            var sourceService = CreateFileService(out _);
+            var loc = new FileDocumentLocation(path, "LocationRecordType");
+            var createResponse = sourceService.Create(TypeID, "LocationRecordType");
+
+            Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+            SetPayload(createResponse.Session, "location", 61);
+
+            var saveResponse = sourceService.SaveAs(createResponse.Session, loc);
+
+            Assert.IsTrue(saveResponse.Success, saveResponse.Error);
+
+            var recordResponse = sourceService.RecordRecovery();
+            Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+            var record = recordResponse.Record;
+            var restoredRecord = UnityJsonSerializer.Pretty.Deserialize<DocumentWorkspaceRecoveryRecord>(record);
+            var targetService = CreateFileService(out var targetWorkspace);
+            var recoverResponse = targetService.Recover(record);
+
+            Assert.AreEqual(1, restoredRecord.Sessions.Count);
+            Assert.IsNotNull(restoredRecord.Sessions[0].Location);
+            Assert.IsInstanceOf<FileDocumentLocationRecord>(restoredRecord.Sessions[0].Location);
+            Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+            Assert.AreEqual(1, targetWorkspace.Sessions.Count);
+
+            var session = targetWorkspace.Sessions[0];
+            var payload = GetPayload(session);
+
+            Assert.IsTrue(session.Location.Equals(loc));
+            Assert.AreEqual("location", payload.Text);
+            Assert.AreEqual(61, payload.Count);
+         }
+         finally
+         {
+            if (File.Exists(path))
+            {
+               File.Delete(path);
+            }
+         }
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// 같은 file location이 이미 열려 있으면 recovery는 새 session을 추가하지 않는다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_Recover_AlreadyOpenLocation_기존Session반환()
+      {
+         var path = CreateTempPath();
+
+         try
+         {
+            var sourceService = CreateFileService(out _);
+            var loc = new FileDocumentLocation(path, "AlreadyOpenRecovery");
+            var createResponse = sourceService.Create(TypeID, "AlreadyOpenRecovery");
+
+            Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+            SetPayload(createResponse.Session, "file", 41);
+
+            var saveResponse = sourceService.SaveAs(createResponse.Session, loc);
+
+            Assert.IsTrue(saveResponse.Success, saveResponse.Error);
+
+            var recordResponse = sourceService.RecordRecovery();
+            Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+            var record = recordResponse.Record;
+            var targetService = CreateFileService(out var targetWorkspace);
+            var openResponse = targetService.Open(TypeID, loc);
+
+            Assert.IsTrue(openResponse.Success, openResponse.Error);
+
+            var recoverResponse = targetService.Recover(record);
+
+            Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+            Assert.AreEqual(1, targetWorkspace.Sessions.Count);
+            Assert.AreEqual(DocumentSessionRecoveryKind.AlreadyOpen, recoverResponse.Sessions[0].Kind);
+            Assert.AreSame(openResponse.Session, recoverResponse.Sessions[0].Session);
+         }
+         finally
+         {
+            if (File.Exists(path))
+            {
+               File.Delete(path);
+            }
+         }
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// Body recovery는 transport와 분리되므로 같은 TypeID handler면 다른 transport preset에서도 복구된다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_Recover_같은TypeID_다른TransportPreset_Body복구()
+      {
+         var sourceService = CreateService(out _);
+         var createResponse = sourceService.Create(TypeID, "TransportSeparated");
+
+         Assert.IsTrue(createResponse.Success, createResponse.Error);
+
+         SetPayload(createResponse.Session, "memory", 52);
+
+         var recordResponse = sourceService.RecordRecovery();
+         Assert.IsTrue(recordResponse.Success, recordResponse.Error);
+
+         var record = recordResponse.Record;
+         var targetService = CreateFileService(out _);
+         var recoverResponse = targetService.Recover(record);
+
+         Assert.IsTrue(recoverResponse.Success, recoverResponse.Error);
+         Assert.AreEqual(1, recoverResponse.Sessions.Count);
+         Assert.AreEqual(DocumentSessionRecoveryKind.Recovered, recoverResponse.Sessions[0].Kind);
+         Assert.IsNull(recoverResponse.Sessions[0].Session.Location);
+         Assert.AreEqual("memory", GetPayload(recoverResponse.Sessions[0].Session).Text);
+         Assert.AreEqual(52, GetPayload(recoverResponse.Sessions[0].Session).Count);
+      }
+
+      // ------------------------------------------------------------------------------------------
+      /// <summary>
+      /// 기본 recovery를 제공하지 않는 location은 저장 위치 없는 session으로 조용히 바꾸지 않고 record 실패로 드러낸다.
+      /// </summary>
+      // ------------------------------------------------------------------------------------------
+      [Test]
+      public void TEST_DocumentWorkspaceService_RecordRecovery_UnsupportedLocation_Record실패()
+      {
+         var sourceService = CreateService(out _);
+         var loc = CreateLocation("MemoryRecovery");
+
+         CreateSavedSession(sourceService, loc, "memory", 8);
+
+         var recordResponse = sourceService.RecordRecovery();
+         var restoredRecord = UnityJsonSerializer.Pretty.Deserialize<DocumentWorkspaceRecoveryRecord>(recordResponse.Record);
+
+         Assert.IsFalse(recordResponse.Success);
+         Assert.AreEqual(0, restoredRecord.Sessions.Count);
+      }
+
+   #endregion
+
    #region H-1: Handler 등록 검증
 
       // ------------------------------------------------------------
@@ -339,10 +728,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceService_Handler_다른TypeIDSession_추가실패()
       {
          var workspace = new DocumentWorkspace();
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(ForeignTypeID, Version, "Foreign"),
-            new DocumentModel(new Payload("foreign", 1)),
+            new DocumentBody(new Payload("foreign", 1)),
             null
          );
          var service = new DocumentWorkspaceService
@@ -369,10 +757,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       {
          var workspace = new DocumentWorkspace();
          var loc = CreateLocation("InvalidOpen");
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(ForeignTypeID, Version, "Foreign"),
-            new DocumentModel(new Payload("foreign", 1)),
+            new DocumentBody(new Payload("foreign", 1)),
             loc
          );
          var service = new DocumentWorkspaceService
@@ -400,10 +787,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       {
          var workspace = new DocumentWorkspace();
          var loc = CreateLocation("InvalidOpen");
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "NoLocation"),
-            new DocumentModel(new Payload("invalid", 1)),
+            new DocumentBody(new Payload("invalid", 1)),
             null
          );
          var service = new DocumentWorkspaceService
@@ -432,10 +818,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
          var workspace = new DocumentWorkspace();
          var loc = CreateLocation("Requested");
          var otherLoc = CreateLocation("Other");
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Other"),
-            new DocumentModel(new Payload("invalid", 1)),
+            new DocumentBody(new Payload("invalid", 1)),
             otherLoc
          );
          var service = new DocumentWorkspaceService
@@ -465,7 +850,7 @@ namespace inonego.Xeri.TEST.Workspace._Document
          var session = new BrokenSession
          (
             null,
-            new DocumentModel(new Payload("broken", 1)),
+            new DocumentBody(new Payload("broken", 1)),
             null
          );
          var service = new DocumentWorkspaceService
@@ -484,16 +869,16 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Handler가 model 없는 session을 반환하면 workspace에 추가하지 않는다.
+      /// Handler가 body 없는 session을 반환하면 workspace에 추가하지 않는다.
       /// </summary>
       // ------------------------------------------------------------
       [Test]
-      public void TEST_DocumentWorkspaceService_Handler_Model없는Session_추가실패()
+      public void TEST_DocumentWorkspaceService_Handler_Body없는Session_추가실패()
       {
          var workspace = new DocumentWorkspace();
          var session = new BrokenSession
          (
-            new Document(TypeID, Version, "NoModel"),
+            new Document(TypeID, Version, "NoBody"),
             null,
             null
          );
@@ -513,17 +898,17 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Handler가 Open에서 model 없는 session을 반환하면 workspace에 추가하지 않는다.
+      /// Handler가 Open에서 body 없는 session을 반환하면 workspace에 추가하지 않는다.
       /// </summary>
       // ------------------------------------------------------------
       [Test]
-      public void TEST_DocumentWorkspaceService_Handler_Open_Model없는Session_추가실패()
+      public void TEST_DocumentWorkspaceService_Handler_Open_Body없는Session_추가실패()
       {
          var workspace = new DocumentWorkspace();
-         var loc = CreateLocation("NoModelOpen");
+         var loc = CreateLocation("NoBodyOpen");
          var session = new BrokenSession
          (
-            new Document(TypeID, Version, "NoModel"),
+            new Document(TypeID, Version, "NoBody"),
             null,
             loc
          );
@@ -659,18 +1044,17 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Handler가 지원하지 않는 model 타입은 Save 실패로 처리된다.
+      /// Handler가 지원하지 않는 body 타입은 Save 실패로 처리된다.
       /// </summary>
       // ------------------------------------------------------------
       [Test]
-      public void TEST_DocumentWorkspaceService_Save_지원하지않는Model_실패()
+      public void TEST_DocumentWorkspaceService_Save_지원하지않는Body_실패()
       {
          var service = CreateService(out var workspace);
          var loc = CreateLocation("Foreign");
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<ForeignBody>(
             new Document(TypeID, Version, "Foreign"),
-            new ForeignModel(),
+            new ForeignBody(),
             loc
          );
 
@@ -695,10 +1079,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
       public void TEST_DocumentWorkspaceService_Close_Workspace밖Session_실패()
       {
          var service = CreateService(out var workspace);
-         var session = new DocumentSession
-         (
+         var session = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             CreateLocation("Detached")
          );
 

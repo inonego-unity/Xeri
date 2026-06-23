@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentSession.cs
-수정일 : 2026-06-23
+수정일 : 2026-06-28
 
 # 설명
-Workspace에서 열린 문서의 문서 정보, 모델, location, dirty 상태를 보관하는 기본 세션 구현체.
+Workspace에서 열린 문서의 문서 정보, body, location, dirty 상태를 보관하는 기본 세션 구현체.
 
 # 특이사항
 저장, 열기, 다른 이름 저장 정책은 포함하지 않고 세션 상태 전환만 담당한다.
@@ -21,7 +21,8 @@ namespace inonego.Xeri.Workspace.Document
    /// </summary>
    // ============================================================
    [Serializable]
-   public class DocumentSession : IDocumentSession
+   public class DocumentSession<TBody> : IDocumentSession<TBody>
+   where TBody : class
    {
 
    #region 필드
@@ -35,10 +36,12 @@ namespace inonego.Xeri.Workspace.Document
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 세션에서 편집 중인 문서 모델.
+      /// 세션에서 편집 중인 문서 body.
       /// </summary>
       // ------------------------------------------------------------
-      public IDocumentModel Model { get; }
+      public TBody Body { get; }
+
+      object IDocumentSession.Body => Body;
 
       // ------------------------------------------------------------
       /// <summary>
@@ -93,12 +96,12 @@ namespace inonego.Xeri.Workspace.Document
       public DocumentSession
       (
          IDocument document,
-         IDocumentModel model,
+         TBody body,
          IDocumentLocation location
       ) : base()
       {
          Document = document ?? throw new ArgumentNullException(nameof(document));
-         Model = model ?? throw new ArgumentNullException(nameof(model));
+         Body = body ?? throw new ArgumentNullException(nameof(body));
          Location = location;
       }
 

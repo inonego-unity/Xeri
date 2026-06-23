@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : DocumentWorkspaceTestFixture.cs
-수정일 : 2026-06-23
+파일명 : TEST_DocumentWorkspaceBase.cs
+수정일 : 2026-07-01
 
 # 설명
-Workspace Document 테스트에서 공유하는 handler, model, payload, location helper를 정의한다.
-Unity Test Runner (Edit Mode) 에서 실행되는 테스트 fixture 전용 코드다.
+Workspace Document 테스트에서 공유하는 handler, body, payload, location helper를 정의한다.
+Unity Test Runner (Edit Mode) 에서 실행되는 테스트 공통 기반 코드다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -21,10 +21,10 @@ namespace inonego.Xeri.TEST.Workspace._Document
 {
    // ============================================================
    /// <summary>
-   /// Workspace Document 테스트 공통 fixture.
+   /// Workspace Document 테스트 공통 기반 클래스.
    /// </summary>
    // ============================================================
-   public abstract class DocumentWorkspaceTestFixture
+   public abstract class TEST_DocumentWorkspaceBase
    {
 
    #region 내부 데이터
@@ -39,7 +39,7 @@ namespace inonego.Xeri.TEST.Workspace._Document
       /// </summary>
       // ============================================================
       [Serializable]
-      protected sealed class DocumentHandler : SerializedDocumentHandler<DocumentModel, MemoryLocation<string>>
+      protected sealed class DocumentHandler : EnvelopeSerializedHandler<DocumentBody, MemoryLocation<string>>
       {
 
       #region 생성자
@@ -51,26 +51,14 @@ namespace inonego.Xeri.TEST.Workspace._Document
          // ------------------------------------------------------------
          public DocumentHandler() : base
          (
-            DocumentWorkspaceTestFixture.TypeID,
-            DocumentWorkspaceTestFixture.Version,
+            TEST_DocumentWorkspaceBase.TypeID,
+            TEST_DocumentWorkspaceBase.Version,
             UnityJsonSerializer.Default,
             MemoryIO<string>.Default,
-            MemoryIO<string>.Default
+            MemoryIO<string>.Default,
+            TryMapIOLocation,
+            name => new DocumentBody(new Payload(name, 0))
          ) {}
-
-      #endregion
-
-      #region 생성
-
-         // ------------------------------------------------------------
-         /// <summary>
-         /// 새 문서 생성 시 사용할 기본 모델을 생성한다.
-         /// </summary>
-         // ------------------------------------------------------------
-         protected override DocumentModel CreateModel(string name)
-         {
-            return new DocumentModel(new Payload(name, 0));
-         }
 
       #endregion
 
@@ -82,7 +70,7 @@ namespace inonego.Xeri.TEST.Workspace._Document
          /// <br/> 테스트는 파일 시스템이 아니라 workspace document 흐름을 검증한다.
          /// </summary>
          // ----------------------------------------------------------------------
-         protected override bool TryMapIOLocation(IDocumentLocation loc, out MemoryLocation<string> ioLoc)
+         private static bool TryMapIOLocation(IDocumentLocation loc, out MemoryLocation<string> ioLoc)
          {
             if (loc is MemoryDocumentLocation memoryLoc && memoryLoc.Value is MemoryLocation<string> memoryIO)
             {
@@ -100,11 +88,112 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
       // ============================================================
       /// <summary>
-      /// 테스트용 document model.
+      /// 테스트용 file document handler.
       /// </summary>
       // ============================================================
       [Serializable]
-      protected sealed class DocumentModel : IDocumentModel<Payload>
+      protected sealed class FileDocumentHandler : IDocumentHandler
+      {
+
+      #region 필드
+
+         private readonly IDocumentHandler handler = EnvelopeSerializedHandler.CreateForFile
+         (
+            TEST_DocumentWorkspaceBase.TypeID,
+            TEST_DocumentWorkspaceBase.Version,
+            UnityJsonSerializer.Default,
+            name => new DocumentBody(new Payload(name, 0))
+         );
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// Handler가 담당하는 문서 종류 식별자.
+         /// </summary>
+         // ------------------------------------------------------------
+         public string TypeID => handler.TypeID;
+
+      #endregion
+
+      #region 생성
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 지정한 이름으로 새 문서 세션을 생성한다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentCreateResponse Create(string name)
+         {
+            return handler.Create(name);
+         }
+
+      #endregion
+
+      #region 열기
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 지정한 location을 문서 세션으로 연다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentOpenResponse Open(IDocumentLocation location)
+         {
+            return handler.Open(location);
+         }
+
+      #endregion
+
+      #region 저장
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 지정한 문서 세션을 location에 저장한다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentSaveResponse Save(IDocumentSession session, IDocumentLocation location)
+         {
+            return handler.Save(session, location);
+         }
+
+      #endregion
+
+      #region Recovery
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 지정한 문서 세션의 body를 recovery record로 만든다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentBodyRecoveryRecord RecordSessionBody(IDocumentSession session)
+         {
+            return handler.RecordSessionBody(session);
+         }
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 지정한 document, body record, location에서 문서 세션을 복구한다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentOpenResponse RecoverSession
+         (
+            IDocument document,
+            DocumentBodyRecoveryRecord bodyRecord,
+            IDocumentLocation location
+         )
+         {
+            return handler.RecoverSession(document, bodyRecord, location);
+         }
+
+      #endregion
+
+      }
+
+      // ============================================================
+      /// <summary>
+      /// 테스트용 document body.
+      /// </summary>
+      // ============================================================
+      [Serializable]
+      protected sealed class DocumentBody
       {
 
       #region 필드
@@ -114,12 +203,10 @@ namespace inonego.Xeri.TEST.Workspace._Document
          /// 테스트용 payload.
          /// </summary>
          // ------------------------------------------------------------
-         public Payload Value => value;
-
-         object IDocumentModel.Value => Value;
+         public Payload Payload => payload;
 
          [SerializeField]
-         private Payload value = new Payload();
+         private Payload payload = new Payload();
 
       #endregion
 
@@ -127,19 +214,19 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
          // ------------------------------------------------------------
          /// <summary>
-         /// 기본 document model을 생성한다.
+         /// 기본 document body를 생성한다.
          /// </summary>
          // ------------------------------------------------------------
-         public DocumentModel() : base() {}
+         public DocumentBody() : base() {}
 
          // ------------------------------------------------------------
          /// <summary>
-         /// 지정한 payload를 가진 document model을 생성한다.
+         /// 지정한 payload를 가진 document body를 생성한다.
          /// </summary>
          // ------------------------------------------------------------
-         public DocumentModel(Payload value) : this()
+         public DocumentBody(Payload payload) : this()
          {
-            this.value = value ?? throw new ArgumentNullException(nameof(value));
+            this.payload = payload ?? throw new ArgumentNullException(nameof(payload));
          }
 
       #endregion
@@ -151,9 +238,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
          /// 테스트용 payload를 교체한다.
          /// </summary>
          // ------------------------------------------------------------
-         public void SetValue(Payload value)
+         public void SetPayload(Payload payload)
          {
-            this.value = value ?? throw new ArgumentNullException(nameof(value));
+            this.payload = payload ?? throw new ArgumentNullException(nameof(payload));
          }
 
       #endregion
@@ -233,9 +320,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
          /// Handler가 담당하는 문서 종류 식별자.
          /// </summary>
          // ------------------------------------------------------------
-         public string TypeID => typeID;
+         public string TypeID => _TypeID;
 
-         private readonly string typeID = string.Empty;
+         private readonly string _TypeID = string.Empty;
          private readonly IDocumentSession createSession = null;
          private readonly IDocumentSession openSession = null;
 
@@ -250,12 +337,12 @@ namespace inonego.Xeri.TEST.Workspace._Document
          // ------------------------------------------------------------
          public TEST_Handler
          (
-            string typeID,
+            string _TypeID,
             IDocumentSession createSession = null,
             IDocumentSession openSession = null
          ) : base()
          {
-            this.typeID        = typeID ?? string.Empty;
+            this._TypeID       = _TypeID ?? string.Empty;
             this.createSession = createSession;
             this.openSession   = openSession;
          }
@@ -282,16 +369,6 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
          // ------------------------------------------------------------
          /// <summary>
-         /// 설정된 열기 session이 있으면 열 수 있다고 판단한다.
-         /// </summary>
-         // ------------------------------------------------------------
-         public bool CanOpen(IDocumentLocation location)
-         {
-            return openSession != null;
-         }
-
-         // ------------------------------------------------------------
-         /// <summary>
          /// 설정된 열기 session을 반환한다.
          /// </summary>
          // ------------------------------------------------------------
@@ -308,22 +385,41 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
          // ------------------------------------------------------------
          /// <summary>
-         /// 테스트용 handler는 저장을 지원하지 않는다.
-         /// </summary>
-         // ------------------------------------------------------------
-         public bool CanSave(IDocumentSession session, IDocumentLocation location)
-         {
-            return false;
-         }
-
-         // ------------------------------------------------------------
-         /// <summary>
          /// 테스트용 handler는 저장을 실패로 반환한다.
          /// </summary>
          // ------------------------------------------------------------
          public DocumentSaveResponse Save(IDocumentSession session, IDocumentLocation location)
          {
             return DocumentSaveResponse.Fail("저장을 지원하지 않습니다.");
+         }
+
+      #endregion
+
+      #region Recovery
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 테스트용 handler는 body recovery record를 반환하지 않는다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentBodyRecoveryRecord RecordSessionBody(IDocumentSession session)
+         {
+            return null;
+         }
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 테스트용 handler는 recovery를 실패로 반환한다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public DocumentOpenResponse RecoverSession
+         (
+            IDocument document,
+            DocumentBodyRecoveryRecord bodyRecord,
+            IDocumentLocation location
+         )
+         {
+            return DocumentOpenResponse.Fail("recovery를 지원하지 않습니다.");
          }
 
       #endregion
@@ -350,10 +446,10 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
          // ------------------------------------------------------------
          /// <summary>
-         /// 세션에서 편집 중인 문서 모델.
+         /// 세션에서 편집 중인 문서 body.
          /// </summary>
          // ------------------------------------------------------------
-         public IDocumentModel Model { get; }
+         public object Body { get; }
 
          // ------------------------------------------------------------
          /// <summary>
@@ -406,12 +502,12 @@ namespace inonego.Xeri.TEST.Workspace._Document
          public BrokenSession
          (
             IDocument document,
-            IDocumentModel model,
+            object body,
             IDocumentLocation location
          ) : base()
          {
             Document = document;
-            Model    = model;
+            Body     = body;
             Location = location;
          }
 
@@ -485,11 +581,11 @@ namespace inonego.Xeri.TEST.Workspace._Document
 
       // ============================================================
       /// <summary>
-      /// 지원하지 않는 model 타입 검증용 model.
+      /// 지원하지 않는 body 타입 검증용 body.
       /// </summary>
       // ============================================================
       [Serializable]
-      protected sealed class ForeignModel : IDocumentModel<object>
+      protected sealed class ForeignBody
       {
 
       #region 필드
@@ -499,10 +595,10 @@ namespace inonego.Xeri.TEST.Workspace._Document
          /// 테스트용 값.
          /// </summary>
          // ------------------------------------------------------------
-         public object Value => value;
+         public object Payload => payload;
 
          [SerializeReference]
-         private object value = new object();
+         private object payload = new object();
 
       #endregion
 
@@ -553,32 +649,43 @@ namespace inonego.Xeri.TEST.Workspace._Document
       // ------------------------------------------------------------
       protected static MemoryLocation<string> GetIOLocation(MemoryDocumentLocation loc)
       {
-         return (MemoryLocation<string>)loc.Value;
+         if (loc?.Value is not MemoryLocation<string> ioLoc)
+         {
+            throw new InvalidOperationException("MemoryDocumentLocation이 테스트용 memory IO location을 가지고 있지 않습니다.");
+         }
+
+         return ioLoc;
       }
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Session model의 payload를 교체하고 dirty 상태로 표시한다.
+      /// Session body의 payload를 교체하고 dirty 상태로 표시한다.
       /// </summary>
       // ------------------------------------------------------------
       protected static void SetPayload(IDocumentSession session, string text, int count)
       {
-         var model = (DocumentModel)session.Model;
+         if (session?.Body is not DocumentBody body)
+         {
+            throw new InvalidOperationException("Session body가 테스트용 DocumentBody가 아닙니다.");
+         }
 
-         model.SetValue(new Payload(text, count));
+         body.SetPayload(new Payload(text, count));
          session.SetDirty();
       }
 
       // ------------------------------------------------------------
       /// <summary>
-      /// Session model에서 payload를 꺼낸다.
+      /// Session body에서 payload를 꺼낸다.
       /// </summary>
       // ------------------------------------------------------------
       protected static Payload GetPayload(IDocumentSession session)
       {
-         var model = (DocumentModel)session.Model;
+         if (session?.Body is not DocumentBody body)
+         {
+            throw new InvalidOperationException("Session body가 테스트용 DocumentBody가 아닙니다.");
+         }
 
-         return model.Value;
+         return body.Payload;
       }
 
       // ------------------------------------------------------------

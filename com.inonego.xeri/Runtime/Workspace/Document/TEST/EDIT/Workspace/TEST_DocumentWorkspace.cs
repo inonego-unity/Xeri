@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DocumentWorkspace.cs
-수정일 : 2026-06-23
+수정일 : 2026-06-28
 
 # 설명
 DocumentWorkspace의 session container 계약을 검증한다.
@@ -29,7 +29,7 @@ namespace inonego.Xeri.TEST.Workspace._Document
    /// DocumentWorkspace session container 테스트.
    /// </summary>
    // ============================================================
-   public class TEST_DocumentWorkspace : DocumentWorkspaceTestFixture
+   public class TEST_DocumentWorkspace : TEST_DocumentWorkspaceBase
    {
 
    #region L-1: Location 동일성 계약
@@ -112,7 +112,7 @@ namespace inonego.Xeri.TEST.Workspace._Document
          Assert.AreEqual(1, sessions.Count);
          Assert.AreSame(response.Session, session);
          Assert.AreSame(response.Session.Document, session.Document);
-         Assert.AreSame(response.Session.Model, session.Model);
+         Assert.AreSame(response.Session.Body, session.Body);
          Assert.IsTrue(workspace.HasSession(session));
       }
 
@@ -319,10 +319,9 @@ namespace inonego.Xeri.TEST.Workspace._Document
          var service = CreateService(out var workspace);
          var response = service.Create(TypeID, "Event");
          var session = response.Session;
-         var detachedSession = new DocumentSession
-         (
+         var detachedSession = new DocumentSession<DocumentBody>(
             new Document(TypeID, Version, "Detached"),
-            new DocumentModel(new Payload("detached", 1)),
+            new DocumentBody(new Payload("detached", 1)),
             CreateLocation("Detached")
          );
          var addCount = 0;
