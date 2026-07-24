@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Pool_GOCompPool.cs
-수정일 : 2026-05-08
+수정일 : 2026-07-24
 
 # 설명
 GOCompPool 시스템의 핵심 기능 테스트. Edit Mode.
@@ -156,7 +156,7 @@ public class TEST_Pool_GOCompPool
         {
             comp1 = pool.Acquire();
             comp1.Value = 42;
-            var instanceId = comp1.GetInstanceID();
+            var instanceId = comp1.GetEntityId();
 
             yield return null;
 
@@ -168,7 +168,7 @@ public class TEST_Pool_GOCompPool
 
             yield return null;
 
-            Assert.AreEqual(instanceId, comp2.GetInstanceID(), "같은 컴포넌트가 재사용되어야 합니다");
+            Assert.AreEqual(instanceId, comp2.GetEntityId(), "같은 컴포넌트가 재사용되어야 합니다");
             Assert.AreEqual(42, comp2.Value, "재사용 시 컴포넌트의 데이터가 유지되어야 합니다");
             Assert.IsTrue(comp2.gameObject.activeSelf, "재사용된 컴포넌트의 GameObject는 활성화되어야 합니다");
             Assert.AreEqual(1, pool.Acquired.Count);

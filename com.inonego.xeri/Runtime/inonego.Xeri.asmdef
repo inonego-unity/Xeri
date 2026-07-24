@@ -2,6 +2,7 @@
     "name": "inonego.Xeri",
     "rootNamespace": "",
     "references": [
+        "DOTween.Modules",
         "Unity.Addressables",
         "Unity.ResourceManager"
     ],
