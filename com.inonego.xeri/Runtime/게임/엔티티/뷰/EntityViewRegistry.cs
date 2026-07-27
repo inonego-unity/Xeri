@@ -1,21 +1,20 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityViewRegistry.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-28
 
 # 설명
-Entity key와 EntityViewBase view의 대응 관계만 관리하는 view map.
+Entity Key와 EntityViewBase View의 대응 관계만 관리하는 View 매핑.
 GameObject 생성/회수와 EntitySpawnRegistry 이벤트 연결은 담당하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri.Game
 {
     // ============================================================
     /// <summary>
-    /// Entity key에 대응하는 Entity view를 저장하고 조회한다.
+    /// Entity Key에 대응하는 Entity View를 저장하고 조회한다.
     /// </summary>
     // ============================================================
     [Serializable]
@@ -30,7 +29,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 등록된 view map.
+        /// 현재 등록된 View 매핑.
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyDictionary<ulong, TEntityView> Views => views;
@@ -41,7 +40,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key에 view를 등록한다.
+        /// Key에 View를 등록한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Register(ulong key, TEntityView view)
@@ -61,7 +60,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key에 대응하는 view 등록을 해제한다.
+        /// Key에 대응하는 View 등록을 해제한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool Unregister(ulong key)
@@ -71,7 +70,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key에 대응하는 view를 조회한다.
+        /// Key에 대응하는 View를 조회한다.
         /// </summary>
         // ------------------------------------------------------------
         public TEntityView Find(ulong key)
@@ -81,7 +80,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key에 대응하는 view를 조회한다.
+        /// Key에 대응하는 View를 조회한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool TryGet(ulong key, out TEntityView view)
@@ -91,7 +90,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key 등록 여부를 확인한다.
+        /// Key 등록 여부를 확인한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool Contains(ulong key)

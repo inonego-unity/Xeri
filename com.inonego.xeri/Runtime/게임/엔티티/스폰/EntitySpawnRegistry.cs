@@ -1,15 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntitySpawnRegistry.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-29
 
 # 설명
 엔티티 전용 스폰 레지스트리 베이스·구현체.
 
-- EntitySpawnRegistryBase<TEntity>     : 키 자동 생성·해제 + IDeepCloneableFrom 지원
+- EntitySpawnRegistryBase<TEntity>     : 엔티티 키 생성기와 키 부여 책임
 - EntitySpawnRegistry<TEntity>         : 파라미터 없는 Spawn
 - EntitySpawnRegistry<TEntity, TParam> : 파라미터 받는 Spawn (INeedToInit<TParam>)
 
-CloneFrom 시 KeyGenerator 는 참조 공유한다 — 깊은 복제된 두 레지스트리가 동일 카운터를 공유해 키 충돌을 방지한다.
+구체 레지스트리의 복제 정책은 해당 파생 클래스가 소유한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -18,15 +18,13 @@ using UnityEngine;
 
 namespace inonego.Xeri.Game
 {
-    // ============================================================
+    // ======================================================================
     /// <summary>
-    /// 엔티티 스폰 레지스트리 베이스. 키 자동 생성·해제와 깊은 복제를 담당한다.
+    /// 엔티티 스폰 레지스트리 베이스. 키 생성기와 스폰 전 키 부여를 담당한다.
     /// </summary>
-    // ============================================================
+    // ======================================================================
     [Serializable]
-    public abstract class EntitySpawnRegistryBase<TEntity>
-        : SpawnRegistryBase<ulong, TEntity>,
-          IDeepCloneableFrom<EntitySpawnRegistryBase<TEntity>>
+    public abstract class EntitySpawnRegistryBase<TEntity> : SpawnRegistryBase<ulong, TEntity>
     where TEntity : class, IEntity
     {
 
@@ -62,7 +60,7 @@ namespace inonego.Xeri.Game
         {
             if (keyGenerator == null)
             {
-                throw new ArgumentNullException("KeyGenerator 가 null입니다.");
+                throw new ArgumentNullException(nameof(keyGenerator));
             }
 
             this.keyGenerator = keyGenerator;
@@ -70,72 +68,44 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-    #region 자식 훅
+    #region 키 부여
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 스폰 직전 키를 자동 생성해 엔티티에 설정한다. 자식 hook 은 OnPreSpawnEntity.
+        /// Despawned 엔티티에 새 Registry Key를 부여한다.
         /// </summary>
         // ------------------------------------------------------------
-        protected sealed override void OnPreSpawnObject(TEntity spawnable)
+        protected void AssignKey(TEntity entity)
         {
-            var key = keyGenerator.Generate();
-
-            spawnable.SetKey(key);
-
-            OnPreSpawnEntity(spawnable);
-
-            base.OnPreSpawnObject(spawnable);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 스폰 직전 자식 hook.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected virtual void OnPreSpawnEntity(TEntity spawnable) {}
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 디스폰 직후 엔티티의 키를 초기화한다. 자식 hook 은 OnDespawnEntity.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected sealed override void OnDespawnObject(TEntity despawnable)
-        {
-            base.OnDespawnObject(despawnable);
-
-            OnDespawnEntity(despawnable);
-
-            despawnable.ClearKey();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 디스폰 직후 자식 hook.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected virtual void OnDespawnEntity(TEntity despawnable) {}
-
-    #endregion
-
-    #region 깊은 복사
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> source 의 키 생성기·스폰된 엔티티들을 this 로 복사한다.
-        /// <br/> 키 생성기는 참조 공유로 두 레지스트리 간 키 충돌을 방지한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        public void CloneFrom(EntitySpawnRegistryBase<TEntity> source)
-        {
-            if (source == null)
+            if (entity == null)
             {
-                throw new ArgumentNullException("EntitySpawnRegistryBase<TEntity>.CloneFrom()의 인자가 null입니다.");
+                throw new InvalidOperationException("스폰할 엔티티를 가져올 수 없습니다.");
             }
 
-            keyGenerator = source.keyGenerator;
+            if (entity.SpawnState != SpawnState.Despawned)
+            {
+                throw new InvalidOperationException
+                (
+                    $"Despawned 상태의 엔티티에만 키를 부여할 수 있습니다. 현재 상태: {entity.SpawnState}"
+                );
+            }
 
-            base.CloneFrom(source);
+            entity.SetKey(keyGenerator.Generate());
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 공통 Spawn 흐름에 진입하기 전에 실패한 Entity에서 할당된 Key를 제거한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected static void ClearAssignedKey(TEntity entity)
+        {
+            if (entity != null &&
+                entity.SpawnState == SpawnState.Despawned &&
+                entity.HasKey)
+            {
+                entity.ClearKey();
+            }
         }
 
     #endregion
@@ -172,11 +142,35 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         protected TEntity Spawn()
         {
+            ValidateSpawnAllowed();
             var entity = Acquire();
+            var wasSpawnStarted = false;
 
-            Spawn(entity);
+            try
+            {
+                AssignKey(entity);
+                wasSpawnStarted = true;
+                return Spawn(entity);
+            }
+            catch
+            {
+                try
+                {
+                    ClearAssignedKey(entity);
+                }
+                finally
+                {
+                    // 공통 Spawn에 진입하기 전 실패한 유효 후보만 획득 출처에 직접 반환한다.
+                    if (!wasSpawnStarted &&
+                        entity != null &&
+                        entity.SpawnState == SpawnState.Despawned)
+                    {
+                        Release(entity, DespawnReason.SpawnRollback);
+                    }
+                }
 
-            return entity;
+                throw;
+            }
         }
 
         // ------------------------------------------------------------
@@ -195,21 +189,21 @@ namespace inonego.Xeri.Game
 
     }
 
-    // =================================================================
+    // ============================================================
     /// <summary>
     /// 파라미터를 받는 Acquire/Spawn 을 제공하는 엔티티 스폰 레지스트리.
     /// </summary>
-    // =================================================================
+    // ============================================================
     [Serializable]
     public abstract class EntitySpawnRegistry<TEntity, TParam> : EntitySpawnRegistryBase<TEntity>
     where TEntity : class, IEntity, INeedToInit<TParam>
     {
 
-    #region 자식 훅
+    #region 파생 훅
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 자식 클래스의 Init 사전 작업 훅.
+        /// 파생 클래스가 Init 전에 수행할 작업을 정의하는 훅.
         /// </summary>
         // ------------------------------------------------------------
         protected virtual void OnInit(TEntity spawnable, TParam param) {}
@@ -236,17 +230,42 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         protected TEntity Spawn(TParam param)
         {
+            ValidateSpawnAllowed();
             var entity = Acquire(param);
+            var wasSpawnStarted = false;
 
-            void InitAction(TEntity s)
+            try
             {
-                OnInit(s, param);
-                s.Init(param);
+                AssignKey(entity);
+                wasSpawnStarted = true;
+
+                void InitAction(TEntity spawnable)
+                {
+                    OnInit(spawnable, param);
+                    spawnable.Init(param);
+                }
+
+                return Spawn(entity, InitAction);
             }
+            catch
+            {
+                try
+                {
+                    ClearAssignedKey(entity);
+                }
+                finally
+                {
+                    // 공통 Spawn에 진입하기 전 실패한 유효 후보만 획득 출처에 직접 반환한다.
+                    if (!wasSpawnStarted &&
+                        entity != null &&
+                        entity.SpawnState == SpawnState.Despawned)
+                    {
+                        Release(entity, DespawnReason.SpawnRollback);
+                    }
+                }
 
-            Spawn(entity, InitAction);
-
-            return entity;
+                throw;
+            }
         }
 
         // ------------------------------------------------------------

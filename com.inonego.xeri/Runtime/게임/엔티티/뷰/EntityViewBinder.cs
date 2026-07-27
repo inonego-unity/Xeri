@@ -1,48 +1,50 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityViewBinder.cs
-수정일 : 2026-06-17
+수정일 : 2026-07-29
 
 # 설명
-EntitySpawnRegistry 이벤트를 Entity view 생성/회수 흐름으로 바인딩한다.
+EntitySpawnRegistry의 필수 소유권 바인딩을 Entity View 생성·회수 흐름으로 동기화한다.
+등록된 Entity View는 Factory 반환이 완료될 때까지 Binder가 소유한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri.Game
 {
     // ============================================================
     /// <summary>
-    /// Entity 모델 registry와 Entity view 계층을 바인딩한다.
+    /// Entity Registry와 Entity View 생성·반환을 연결한다.
     /// </summary>
     // ============================================================
     [Serializable]
-    public sealed class EntityViewBinder<TEntityView, TEntity> : IBindable<EntitySpawnRegistryBase<TEntity>>
+    public sealed class EntityViewBinder<TEntityView, TEntity> :
+        IBindable<EntitySpawnRegistryBase<TEntity>>,
+        ISpawnRegistryBinding<ulong, TEntity>
     where TEntityView : EntityViewBase<TEntity>
     where TEntity : class, IEntity
     {
 
     #region 필드
 
-        private readonly EntityViewFactory<TEntityView, TEntity> factory = null;
-        private readonly EntityViewRegistry<TEntityView, TEntity> registry = null;
-
-        private EntitySpawnRegistryBase<TEntity> boundRegistry = null;
-
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 바인딩된 Entity registry.
+        /// 현재 바인딩된 Entity Registry.
         /// </summary>
         // ------------------------------------------------------------
         public EntitySpawnRegistryBase<TEntity> BoundRegistry => boundRegistry;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 등록된 view map.
+        /// 현재 등록된 View 매핑.
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyDictionary<ulong, TEntityView> Views => registry.Views;
+
+        private readonly EntityViewFactory<TEntityView, TEntity> factory = null;
+        private readonly EntityViewRegistry<TEntityView, TEntity> registry = null;
+
+        private EntitySpawnRegistryBase<TEntity> boundRegistry = null;
 
     #endregion
 
@@ -50,7 +52,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity view 생성기와 registry를 주입받는다.
+        /// Factory와 View Registry를 주입받는다.
         /// </summary>
         // ------------------------------------------------------------
         public EntityViewBinder
@@ -69,7 +71,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity registry에 바인딩하고 기존 스폰 상태를 view로 동기화한다.
+        /// Entity Registry에 바인딩하고 현재 Spawned 항목을 동기화한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Bind(EntitySpawnRegistryBase<TEntity> registry)
@@ -84,50 +86,58 @@ namespace inonego.Xeri.Game
                 Unbind();
             }
 
+            registry.AttachBinding(this);
             boundRegistry = registry;
 
-            foreach (var (key, entity) in registry.Spawned)
+            try
             {
-                SpawnView(key, entity);
+                foreach (var (key, entity) in registry.Spawned)
+                {
+                    SpawnView(key, entity);
+                }
             }
-
-            registry.OnSpawn   += OnEntitySpawn;
-            registry.OnDespawn += OnEntityDespawn;
+            catch
+            {
+                // 초기 동기화가 실패하면 바인딩을 먼저 해제하고 생성된 View를 회수한다.
+                registry.DetachBinding(this);
+                boundRegistry = null;
+                DespawnViewAll(DespawnReason.RegistryCleanup);
+                throw;
+            }
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity registry 바인딩을 해제하고 모든 view를 회수한다.
+        /// Entity Registry 바인딩과 현재 View를 해제한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Unbind()
         {
-            if (boundRegistry != null)
+            var registry = boundRegistry;
+
+            if (registry != null)
             {
-                boundRegistry.OnSpawn   -= OnEntitySpawn;
-                boundRegistry.OnDespawn -= OnEntityDespawn;
+                registry.DetachBinding(this);
             }
 
-            DespawnViewAll();
-
+            // 필수 바인딩이 끝난 상태를 먼저 공개하고 남은 View 소유권은 반환 성공까지 Registry에 유지한다.
             boundRegistry = null;
+            DespawnViewAll(DespawnReason.RegistryCleanup);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Entity registry 상태 기준으로 모든 view를 재생성한다.
+        /// 현재 Entity Registry 상태를 기준으로 View를 다시 생성한다.
         /// </summary>
         // ------------------------------------------------------------
         public void ReSpawnAll()
         {
-            if (boundRegistry == null)
-            {
-                throw new InvalidOperationException("Entity registry가 바인딩되어 있지 않습니다.");
-            }
+            var registry = boundRegistry
+                ?? throw new InvalidOperationException("Entity Registry가 바인딩되어 있지 않습니다.");
 
-            DespawnViewAll();
+            DespawnViewAll(DespawnReason.RegistryCleanup);
 
-            foreach (var (key, entity) in boundRegistry.Spawned)
+            foreach (var (key, entity) in registry.Spawned)
             {
                 SpawnView(key, entity);
             }
@@ -139,7 +149,7 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key에 대응하는 view를 조회한다.
+        /// Key에 대응하는 View를 조회한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool TryGetView(ulong key, out TEntityView view)
@@ -153,75 +163,99 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity에 대응하는 view를 생성한다.
+        /// Entity에 대응하는 View를 동기 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void SpawnView(ulong key, TEntity entity)
+        private void SpawnView
+        (
+            ulong key,
+            TEntity entity
+        )
         {
             if (registry.Contains(key))
             {
-                DespawnView(key);
+                DespawnView(key, DespawnReason.SpawnRollback);
             }
 
             var view = factory.Create(entity);
-
             registry.Register(key, view);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// key에 대응하는 view를 회수한다.
+        /// Key에 대응하는 View를 동기 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void DespawnView(ulong key)
+        private void DespawnView
+        (
+            ulong key,
+            DespawnReason reason
+        )
         {
             if (!registry.TryGet(key, out var view))
             {
                 return;
             }
 
+            // Factory가 반환을 완료한 뒤 View Registry의 소유권을 해제한다.
+            factory.Release(view, reason);
             registry.Unregister(key);
-
-            factory.Release(view);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 모든 view를 회수한다.
+        /// 등록된 모든 View를 동기 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void DespawnViewAll()
+        private void DespawnViewAll(DespawnReason reason)
         {
             var keys = new List<ulong>(registry.Views.Keys);
 
             foreach (var key in keys)
             {
-                DespawnView(key);
+                DespawnView(key, reason);
             }
         }
 
     #endregion
 
-    #region 이벤트 핸들러
+    #region ISpawnRegistryBinding 구현
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity spawn 이벤트를 view spawn으로 변환한다.
+        /// Entity Spawned 단계를 View 생성으로 동기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void OnEntitySpawn(ulong key, TEntity entity)
+        void ISpawnRegistryBinding<ulong, TEntity>.OnSpawned
+        (
+            ulong key,
+            TEntity entity
+        )
         {
             SpawnView(key, entity);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entity despawn 이벤트를 view despawn으로 변환한다.
+        /// Entity Despawning 단계를 View 반환으로 동기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void OnEntityDespawn(ulong key, TEntity entity)
+        void ISpawnRegistryBinding<ulong, TEntity>.OnDespawning
+        (
+            ulong key,
+            TEntity entity,
+            DespawnReason reason
+        )
         {
-            DespawnView(key);
+            if (boundRegistry == null) return;
+
+            if (!boundRegistry.Spawned.TryGetValue(key, out var current) ||
+                !ReferenceEquals(current, entity))
+            {
+                return;
+            }
+
+            DespawnView(key, reason);
         }
 
     #endregion

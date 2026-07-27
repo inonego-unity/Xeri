@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XOrdered.cs
-수정일 : 2026-05-02
+수정일 : 2026-07-28
 
 # 설명
 항상 Order 오름차순으로 정렬된 직렬화 가능 컬렉션의 두 변형.
@@ -23,7 +23,7 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     [Serializable]
     public class XOrdered<TOrder, TValue> :
-    XOrderedBase<TOrder, TValue>, 
+    XOrderedBase<TOrder, TValue>,
     IDeepCloneable<XOrdered<TOrder, TValue>>
     where TOrder : struct, IComparable<TOrder>
     where TValue : class
@@ -89,8 +89,8 @@ namespace inonego.Xeri.Serializable
     // ==========================================================================
     [Serializable]
     public class XOrdered<TOrder, TKey, TValue> :
-    XOrderedBase<TOrder, TValue>, 
-    IReadOnlyDictionary<TKey, TValue>, 
+    XOrderedBase<TOrder, TValue>,
+    IReadOnlyDictionary<TKey, TValue>,
     IDeepCloneable<XOrdered<TOrder, TKey, TValue>>
     where TOrder : struct, IComparable<TOrder>
     where TKey   : IEquatable<TKey>
@@ -338,7 +338,7 @@ namespace inonego.Xeri.Serializable
             list.Clear();
             dictionary.Clear();
 
-            var cloneCache = new Dictionary<TValue, TValue>(ReferenceValueComparer.Instance);
+            var cloneCache = new Dictionary<TValue, TValue>(ReferenceEqualityComparer<TValue>.Instance);
 
             foreach (var pair in source.list)
             {
@@ -370,21 +370,6 @@ namespace inonego.Xeri.Serializable
             cache[value] = cloned;
 
             return cloned;
-        }
-
-        // ================================================================================
-        /// <summary>
-        /// <br/> reference 동등성 기반 IEqualityComparer&lt;TValue&gt;.
-        /// <br/> CloneFrom의 cloneCache가 TValue.Equals 오버라이드의 영향을 받지 않도록 보장.
-        /// </summary>
-        // ================================================================================
-        private sealed class ReferenceValueComparer : IEqualityComparer<TValue>
-        {
-            public static readonly ReferenceValueComparer Instance = new();
-
-            public bool Equals(TValue x, TValue y) => ReferenceEquals(x, y);
-
-            public int GetHashCode(TValue obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
         }
 
     #endregion

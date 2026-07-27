@@ -1,19 +1,33 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ISpawnable.cs
-수정일 : 2026-07-27
+수정일 : 2026-07-28
 
 # 설명
-스폰 시스템 기본 인터페이스 모음.
+스폰 처리 상태와 스폰 시스템 기본 인터페이스 모음.
 
+- SpawnState                 : Registry가 관리하는 스폰 처리 상태
 - ISpawnRegistryObject<TKey> : SpawnRegistry 등록 가능한 객체 (IKeyable + ISpawnable + IDespawnable)
-- ISpawnable                 : Registry 전용 Spawning/Spawned Hook
-- IDespawnable               : Registry 전용 Despawning/Despawned Hook + 디스폰 요청 콜백 슬롯
+- ISpawnable                 : Registry 전용 Spawning/Spawned 훅
+- IDespawnable               : Registry 전용 Despawning/Despawned 훅 + 디스폰 요청 콜백 슬롯
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 
 namespace inonego.Xeri.Game
 {
+    // ============================================================
+    /// <summary>
+    /// Registry가 관리하는 객체의 스폰 처리 상태.
+    /// </summary>
+    // ============================================================
+    public enum SpawnState
+    {
+        Despawned = 0,
+        Spawning,
+        Spawned,
+        Despawning,
+    }
+
     // ============================================================
     /// <summary>
     /// 스폰 등록 가능한 객체를 위한 인터페이스입니다.
@@ -65,23 +79,24 @@ namespace inonego.Xeri.Game
     {
         // ------------------------------------------------------------
         /// <summary>
-        /// Registry가 Despawning 상태에서 등록 해제 전에 호출한다.
+        /// Registry가 Despawning 상태에서 등록 해제 또는 Spawn 실패 정리 전에 호출한다.
         /// </summary>
         // ------------------------------------------------------------
         protected internal void OnDespawning(DespawnReason reason);
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Registry 등록 해제와 Despawned 상태 전환이 끝난 뒤 호출한다.
+        /// Registry 등록 해제 또는 Spawn 실패 정리 뒤 호출하며 반환되면 Despawned 상태로 전환한다.
         /// </summary>
         // ------------------------------------------------------------
         protected internal void OnDespawned(DespawnReason reason);
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// 레지스트리가 등록한 디스폰 콜백. 외부에서는 Reason을 받는 확장 메서드로 호출한다.
+        /// <br/> Registry에 등록된 Spawned 객체의 디스폰 요청을 현재 Registry에 전달하는 콜백.
+        /// <br/> Spawned 훅과 이벤트를 발행하는 동안에는 디스폰을 요청할 수 없다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         protected internal Action<DespawnReason> DespawnFromRegistry { get; set; }
     }
 }
