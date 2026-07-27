@@ -83,7 +83,7 @@ namespace inonego.Xeri.UI
             blitter.ForceGammaRendering   = forceGammaRendering;
             blitter.HostDocumentSortOrder = document != null ? document.sortingOrder : 0f;
 
-            blitter.Update(GetCurrentPanelSettings(), this);
+            blitter.Refresh(GetCurrentPanelSettings(), this);
         }
 
     #endregion

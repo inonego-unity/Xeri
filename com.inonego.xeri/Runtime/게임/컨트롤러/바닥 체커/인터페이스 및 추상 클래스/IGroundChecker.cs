@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : IGroundChecker.cs
-수정일 : 2026-05-01
+수정일 : 2026-07-25
 
 # 설명
 바닥 감지 기능을 정의하는 인터페이스.
-OnLand/OnLeave 이벤트와 Check 메서드를 제공한다.
+OnLand/OnLeave 이벤트와 바닥 운동 조회, Check 메서드를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEngine;
@@ -39,10 +39,10 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 바닥이 가지고 있는 속도를 가져옵니다.
+        /// 바닥 Rigidbody의 선형 속도를 가져옵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public Vector3 GroundVelocity { get; }
+        public Vector3 GroundLinearVelocity { get; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -79,6 +79,13 @@ namespace inonego.Xeri.Game.Controller
     #endregion
 
     #region 메서드
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 지정한 월드 지점에서 현재 바닥 Rigidbody의 속도를 가져옵니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public Vector3 GetGroundPointVelocity(Vector3 worldPoint);
 
         // ------------------------------------------------------------
         /// <summary>

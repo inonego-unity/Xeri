@@ -5,7 +5,7 @@
 # 설명
 점프 기능의 인터페이스.
 MaxCount/Count/CoyoteJumpDuration/JumpBufferDuration 설정과
-OnJump 이벤트, Trigger/FixedUpdate/Reset 메서드를 정의한다.
+OnJump 이벤트, Trigger/CancelPending/FixedTick/Reset 메서드를 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -86,17 +86,17 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 업데이트를 진행합니다.
+        /// 실행 대기 중인 점프 요청을 취소합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void FixedUpdate();
+        public void CancelPending();
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 업데이트를 진행합니다.
+        /// 물리 갱신을 진행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void FixedUpdate(float fixedDeltaTime);
+        public void FixedTick(float fixedDeltaTime);
 
         // ------------------------------------------------------------
         /// <summary>

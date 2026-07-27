@@ -156,6 +156,8 @@ namespace inonego.Xeri.Game.Controller
 
             this.groundChecker = groundChecker;
 
+            coyoteJumpTimer.Stop();
+            CancelPending();
             Reset();
         }
 
@@ -166,6 +168,10 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public void Release()
         {
+            coyoteJumpTimer.Stop();
+            CancelPending();
+            Reset();
+
             groundChecker = null;
         }
 
@@ -185,20 +191,20 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 업데이트를 진행합니다.
+        /// 실행 대기 중인 점프 요청을 취소합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void FixedUpdate()
+        public void CancelPending()
         {
-            FixedUpdate(Time.fixedDeltaTime);
+            jumpBufferTimer.Stop();
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 업데이트를 진행합니다.
+        /// 물리 갱신을 진행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void FixedUpdate(float fixedDeltaTime)
+        public void FixedTick(float fixedDeltaTime)
         {
             if (groundChecker == null)
             {

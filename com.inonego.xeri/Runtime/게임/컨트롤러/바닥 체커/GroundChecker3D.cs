@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker3D.cs
-수정일 : 2026-05-01
+수정일 : 2026-07-25
 
 # 설명
 Rigidbody/Collider를 사용하는 3D 바닥 체커.
@@ -51,8 +51,26 @@ namespace inonego.Xeri.Game.Controller
 
     #region 메서드
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody의 선형 속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
         protected override Vector3 GetLinearVelocity(Rigidbody rigidbody) => rigidbody.linearVelocity;
-        protected override bool CheckColliderAvailable(Collider collider) => collider.enabled;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody의 지정한 월드 지점 속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override Vector3 GetPointVelocity(Rigidbody rigidbody, Vector3 worldPoint) => rigidbody.GetPointVelocity(worldPoint);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지면 감지에 사용할 수 있는 Collider인지 확인합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override bool CheckColliderAvailable(Collider collider) => collider.enabled && !collider.isTrigger;
 
         // -------------------------------------------------------------
         /// <summary>
@@ -94,7 +112,15 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             // 먼저 초기 위치에서 OverlapBox 체크
             // ------------------------------------------------------------
-            int overlapCount = Physics.OverlapBoxNonAlloc(center, size * 0.5f, overlappingColliders, orientation, Config.Layer);
+            int overlapCount = Physics.OverlapBoxNonAlloc
+            (
+                center,
+                size * 0.5f,
+                overlappingColliders,
+                orientation,
+                Config.Layer,
+                QueryTriggerInteraction.Ignore
+            );
 
             if (overlapCount > 0)
             {
@@ -125,7 +151,14 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             // 먼저 초기 위치에서 OverlapSphere 체크
             // ------------------------------------------------------------
-            int overlapCount = Physics.OverlapSphereNonAlloc(info.Center, info.Radius, overlappingColliders, Config.Layer);
+            int overlapCount = Physics.OverlapSphereNonAlloc
+            (
+                info.Center,
+                info.Radius,
+                overlappingColliders,
+                Config.Layer,
+                QueryTriggerInteraction.Ignore
+            );
 
             if (overlapCount > 0)
             {
@@ -158,7 +191,14 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             if (info.Flag)
             {
-                int overlapCount = Physics.OverlapSphereNonAlloc(info.Center, info.Radius, overlappingColliders, Config.Layer);
+                int overlapCount = Physics.OverlapSphereNonAlloc
+                (
+                    info.Center,
+                    info.Radius,
+                    overlappingColliders,
+                    Config.Layer,
+                    QueryTriggerInteraction.Ignore
+                );
 
                 if (overlapCount > 0)
                 {

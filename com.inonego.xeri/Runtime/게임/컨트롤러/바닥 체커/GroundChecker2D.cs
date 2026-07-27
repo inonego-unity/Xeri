@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker2D.cs
-수정일 : 2026-05-01
+수정일 : 2026-07-25
 
 # 설명
 Rigidbody2D/Collider2D를 사용하는 2D 바닥 체커.
@@ -47,7 +47,25 @@ namespace inonego.Xeri.Game.Controller
 
     #region 메서드
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody2D의 선형 속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
         protected override Vector3 GetLinearVelocity(Rigidbody2D rigidbody) => rigidbody.linearVelocity;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody2D의 지정한 월드 지점 속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override Vector3 GetPointVelocity(Rigidbody2D rigidbody, Vector3 worldPoint) => rigidbody.GetPointVelocity(worldPoint);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지면 감지에 사용할 수 있는 Collider2D인지 확인합니다.
+        /// </summary>
+        // ------------------------------------------------------------
         protected override bool CheckColliderAvailable(Collider2D collider) => collider.enabled;
 
         // -------------------------------------------------------------

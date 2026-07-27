@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundCheckerBase.cs
-수정일 : 2026-05-01
+수정일 : 2026-07-25
 
 # 설명
 IGroundChecker의 공통 구현을 담당하는 추상 기본 클래스.
@@ -37,7 +37,7 @@ namespace inonego.Xeri.Game.Controller
         public GameObject Ground => ground;
 
         public abstract Vector3 Velocity { get; }
-        public abstract Vector3 GroundVelocity { get; }
+        public abstract Vector3 GroundLinearVelocity { get; }
         public abstract Vector3 Gravity { get; }
         public abstract GameObject GameObject { get; }
 
@@ -53,6 +53,13 @@ namespace inonego.Xeri.Game.Controller
     #endregion
 
     #region 메서드
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 지정한 월드 지점에서 현재 바닥 Rigidbody의 속도를 가져옵니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public abstract Vector3 GetGroundPointVelocity(Vector3 worldPoint);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -102,16 +109,24 @@ namespace inonego.Xeri.Game.Controller
 
             if (prev == next) return;
 
-            if (prev != null)
-            {
-                OnLeave?.Invoke(this, new(prev, next));
-            }
+            bool wasOnGround = prev != null;
+            bool isOnGround  = next != null;
 
             this.ground = next;
 
-            if (next != null)
+            // 바닥 오브젝트만 교체된 경우는 계속 접지 중이므로 착지/이탈이 아닙니다.
+            if (wasOnGround == isOnGround)
+            {
+                return;
+            }
+
+            if (isOnGround)
             {
                 OnLand?.Invoke(this, new(prev, next));
+            }
+            else
+            {
+                OnLeave?.Invoke(this, new(prev, next));
             }
         }
 

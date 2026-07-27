@@ -4,7 +4,7 @@
 
 # 설명
 유한 상태 머신 (FSM). Owner 와 현재 상태를 보유하며 인스턴스/타입 기반 전이를 모두 지원한다.
-FixedUpdate / LateUpdate 는 Current 가 IFixedUpdatable / ILateUpdatable 을 구현할 때만 호출된다.
+FixedTick / LateTick 은 Current 가 IFixedUpdatable / ILateUpdatable 을 구현할 때만 호출된다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -162,7 +162,7 @@ namespace inonego.Xeri.Game
         /// 현재 상태의 OnUpdate 를 호출한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Update()
+        public void Tick()
         {
             current?.OnUpdate();
         }
@@ -172,7 +172,7 @@ namespace inonego.Xeri.Game
         /// 현재 상태가 IFixedUpdatable 이면 OnFixedUpdate 를 호출한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void FixedUpdate()
+        public void FixedTick()
         {
             if (current is IFixedUpdatable f)
             {
@@ -185,7 +185,7 @@ namespace inonego.Xeri.Game
         /// 현재 상태가 ILateUpdatable 이면 OnLateUpdate 를 호출한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void LateUpdate()
+        public void LateTick()
         {
             if (current is ILateUpdatable l)
             {

@@ -185,7 +185,7 @@ namespace inonego.Xeri.TEST.Game._State
             fsm.MoveTo<StateA>();
 
             owner.Counter = 0;
-            fsm.Update();
+            fsm.Tick();
 
             Assert.AreEqual(100, owner.Counter);
         }
@@ -205,12 +205,12 @@ namespace inonego.Xeri.TEST.Game._State
 
             // A 는 IFixedUpdatable 미구현 → 무시
             fsm.MoveTo<StateA>();
-            fsm.FixedUpdate();
+            fsm.FixedTick();
             Assert.AreEqual(0, owner.FixedCounter);
 
             // B 는 IFixedUpdatable 구현 → 호출
             fsm.MoveTo<StateB>();
-            fsm.FixedUpdate();
+            fsm.FixedTick();
             Assert.AreEqual(1000, owner.FixedCounter);
         }
 
@@ -228,11 +228,11 @@ namespace inonego.Xeri.TEST.Game._State
             fsm.AddState(new StateB());
 
             fsm.MoveTo<StateA>();
-            fsm.LateUpdate();
+            fsm.LateTick();
             Assert.AreEqual(0, owner.LateCounter);
 
             fsm.MoveTo<StateB>();
-            fsm.LateUpdate();
+            fsm.LateTick();
             Assert.AreEqual(10000, owner.LateCounter);
         }
 

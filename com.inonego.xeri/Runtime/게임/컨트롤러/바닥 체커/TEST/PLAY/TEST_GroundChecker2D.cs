@@ -231,7 +231,7 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
                 // ------------------------------------------------------------
                 // Update 루프 시작
                 // ------------------------------------------------------------
-                IEnumerator Update()
+                IEnumerator MonitorGroundState()
                 {
                     while (true)
                     {
@@ -249,7 +249,7 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
                     }
                 }
 
-                monoForTEST.StartCoroutine(Update());
+                monoForTEST.StartCoroutine(MonitorGroundState());
 
                 // ------------------------------------------------------------
                 // 1. 처음 3초 대기

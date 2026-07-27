@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker.cs
-수정일 : 2026-05-01
+수정일 : 2026-07-25
 
 # 설명
 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커.
@@ -66,10 +66,23 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 리지드바디에서 선형 속도를 가져옵니다.
+        /// Rigidbody에서 선형 속도를 가져옵니다.
         /// </summary>
         // ------------------------------------------------------------
         protected abstract Vector3 GetLinearVelocity(TRigidbody rigidbody);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody의 지정한 월드 지점 속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected abstract Vector3 GetPointVelocity(TRigidbody rigidbody, Vector3 worldPoint);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 사용할 수 있는 Collider인지 확인합니다.
+        /// </summary>
+        // ------------------------------------------------------------
         protected abstract bool CheckColliderAvailable(TCollider collider);
 
         public override Vector3 Velocity
@@ -77,7 +90,7 @@ namespace inonego.Xeri.Game.Controller
             get => rigid != null ? GetLinearVelocity(rigid) : Vector3.zero;
         }
 
-        public override Vector3 GroundVelocity
+        public override Vector3 GroundLinearVelocity
         {
             get => groundRigid != null ? GetLinearVelocity(groundRigid) : Vector3.zero;
         }
@@ -133,6 +146,18 @@ namespace inonego.Xeri.Game.Controller
 
     #region 메서드
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 지정한 월드 지점에서 현재 바닥 Rigidbody의 속도를 가져옵니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public override Vector3 GetGroundPointVelocity(Vector3 worldPoint)
+        {
+            return groundRigid != null
+                ? GetPointVelocity(groundRigid, worldPoint)
+                : Vector3.zero;
+        }
+
         // ------------------------------------------------------------------------------------------------------------------------
         /// <summary>
         /// <br/>바닥을 처리합니다. 바닥 오브젝트의 리지드바디를 캐시하고,
@@ -150,7 +175,7 @@ namespace inonego.Xeri.Game.Controller
 
             // 바닥 오브젝트의 리지드바디를 가져옵니다.
             // 없는 경우에는 바닥의 속도를 0으로 설정합니다.
-            var nextGroundRigid = next.GetComponent<TRigidbody>();
+            var nextGroundRigid = next.GetComponentInParent<TRigidbody>();
             var groundVelocity  = nextGroundRigid != null ? GetLinearVelocity(nextGroundRigid) : Vector3.zero;
 
             var (velocity, gravity) = (GetLinearVelocity(rigid), Gravity);
@@ -216,7 +241,7 @@ namespace inonego.Xeri.Game.Controller
         // -------------------------------------------------------------
         protected float GetDepth(Vector3 vector, float deltaTime)
         {
-            var depthByGround = Vector3.Dot(GroundVelocity - Velocity, vector.normalized) * deltaTime;
+            var depthByGround = Vector3.Dot(GroundLinearVelocity - Velocity, vector.normalized) * deltaTime;
             return Config.Depth + Mathf.Max(0f, depthByGround);
         }
 

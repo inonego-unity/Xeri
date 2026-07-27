@@ -140,7 +140,7 @@ namespace inonego.Xeri.UI
         /// 매 프레임 호출 — PanelSettings 변경/유효성 점검 후 RT 갱신 및 오버라이드 재적용.
         /// </summary>
         // ------------------------------------------------------------
-        public void Update(PanelSettings currentPanelSettings, Object warnContext)
+        public void Refresh(PanelSettings currentPanelSettings, Object warnContext)
         {
             // PanelSettings 가 런타임에 교체되거나 무효 상태가 되면 점유를 해제하고 재인수.
             // 이전 panel 의 targetTexture/forceGammaRendering 을 원래 상태로 돌려놔야 누수가 없다.
