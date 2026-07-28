@@ -1,12 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Pool_GOCompPool.cs
-수정일 : 2026-07-24
+수정일 : 2026-07-29
 
 # 설명
 GOCompPool 시스템의 핵심 기능 테스트. Edit Mode.
 
 # 테스트 구성
  E: 기본 기능 (생성/Acquire/Release/재사용)
+ M: 풀 이동 (대상 인수 실패 시 원본 상태 복원)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -42,6 +43,40 @@ public class TEST_Pool_GOCompPool
     private class TestComponent : MonoBehaviour
     {
         public int Value { get; set; }
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// Component 상태를 변경한 뒤 인수를 거절하는 테스트용 Pool.
+    /// </summary>
+    // ------------------------------------------------------------
+    private class RejectingPool : PoolBase<TestComponent>
+    {
+        private readonly Transform rejectedParent;
+
+        public RejectingPool(Transform rejectedParent) : base()
+        {
+            this.rejectedParent = rejectedParent;
+        }
+
+        protected override TestComponent AcquireNew()
+        {
+            throw new NotSupportedException();
+        }
+
+        protected override Awaitable<TestComponent> AcquireNewAsync()
+        {
+            throw new NotSupportedException();
+        }
+
+        protected override void AcquireInternal(TestComponent item)
+        {
+            // 대상 인수 도중 변경될 수 있는 Unity 상태를 재현한 뒤 요청을 거절한다.
+            item.transform.SetParent(rejectedParent);
+            item.gameObject.SetActive(false);
+
+            throw new InvalidOperationException("테스트 대상 Pool이 Component 인수를 거절했습니다.");
+        }
     }
 
 #endregion
@@ -178,6 +213,50 @@ public class TEST_Pool_GOCompPool
         {
             if (comp2 != null) GameObject.DestroyImmediate(comp2.gameObject);
             GameObject.DestroyImmediate(prefab);
+        }
+    }
+
+#endregion
+
+#region M-1: Acquired 이동 실패
+
+    [UnityTest]
+    public IEnumerator TEST_Pool_GOCompPool_MoveAcquiredOneTo_대상_인수_실패_원본_상태_유지()
+    {
+        var prefab = new GameObject("TestPrefab");
+        prefab.AddComponent<TestComponent>();
+        var sourceParent = new GameObject("SourceParent");
+        var rejectedParent = new GameObject("RejectedParent");
+        var provider = new PrefabGameObjectProvider
+        {
+            Prefab = prefab,
+            Parent = sourceParent.transform,
+        };
+        var source = new GOCompPool<TestComponent>(provider);
+        var target = new RejectingPool(rejectedParent.transform);
+
+        TestComponent comp = null;
+
+        try
+        {
+            comp = source.Acquire();
+
+            Assert.Throws<InvalidOperationException>(() => source.MoveAcquiredOneTo(target, comp));
+
+            Assert.IsTrue(source.IsAcquired(comp));
+            Assert.IsFalse(target.IsAcquired(comp));
+            Assert.IsFalse(target.IsReleased(comp));
+            Assert.AreSame(sourceParent.transform, comp.transform.parent);
+            Assert.IsTrue(comp.gameObject.activeSelf);
+
+            yield return null;
+        }
+        finally
+        {
+            if (comp != null) GameObject.DestroyImmediate(comp.gameObject);
+            GameObject.DestroyImmediate(prefab);
+            GameObject.DestroyImmediate(sourceParent);
+            GameObject.DestroyImmediate(rejectedParent);
         }
     }
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Pool_PoolBase.cs
-수정일 : 2026-05-08
+수정일 : 2026-07-29
 
 # 설명
 PoolBase 시스템의 핵심 기능 테스트. Edit Mode.
@@ -50,6 +50,23 @@ public class TEST_Pool_PoolBase
 
     // ------------------------------------------------------------
     /// <summary>
+    /// 값 동등성을 구현한 참조 동일성 검증용 항목.
+    /// </summary>
+    // ------------------------------------------------------------
+    private class ValueEqualPoolItem
+    {
+        public int Value { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ValueEqualPoolItem other && Value == other.Value;
+        }
+
+        public override int GetHashCode() => Value;
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
     /// 테스트용 Pool 클래스.
     /// </summary>
     // ------------------------------------------------------------
@@ -63,6 +80,24 @@ public class TEST_Pool_PoolBase
         protected override async Awaitable<TestPoolItem> AcquireNewAsync()
         {
             return await Task.FromResult(new TestPoolItem());
+        }
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// 값 동등성 항목을 관리하는 테스트용 Pool 클래스.
+    /// </summary>
+    // ------------------------------------------------------------
+    private class ValueEqualPool : PoolBase<ValueEqualPoolItem>
+    {
+        protected override ValueEqualPoolItem AcquireNew()
+        {
+            return new ValueEqualPoolItem();
+        }
+
+        protected override async Awaitable<ValueEqualPoolItem> AcquireNewAsync()
+        {
+            return await Task.FromResult(new ValueEqualPoolItem());
         }
     }
 
@@ -202,6 +237,28 @@ public class TEST_Pool_PoolBase
 
 #endregion
 
+#region E-6: 참조 동일성
+
+    [Test]
+    public void TEST_Pool_PoolBase_값이_같은_서로_다른_항목_별도_관리()
+    {
+        var pool   = new ValueEqualPool();
+        var first  = new ValueEqualPoolItem { Value = 1 };
+        var second = new ValueEqualPoolItem { Value = 1 };
+
+        pool.PushToReleased(first);
+        pool.PushToReleased(second);
+
+        var acquiredFirst  = pool.Acquire();
+        var acquiredSecond = pool.Acquire();
+
+        Assert.AreSame(first, acquiredFirst);
+        Assert.AreSame(second, acquiredSecond);
+        Assert.AreEqual(2, pool.Acquired.Count);
+    }
+
+#endregion
+
 #region X-1: 잘못된 Release 예외
 
     [Test]
@@ -211,12 +268,12 @@ public class TEST_Pool_PoolBase
 
         // 풀에 없는 아이템 Release 시도
         var nonPooledItem = new TestPoolItem();
-        Assert.Throws<Exception>(() => pool.Release(nonPooledItem));
+        Assert.Throws<InvalidOperationException>(() => pool.Release(nonPooledItem));
 
         // 이미 Released된 아이템 다시 Release 시도
         var item = pool.Acquire();
         pool.Release(item);
-        Assert.Throws<Exception>(() => pool.Release(item));
+        Assert.Throws<InvalidOperationException>(() => pool.Release(item));
     }
 
 #endregion
@@ -261,11 +318,11 @@ public class TEST_Pool_PoolBase
         Assert.AreEqual(1, pool.ReleaseCallCount, "PushToReleased 시 ReleaseInternal이 호출되어야 합니다.");
 
         // 중복 추가 시도 시 예외
-        Assert.Throws<Exception>(() => pool.PushToReleased(item), "이미 풀에 있는 아이템을 추가하려고 하면 예외가 발생해야 합니다.");
+        Assert.Throws<InvalidOperationException>(() => pool.PushToReleased(item), "이미 풀에 있는 아이템을 추가하려고 하면 예외가 발생해야 합니다.");
 
         // 사용 중인 아이템 추가 시도 시 예외
         var acquiredItem = pool.Acquire();
-        Assert.Throws<Exception>(() => pool.PushToReleased(acquiredItem), "이미 사용 중인 아이템을 풀에 추가하려고 하면 예외가 발생해야 합니다.");
+        Assert.Throws<InvalidOperationException>(() => pool.PushToReleased(acquiredItem), "이미 사용 중인 아이템을 풀에 추가하려고 하면 예외가 발생해야 합니다.");
     }
 
 #endregion
@@ -304,7 +361,7 @@ public class TEST_Pool_PoolBase
         pool1.MoveAcquiredOneTo(pool2, item);
 
         Assert.AreEqual(0, pool1.Acquired.Count, "원본 풀에서 제거되어야 합니다.");
-        Assert.AreEqual(1, pool1.ReleaseCallCount, "원본 풀의 ReleaseInternal이 호출되어야 합니다.");
+        Assert.AreEqual(0, pool1.ReleaseCallCount, "소유권 이동은 원본 풀의 ReleaseInternal을 호출하지 않아야 합니다.");
         Assert.AreEqual(1, pool2.Acquired.Count, "대상 풀에 추가되어야 합니다.");
         Assert.AreEqual(1, pool2.AcquireCallCount, "대상 풀의 AcquireInternal이 호출되어야 합니다.");
     }

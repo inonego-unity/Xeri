@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Entity.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-29
 
 # 설명
 EntityBase 추상 클래스 유닛 테스트.
@@ -9,7 +9,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 
 # 테스트 구성
  E: 기본 기능 (생성/HP 노출/IReadOnlyEntity 노출)
- S: 스폰 라이프사이클 (자동 디스폰/MakeDeadOnDespawn/키 자동 처리)
+ S: 스폰 상태 (자동 디스폰/제거 시 HP 보존/키 자동 처리)
  C: 복제 (CloneFrom)
 ========================================================================= BLOCK_HEADER_END */
 
@@ -92,7 +92,7 @@ namespace inonego.Xeri.TEST.Game._Entity
 
             Assert.IsNotNull(entity.HP);
             Assert.IsNotNull(entity.Group);
-            Assert.IsFalse(entity.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
             Assert.IsFalse(entity.HasKey);
         }
 
@@ -132,7 +132,7 @@ namespace inonego.Xeri.TEST.Game._Entity
 
             Assert.AreEqual(9, readOnly.Group.Base);
             Assert.IsTrue(readOnly.HP.IsAlive);
-            Assert.IsFalse(readOnly.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, readOnly.SpawnState);
             Assert.IsFalse(readOnly.HasKey);
         }
 
@@ -145,29 +145,30 @@ namespace inonego.Xeri.TEST.Game._Entity
         {
             var registry = new TestRegistry();
             var entity   = new TestEntity();
+            entity.InternalHP.MakeAlive();
 
             registry.NextEntity = entity;
             Assert.IsTrue(registry.TrySpawnPublic(out _));
-            Assert.IsTrue(entity.IsSpawned);
+            Assert.AreEqual(SpawnState.Spawned, entity.SpawnState);
             Assert.IsTrue(entity.HasKey);
 
             entity.Damage(100);
 
             Assert.IsTrue(entity.HP.IsDead);
-            Assert.IsFalse(entity.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
             Assert.IsFalse(entity.HasKey);
         }
 
     #endregion
 
-    #region S-2: MakeDeadOnDespawn 옵션
+    #region S-2: 일반 제거 시 HP 보존
 
         [Test]
-        public void TEST_Entity_MakeDeadOnDespawn_false_디스폰_후_HP_생존_유지()
+        public void TEST_Entity_Removed_디스폰_후_HP_생존_유지()
         {
             var registry = new TestRegistry();
             var entity   = new TestEntity();
-            entity.MakeDeadOnDespawn = false;
+            entity.InternalHP.MakeAlive();
 
             registry.NextEntity = entity;
             Assert.IsTrue(registry.TrySpawnPublic(out _));
@@ -175,7 +176,7 @@ namespace inonego.Xeri.TEST.Game._Entity
 
             entity.Despawn();
 
-            Assert.IsFalse(entity.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
             Assert.IsTrue(entity.HP.IsAlive);
         }
 
@@ -188,6 +189,7 @@ namespace inonego.Xeri.TEST.Game._Entity
         {
             var registry = new TestRegistry();
             var entity   = new TestEntity();
+            entity.InternalHP.MakeAlive();
 
             Assert.IsFalse(entity.HasKey);
 
@@ -220,8 +222,8 @@ namespace inonego.Xeri.TEST.Game._Entity
             Assert.AreEqual(src.Group.Base, clone.Group.Base);
             Assert.AreNotSame(src.Group, clone.Group);
 
-            // CloneFrom 직후엔 IsSpawned 항상 false
-            Assert.IsFalse(clone.IsSpawned);
+            // CloneFrom은 Registry 실행 상태를 복제하지 않는다.
+            Assert.AreEqual(SpawnState.Despawned, clone.SpawnState);
         }
 
     #endregion

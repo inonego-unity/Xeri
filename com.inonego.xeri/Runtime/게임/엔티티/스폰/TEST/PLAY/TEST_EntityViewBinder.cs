@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_EntityViewBinder.cs
-수정일 : 2026-06-17
+수정일 : 2026-07-29
 
 # 설명
 EntityViewBinder 핵심 동작 테스트.
@@ -52,6 +52,11 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
             public override IHP         HP    => hp;
             public override IValue<int> Group => group;
+
+            public TestEntity() : base()
+            {
+                hp.MakeAlive();
+            }
 
             public void Damage(int amount) => hp.ApplyDamage(amount);
         }
@@ -133,12 +138,14 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         {
             var (view, entity) = CreateRegistries();
 
-            entity.TrySpawn(out _);
-            entity.TrySpawn(out _);
+            entity.TrySpawn(out var first);
+            entity.TrySpawn(out var second);
 
             view.Bind(entity);
 
             Assert.AreEqual(2, view.Views.Count);
+            Assert.AreSame(first, view.Views[first.Key].Entity);
+            Assert.AreSame(second, view.Views[second.Key].Entity);
 
             view.Unbind();
 
@@ -182,6 +189,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
             Assert.AreEqual(1, view.Views.Count);
             Assert.IsTrue(view.Views.ContainsKey(spawned.Key));
+            Assert.AreSame(spawned, view.Views[spawned.Key].Entity);
 
             view.Unbind();
 

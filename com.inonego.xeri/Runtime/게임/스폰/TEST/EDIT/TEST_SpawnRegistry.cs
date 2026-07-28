@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SpawnRegistry.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-29
 
 # 설명
 SpawnRegistryBase / SpawnRegistry 핵심 동작 테스트.
@@ -9,7 +9,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 
 # 테스트 구성
  E: 기본 기능 (스폰/디스폰/DespawnAll/Find)
- V: 이벤트 / 콜백 (OnSpawn·OnDespawn / DespawnFromRegistry)
+ V: 이벤트 / 콜백 (스폰 상태 전환 / DespawnFromRegistry)
  X: 예외 처리 (중복 키)
 ========================================================================= BLOCK_HEADER_END */
 
@@ -42,19 +42,19 @@ namespace inonego.Xeri.TEST.Game._Spawn
         // ------------------------------------------------------------
         private class TestObject : ISpawnRegistryObject<ulong>
         {
-            public ulong Key       { get; private set; }
-            public bool  HasKey    { get; private set; }
-            public bool  IsSpawned => isSpawned;
+            public ulong      Key        { get; private set; }
+            public bool       HasKey     { get; private set; }
+            public SpawnState SpawnState => spawnState;
 
-            private bool isSpawned;
+            private SpawnState spawnState = SpawnState.Despawned;
 
-            bool ISpawnRegistryObject<ulong>.IsSpawned
+            SpawnState ISpawnRegistryObject<ulong>.SpawnState
             {
-                get => isSpawned;
-                set => isSpawned = value;
+                get => spawnState;
+                set => spawnState = value;
             }
 
-            Action IDespawnable.DespawnFromRegistry { get; set; }
+            Action<DespawnReason> IDespawnable.DespawnFromRegistry { get; set; }
 
             public void SetKey(ulong key)
             {
@@ -67,10 +67,10 @@ namespace inonego.Xeri.TEST.Game._Spawn
                 HasKey = false;
             }
 
-            public void OnPreSpawn()   {}
-            public void OnSpawn()      {}
-            public void OnPreDespawn() {}
-            public void OnDespawn()    {}
+            void ISpawnable.OnSpawning() {}
+            void ISpawnable.OnSpawned() {}
+            void IDespawnable.OnDespawning(DespawnReason reason) {}
+            void IDespawnable.OnDespawned(DespawnReason reason) {}
         }
 
         // ------------------------------------------------------------
@@ -101,8 +101,12 @@ namespace inonego.Xeri.TEST.Game._Spawn
                 return obj;
             }
 
-            public new bool      TrySpawn(out TestObject spawned)                              => base.TrySpawn(out spawned);
-            public new void      Despawn(TestObject obj, bool removeFromDictionary = true)     => base.Despawn(obj, removeFromDictionary);
+            public new bool TrySpawn(out TestObject spawned) => base.TrySpawn(out spawned);
+
+            public void Despawn(TestObject obj)
+            {
+                base.Despawn(obj, DespawnReason.Removed);
+            }
         }
 
     #endregion
@@ -116,7 +120,7 @@ namespace inonego.Xeri.TEST.Game._Spawn
 
             Assert.IsTrue(registry.TrySpawn(out var obj));
 
-            Assert.IsTrue(obj.IsSpawned);
+            Assert.AreEqual(SpawnState.Spawned, obj.SpawnState);
             Assert.IsTrue(obj.HasKey);
             Assert.AreEqual(1, registry.Spawned.Count);
             Assert.IsTrue(registry.Spawned.ContainsKey(obj.Key));
@@ -134,7 +138,7 @@ namespace inonego.Xeri.TEST.Game._Spawn
 
             registry.Despawn(obj);
 
-            Assert.IsFalse(obj.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, obj.SpawnState);
             Assert.AreEqual(0, registry.Spawned.Count);
         }
 
@@ -156,9 +160,9 @@ namespace inonego.Xeri.TEST.Game._Spawn
             registry.DespawnAll();
 
             Assert.AreEqual(0, registry.Spawned.Count);
-            Assert.IsFalse(a.IsSpawned);
-            Assert.IsFalse(b.IsSpawned);
-            Assert.IsFalse(c.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, a.SpawnState);
+            Assert.AreEqual(SpawnState.Despawned, b.SpawnState);
+            Assert.AreEqual(SpawnState.Despawned, c.SpawnState);
         }
 
     #endregion
@@ -178,30 +182,53 @@ namespace inonego.Xeri.TEST.Game._Spawn
 
     #endregion
 
-    #region V-1: OnSpawn / OnDespawn 이벤트
+    #region V-1: 스폰 상태 전환 이벤트
 
         [Test]
-        public void TEST_SpawnRegistry_OnSpawn_OnDespawn_이벤트_발화()
+        public void TEST_SpawnRegistry_스폰_상태_전환_이벤트_발화()
         {
             var registry = new TestRegistry();
 
-            ulong       spawnKey = 0;
-            TestObject  spawnObj = null;
-            ulong       despawnKey = 0;
-            TestObject  despawnObj = null;
+            ulong spawnKey = 0;
+            TestObject spawnObj = null;
+            SpawnState spawningState = SpawnState.Despawned;
+            SpawnState spawnedState = SpawnState.Despawned;
+            SpawnState despawningState = SpawnState.Despawned;
+            SpawnState despawnedState = SpawnState.Spawned;
+            DespawnReason despawningReason = default;
+            DespawnReason despawnedReason = default;
 
-            registry.OnSpawn   += (k, o) => { spawnKey   = k; spawnObj   = o; };
-            registry.OnDespawn += (k, o) => { despawnKey = k; despawnObj = o; };
+            registry.OnSpawning += (key, obj) =>
+            {
+                spawnKey = key;
+                spawnObj = obj;
+                spawningState = obj.SpawnState;
+            };
+            registry.OnSpawned += (_, obj) => spawnedState = obj.SpawnState;
+            registry.OnDespawning += (_, obj, reason) =>
+            {
+                despawningState = obj.SpawnState;
+                despawningReason = reason;
+            };
+            registry.OnDespawned += (_, obj, reason) =>
+            {
+                despawnedState = obj.SpawnState;
+                despawnedReason = reason;
+            };
 
             registry.TrySpawn(out var obj);
 
             Assert.AreSame(obj, spawnObj);
             Assert.AreEqual(obj.Key, spawnKey);
+            Assert.AreEqual(SpawnState.Spawning, spawningState);
+            Assert.AreEqual(SpawnState.Spawned, spawnedState);
 
             registry.Despawn(obj);
 
-            Assert.AreSame(obj, despawnObj);
-            Assert.AreEqual(obj.Key, despawnKey);
+            Assert.AreEqual(SpawnState.Despawning, despawningState);
+            Assert.AreEqual(SpawnState.Despawned, despawnedState);
+            Assert.AreEqual(DespawnReason.Removed, despawningReason);
+            Assert.AreEqual(DespawnReason.Removed, despawnedReason);
         }
 
     #endregion
@@ -216,7 +243,7 @@ namespace inonego.Xeri.TEST.Game._Spawn
 
             ((IDespawnable)obj).Despawn();
 
-            Assert.IsFalse(obj.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, obj.SpawnState);
             Assert.AreEqual(0, registry.Spawned.Count);
         }
 
@@ -237,6 +264,9 @@ namespace inonego.Xeri.TEST.Game._Spawn
             registry.NextObject = duplicate;
 
             Assert.Throws<InvalidOperationException>(() => registry.TrySpawn(out _));
+            Assert.AreEqual(SpawnState.Despawned, duplicate.SpawnState);
+            Assert.AreEqual(1, registry.Spawned.Count);
+            Assert.AreSame(first, registry.Find(first.Key));
         }
 
     #endregion

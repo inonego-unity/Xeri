@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_EntitySpawnRegistry.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-29
 
 # 설명
 EntitySpawnRegistry 핵심 동작 테스트.
@@ -10,7 +10,10 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 # 테스트 구성
  E: 기본 기능 (키 자동 생성/디스폰 시 키 클리어)
  H: HP 연동 (HP 사망 자동 디스폰)
+ X: 예외 처리 (사망 엔티티 스폰 롤백)
 ========================================================================= BLOCK_HEADER_END */
+
+using System;
 
 using NUnit;
 using NUnit.Framework;
@@ -45,6 +48,11 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
 
             public override IHP         HP    => hp;
             public override IValue<int> Group => group;
+
+            public TestEntity() : base()
+            {
+                hp.MakeAlive();
+            }
 
             public void Damage(int amount) => hp.ApplyDamage(amount);
         }
@@ -102,7 +110,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
             entity.Despawn();
 
             Assert.IsFalse(entity.HasKey);
-            Assert.IsFalse(entity.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
         }
 
     #endregion
@@ -121,7 +129,26 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
             entity.Damage(100);
 
             Assert.IsTrue(entity.HP.IsDead);
-            Assert.IsFalse(entity.IsSpawned);
+            Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
+            Assert.AreEqual(0, registry.Spawned.Count);
+        }
+
+    #endregion
+
+    #region X-1: 사망 엔티티 스폰 롤백
+
+        [Test]
+        public void TEST_EntitySpawnRegistry_Dead_엔티티_스폰_실패_상태_롤백()
+        {
+            var registry = new TestRegistry();
+            var entity   = new TestEntity();
+            entity.Damage(100);
+
+            registry.NextEntity = entity;
+
+            Assert.Throws<InvalidOperationException>(() => registry.TrySpawn(out _));
+            Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
+            Assert.IsFalse(entity.HasKey);
             Assert.AreEqual(0, registry.Spawned.Count);
         }
 
