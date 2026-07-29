@@ -1,0 +1,686 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : TEST_SceneFader.cs
+수정일 : 2026-07-29
+
+# 설명
+SceneFader의 안정 상태, 완료 정리 실패와 Transition 시작 실패 롤백을 검증한다.
+
+# 테스트 구성
+ N: 정상 Cover·Reveal 수명
+ C: 요청 교체와 종료 정리
+ R: Reveal 반환 실패와 재시도
+ X: Transition 시작 실패 롤백
+ I: Overlay 초기화 실패 롤백
+========================================================================= BLOCK_HEADER_END */
+
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+
+using UnityEngine;
+
+using NUnit.Framework;
+
+namespace inonego.Xeri.TEST.UI._Game
+{
+    using inonego.Xeri.UI.Game;
+
+    // ============================================================
+    /// <summary>
+    /// SceneFader의 실패 원자성과 Overlay 소유권 테스트.
+    /// </summary>
+    // ============================================================
+    public sealed class TEST_SceneFader
+    {
+    #region 헬퍼
+
+        // ============================================================
+        /// <summary>
+        /// 테스트 Transform을 제공하는 Layer backend.
+        /// </summary>
+        // ============================================================
+        private sealed class TestLayerDriver : IPresentationLayerDriver
+        {
+            public Transform Root { get; }
+
+            public TestLayerDriver(Transform root) : base()
+            {
+                Root = root;
+            }
+
+            public bool Validate
+            (
+                PresentationLayerAsset asset,
+                out string error
+            )
+            {
+                error = "";
+                return asset != null && Root != null;
+            }
+
+            public void SetActive(bool active)
+            {
+                Root.gameObject.SetActive(active);
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// Alpha와 색상을 메모리에 적용하는 Fade backend.
+        /// </summary>
+        // ============================================================
+        private sealed class TestFadeDriver : ISceneFadeDriver
+        {
+            public bool IsValid => true;
+            public float Alpha { get; private set; }
+            public Color Color { get; private set; }
+            public bool FailNextApply { get; set; }
+
+            public void Apply(float value)
+            {
+                if (FailNextApply)
+                {
+                    FailNextApply = false;
+                    throw new InvalidOperationException("injected fade apply failure");
+                }
+
+                Alpha = value;
+            }
+
+            public void SetColor(Color color)
+            {
+                Color = color;
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// 하나의 Fade Driver를 획득하고 반환 실패를 주입하는 Source.
+        /// </summary>
+        // ============================================================
+        private sealed class TestFadeSource : IOverlaySource<ISceneFadeDriver>
+        {
+            public TestFadeDriver Driver { get; } = new TestFadeDriver();
+            public bool FailNextRelease { get; set; }
+            public int AcquireCount { get; private set; }
+            public int ReleaseCount { get; private set; }
+
+            public ISceneFadeDriver Acquire(Transform parent)
+            {
+                AcquireCount++;
+                return Driver;
+            }
+
+            public void Release(ISceneFadeDriver view)
+            {
+                if (FailNextRelease)
+                {
+                    FailNextRelease = false;
+                    throw new InvalidOperationException("injected release failure");
+                }
+
+                ReleaseCount++;
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// 요청 값을 즉시 적용하고 완료 callback을 동기로 호출하는 Transition backend.
+        /// </summary>
+        // ============================================================
+        private sealed class ImmediateTransitioner : IPresentationTransitioner
+        {
+            public PresentationTransitionHandle Play
+            (
+                PresentationTransitionParams parameters,
+                Action onCompleted,
+                Action<Exception> onFailed
+            )
+            {
+                parameters.Target.Apply(parameters.EndValue);
+                var handle = new PresentationTransitionHandle(null);
+                handle.Complete();
+                onCompleted?.Invoke();
+                return handle;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// Transition 시작을 동기 실패시키는 backend.
+        /// </summary>
+        // ============================================================
+        private sealed class ThrowingTransitioner : IPresentationTransitioner
+        {
+            public PresentationTransitionHandle Play
+            (
+                PresentationTransitionParams parameters,
+                Action onCompleted,
+                Action<Exception> onFailed
+            )
+            {
+                throw new InvalidOperationException("injected transition failure");
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// Fade Transition 완료와 늦은 callback 시점을 직접 제어하는 backend.
+        /// </summary>
+        // ============================================================
+        private sealed class ManualTransitioner : IPresentationTransitioner
+        {
+            // ============================================================
+            /// <summary>
+            /// 한 Fade Transition 요청의 Handle과 완료 callback.
+            /// </summary>
+            // ============================================================
+            public sealed class Request
+            {
+                public PresentationTransitionParams Params { get; }
+                public PresentationTransitionHandle Handle { get; set; }
+                public Action Completed { get; }
+
+                public Request
+                (
+                    PresentationTransitionParams parameters,
+                    Action completed
+                ) : base()
+                {
+                    Params = parameters;
+                    Completed = completed;
+                }
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 아직 완료 callback을 발생시키지 않은 요청 수.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int Count => requests.Count;
+
+            private readonly List<Request> requests = new List<Request>();
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Fade Transition 요청을 보관한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public PresentationTransitionHandle Play
+            (
+                PresentationTransitionParams parameters,
+                Action onCompleted,
+                Action<Exception> onFailed
+            )
+            {
+                var request = new Request(parameters, onCompleted);
+                request.Handle = new PresentationTransitionHandle(null);
+                requests.Add(request);
+                return request.Handle;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 가장 오래된 요청을 정상 완료한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Request CompleteNext()
+            {
+                var request = TakeNext();
+                var completed = request.Handle.Complete();
+
+                if (completed)
+                {
+                    request.Params.Target.Apply(request.Params.EndValue);
+                }
+
+                request.Completed?.Invoke();
+                return request;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 취소된 요청의 늦은 완료 callback을 다시 발생시킨다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public static void InvokeLateCompletion(Request request)
+            {
+                request?.Completed?.Invoke();
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 가장 오래된 요청을 목록에서 제거한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            private Request TakeNext()
+            {
+                if (requests.Count == 0)
+                {
+                    throw new InvalidOperationException("완료할 Fade Transition 요청이 없습니다.");
+                }
+
+                var request = requests[0];
+                requests.RemoveAt(0);
+                return request;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 테스트 backend의 남은 요청을 제거한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void Dispose()
+            {
+                requests.Clear();
+            }
+        }
+
+        private readonly List<UnityEngine.Object> ownedObjects = new List<UnityEngine.Object>();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Scene Fade 테스트에 사용할 공유 Layer를 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private PresentationLayerHandle RegisterLayer
+        (
+            PresentationLayerRegistry registry,
+            out Transform root
+        )
+        {
+            var parent = new GameObject("Layer Parent");
+            var rootObject = new GameObject("Fade Layer");
+            rootObject.transform.SetParent(parent.transform, false);
+            ownedObjects.Add(parent);
+            ownedObjects.Add(rootObject);
+            root = rootObject.transform;
+
+            var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
+            SetField(asset, "id", "Fade");
+            SetField(asset, "mode", PresentationLayerMode.Shared);
+            SetField(asset, "order", 0);
+            ownedObjects.Add(asset);
+            return registry.Register(asset, new TestLayerDriver(root));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트 Asset의 private 직렬화 필드를 설정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void SetField
+        (
+            object target,
+            string name,
+            object value
+        )
+        {
+            var field = target.GetType().GetField
+            (
+                name,
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+
+            Assert.IsNotNull(field);
+            field.SetValue(target, value);
+        }
+
+    #endregion
+
+    #region 픽스처
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트에서 만든 Unity Object를 역순 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [TearDown]
+        public void TearDown()
+        {
+            for (var i = ownedObjects.Count - 1; i >= 0; i--)
+            {
+                if (ownedObjects[i] != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(ownedObjects[i]);
+                }
+            }
+
+            ownedObjects.Clear();
+        }
+
+    #endregion
+
+    #region N-1: 정상 Cover·Reveal
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Cover가 Overlay를 유지하고 Reveal 완료만 정확히 한 번 반환하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_정상CoverReveal_Overlay유지후한번반환()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                new ImmediateTransitioner(),
+                PresentationTimeSource.Unscaled
+            );
+            var coveredCount = 0;
+            var revealedCount = 0;
+            fader.OnCovered += () => coveredCount++;
+            fader.OnRevealed += () => revealedCount++;
+
+            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
+
+            Assert.AreEqual(SceneFadeState.Covered, fader.State);
+            Assert.AreEqual(1.0f, source.Driver.Alpha);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(0, source.ReleaseCount);
+            Assert.AreEqual(1, coveredCount);
+
+            fader.Reveal(new SceneFadeParams(Color.black, 0.0f));
+
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(0.0f, source.Driver.Alpha);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(1, revealedCount);
+
+            fader.Dispose();
+            Assert.AreEqual(1, source.ReleaseCount);
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region C-1: 요청 교체
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 진행 중 Cover 교체가 같은 Overlay를 사용하고 마지막 완료 이벤트만 발생시키는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_Cover교체_같은Overlay와마지막완료만유지()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var transitioner = new ManualTransitioner();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                transitioner,
+                PresentationTimeSource.Unscaled
+            );
+            var coveredCount = 0;
+            fader.OnCovered += () => coveredCount++;
+
+            fader.Cover(new SceneFadeParams(Color.black, 1.0f));
+            fader.Cover(new SceneFadeParams(Color.red, 1.0f));
+
+            Assert.AreEqual(SceneFadeState.Covering, fader.State);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(2, transitioner.Count);
+
+            var cancelled = transitioner.CompleteNext();
+            ManualTransitioner.InvokeLateCompletion(cancelled);
+
+            Assert.AreEqual(SceneFadeState.Covering, fader.State);
+            Assert.AreEqual(0, coveredCount);
+
+            transitioner.CompleteNext();
+
+            Assert.AreEqual(SceneFadeState.Covered, fader.State);
+            Assert.AreEqual(Color.red, source.Driver.Color);
+            Assert.AreEqual(1, coveredCount);
+
+            fader.Dispose();
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region C-2: 상태별 종료
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Covering·Covered·Revealing 어느 상태에서도 Dispose가 Overlay를 한 번 반환하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [TestCase(SceneFadeState.Covering)]
+        [TestCase(SceneFadeState.Covered)]
+        [TestCase(SceneFadeState.Revealing)]
+        public void TEST_SceneFader_상태별Dispose_Overlay한번반환(SceneFadeState targetState)
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var transitioner = new ManualTransitioner();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                transitioner,
+                PresentationTimeSource.Unscaled
+            );
+
+            fader.Cover(new SceneFadeParams(Color.black, 1.0f));
+
+            if (targetState != SceneFadeState.Covering)
+            {
+                transitioner.CompleteNext();
+            }
+
+            if (targetState == SceneFadeState.Revealing)
+            {
+                fader.Reveal(new SceneFadeParams(Color.black, 1.0f));
+            }
+
+            Assert.AreEqual(targetState, fader.State);
+
+            fader.Dispose();
+
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(1, source.ReleaseCount);
+
+            fader.Dispose();
+            Assert.AreEqual(1, source.ReleaseCount);
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region R-1: Reveal 반환 실패
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Reveal 반환 실패가 Covered 상태를 복원하고 같은 Fader로 재시도되는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_Reveal반환실패_Covered복원후재시도성공()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                new ImmediateTransitioner(),
+                PresentationTimeSource.Unscaled
+            );
+
+            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
+            source.FailNextRelease = true;
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => fader.Reveal(new SceneFadeParams(Color.black, 0.0f))
+            );
+            Assert.AreEqual(SceneFadeState.Covered, fader.State);
+            Assert.AreEqual(1.0f, source.Driver.Alpha);
+            Assert.IsNotNull(fader.LastFailure);
+            Assert.AreEqual(0, source.ReleaseCount);
+
+            fader.Reveal(new SceneFadeParams(Color.black, 0.0f));
+
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(1, source.ReleaseCount);
+
+            fader.Dispose();
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region X-1: 시작 실패
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Cover 시작 실패가 Clear 상태와 Overlay 소유권을 복원하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_Cover시작실패_Clear상태와Overlay반환()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                new ThrowingTransitioner(),
+                PresentationTimeSource.Unscaled
+            );
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => fader.Cover(new SceneFadeParams(Color.black, 0.2f))
+            );
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(1, source.ReleaseCount);
+
+            fader.Dispose();
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region I-1: Overlay 초기화 실패
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 실제 Fade Overlay 초기화 실패가 Layer 사용과 View를 반환한 뒤 재시도되는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_Overlay초기화실패_Clear복원후재획득()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                new ImmediateTransitioner(),
+                PresentationTimeSource.Unscaled
+            );
+            source.Driver.FailNextApply = true;
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => fader.Cover(new SceneFadeParams(Color.black, 0.0f))
+            );
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.IsNotNull(fader.LastFailure);
+
+            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
+
+            Assert.AreEqual(SceneFadeState.Covered, fader.State);
+            Assert.AreEqual(2, source.AcquireCount);
+
+            fader.Dispose();
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 초기화와 반환이 함께 실패해 남은 Overlay를 Reveal이 사용하지 않고 Cover가 복구하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_초기화와반환실패_Reveal거부후Cover복구()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                new ImmediateTransitioner(),
+                PresentationTimeSource.Unscaled
+            );
+            source.Driver.FailNextApply = true;
+            source.FailNextRelease = true;
+
+            Assert.Throws<AggregateException>
+            (
+                () => fader.Cover(new SceneFadeParams(Color.black, 0.0f))
+            );
+            Assert.Throws<InvalidOperationException>
+            (
+                () => fader.Reveal(new SceneFadeParams(Color.black, 0.0f))
+            );
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(0, source.ReleaseCount);
+
+            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
+
+            Assert.AreEqual(SceneFadeState.Covered, fader.State);
+            Assert.AreEqual(1, source.AcquireCount);
+
+            fader.Dispose();
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    }
+}

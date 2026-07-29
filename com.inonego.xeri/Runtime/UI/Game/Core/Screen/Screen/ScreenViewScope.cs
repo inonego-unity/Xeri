@@ -1,0 +1,89 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : ScreenViewScope.cs
+수정일 : 2026-07-29
+
+# 설명
+Screen Source에 ID, Open Params, 현재 Session, 선택 Layer ID와 실제 Layer Root를 불변 범위로 전달한다.
+========================================================================= BLOCK_HEADER_END */
+
+using System;
+
+using UnityEngine;
+
+namespace inonego.Xeri.UI.Game
+{
+    // ============================================================
+    /// <summary>
+    /// Screen Source가 소비하는 불변 실행 범위.
+    /// </summary>
+    // ============================================================
+    public sealed class ScreenViewScope
+    {
+    #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Screen ID.
+        /// </summary>
+        // ------------------------------------------------------------
+        public string ScreenID { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Open 호출 인자.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenOpenParams OpenParams { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Screen Session의 비소유 참조.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenSession Session { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen을 표시할 Layer ID.
+        /// </summary>
+        // ------------------------------------------------------------
+        public string LayerID { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen View를 배치할 현재 Presentation Layer Root의 비소유 참조.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Transform LayerRoot { get; }
+
+    #endregion
+
+    #region 생성자
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen Source 실행 범위를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal ScreenViewScope
+        (
+            string screenID,
+            ScreenOpenParams openParams,
+            ScreenSession session,
+            string layerID,
+            Transform layerRoot
+        ) : base()
+        {
+            ScreenID = screenID ?? throw new ArgumentNullException(nameof(screenID));
+            OpenParams = openParams;
+            Session = session ?? throw new ArgumentNullException(nameof(session));
+            LayerID = layerID ?? throw new ArgumentNullException(nameof(layerID));
+            LayerRoot = layerRoot != null
+                ? layerRoot
+                : throw new ArgumentNullException(nameof(layerRoot));
+        }
+
+    #endregion
+
+    }
+}

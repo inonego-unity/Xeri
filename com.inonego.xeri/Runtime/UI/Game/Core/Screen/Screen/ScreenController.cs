@@ -1,0 +1,1387 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : ScreenController.cs
+수정일 : 2026-07-29
+
+# 설명
+Screen Open·Close·Replace·Clear 명령과 Stack, 상태 훅, Transition과 대칭 수명을 중재한다.
+========================================================================= BLOCK_HEADER_END */
+
+using System;
+using System.Collections.Generic;
+
+using UnityEngine;
+
+namespace inonego.Xeri.UI.Game
+{
+    // ============================================================
+    /// <summary>
+    /// Screen 명령, Stack과 실행 Session 수명을 소유하는 Controller.
+    /// </summary>
+    // ============================================================
+    public sealed class ScreenController
+    {
+    #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Stack top Screen.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenSession Top
+        {
+            get
+            {
+                return stack.Count > 0 ? stack[stack.Count - 1] : null;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Screen Stack 항목 수.
+        /// </summary>
+        // ------------------------------------------------------------
+        public int Count => stack.Count;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공개 Screen 명령을 받을 수 있는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsAvailable => isActive && !isReleasing && !isReleased;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 생존 Screen과 입력 Session 정리가 끝났는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool IsShutdownComplete => isReleased;
+
+        private readonly ScreenRegistry screenRegistry = null;
+        private readonly PresentationLayerRegistry layerRegistry = null;
+        private readonly IPresentationTransitioner transitioner = null;
+        private readonly FocusController focusController = null;
+        private readonly IScreenInputDriver inputDriver = null;
+
+        private readonly List<ScreenSession> stack = new List<ScreenSession>();
+        private readonly List<ScreenSession> liveSessions = new List<ScreenSession>();
+
+        private bool isActive = false;
+        private bool isReleasing = false;
+        private bool isReleased = false;
+        private int hookDepth = 0;
+
+    #endregion
+
+    #region 생성자
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 실행에 필요한 Registry와 backend를 명시적으로 주입한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenController
+        (
+            ScreenRegistry screenRegistry,
+            PresentationLayerRegistry layerRegistry,
+            IPresentationTransitioner transitioner,
+            FocusController focusController,
+            IScreenInputDriver inputDriver
+        ) : base()
+        {
+            this.screenRegistry = screenRegistry ?? throw new ArgumentNullException(nameof(screenRegistry));
+            this.layerRegistry = layerRegistry ?? throw new ArgumentNullException(nameof(layerRegistry));
+            this.transitioner = transitioner ?? throw new ArgumentNullException(nameof(transitioner));
+            this.focusController = focusController ?? throw new ArgumentNullException(nameof(focusController));
+            this.inputDriver = inputDriver ?? throw new ArgumentNullException(nameof(inputDriver));
+        }
+
+    #endregion
+
+    #region 메서드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime 조립이 끝난 뒤 공개 Screen 명령을 활성화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Activate()
+        {
+            if (isReleased)
+            {
+                throw new ObjectDisposedException(nameof(ScreenController));
+            }
+
+            if (isActive) return;
+
+            isActive = true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 새 Screen을 Stack top에 연다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenOpenResponse Open
+        (
+            string id,
+            ScreenOpenParams parameters = default
+        )
+        {
+            return OpenInternal(id, parameters, false);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Active top을 새 Screen으로 교체한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenOpenResponse Replace
+        (
+            string id,
+            ScreenOpenParams parameters = default
+        )
+        {
+            return OpenInternal(id, parameters, true);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Stack top Screen 하나를 취소 가능한 경로로 닫는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool Close()
+        {
+            return Close(Top);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 Session이 현재 Stack top일 때 취소 가능한 닫기를 시작한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool Close(ScreenSession session)
+        {
+            if (hookDepth > 0) return false;
+            if (!IsAvailable || session == null || !ReferenceEquals(Top, session)) return false;
+
+            if (session.State != ScreenState.Opening &&
+                session.State != ScreenState.Active)
+            {
+                return false;
+            }
+
+            return BeginClose(session, true, true, true, false, true);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 생존 Screen을 최신 획득부터 애니메이션 없이 강제 종료한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Clear()
+        {
+            if (hookDepth > 0)
+            {
+                throw new InvalidOperationException("Screen 상태 훅 안에서는 Clear를 호출할 수 없습니다.");
+            }
+
+            if (!IsAvailable || liveSessions.Count == 0) return;
+
+            var errors = ForceClear();
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("Screen Clear 중 하나 이상의 정리가 실패했습니다.", errors);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공개 명령을 중지하고 모든 Screen Source 반환을 강제 완료한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal List<Exception> Shutdown()
+        {
+            var errors = new List<Exception>();
+
+            if (isReleased) return errors;
+
+            isReleasing = true;
+            errors.AddRange(ForceClear());
+
+            isActive = false;
+            isReleasing = false;
+            isReleased = liveSessions.Count == 0;
+            return errors;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Screen 사전 조건을 검증하고 Source·Layer·입력 수명을 준비한 뒤,
+        /// <br/> Stack에 공개하고 열기 Transition을 시작한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private ScreenOpenResponse OpenInternal
+        (
+            string id,
+            ScreenOpenParams parameters,
+            bool replace
+        )
+        {
+            if (hookDepth > 0)
+            {
+                return ScreenOpenResponse.Reject("Screen 상태 훅 안에서는 Open 계열 명령을 호출할 수 없습니다.");
+            }
+
+            if (!IsAvailable)
+            {
+                return ScreenOpenResponse.Reject("Game UI Runtime이 Screen 명령을 받을 수 없는 상태입니다.");
+            }
+
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return ScreenOpenResponse.Reject("Screen ID가 비어 있습니다.");
+            }
+
+            var previous = Top;
+
+            if (replace && (previous == null || previous.State != ScreenState.Active))
+            {
+                return ScreenOpenResponse.Reject("Replace는 Active top Screen에서만 시작할 수 있습니다.");
+            }
+
+            if (!replace &&
+                previous != null &&
+                previous.State != ScreenState.Active)
+            {
+                return ScreenOpenResponse.Reject("현재 top Screen이 전환 중입니다.");
+            }
+
+            if (!screenRegistry.TryGet(id, out var registration))
+            {
+                return ScreenOpenResponse.Reject($"Screen '{id}'가 등록되어 있지 않습니다.");
+            }
+
+            if (registration.Options.DuplicatePolicy == ScreenDuplicatePolicy.Reject &&
+                HasLiveScreen(id))
+            {
+                return ScreenOpenResponse.Reject($"Screen '{id}'의 중복 Open이 거부됐습니다.");
+            }
+
+            if (!layerRegistry.TryAcquireUsage
+                (
+                    registration.Options.LayerID,
+                    out var layerDriver,
+                    out var layerUsage
+                ))
+            {
+                return ScreenOpenResponse.Reject
+                (
+                    $"Screen '{id}'의 Layer '{registration.Options.LayerID}'가 등록되어 있지 않습니다."
+                );
+            }
+
+            var session = new ScreenSession
+            (
+                this,
+                registration.Options,
+                parameters,
+                registration.Source
+            )
+            {
+                LayerUsage = layerUsage,
+                ReplacedSession = replace ? previous : null,
+            };
+
+            liveSessions.Add(session);
+
+            // Source 획득·Bind는 하나의 원자적 외부 단계로 취급한다.
+            try
+            {
+                // 외부 Source와 훅이 EventSystem 선택을 바꾸기 전에 이전 화면의 실제 선택을 기록한다.
+                if (previous != null)
+                {
+                    focusController.Cover(previous);
+                }
+
+                var scope = new ScreenViewScope
+                (
+                    id,
+                    parameters,
+                    session,
+                    registration.Options.LayerID,
+                    layerDriver.Root
+                );
+
+                session.Instance = registration.Source.Acquire(scope);
+
+                if (session.Instance == null)
+                {
+                    throw new InvalidOperationException("Screen Source가 null ScreenInstance를 반환했습니다.");
+                }
+
+                if (!session.Instance.Driver.IsValid)
+                {
+                    throw new InvalidOperationException("Screen Driver가 유효하지 않습니다.");
+                }
+            }
+            catch (Exception exception)
+            {
+                var failure = CleanupUnacceptedFailure
+                (
+                    session,
+                    session.Instance != null,
+                    previous,
+                    exception
+                );
+
+                return ScreenOpenResponse.SourceFailure
+                (
+                    $"Screen '{id}' Source 획득·Bind가 실패했습니다.",
+                    failure
+                );
+            }
+
+            var driver = session.Instance.Driver;
+
+            try
+            {
+                driver.SetVisible(true);
+                driver.SetInteractable(false);
+                driver.Apply(0.0f);
+            }
+            catch (Exception exception)
+            {
+                var failure = CleanupUnacceptedFailure(session, true, previous, exception);
+                return ScreenOpenResponse.SourceFailure
+                (
+                    $"Screen '{id}' Driver 준비가 실패했습니다.",
+                    failure
+                );
+            }
+
+            // OnOpening만 예외를 호출자에게 다시 전달하고 준비 Session을 정리한다.
+            ScreenStateContext openingContext;
+
+            try
+            {
+                openingContext = InvokeOpening(session);
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    ReleaseUnacceptedAndRestorePrevious(session, true, previous);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException(exception, cleanupException);
+                }
+
+                throw;
+            }
+
+            if (openingContext.IsCancelled)
+            {
+                ReleaseUnacceptedAndRestorePrevious(session, true, previous);
+                return ScreenOpenResponse.Cancel($"Screen '{id}'의 OnOpening에서 취소됐습니다.");
+            }
+
+            try
+            {
+                session.InputSession = inputDriver.Acquire(session.Options);
+            }
+            catch (Exception exception)
+            {
+                throw CleanupUnacceptedFailure(session, true, previous, exception);
+            }
+
+            try
+            {
+                // 동기 완료 callback도 이전 화면이 이미 Covered인 상태만 관찰하게 먼저 Stack을 갱신한다.
+                if (previous != null)
+                {
+                    previous.Instance.Driver.SetInteractable(false);
+                    previous.State = ScreenState.Covered;
+                }
+
+                stack.Add(session);
+                session.IsAccepted = true;
+                StartOpening(session);
+            }
+            catch (Exception exception)
+            {
+                Exception failure = exception;
+
+                try
+                {
+                    RollbackOpen(session, previous);
+                }
+                catch (Exception cleanupException)
+                {
+                    failure = new AggregateException(exception, cleanupException);
+                }
+
+                return ScreenOpenResponse.TransitionFailure
+                (
+                    $"Screen '{id}' 열기 Transition 시작이 실패했습니다.",
+                    failure
+                );
+            }
+
+            return ScreenOpenResponse.Accept(session);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// ID와 같은 미종결 Screen이 있는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool HasLiveScreen(string id)
+        {
+            for (var i = 0; i < liveSessions.Count; i++)
+            {
+                if (liveSessions[i].State != ScreenState.Closed &&
+                    string.Equals(liveSessions[i].ID, id, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 열기 Transition을 시작하고 유효한 callback만 Session에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void StartOpening(ScreenSession session)
+        {
+            InvalidateTransition(session);
+            var generation = ++session.TransitionGeneration;
+            var timeSource = session.Options.UsesUnscaledTime
+                ? PresentationTimeSource.Unscaled
+                : PresentationTimeSource.Scaled;
+            var parameters = new PresentationTransitionParams
+            (
+                session.Instance.Driver,
+                0.0f,
+                1.0f,
+                session.Options.OpenDuration,
+                timeSource
+            );
+
+            var handle = transitioner.Play
+            (
+                parameters,
+                () => CompleteOpening(session, generation),
+                exception =>
+                {
+                    if (!IsExpected(session, generation, ScreenState.Opening)) return;
+
+                    Debug.LogException(exception);
+
+                    try
+                    {
+                        session.Instance.Driver.Apply(1.0f);
+                    }
+                    catch (Exception applyException)
+                    {
+                        Debug.LogException(applyException);
+                    }
+
+                    CompleteOpening(session, generation);
+                }
+            );
+
+            if (IsExpected(session, generation, ScreenState.Opening) && handle.IsPending)
+            {
+                session.Transition = handle;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 열기 Transition 완료와 OnOpened를 확정하고 Replace 이전 Screen을 닫는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CompleteOpening
+        (
+            ScreenSession session,
+            int generation
+        )
+        {
+            if (!IsExpected(session, generation, ScreenState.Opening)) return;
+
+            session.Transition = null;
+
+            try
+            {
+                session.Instance.Driver.Apply(1.0f);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+
+            try
+            {
+                session.Instance.Driver.SetInteractable(true);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+
+            session.State = ScreenState.Active;
+
+            var defaultFocus = session.Options.DefaultFocus ?? session.Instance.Driver.DefaultFocus;
+
+            try
+            {
+                focusController.Activate(session, defaultFocus);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+
+            InvokeNonCancellingHook(session, ScreenState.Active, HookKind.Opened);
+
+            var replaced = session.ReplacedSession;
+
+            if (replaced != null && replaced.State == ScreenState.Covered)
+            {
+                BeginClose(replaced, false, true, false, true, false);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 닫기 훅과 Transition을 시작한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool BeginClose
+        (
+            ScreenSession session,
+            bool canCancel,
+            bool animate,
+            bool restorePrevious,
+            bool detachFromStack,
+            bool retainCursorWhileAwaitingRelease
+        )
+        {
+            if (session == null || session.State == ScreenState.Closed) return false;
+            if (session.State == ScreenState.Closing) return false;
+
+            var closingContext = InvokeClosing(session, canCancel);
+
+            if (canCancel && closingContext.IsCancelled)
+            {
+                return false;
+            }
+
+            session.State = ScreenState.Closing;
+            session.RestorePreviousOnClose = restorePrevious;
+            session.RetainCursorOnClose = retainCursorWhileAwaitingRelease;
+            InvalidateTransition(session);
+
+            // Replace 이전 Screen은 새 top을 건드리지 않도록 닫기 시작 시 Stack에서 분리한다.
+            if (detachFromStack)
+            {
+                stack.Remove(session);
+                focusController.Remove(session);
+            }
+
+            try
+            {
+                session.Instance.Driver.SetInteractable(false);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+
+            if (!animate)
+            {
+                try
+                {
+                    session.Instance.Driver.Apply(0.0f);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+
+                FinishClose
+                (
+                    session,
+                    restorePrevious,
+                    true,
+                    retainCursorWhileAwaitingRelease,
+                    null
+                );
+                return true;
+            }
+
+            try
+            {
+                StartClosing(session);
+            }
+            catch (Exception exception)
+            {
+                // 닫기 시작 실패는 화면을 중간 상태로 남기지 않고 즉시 최종 정리한다.
+                Debug.LogException(exception);
+
+                try
+                {
+                    session.Instance.Driver.Apply(0.0f);
+                }
+                catch (Exception applyException)
+                {
+                    Debug.LogException(applyException);
+                }
+
+                FinishClose
+                (
+                    session,
+                    restorePrevious,
+                    true,
+                    retainCursorWhileAwaitingRelease,
+                    null
+                );
+            }
+
+            return true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 닫기 Transition을 시작하고 유효한 callback만 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void StartClosing(ScreenSession session)
+        {
+            var generation = ++session.TransitionGeneration;
+            var timeSource = session.Options.UsesUnscaledTime
+                ? PresentationTimeSource.Unscaled
+                : PresentationTimeSource.Scaled;
+            var parameters = new PresentationTransitionParams
+            (
+                session.Instance.Driver,
+                session.Instance.Driver.Visibility,
+                0.0f,
+                session.Options.CloseDuration,
+                timeSource
+            );
+
+            var handle = transitioner.Play
+            (
+                parameters,
+                () => FinishClosingTransition(session, generation),
+                exception =>
+                {
+                    if (!IsExpected(session, generation, ScreenState.Closing)) return;
+
+                    Debug.LogException(exception);
+
+                    try
+                    {
+                        session.Instance.Driver.Apply(0.0f);
+                    }
+                    catch (Exception applyException)
+                    {
+                        Debug.LogException(applyException);
+                    }
+
+                    FinishClosingTransition(session, generation);
+                }
+            );
+
+            if (IsExpected(session, generation, ScreenState.Closing) && handle.IsPending)
+            {
+                session.Transition = handle;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 닫기 Transition 완료 뒤 Screen Source와 하위 수명을 정리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void FinishClosingTransition
+        (
+            ScreenSession session,
+            int generation
+        )
+        {
+            if (!IsExpected(session, generation, ScreenState.Closing)) return;
+
+            session.Transition = null;
+            FinishClose
+            (
+                session,
+                session.RestorePreviousOnClose,
+                true,
+                session.RetainCursorOnClose,
+                null
+            );
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 하위 Handle, OnClosed, Source, Layer와 입력 수명을 순서대로 정리하고,
+        /// <br/> 선행 자원이 남으면 Stack과 입력을 유지한 채 Clear에서 재시도한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private bool FinishClose
+        (
+            ScreenSession session,
+            bool restorePrevious,
+            bool waitForInputRelease,
+            bool retainCursorWhileAwaitingRelease,
+            List<Exception> collectedErrors
+        )
+        {
+            var errors = new List<Exception>();
+            var childErrors = session.ReleaseChildren();
+            var childrenReleased = childErrors.Count == 0;
+
+            if (childErrors.Count > 0)
+            {
+                errors.AddRange(childErrors);
+            }
+
+            if (!session.SourceReleased)
+            {
+                try
+                {
+                    session.Instance.Driver.SetVisible(false);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (childrenReleased && !session.ClosedHookCalled)
+            {
+                InvokeNonCancellingHook(session, ScreenState.Closing, HookKind.Closed);
+                session.ClosedHookCalled = true;
+            }
+
+            if (session.ClosedHookCalled && !session.SourceReleased)
+            {
+                try
+                {
+                    session.Source.Release(session.Instance);
+                    session.SourceReleased = true;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (session.SourceReleased && !session.LayerReleased)
+            {
+                try
+                {
+                    session.LayerUsage.Dispose();
+                    session.LayerReleased = true;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            Action restoreFocus = null;
+            var privateResourcesReleased =
+                childrenReleased &&
+                session.SourceReleased &&
+                session.LayerReleased;
+
+            if (privateResourcesReleased)
+            {
+                var detached = stack.Remove(session);
+                focusController.Remove(session);
+
+                if (detached && restorePrevious)
+                {
+                    var previous = Top;
+                    restoreFocus = () => RestorePrevious(previous);
+                }
+            }
+
+            if (privateResourcesReleased && !session.InputReleased)
+            {
+                try
+                {
+                    if (session.InputSession != null)
+                    {
+                        session.InputSession.Release
+                        (
+                            waitForInputRelease,
+                            retainCursorWhileAwaitingRelease,
+                            restoreFocus
+                        );
+                    }
+                    else
+                    {
+                        restoreFocus?.Invoke();
+                    }
+
+                    session.InputReleased = true;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+
+                    // 입력 backend가 장벽을 소유하지 못했으면 하위 화면을 영구 Covered로 남기지 않는다.
+                    try
+                    {
+                        restoreFocus?.Invoke();
+                    }
+                    catch (Exception restoreException)
+                    {
+                        errors.Add(restoreException);
+                    }
+                }
+            }
+
+            if (privateResourcesReleased &&
+                session.InputReleased)
+            {
+                session.State = ScreenState.Closed;
+                liveSessions.Remove(session);
+            }
+
+            ReportErrors(errors, collectedErrors);
+            return errors.Count == 0;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 생존 Session을 최신 획득부터 즉시 강제 종료한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private List<Exception> ForceClear()
+        {
+            var errors = new List<Exception>();
+            var snapshot = liveSessions.ToArray();
+            var batchStarted = false;
+
+            try
+            {
+                inputDriver.BeginBatch();
+                batchStarted = true;
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            for (var i = snapshot.Length - 1; i >= 0; i--)
+            {
+                try
+                {
+                    ForceCloseImmediate(snapshot[i], errors);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (batchStarted)
+            {
+                try
+                {
+                    inputDriver.EndBatch();
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            try
+            {
+                focusController.Clear();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            return errors;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 입력 해제 장벽 뒤에도 같은 Covered Screen이 top일 때만 상호작용과 Focus를 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RestorePrevious(ScreenSession previous)
+        {
+            if (!IsAvailable || !ReferenceEquals(Top, previous)) return;
+
+            try
+            {
+                if (previous != null && previous.State == ScreenState.Covered)
+                {
+                    previous.State = ScreenState.Active;
+                    previous.Instance.Driver.SetInteractable(true);
+                }
+
+                focusController.Restore(previous);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 한 생존 Session의 Transition을 취소하고 강제 종료 훅과 정리를 수행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ForceCloseImmediate
+        (
+            ScreenSession session,
+            List<Exception> errors
+        )
+        {
+            if (session == null) return;
+
+            if (session.State == ScreenState.Closed)
+            {
+                FinishClose(session, false, true, true, errors);
+                return;
+            }
+
+            if (!session.IsAccepted)
+            {
+                try
+                {
+                    ReleaseUnaccepted(session, !session.SourceReleased);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+
+                return;
+            }
+
+            if (session.State != ScreenState.Closing)
+            {
+                InvokeClosing(session, false);
+                session.State = ScreenState.Closing;
+            }
+
+            InvalidateTransition(session);
+            stack.Remove(session);
+            session.RestorePreviousOnClose = false;
+
+            try
+            {
+                session.Instance.Driver.SetInteractable(false);
+                session.Instance.Driver.Apply(0.0f);
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            FinishClose(session, false, true, true, errors);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Transition 시작 실패 후 새 Session을 제거하고 이전 top 상태를 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RollbackOpen
+        (
+            ScreenSession session,
+            ScreenSession previous
+        )
+        {
+            var errors = new List<Exception>();
+
+            try
+            {
+                InvalidateTransition(session);
+                stack.Remove(session);
+                session.IsAccepted = false;
+
+                try
+                {
+                    ReleaseUnaccepted(session, true);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+            finally
+            {
+                // 정리 실패와 무관하게 이전 top의 관찰 가능한 상태는 복원한다.
+                if (previous != null)
+                {
+                    previous.State = ScreenState.Active;
+
+                    try
+                    {
+                        previous.Instance.Driver.SetInteractable(true);
+                        focusController.Restore(previous);
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add(exception);
+                    }
+                }
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("Screen Open 롤백이 실패했습니다.", errors);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Stack에 수락되지 않은 준비 Session의 Source와 Layer 수명을 정리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ReleaseUnaccepted
+        (
+            ScreenSession session,
+            bool releaseSource
+        )
+        {
+            var errors = new List<Exception>();
+
+            var childErrors = session.ReleaseChildren();
+            errors.AddRange(childErrors);
+            var childrenReleased = childErrors.Count == 0;
+
+            if (!releaseSource)
+            {
+                session.SourceReleased = true;
+            }
+
+            if (childrenReleased &&
+                releaseSource &&
+                session.Instance != null &&
+                !session.SourceReleased)
+            {
+                try
+                {
+                    session.Instance.Driver.SetVisible(false);
+                    session.Source.Release(session.Instance);
+                    session.SourceReleased = true;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (session.SourceReleased && !session.LayerReleased)
+            {
+                try
+                {
+                    session.LayerUsage.Dispose();
+                    session.LayerReleased = true;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (session.LayerReleased && !session.InputReleased)
+            {
+                try
+                {
+                    session.InputSession?.Release(false);
+                    session.InputReleased = true;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("수락되지 않은 Screen 정리가 실패했습니다.", errors);
+            }
+
+            if (session.SourceReleased &&
+                session.LayerReleased &&
+                session.InputReleased)
+            {
+                liveSessions.Remove(session);
+                session.State = ScreenState.Closed;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 수락 전 실패와 정리 실패를 하나의 Open 실패 Exception으로 결합한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private Exception CleanupUnacceptedFailure
+        (
+            ScreenSession session,
+            bool releaseSource,
+            ScreenSession previous,
+            Exception failure
+        )
+        {
+            try
+            {
+                ReleaseUnacceptedAndRestorePrevious(session, releaseSource, previous);
+                return failure;
+            }
+            catch (Exception cleanupException)
+            {
+                return new AggregateException(failure, cleanupException);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 수락되지 않은 Screen 자원을 정리하고,
+        /// <br/> 외부 Source 호출 전에 기록한 이전 top Focus를 복원한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ReleaseUnacceptedAndRestorePrevious
+        (
+            ScreenSession session,
+            bool releaseSource,
+            ScreenSession previous
+        )
+        {
+            var errors = new List<Exception>();
+
+            try
+            {
+                ReleaseUnaccepted(session, releaseSource);
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            // 이전 top이 없을 때도 반환된 첫 View의 무효 선택 대신 fallback을 복원한다.
+            try
+            {
+                focusController.Restore(previous);
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("수락되지 않은 Screen 정리와 이전 Focus 복원이 실패했습니다.", errors);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// OnOpening 훅을 동기로 호출하고 취소 Context를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private ScreenStateContext InvokeOpening(ScreenSession session)
+        {
+            var context = new ScreenStateContext(session, ScreenState.Opening, true);
+            var handler = session.Instance.StateHandler;
+
+            if (handler == null) return context;
+
+            hookDepth++;
+
+            try
+            {
+                handler.OnOpening(context);
+            }
+            finally
+            {
+                hookDepth--;
+            }
+
+            return context;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// OnClosing 훅을 동기로 호출하고 예외를 기록한 뒤 Context를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private ScreenStateContext InvokeClosing
+        (
+            ScreenSession session,
+            bool canCancel
+        )
+        {
+            var context = new ScreenStateContext(session, session.State, canCancel);
+            var handler = session.Instance.StateHandler;
+
+            if (handler == null) return context;
+
+            hookDepth++;
+
+            try
+            {
+                handler.OnClosing(context);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                hookDepth--;
+            }
+
+            return context;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 취소 불가능한 OnOpened 또는 OnClosed 훅을 호출하고 예외를 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void InvokeNonCancellingHook
+        (
+            ScreenSession session,
+            ScreenState state,
+            HookKind kind
+        )
+        {
+            var handler = session.Instance.StateHandler;
+
+            if (handler == null) return;
+
+            var context = new ScreenStateContext(session, state, false);
+            hookDepth++;
+
+            try
+            {
+                if (kind == HookKind.Opened)
+                {
+                    handler.OnOpened(context);
+                }
+                else
+                {
+                    handler.OnClosed(context);
+                }
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                hookDepth--;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Session의 이전 Transition callback을 무효화한 뒤 실행을 취소한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void InvalidateTransition(ScreenSession session)
+        {
+            session.TransitionGeneration++;
+
+            var current = session.Transition;
+
+            if (current == null) return;
+
+            current.Cancel();
+
+            if (ReferenceEquals(session.Transition, current))
+            {
+                session.Transition = null;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Transition callback의 세대값과 예상 Session 상태가 일치하는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool IsExpected
+        (
+            ScreenSession session,
+            int generation,
+            ScreenState state
+        )
+        {
+            return session.TransitionGeneration == generation &&
+                session.State == state;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 한 정리 예외를 수집하거나 즉시 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ReportError
+        (
+            Exception exception,
+            List<Exception> collectedErrors
+        )
+        {
+            if (collectedErrors != null)
+            {
+                collectedErrors.Add(exception);
+            }
+            else
+            {
+                Debug.LogException(exception);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 여러 정리 예외를 수집하거나 즉시 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ReportErrors
+        (
+            List<Exception> errors,
+            List<Exception> collectedErrors
+        )
+        {
+            for (var i = 0; i < errors.Count; i++)
+            {
+                ReportError(errors[i], collectedErrors);
+            }
+        }
+
+    #endregion
+
+    #region 내부 데이터
+
+        private enum HookKind
+        {
+            Opened = 0,
+            Closed = 1,
+        }
+
+    #endregion
+
+    }
+}
