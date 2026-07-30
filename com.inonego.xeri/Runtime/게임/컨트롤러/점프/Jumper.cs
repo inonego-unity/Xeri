@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Jumper.cs
-수정일 : 2026-05-01
+수정일 : 2026-07-30
 
 # 설명
 IJumper 구현체.
@@ -26,6 +26,20 @@ namespace inonego.Xeri.Game.Controller
     {
 
     #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 점프 실행이 허용된 상태인지 여부입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsJumpAllowed
+        {
+            get => isJumpAllowed;
+            set => isJumpAllowed = value;
+        }
+
+        [SerializeField, ReadOnly]
+        private bool isJumpAllowed = true;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -226,7 +240,8 @@ namespace inonego.Xeri.Game.Controller
                 StartCoyoteJumpTimer();
             }
 
-            bool canJump = coyoteJumpTimer.IsRunning || isJumping;
+            bool canJump = IsJumpAllowed &&
+                           (coyoteJumpTimer.IsRunning || isJumping);
 
             if (isTriggered && canJump)
             {

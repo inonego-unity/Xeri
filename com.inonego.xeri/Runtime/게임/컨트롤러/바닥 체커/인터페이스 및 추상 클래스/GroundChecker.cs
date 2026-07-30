@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker.cs
-수정일 : 2026-07-25
+수정일 : 2026-07-30
 
 # 설명
 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커.
@@ -160,8 +160,8 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------------------------------------------------------------------
         /// <summary>
-        /// <br/>바닥을 처리합니다. 바닥 오브젝트의 리지드바디를 캐시하고,
-        /// <br/>오브젝트가 바닥 방향으로 향하고 있지 않으면 바닥으로 인정하지 않습니다.
+        /// <br/>바닥을 처리하고 바닥 오브젝트의 리지드바디를 캐시합니다.
+        /// <br/>최초 접지 시에는 바닥 방향 운동을 요구하고, 검출 중인 지면은 형상이 벗어날 때까지 유지합니다.
         /// </summary>
         // ------------------------------------------------------------------------------------------------------------------------
         protected override void ProcessGround(GameObject prev, ref GameObject next)
@@ -180,8 +180,9 @@ namespace inonego.Xeri.Game.Controller
 
             var (velocity, gravity) = (GetLinearVelocity(rigid), Gravity);
 
-            // 바닥으로 향하고 있는지 확인합니다.
-            var isHeadingToGround = IsHeadingToGround(velocity, groundVelocity, gravity);
+            // 최초 접지에만 운동 방향을 적용해 상승 중인 표면을 새 바닥으로 획득하지 않는다.
+            // 이미 검출 중인 지면은 지지력이 만든 작은 상승 속도로 접지가 흔들리지 않도록 유지한다.
+            var isHeadingToGround = prev != null || IsHeadingToGround(velocity, groundVelocity, gravity);
 
             if (!isHeadingToGround)
             {

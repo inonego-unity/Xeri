@@ -87,31 +87,31 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 모든 입력 Entry가 현재 Frame에 해제 가능하도록 장벽 Frame을 맞춘다.
+        /// 모든 입력 Session이 현재 Frame에 해제 가능하도록 장벽 Frame을 맞춘다.
         /// </summary>
         // ------------------------------------------------------------
-        private static void MakeEntriesReady(InputSystemScreenInputDriver driver)
+        private static void MakeSessionsReady(InputSystemScreenInputDriver driver)
         {
-            var entriesField = typeof(InputSystemScreenInputDriver).GetField
+            var sessionsField = typeof(InputSystemScreenInputDriver).GetField
             (
-                "entries",
+                "sessions",
                 BindingFlags.Instance | BindingFlags.NonPublic
             );
 
-            Assert.IsNotNull(entriesField);
-            var entries = entriesField.GetValue(driver) as IList;
-            Assert.IsNotNull(entries);
+            Assert.IsNotNull(sessionsField);
+            var sessions = sessionsField.GetValue(driver) as IList;
+            Assert.IsNotNull(sessions);
 
-            for (var i = 0; i < entries.Count; i++)
+            for (var i = 0; i < sessions.Count; i++)
             {
-                var property = entries[i].GetType().GetProperty
+                var property = sessions[i].GetType().GetProperty
                 (
                     "ReleaseFrame",
                     BindingFlags.Instance | BindingFlags.Public
                 );
 
                 Assert.IsNotNull(property);
-                property.SetValue(entries[i], Time.frameCount);
+                property.SetValue(sessions[i], Time.frameCount);
             }
         }
 
@@ -217,12 +217,12 @@ namespace inonego.Xeri.TEST.UI._Game
                 SetField
                 (
                     upper,
-                    "onReleased",
+                    "onReleaseCompleted",
                     (Action)(() => observedCursorVisible = Cursor.visible)
                 );
                 lower.MarkAwaitingRelease(true);
                 upper.MarkAwaitingRelease(true);
-                MakeEntriesReady(driver);
+                MakeSessionsReady(driver);
 
                 Invoke(driver, "Update");
 

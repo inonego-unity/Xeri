@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : OverlayHandle.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Overlay View와 Presentation Layer 사용 수명을 정확히 한 번 반환하는 Handle을 정의한다.
@@ -121,23 +121,28 @@ namespace inonego.Xeri.UI.Game
 
     #region IDisposable
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/> Overlay View를 Source에 반환한 뒤 Layer 사용 수명을 종료한다.
-        /// <br/> Source 반환 실패 시 소유권을 유지해 다음 Dispose에서 재시도한다.
+        /// Overlay View와 Layer 사용 소유권을 한 번 반환한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public void Dispose()
         {
             if (source == null) return;
 
-            // Source 반환 성공 전에는 Layer 사용 수명을 해제하지 않는다.
-            source.Release(View);
-
+            var currentSource = source;
             var usage = layerUsage;
             source = null;
             layerUsage = null;
-            usage.Dispose();
+
+            try
+            {
+                currentSource.Release(View);
+            }
+            finally
+            {
+                usage.Dispose();
+            }
         }
 
     #endregion

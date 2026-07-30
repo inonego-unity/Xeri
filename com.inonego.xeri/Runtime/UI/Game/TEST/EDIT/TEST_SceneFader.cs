@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SceneFader.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 SceneFader의 안정 상태, 완료 정리 실패와 Transition 시작 실패 롤백을 검증한다.
@@ -8,8 +8,8 @@ SceneFader의 안정 상태, 완료 정리 실패와 Transition 시작 실패 �
 # 테스트 구성
  N: 정상 Cover·Reveal 수명
  C: 요청 교체와 종료 정리
- R: Reveal 반환 실패와 재시도
- X: Transition 시작 실패 롤백
+ R: Reveal 반환 실패의 Terminal 처리
+ X: Transition 실패 전달과 롤백
  I: Overlay 초기화 실패 롤백
 ========================================================================= BLOCK_HEADER_END */
 
@@ -75,9 +75,12 @@ namespace inonego.Xeri.TEST.UI._Game
             public float Alpha { get; private set; }
             public Color Color { get; private set; }
             public bool FailNextApply { get; set; }
+            public int ApplyCount { get; private set; }
 
             public void Apply(float value)
             {
+                ApplyCount++;
+
                 if (FailNextApply)
                 {
                     FailNextApply = false;
@@ -180,7 +183,7 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             // ============================================================
             /// <summary>
-            /// 한 Fade Transition 요청의 Handle과 완료 callback.
+            /// 한 Fade Transition 요청의 Handle과 완료·실패 callback.
             /// </summary>
             // ============================================================
             public sealed class Request
@@ -188,15 +191,18 @@ namespace inonego.Xeri.TEST.UI._Game
                 public PresentationTransitionParams Params { get; }
                 public PresentationTransitionHandle Handle { get; set; }
                 public Action Completed { get; }
+                public Action<Exception> Failed { get; }
 
                 public Request
                 (
                     PresentationTransitionParams parameters,
-                    Action completed
+                    Action completed,
+                    Action<Exception> failed
                 ) : base()
                 {
                     Params = parameters;
                     Completed = completed;
+                    Failed = failed;
                 }
             }
 
@@ -221,7 +227,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 Action<Exception> onFailed
             )
             {
-                var request = new Request(parameters, onCompleted);
+                var request = new Request(parameters, onCompleted, onFailed);
                 request.Handle = new PresentationTransitionHandle(null);
                 requests.Add(request);
                 return request.Handle;
@@ -243,6 +249,19 @@ namespace inonego.Xeri.TEST.UI._Game
                 }
 
                 request.Completed?.Invoke();
+                return request;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 가장 오래된 요청을 비동기 실패시키고 실패 callback을 발생시킨다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Request FailNext(Exception exception)
+            {
+                var request = TakeNext();
+                request.Handle.Fail();
+                request.Failed?.Invoke(exception);
                 return request;
             }
 
@@ -361,11 +380,12 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #region N-1: 정상 Cover·Reveal
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Cover가 Overlay를 유지하고 Reveal 완료만 정확히 한 번 반환하는지 검증한다.
+        /// <br/> Cover가 Overlay를 유지하고 Reveal 완료만 정확히 한 번 반환하며,
+        /// <br/> 각 요청의 완료 callback이 정확히 한 번 호출되는지 검증한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
         public void TEST_SceneFader_정상CoverReveal_Overlay유지후한번반환()
         {
@@ -382,10 +402,12 @@ namespace inonego.Xeri.TEST.UI._Game
             );
             var coveredCount = 0;
             var revealedCount = 0;
-            fader.OnCovered += () => coveredCount++;
-            fader.OnRevealed += () => revealedCount++;
 
-            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
+            fader.Cover
+            (
+                new SceneFadeParams(Color.black, 0.0f),
+                () => coveredCount++
+            );
 
             Assert.AreEqual(SceneFadeState.Covered, fader.State);
             Assert.AreEqual(1.0f, source.Driver.Alpha);
@@ -393,7 +415,11 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(0, source.ReleaseCount);
             Assert.AreEqual(1, coveredCount);
 
-            fader.Reveal(new SceneFadeParams(Color.black, 0.0f));
+            fader.Reveal
+            (
+                new SceneFadeParams(Color.black, 0.0f),
+                () => revealedCount++
+            );
 
             Assert.AreEqual(SceneFadeState.Clear, fader.State);
             Assert.AreEqual(0.0f, source.Driver.Alpha);
@@ -410,13 +436,13 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #region C-1: 요청 교체
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 진행 중 Cover 교체가 같은 Overlay를 사용하고 마지막 완료 이벤트만 발생시키는지 검증한다.
+        /// 진행 중 Cover 교체가 같은 Overlay를 사용하고 마지막 요청 callback만 호출하는지 검증한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
-        public void TEST_SceneFader_Cover교체_같은Overlay와마지막완료만유지()
+        public void TEST_SceneFader_Cover교체_같은Overlay와마지막요청만완료()
         {
             var registry = new PresentationLayerRegistry();
             var layerHandle = RegisterLayer(registry, out _);
@@ -430,11 +456,19 @@ namespace inonego.Xeri.TEST.UI._Game
                 transitioner,
                 PresentationTimeSource.Unscaled
             );
-            var coveredCount = 0;
-            fader.OnCovered += () => coveredCount++;
+            var firstCompletedCount = 0;
+            var secondCompletedCount = 0;
 
-            fader.Cover(new SceneFadeParams(Color.black, 1.0f));
-            fader.Cover(new SceneFadeParams(Color.red, 1.0f));
+            fader.Cover
+            (
+                new SceneFadeParams(Color.black, 1.0f),
+                () => firstCompletedCount++
+            );
+            fader.Cover
+            (
+                new SceneFadeParams(Color.red, 1.0f),
+                () => secondCompletedCount++
+            );
 
             Assert.AreEqual(SceneFadeState.Covering, fader.State);
             Assert.AreEqual(1, source.AcquireCount);
@@ -444,13 +478,15 @@ namespace inonego.Xeri.TEST.UI._Game
             ManualTransitioner.InvokeLateCompletion(cancelled);
 
             Assert.AreEqual(SceneFadeState.Covering, fader.State);
-            Assert.AreEqual(0, coveredCount);
+            Assert.AreEqual(0, firstCompletedCount);
+            Assert.AreEqual(0, secondCompletedCount);
 
             transitioner.CompleteNext();
 
             Assert.AreEqual(SceneFadeState.Covered, fader.State);
             Assert.AreEqual(Color.red, source.Driver.Color);
-            Assert.AreEqual(1, coveredCount);
+            Assert.AreEqual(0, firstCompletedCount);
+            Assert.AreEqual(1, secondCompletedCount);
 
             fader.Dispose();
             layerHandle.Dispose();
@@ -516,11 +552,11 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Reveal 반환 실패가 Covered 상태를 복원하고 같은 Fader로 재시도되는지 검증한다.
+        /// Reveal 반환 실패 뒤 기존 Overlay 소유권이 Terminal이며 새 Cover만 재획득하는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_SceneFader_Reveal반환실패_Covered복원후재시도성공()
+        public void TEST_SceneFader_Reveal반환실패_기존OverlayTerminal()
         {
             var registry = new PresentationLayerRegistry();
             var layerHandle = RegisterLayer(registry, out _);
@@ -541,14 +577,69 @@ namespace inonego.Xeri.TEST.UI._Game
             (
                 () => fader.Reveal(new SceneFadeParams(Color.black, 0.0f))
             );
-            Assert.AreEqual(SceneFadeState.Covered, fader.State);
-            Assert.AreEqual(1.0f, source.Driver.Alpha);
+            Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(0.0f, source.Driver.Alpha);
             Assert.IsNotNull(fader.LastFailure);
             Assert.AreEqual(0, source.ReleaseCount);
 
-            fader.Reveal(new SceneFadeParams(Color.black, 0.0f));
+            Assert.Throws<InvalidOperationException>
+            (
+                () => fader.Reveal(new SceneFadeParams(Color.black, 0.0f))
+            );
+            Assert.AreEqual(1, source.AcquireCount);
+
+            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
+
+            Assert.AreEqual(SceneFadeState.Covered, fader.State);
+            Assert.AreEqual(2, source.AcquireCount);
+
+            fader.Dispose();
+            Assert.AreEqual(1, source.ReleaseCount);
+            layerHandle.Dispose();
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region X-1: 비동기 실패 전달
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 비동기 Cover 실패가 완료 callback 없이 요청의 실패 callback에 전달되고
+        /// <br/> 마지막 안정 상태와 Overlay 소유권을 복원하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_SceneFader_Cover비동기실패_요청실패Callback과Clear복원()
+        {
+            var registry = new PresentationLayerRegistry();
+            var layerHandle = RegisterLayer(registry, out _);
+            var source = new TestFadeSource();
+            var transitioner = new ManualTransitioner();
+            var fader = new SceneFader
+            (
+                registry,
+                "Fade",
+                source,
+                transitioner,
+                PresentationTimeSource.Unscaled
+            );
+            var completedCount = 0;
+            Exception reportedFailure = null;
+            var failure = new InvalidOperationException("injected async transition failure");
+
+            fader.Cover
+            (
+                new SceneFadeParams(Color.black, 1.0f),
+                () => completedCount++,
+                exception => reportedFailure = exception
+            );
+            transitioner.FailNext(failure);
 
             Assert.AreEqual(SceneFadeState.Clear, fader.State);
+            Assert.AreEqual(0, completedCount);
+            Assert.AreSame(failure, reportedFailure);
+            Assert.AreSame(failure, fader.LastFailure);
             Assert.AreEqual(1, source.ReleaseCount);
 
             fader.Dispose();
@@ -558,13 +649,13 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region X-1: 시작 실패
+    #region X-2: 시작 실패
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Cover 시작 실패가 Clear 상태와 Overlay 소유권을 복원하는지 검증한다.
+        /// Cover 시작 실패가 요청 callback 없이 Clear 상태와 Overlay 소유권을 복원하는지 검증한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
         public void TEST_SceneFader_Cover시작실패_Clear상태와Overlay반환()
         {
@@ -579,13 +670,19 @@ namespace inonego.Xeri.TEST.UI._Game
                 new ThrowingTransitioner(),
                 PresentationTimeSource.Unscaled
             );
+            Exception reportedFailure = null;
 
             Assert.Throws<InvalidOperationException>
             (
-                () => fader.Cover(new SceneFadeParams(Color.black, 0.2f))
+                () => fader.Cover
+                (
+                    new SceneFadeParams(Color.black, 0.2f),
+                    onFailed: exception => reportedFailure = exception
+                )
             );
             Assert.AreEqual(SceneFadeState.Clear, fader.State);
             Assert.AreEqual(1, source.ReleaseCount);
+            Assert.IsNull(reportedFailure);
 
             fader.Dispose();
             layerHandle.Dispose();
@@ -638,7 +735,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 초기화와 반환이 함께 실패해 남은 Overlay를 Reveal이 사용하지 않고 Cover가 복구하는지 검증한다.
+        /// 초기화와 반환이 함께 실패하면 기존 Overlay를 버리고 Cover가 새로 획득하는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
@@ -673,9 +770,10 @@ namespace inonego.Xeri.TEST.UI._Game
             fader.Cover(new SceneFadeParams(Color.black, 0.0f));
 
             Assert.AreEqual(SceneFadeState.Covered, fader.State);
-            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(2, source.AcquireCount);
 
             fader.Dispose();
+            Assert.AreEqual(1, source.ReleaseCount);
             layerHandle.Dispose();
             registry.Dispose();
         }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SceneFader.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 App 기본 Layer의 Fade Overlay를 Cover부터 Reveal 또는 종료까지 소유하는 상태 머신이다.
@@ -51,31 +51,6 @@ namespace inonego.Xeri.UI.Game
 
     #endregion
 
-    #region 이벤트
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Cover Transition이 완료됐을 때 발생한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public event Action OnCovered = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Reveal Transition과 Overlay 반환이 완료됐을 때 발생한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public event Action OnRevealed = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 비동기 Fade 또는 완료 정리가 실패해 마지막 안정 상태로 복원됐을 때 발생한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public event Action<Exception> OnFailed = null;
-
-    #endregion
-
     #region 생성자
 
         // ------------------------------------------------------------
@@ -109,12 +84,18 @@ namespace inonego.Xeri.UI.Game
 
     #region 메서드
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Fade Overlay를 불투명하게 전환하고 Covered 상태로 유지한다.
+        /// <br/> Fade Overlay를 불투명하게 전환하고 Covered 상태로 유지한다.
+        /// <br/> 완료와 비동기 실패는 이 요청에 전달된 callback으로만 알린다.
         /// </summary>
-        // ------------------------------------------------------------
-        public void Cover(SceneFadeParams parameters)
+        // ----------------------------------------------------------------------
+        public void Cover
+        (
+            SceneFadeParams parameters,
+            Action onCompleted = null,
+            Action<Exception> onFailed = null
+        )
         {
             ThrowIfDisposed();
             ISceneFadeDriver driver = null;
@@ -138,7 +119,8 @@ namespace inonego.Xeri.UI.Game
                     1.0f,
                     parameters.Duration,
                     currentGeneration,
-                    CompleteCover
+                    () => CompleteCover(onCompleted),
+                    onFailed
                 );
             }
             catch (Exception exception)
@@ -158,12 +140,18 @@ namespace inonego.Xeri.UI.Game
             }
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 보유한 Fade Overlay를 투명하게 전환한 뒤 반환한다.
+        /// <br/> 보유한 Fade Overlay를 투명하게 전환한 뒤 반환한다.
+        /// <br/> 완료와 비동기 실패는 이 요청에 전달된 callback으로만 알린다.
         /// </summary>
-        // ------------------------------------------------------------
-        public void Reveal(SceneFadeParams parameters)
+        // ----------------------------------------------------------------------
+        public void Reveal
+        (
+            SceneFadeParams parameters,
+            Action onCompleted = null,
+            Action<Exception> onFailed = null
+        )
         {
             ThrowIfDisposed();
 
@@ -190,7 +178,8 @@ namespace inonego.Xeri.UI.Game
                     0.0f,
                     parameters.Duration,
                     currentGeneration,
-                    CompleteReveal
+                    () => CompleteReveal(onCompleted),
+                    onFailed
                 );
             }
             catch (Exception exception)
@@ -225,12 +214,14 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                if (!overlay.View.IsValid)
+                var driver = overlay.View;
+
+                if (!driver.IsValid)
                 {
                     throw new InvalidOperationException("Scene Fade Driver가 유효하지 않습니다.");
                 }
 
-                overlay.View.Apply(0.0f);
+                driver.Apply(0.0f);
                 overlayInitialized = true;
             }
             catch (Exception exception)
@@ -265,7 +256,8 @@ namespace inonego.Xeri.UI.Game
             float endValue,
             float duration,
             int currentGeneration,
-            Action onCompleted
+            Action onCompleted,
+            Action<Exception> onFailed
         )
         {
             driver.Apply(startValue);
@@ -292,7 +284,7 @@ namespace inonego.Xeri.UI.Game
                     return;
                 }
 
-                HandleAsyncFailure(driver, failure);
+                HandleAsyncFailure(driver, failure, onFailed);
             }
 
             var handle = transitioner.Play
@@ -346,35 +338,53 @@ namespace inonego.Xeri.UI.Game
             generation++;
 
             var current = transition;
-            current?.Cancel();
             transition = null;
+            current?.Cancel();
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Cover 완료 상태와 이벤트를 확정한다.
+        /// Cover 상태를 확정한 뒤 현재 요청의 완료 callback을 호출한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void CompleteCover()
+        private void CompleteCover(Action onCompleted)
         {
             stableState = SceneFadeState.Covered;
             State = SceneFadeState.Covered;
             LastFailure = null;
-            InvokeSubscribers(OnCovered);
+
+            // 확정된 Fade 상태를 소비자 callback 예외로 되돌리지 않는다.
+            try
+            {
+                onCompleted?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Reveal 완료 후 Overlay를 반환하고 이벤트를 발생시킨다.
+        /// Reveal 상태와 Overlay 반환을 확정한 뒤 현재 요청의 완료 callback을 호출한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private void CompleteReveal()
+        // ----------------------------------------------------------------------
+        private void CompleteReveal(Action onCompleted)
         {
-            ReleaseOverlay();
             stableState = SceneFadeState.Clear;
             State = SceneFadeState.Clear;
+            ReleaseOverlay();
             LastFailure = null;
-            InvokeSubscribers(OnRevealed);
+
+            // Overlay 반환까지 끝난 요청을 소비자 callback 예외로 실패 처리하지 않는다.
+            try
+            {
+                onCompleted?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
         }
 
         // ----------------------------------------------------------------------
@@ -420,19 +430,29 @@ namespace inonego.Xeri.UI.Game
             return LastFailure;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 비동기 Fade 실패를 안정 상태로 복원하고 구독자에게 전달한다.
+        /// 비동기 Fade 실패를 안정 상태로 복원하고 현재 요청의 실패 callback에 전달한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private void HandleAsyncFailure
         (
             ISceneFadeDriver driver,
-            Exception failure
+            Exception failure,
+            Action<Exception> onFailed
         )
         {
             var reportedFailure = RollbackToStable(driver, failure);
-            InvokeFailureSubscribers(OnFailed, reportedFailure);
+
+            // 소비자 callback 예외가 원래 Fade 실패를 대체하지 않게 기록만 한다.
+            try
+            {
+                onFailed?.Invoke(reportedFailure);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
         }
 
         // ------------------------------------------------------------
@@ -444,9 +464,10 @@ namespace inonego.Xeri.UI.Game
         {
             if (overlay == null) return;
 
-            overlay.Dispose();
+            var current = overlay;
             overlay = null;
             overlayInitialized = false;
+            current.Dispose();
         }
 
         // ------------------------------------------------------------
@@ -459,58 +480,6 @@ namespace inonego.Xeri.UI.Game
             if (isDisposed)
             {
                 throw new ObjectDisposedException(nameof(SceneFader));
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 완료 이벤트 구독자를 독립 호출해 상태 확정이 구독자 예외로 되돌아가지 않게 한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void InvokeSubscribers(Action subscribers)
-        {
-            if (subscribers == null) return;
-
-            var invocationList = subscribers.GetInvocationList();
-
-            for (var i = 0; i < invocationList.Length; i++)
-            {
-                try
-                {
-                    ((Action)invocationList[i]).Invoke();
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogException(exception);
-                }
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 실패 구독자를 독립 호출해 한 구독자 예외가 다른 진단 전달을 막지 않게 한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void InvokeFailureSubscribers
-        (
-            Action<Exception> subscribers,
-            Exception failure
-        )
-        {
-            if (subscribers == null) return;
-
-            var invocationList = subscribers.GetInvocationList();
-
-            for (var i = 0; i < invocationList.Length; i++)
-            {
-                try
-                {
-                    ((Action<Exception>)invocationList[i]).Invoke(failure);
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogException(exception);
-                }
             }
         }
 
@@ -527,15 +496,35 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
-            CancelTransition();
-            ReleaseOverlay();
+            isDisposed = true;
             State = SceneFadeState.Clear;
             stableState = SceneFadeState.Clear;
             LastFailure = null;
-            OnCovered = null;
-            OnRevealed = null;
-            OnFailed = null;
-            isDisposed = true;
+
+            var errors = new List<Exception>();
+
+            try
+            {
+                CancelTransition();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            try
+            {
+                ReleaseOverlay();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("Scene Fader 해제가 실패했습니다.", errors);
+            }
         }
 
     #endregion

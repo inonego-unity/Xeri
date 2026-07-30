@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AsyncMappedDataReader.cs
-수정일 : 2026-06-21
+수정일 : 2026-07-30
 
 # 설명
 기존 async reader가 읽은 response value를 다른 값으로 변환해 반환하는 비동기 IO reader adapter를 정의한다.
@@ -65,7 +65,13 @@ namespace inonego.Xeri.IO
       )
       {
          var sourceResponse = await sourceReader.ReadAsync(location, cancellationToken);
-         cancellationToken.ThrowIfCancellationRequested();
+
+         if (cancellationToken.IsCancellationRequested)
+         {
+            // Source 응답을 받은 뒤 취소되면 전달받은 수명 책임을 이 경계에서 종료한다.
+            sourceResponse.Lease?.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
+         }
 
          if (!sourceResponse.Success)
          {
@@ -73,7 +79,7 @@ namespace inonego.Xeri.IO
             (
                sourceResponse.Error,
                sourceResponse.Exception,
-               sourceResponse.ReleaseHandle
+               sourceResponse.Lease
             );
          }
 
@@ -81,7 +87,7 @@ namespace inonego.Xeri.IO
          {
             var value = map(sourceResponse.Value);
 
-            return ReadResponse<TValue>.Succeed(value, sourceResponse.ReleaseHandle);
+            return ReadResponse<TValue>.Succeed(value, sourceResponse.Lease);
          }
          catch (Exception exception)
          {
@@ -89,7 +95,7 @@ namespace inonego.Xeri.IO
             (
                exception.Message,
                exception,
-               sourceResponse.ReleaseHandle
+               sourceResponse.Lease
             );
          }
       }

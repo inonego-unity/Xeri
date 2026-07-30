@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIProfileHandle.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
-GameUIProfileHandle의 활성 Layer 소비자 보호와 Provider 부분 반환 재시도를 검증한다.
+GameUIProfileHandle의 활성 Layer 소비자 보호와 Provider 물리 반환 소유권을 검증한다.
 
 # 테스트 구성
  C: 활성 Layer 소비자 보호
- R: Provider 부분 반환 재시도
+ R: Provider 반환 실패의 소유권 유지
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -24,7 +24,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     // ============================================================
     /// <summary>
-    /// GameUIProfileHandle의 대칭 소유권과 실패 재시도 테스트.
+    /// GameUIProfileHandle의 대칭 소유권과 Provider 반환 실패 처리 테스트.
     /// </summary>
     // ============================================================
     public sealed class TEST_GameUIProfileHandle
@@ -167,12 +167,16 @@ namespace inonego.Xeri.TEST.UI._Game
         /// 테스트용 Presentation Layer Asset을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        private PresentationLayerAsset CreateLayerAsset(string id)
+        private PresentationLayerAsset CreateLayerAsset
+        (
+            string id,
+            int order = 0
+        )
         {
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", id);
             SetField(asset, "mode", PresentationLayerMode.Shared);
-            SetField(asset, "order", 0);
+            SetField(asset, "order", order);
             ownedObjects.Add(asset);
             return asset;
         }
@@ -251,9 +255,13 @@ namespace inonego.Xeri.TEST.UI._Game
                 new TestLayerDriver(root.transform)
             );
             var usage = layerHandle.AcquireUsage();
-            var handle = new GameUIProfileHandle(profile, null);
-            var entry = handle.Add(provider, instance);
-            handle.SetLayerHandle(entry, layerHandle);
+            var handle = new GameUIProfileHandle
+            (
+                profile,
+                null
+            );
+            var ownedLayer = handle.AddLayer(provider, instance);
+            handle.AttachLayerHandle(ownedLayer, layerHandle);
 
             Assert.Throws<InvalidOperationException>(handle.Dispose);
             Assert.IsFalse(handle.IsDisposed);
@@ -271,16 +279,16 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region R-1: Provider 부분 반환
+    #region R-1: Provider 반환 실패
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> Provider 반환 일부 실패 뒤 성공 Entry는 반복하지 않고,
-        /// <br/> 실패 Entry만 다음 Dispose에서 재시도하는지 검증한다.
+        /// <br/> Provider 반환 일부 실패 뒤 논리 Handle은 Terminal이고,
+        /// <br/> 실패 시 소유권이 남는 Provider 인스턴스만 다음 Dispose에서 반환하는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_GameUIProfileHandle_Provider부분반환실패_실패Entry만재시도()
+        public void TEST_GameUIProfileHandle_Provider부분반환실패_실패Instance만물리반환재시도()
         {
             var profile = ScriptableObject.CreateInstance<GameUIProfileAsset>();
             var first = new GameObject("First Layer");
@@ -291,18 +299,22 @@ namespace inonego.Xeri.TEST.UI._Game
             var provider = new TestProvider();
             provider.FailNext(second);
             var disposedCount = 0;
-            var handle = new GameUIProfileHandle(profile, _ => disposedCount++);
-            handle.Add(provider, first);
-            handle.Add(provider, second);
+            var handle = new GameUIProfileHandle
+            (
+                profile,
+                _ => disposedCount++
+            );
+            handle.AddLayer(provider, first);
+            handle.AddLayer(provider, second);
 
             Assert.Throws<AggregateException>(handle.Dispose);
 
-            Assert.IsFalse(handle.IsDisposed);
+            Assert.IsTrue(handle.IsDisposed);
             Assert.AreEqual(1, provider.GetReleaseCount(first));
             Assert.AreEqual(1, provider.GetReleaseCount(second));
             Assert.AreEqual(0, disposedCount);
 
-            handle.Dispose();
+            Assert.DoesNotThrow(handle.Dispose);
 
             Assert.IsTrue(handle.IsDisposed);
             Assert.AreEqual(1, provider.GetReleaseCount(first));

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN ===============================================================================================
 파일명 : EnvelopeSerializedHandler.cs
-수정일 : 2026-07-01
+수정일 : 2026-07-30
 
 # 설명
 DocumentEnvelope 기반 Xeri native serialized document를 생성, 열기, 저장, 복구하는 concrete handler를 정의한다.
@@ -249,12 +249,12 @@ namespace inonego.Xeri.Workspace.Document
             return DocumentOpenResponse.Fail("location을 IO location으로 변환할 수 없습니다.");
          }
 
-         IReleaseHandle releaseHandle = null;
+         Lease lease = null;
 
          try
          {
             var readResponse = reader.Read(ioLoc);
-            releaseHandle = readResponse.ReleaseHandle;
+            lease = readResponse.Lease;
 
             if (!readResponse.Success)
             {
@@ -276,7 +276,7 @@ namespace inonego.Xeri.Workspace.Document
          finally
          {
             // Envelope handler는 serialized text를 body로 복사한 뒤 원본 IO 수명을 보관하지 않는다.
-            releaseHandle?.Release();
+            lease?.Dispose();
          }
       }
 

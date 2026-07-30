@@ -1,12 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Pool_GOCompPool.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 GOCompPool 시스템의 핵심 기능 테스트. Edit Mode.
 
 # 테스트 구성
  E: 기본 기능 (생성/Acquire/Release/재사용)
+ V: Provider 결과 검증과 반환 실패
  M: 풀 이동 (대상 인수 실패 시 원본 상태 복원)
 ========================================================================= BLOCK_HEADER_END */
 
@@ -76,6 +77,68 @@ public class TEST_Pool_GOCompPool
             item.gameObject.SetActive(false);
 
             throw new InvalidOperationException("테스트 대상 Pool이 Component 인수를 거절했습니다.");
+        }
+    }
+
+    // ============================================================
+    /// <summary>
+    /// 지정 GameObject의 획득과 반환을 기록하고 반환 실패를 주입하는 Provider.
+    /// </summary>
+    // ============================================================
+    private sealed class TrackingProvider : IGameObjectProvider
+    {
+        public Transform Parent { get; set; }
+        public GameObject Item { get; set; }
+        public bool FailRelease { get; set; }
+        public int ReleaseCount { get; private set; }
+
+        public GameObject Acquire(bool worldPositionStays = true)
+        {
+            return Item;
+        }
+
+        public Awaitable<GameObject> AcquireAsync(bool worldPositionStays = true)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void Release
+        (
+            GameObject gameObject,
+            bool worldPositionStays = true
+        )
+        {
+            ReleaseCount++;
+
+            if (FailRelease)
+            {
+                throw new InvalidOperationException("injected provider release failure");
+            }
+        }
+    }
+
+    // ============================================================
+    /// <summary>
+    /// Lease 반환 경계에서 Component 반환 실패를 주입하는 Pool.
+    /// </summary>
+    // ============================================================
+    private sealed class FailingReleaseGOCompPool : GOCompPool<TestComponent>
+    {
+        public int ReleaseAttemptCount { get; private set; }
+
+        public FailingReleaseGOCompPool(IGameObjectProvider provider) : base(provider)
+        {
+        }
+
+        protected override void ReleaseInternal
+        (
+            TestComponent item,
+            bool removeFromAcquired = true,
+            bool pushToReleased = true
+        )
+        {
+            ReleaseAttemptCount++;
+            throw new InvalidOperationException("injected component release failure");
         }
     }
 
@@ -213,6 +276,167 @@ public class TEST_Pool_GOCompPool
         {
             if (comp2 != null) GameObject.DestroyImmediate(comp2.gameObject);
             GameObject.DestroyImmediate(prefab);
+        }
+    }
+
+#endregion
+
+#region V-1: Provider 결과 검증
+
+    // ----------------------------------------------------------------------
+    /// <summary>
+    /// Provider 결과에 필수 Component가 없으면 GameObject를 Provider에 반환하는지 검증한다.
+    /// </summary>
+    // ----------------------------------------------------------------------
+    [Test]
+    public void TEST_GOCompPool_Component누락_Provider로_반환()
+    {
+        var gameObject = new GameObject("Missing Component");
+        var provider = new TrackingProvider { Item = gameObject };
+        var pool = new GOCompPool<TestComponent>(provider);
+
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => pool.Acquire());
+            Assert.AreEqual(1, provider.ReleaseCount);
+            Assert.AreEqual(0, pool.Acquired.Count);
+            Assert.AreEqual(0, pool.Released.Count);
+        }
+        finally
+        {
+            GameObject.DestroyImmediate(gameObject);
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    /// <summary>
+    /// Component 누락과 Provider 반환 실패가 함께 발생하면 두 오류를 모두 전달하는지 검증한다.
+    /// </summary>
+    // ----------------------------------------------------------------------
+    [Test]
+    public void TEST_GOCompPool_Component누락과Provider반환실패_두오류를함께전달()
+    {
+        var gameObject = new GameObject("Missing Component");
+        var provider = new TrackingProvider
+        {
+            Item = gameObject,
+            FailRelease = true,
+        };
+        var pool = new GOCompPool<TestComponent>(provider);
+
+        try
+        {
+            var exception = Assert.Throws<AggregateException>(() => pool.Acquire());
+
+            Assert.AreEqual(2, exception.InnerExceptions.Count);
+            Assert.IsInstanceOf<InvalidOperationException>(exception.InnerExceptions[0]);
+            Assert.IsInstanceOf<InvalidOperationException>(exception.InnerExceptions[1]);
+            StringAssert.Contains
+            (
+                nameof(TestComponent),
+                exception.InnerExceptions[0].Message
+            );
+            StringAssert.Contains
+            (
+                "injected provider release failure",
+                exception.InnerExceptions[1].Message
+            );
+            Assert.AreEqual(1, provider.ReleaseCount);
+            Assert.AreEqual(0, pool.Acquired.Count);
+            Assert.AreEqual(0, pool.Released.Count);
+        }
+        finally
+        {
+            GameObject.DestroyImmediate(gameObject);
+        }
+    }
+
+#endregion
+
+#region V-2: Lease 반환 실패
+
+    // ----------------------------------------------------------------------
+    /// <summary>
+    /// Lease 반환 실패 시 Provider 정리를 한 번 수행하고 Pool 소유권을 종결하는지 검증한다.
+    /// </summary>
+    // ----------------------------------------------------------------------
+    [Test]
+    public void TEST_GOCompPool_Lease반환실패_Provider정리후Terminal()
+    {
+        var gameObject = new GameObject("Lease Release Failure");
+        var component = gameObject.AddComponent<TestComponent>();
+        var provider = new TrackingProvider { Item = gameObject };
+        var pool = new FailingReleaseGOCompPool(provider);
+
+        try
+        {
+            var lease = pool.AcquireLease();
+
+            var exception = Assert.Throws<InvalidOperationException>(() => lease.Dispose());
+            StringAssert.Contains("injected component release failure", exception.Message);
+
+            Assert.IsTrue(lease.IsDisposed);
+            Assert.AreEqual(1, pool.ReleaseAttemptCount);
+            Assert.AreEqual(1, provider.ReleaseCount);
+            Assert.IsFalse(pool.IsAcquired(component));
+            Assert.IsFalse(pool.IsReleased(component));
+
+            Assert.DoesNotThrow(lease.Dispose);
+            Assert.AreEqual(1, pool.ReleaseAttemptCount);
+            Assert.AreEqual(1, provider.ReleaseCount);
+        }
+        finally
+        {
+            GameObject.DestroyImmediate(gameObject);
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    /// <summary>
+    /// Lease 반환과 Provider 정리가 모두 실패하면 최초 오류 순서를 보존하고 다시 시도하지 않는지 검증한다.
+    /// </summary>
+    // ----------------------------------------------------------------------
+    [Test]
+    public void TEST_GOCompPool_Lease반환과Provider정리실패_두오류를한번만전달()
+    {
+        var gameObject = new GameObject("Lease Cleanup Failure");
+        var component = gameObject.AddComponent<TestComponent>();
+        var provider = new TrackingProvider
+        {
+            Item = gameObject,
+            FailRelease = true,
+        };
+        var pool = new FailingReleaseGOCompPool(provider);
+
+        try
+        {
+            var lease = pool.AcquireLease();
+            var exception = Assert.Throws<AggregateException>(() => lease.Dispose());
+
+            Assert.AreEqual(2, exception.InnerExceptions.Count);
+            StringAssert.Contains
+            (
+                "injected component release failure",
+                exception.InnerExceptions[0].Message
+            );
+            StringAssert.Contains
+            (
+                "injected provider release failure",
+                exception.InnerExceptions[1].Message
+            );
+            Assert.IsTrue(lease.IsDisposed);
+            Assert.AreEqual(1, pool.ReleaseAttemptCount);
+            Assert.AreEqual(1, provider.ReleaseCount);
+            Assert.IsFalse(pool.IsAcquired(component));
+            Assert.IsFalse(pool.IsReleased(component));
+
+            Assert.DoesNotThrow(lease.Dispose);
+            Assert.AreEqual(1, pool.ReleaseAttemptCount);
+            Assert.AreEqual(1, provider.ReleaseCount);
+        }
+        finally
+        {
+            GameObject.DestroyImmediate(gameObject);
         }
     }
 

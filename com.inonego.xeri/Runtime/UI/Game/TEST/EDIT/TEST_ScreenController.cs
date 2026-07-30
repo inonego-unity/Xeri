@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ScreenController.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Screen 수명·상태 훅 정리, Focus 복원과 닫기 입력 장벽 계약을 검증한다.
@@ -12,7 +12,7 @@ Screen 수명·상태 훅 정리, Focus 복원과 닫기 입력 장벽 계약을
  O: 수락 전 자원 정리와 이전 Focus 복원
  C: Close 입력 장벽과 Focus 복원
  R: Replace 입력 정책 분리
- T: Transition 취소·재시도·실패·Clear
+ T: Transition 취소 Terminal 처리·실패·Clear
  X: 완료 훅 예외 정리
 ========================================================================= BLOCK_HEADER_END */
 
@@ -280,6 +280,7 @@ namespace inonego.Xeri.TEST.UI._Game
             private readonly List<ScreenInputSession> sessions = new List<ScreenInputSession>();
 
             public bool HoldRelease { get; set; }
+            public bool FailRelease { get; set; }
             public ScreenInputSession LastAcquired { get; private set; }
             public int Count => sessions.Count;
 
@@ -306,13 +307,12 @@ namespace inonego.Xeri.TEST.UI._Game
 
             public void ForceReleaseAll()
             {
-                var snapshot = sessions.ToArray();
-                sessions.Clear();
-
-                for (var i = snapshot.Length - 1; i >= 0; i--)
+                for (var i = sessions.Count - 1; i >= 0; i--)
                 {
-                    snapshot[i].MarkReleased();
+                    sessions[i].MarkReleased();
                 }
+
+                sessions.Clear();
             }
 
             public void Dispose()
@@ -327,6 +327,13 @@ namespace inonego.Xeri.TEST.UI._Game
                 bool retainCursorWhileAwaitingRelease
             )
             {
+                if (FailRelease)
+                {
+                    sessions.Remove(session);
+                    session.MarkReleased(invokeCompletionCallback: false);
+                    throw new InvalidOperationException("injected input release failure");
+                }
+
                 if (HoldRelease && waitForInputRelease)
                 {
                     session.MarkAwaitingRelease(retainCursorWhileAwaitingRelease);
@@ -435,18 +442,14 @@ namespace inonego.Xeri.TEST.UI._Game
             }
         }
 
-        private sealed class FailOnceHandle : IDisposable
+        private sealed class ThrowingHandle : IDisposable
         {
             public int DisposeCount { get; private set; }
 
             public void Dispose()
             {
                 DisposeCount++;
-
-                if (DisposeCount == 1)
-                {
-                    throw new InvalidOperationException("injected child release failure");
-                }
+                throw new InvalidOperationException("injected child release failure");
             }
         }
 
@@ -893,19 +896,36 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(1, secondSource.ReleaseCount);
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Registry 전체 종료가 남은 Screen 등록 Handle도 Terminal로 만드는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenRegistry_전체종료_남은등록HandleTerminal()
+        {
+            var handle = Register("Dynamic", new TestScreenSource(new object()));
+
+            screenRegistry.Dispose();
+
+            Assert.IsTrue(handle.IsDisposed);
+            Assert.IsFalse(screenRegistry.Contains("Dynamic"));
+            Assert.DoesNotThrow(handle.Dispose);
+        }
+
     #endregion
 
     #region O-1: 수락 전 자식 정리
 
         // ------------------------------------------------------------
         /// <summary>
-        /// OnOpening 취소 중 자식 정리 실패를 보존하고 Clear에서 재시도하는지 검증한다.
+        /// OnOpening 취소 중 자식 정리가 실패해도 준비 Session 전체가 Terminal인지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_OnOpening취소_자식정리실패를보존하고Clear에서재시도()
+        public void TEST_ScreenController_OnOpening취소_자식정리실패에도SessionTerminal()
         {
-            var child = new FailOnceHandle();
+            var child = new ThrowingHandle();
             var handler = new TestStateHandler
             {
                 Opening = context =>
@@ -919,11 +939,12 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.Throws<AggregateException>(() => controller.Open("Cancelled"));
             Assert.AreEqual(1, child.DisposeCount);
-            Assert.AreEqual(0, source.ReleaseCount);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(0, controller.Count);
 
             controller.Clear();
 
-            Assert.AreEqual(2, child.DisposeCount);
+            Assert.AreEqual(1, child.DisposeCount);
             Assert.AreEqual(1, source.ReleaseCount);
             Assert.AreEqual(0, controller.Count);
         }
@@ -1040,15 +1061,15 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region T-1B: Transition 취소 재시도
+    #region T-1B: Transition 취소 Terminal 처리
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Transition Cancel 실패 뒤 Handle을 유지해 Clear가 같은 취소를 재시도하는지 검증한다.
+        /// Transition Cancel 실패 뒤 Handle을 버리고 Clear가 같은 취소를 반복하지 않는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_Transition취소실패_Clear에서Handle재시도()
+        public void TEST_ScreenController_Transition취소실패_HandleTerminal()
         {
             var transitioner = UseManualTransitioner();
             var handler = new TestStateHandler();
@@ -1068,7 +1089,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.DoesNotThrow(controller.Clear);
 
-            Assert.AreEqual(2, transitioner.CancelCount);
+            Assert.AreEqual(1, transitioner.CancelCount);
             Assert.AreEqual(ScreenState.Closed, response.Session.State);
             Assert.AreEqual(1, source.ReleaseCount);
             Assert.AreEqual(0, controller.Count);
@@ -1134,11 +1155,11 @@ namespace inonego.Xeri.TEST.UI._Game
         // ----------------------------------------------------------------------
         /// <summary>
         /// <br/> 열기 Transition 시작과 Source 반환이 함께 실패해도 Response에 두 오류를 보존하고,
-        /// <br/> 이전 top을 복원한 뒤 Clear에서 실패한 정리만 재시도하는지 검증한다.
+        /// <br/> 이전 top을 복원한 뒤 실패한 Source 반환을 Clear에서 반복하지 않는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_Transition시작과정리실패_Response보존후Clear재시도()
+        public void TEST_ScreenController_Transition시작과정리실패_Response보존후Terminal()
         {
             var transitioner = UseManualTransitioner();
             var firstSource = new TestScreenSource(new object());
@@ -1168,7 +1189,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             controller.Clear();
 
-            Assert.AreEqual(1, failedSource.ReleaseCount);
+            Assert.AreEqual(0, failedSource.ReleaseCount);
             Assert.AreEqual(1, firstSource.ReleaseCount);
             Assert.AreEqual(0, controller.Count);
         }
@@ -1313,21 +1334,22 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region C-2: Close 정리 재시도
+    #region C-2: Close Terminal 정리
 
         // ------------------------------------------------------------
         /// <summary>
-        /// child 정리 실패 시 Screen을 숨기되 Stack·입력을 유지하고 Clear에서 재시도한다.
+        /// child 정리 실패 시에도 Screen·Stack·입력·Source가 한 번에 Terminal인지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_Close자식정리실패_숨김과Closed확정재시도()
+        public void TEST_ScreenController_Close자식정리실패_SessionTerminal()
         {
             var handler = new TestStateHandler();
             var source = new TestScreenSource(new object(), handler);
             Register("Cleanup", source);
             var response = controller.Open("Cleanup");
-            response.Session.RegisterChild(new FailOnceHandle());
+            var child = new ThrowingHandle();
+            response.Session.RegisterChild(child);
             LogAssert.Expect
             (
                 LogType.Exception,
@@ -1336,29 +1358,116 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.IsTrue(response.Session.Close());
 
-            Assert.AreEqual(ScreenState.Closing, response.Session.State);
-            Assert.AreEqual(1, controller.Count);
-            Assert.AreEqual(1, inputDriver.Count);
+            Assert.AreEqual(ScreenState.Closed, response.Session.State);
+            Assert.AreEqual(0, controller.Count);
+            Assert.AreEqual(0, inputDriver.Count);
             Assert.IsFalse(source.Driver.IsVisible);
-            Assert.AreEqual(0, source.ReleaseCount);
-            Assert.AreEqual(ScreenOpenKind.Rejected, controller.Open("Cleanup").Kind);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(1, child.DisposeCount);
             CollectionAssert.AreEqual
             (
-                new[] { "Opening", "Opened", "Closing" },
+                new[] { "Opening", "Opened", "Closing", "Closed" },
                 handler.Calls
             );
 
             Assert.DoesNotThrow(controller.Clear);
 
             Assert.AreEqual(ScreenState.Closed, response.Session.State);
-            Assert.AreEqual(0, controller.Count, "Clear 재시도 뒤 Stack이 비어야 합니다.");
-            Assert.AreEqual(0, inputDriver.Count, "Clear 재시도 뒤 입력 Session이 비어야 합니다.");
+            Assert.AreEqual(0, controller.Count);
+            Assert.AreEqual(0, inputDriver.Count);
             Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(1, child.DisposeCount);
             CollectionAssert.AreEqual
             (
                 new[] { "Opening", "Opened", "Closing", "Closed" },
                 handler.Calls
             );
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 하위 Screen의 child 정리가 실패하면 이전 Screen을 Covered 상태로 격리하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_Close자식정리실패_이전Screen복원하지않음()
+        {
+            var baseSource = new TestScreenSource(new object());
+            var childSource = new TestScreenSource(new object());
+            Register("Base", baseSource);
+            Register("Child", childSource);
+            var baseSession = controller.Open("Base").Session;
+            var childSession = controller.Open("Child").Session;
+            var child = new ThrowingHandle();
+            childSession.RegisterChild(child);
+            LogAssert.Expect
+            (
+                LogType.Exception,
+                new Regex("injected child release failure")
+            );
+
+            Assert.IsTrue(childSession.Close());
+
+            Assert.AreEqual(ScreenState.Closed, childSession.State);
+            Assert.AreEqual(ScreenState.Covered, baseSession.State);
+            Assert.IsFalse(baseSource.Driver.IsInteractable);
+            Assert.AreEqual(1, controller.Count);
+            Assert.AreEqual(1, inputDriver.Count);
+            Assert.AreEqual(1, childSource.ReleaseCount);
+            Assert.AreEqual(1, child.DisposeCount);
+
+            Assert.DoesNotThrow(controller.Clear);
+            Assert.AreEqual(1, childSource.ReleaseCount);
+            Assert.AreEqual(1, child.DisposeCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 하위 Screen의 입력 해제가 실패하면 Session을 종결하고 이전 Screen을 복원하지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_Close입력해제실패_이전Screen복원하지않음()
+        {
+            var baseSource = new TestScreenSource(new object());
+            var childSource = new TestScreenSource(new object());
+            Register("Base", baseSource);
+            Register("Child", childSource);
+            var baseSession = controller.Open("Base").Session;
+            var childSession = controller.Open("Child").Session;
+            var childInput = childSession.InputSession;
+            inputDriver.FailRelease = true;
+            LogAssert.Expect
+            (
+                LogType.Exception,
+                new Regex("injected input release failure")
+            );
+
+            Assert.IsTrue(childSession.Close());
+
+            Assert.IsTrue(childInput.IsReleased);
+            Assert.AreEqual(ScreenState.Closed, childSession.State);
+            Assert.AreEqual(ScreenState.Covered, baseSession.State);
+            Assert.IsFalse(baseSource.Driver.IsInteractable);
+            Assert.AreEqual(1, controller.Count);
+            Assert.AreEqual(1, inputDriver.Count);
+            Assert.AreEqual(1, childSource.ReleaseCount);
+
+            var lateReleaseCallbackCount = 0;
+            Assert.DoesNotThrow
+            (
+                () => childInput.Release
+                (
+                    waitForInputRelease: false,
+                    retainCursorWhileAwaitingRelease: false,
+                    onReleaseCompleted: () => lateReleaseCallbackCount++
+                )
+            );
+            Assert.AreEqual(0, lateReleaseCallbackCount);
+
+            inputDriver.FailRelease = false;
+            Assert.DoesNotThrow(controller.Clear);
+            Assert.AreEqual(1, childSource.ReleaseCount);
         }
 
     #endregion

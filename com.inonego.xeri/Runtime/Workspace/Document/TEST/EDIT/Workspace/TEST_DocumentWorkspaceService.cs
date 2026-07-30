@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DocumentWorkspaceService.cs
-수정일 : 2026-07-01
+수정일 : 2026-07-30
 
 # 설명
 DocumentWorkspaceService의 create/open/save/close 실행 계약을 검증한다.
@@ -20,6 +20,7 @@ using System.IO;
 
 using NUnit.Framework;
 
+using inonego.Xeri.IO;
 using inonego.Xeri.Serializable;
 using inonego.Xeri.Workspace.Document;
 
@@ -34,6 +35,77 @@ namespace inonego.Xeri.TEST.Workspace._Document
    {
 
    #region 헬퍼
+
+      // ============================================================
+      /// <summary>
+      /// Reader Lease 종료 횟수를 관찰하는 테스트용 문자열 IO.
+      /// </summary>
+      // ============================================================
+      private sealed class LeaseTextIO :
+         IDataReader<string, string>,
+         IDataWriter<string, string>
+      {
+      #region 필드
+
+         public int DisposeCount { get; private set; }
+
+         private readonly bool readSuccess;
+
+      #endregion
+
+      #region 생성자
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 지정한 Reader 성공 여부로 테스트 IO를 생성합니다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public LeaseTextIO(bool readSuccess) : base()
+         {
+            this.readSuccess = readSuccess;
+         }
+
+      #endregion
+
+      #region IDataReader 구현
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// Lease를 포함한 성공 또는 실패 응답을 반환합니다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public ReadResponse<string> Read(string location)
+         {
+            var lease = new Lease
+            (
+               () =>
+               {
+                  DisposeCount++;
+               }
+            );
+
+            return readSuccess
+               ? ReadResponse<string>.Succeed("body", lease)
+               : ReadResponse<string>.Fail("read failure", lease: lease);
+         }
+
+      #endregion
+
+      #region IDataWriter 구현
+
+         // ------------------------------------------------------------
+         /// <summary>
+         /// 테스트에서 사용하지 않는 쓰기 작업을 성공으로 반환합니다.
+         /// </summary>
+         // ------------------------------------------------------------
+         public WriteResponse Write(string location, string value)
+         {
+            return WriteResponse.Succeed();
+         }
+
+      #endregion
+
+      }
 
       // ------------------------------------------------------------
       /// <summary>
@@ -55,6 +127,21 @@ namespace inonego.Xeri.TEST.Workspace._Document
       private static string CreateTempPath()
       {
          return Path.Combine(Path.GetTempPath(), "UniXeri_" + Guid.NewGuid().ToString("N") + ".json");
+      }
+
+      // ------------------------------------------------------------
+      /// <summary>
+      /// 테스트 Document location을 문자열 IO location으로 변환합니다.
+      /// </summary>
+      // ------------------------------------------------------------
+      private static bool TryMapTextLocation
+      (
+         IDocumentLocation location,
+         out string ioLocation
+      )
+      {
+         ioLocation = location?.Name;
+         return location != null;
       }
 
    #endregion
@@ -103,6 +190,43 @@ namespace inonego.Xeri.TEST.Workspace._Document
          Assert.AreEqual(loc.Name, openResponse.Session.Document.Name);
          Assert.AreEqual("hello", GetPayload(openResponse.Session).Text);
          Assert.AreEqual(42, GetPayload(openResponse.Session).Count);
+      }
+
+   #endregion
+
+   #region F-2: Open의 Reader Lease 종료
+
+      // --------------------------------------------------------------------------------
+      /// <summary>
+      /// Open 성공과 Reader 조기 실패 모두 전달받은 Lease를 정확히 한 번 종료합니다.
+      /// </summary>
+      // --------------------------------------------------------------------------------
+      [TestCase(true)]
+      [TestCase(false)]
+      public void TEST_DocumentWorkspaceService_Open성공과_조기실패는_ReaderLease를_한번만종료
+      (
+         bool readSuccess
+      )
+      {
+         var io = new LeaseTextIO(readSuccess);
+         var handler = new RawTextHandler<string>
+         (
+            TypeID,
+            Version,
+            io,
+            io,
+            TryMapTextLocation
+         );
+         var service = new DocumentWorkspaceService
+         (
+            new DocumentWorkspace(),
+            new IDocumentHandler[] { handler }
+         );
+
+         var response = service.Open(TypeID, CreateLocation("Lease"));
+
+         Assert.AreEqual(readSuccess, response.Success, response.Error);
+         Assert.AreEqual(1, io.DisposeCount);
       }
 
    #endregion

@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ReadResponse.cs
-수정일 : 2026-06-21
+수정일 : 2026-07-30
 
 # 설명
-IO read operation의 성공 여부, 읽은 값, 실패 정보, optional release handle을 담는 응답 값을 정의한다.
+IO read operation의 성공 여부, 읽은 값, 실패 정보, optional Lease를 담는 응답 값을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -51,10 +51,10 @@ namespace inonego.Xeri.IO
 
       // ------------------------------------------------------------
       /// <summary>
-      /// 읽은 값의 수명을 유지하기 위해 소유자가 함께 보관할 release handle.
+      /// 읽은 값의 수명을 유지하기 위해 소유자가 함께 보관할 Lease.
       /// </summary>
       // ------------------------------------------------------------
-      public IReleaseHandle ReleaseHandle { get; }
+      public Lease Lease { get; }
 
    #endregion
 
@@ -71,14 +71,14 @@ namespace inonego.Xeri.IO
          TValue value,
          string error,
          Exception exception,
-         IReleaseHandle releaseHandle
+         Lease lease
       ) : this()
       {
-         Success       = success;
-         Value         = value;
-         Error         = error ?? "";
-         Exception     = exception;
-         ReleaseHandle = releaseHandle;
+         Success   = success;
+         Value     = value;
+         Error     = error ?? "";
+         Exception = exception;
+         Lease     = lease;
       }
 
    #endregion
@@ -93,10 +93,10 @@ namespace inonego.Xeri.IO
       public static ReadResponse<TValue> Succeed
       (
          TValue value,
-         IReleaseHandle releaseHandle = null
+         Lease lease = null
       )
       {
-         return new ReadResponse<TValue>(true, value, "", null, releaseHandle);
+         return new ReadResponse<TValue>(true, value, "", null, lease);
       }
 
       // ------------------------------------------------------------
@@ -108,10 +108,10 @@ namespace inonego.Xeri.IO
       (
          string error,
          Exception exception = null,
-         IReleaseHandle releaseHandle = null
+         Lease lease = null
       )
       {
-         return new ReadResponse<TValue>(false, default, error, exception, releaseHandle);
+         return new ReadResponse<TValue>(false, default, error, exception, lease);
       }
 
    #endregion

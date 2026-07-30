@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PresentationLayerRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 동적 Profile 경계에서 공유 Presentation Layer의 전역 순서와 충돌 계약을 검증한다.
@@ -8,7 +8,7 @@
 # 테스트 구성
  O: 공유 Layer Order 정렬과 재정렬
  X: Order 충돌 거부
- R: Layer 해제 실패 재시도
+ R: Layer 해제 실패의 Terminal 처리
  U: Layer 소비자 독립 수명
 ========================================================================= BLOCK_HEADER_END */
 
@@ -45,7 +45,7 @@ namespace inonego.Xeri.TEST.UI._Game
             /// 테스트 Layer Root.
             /// </summary>
             // ------------------------------------------------------------
-            public Transform Root { get; }
+            public Transform Root => root;
 
             // ------------------------------------------------------------
             /// <summary>
@@ -61,6 +61,8 @@ namespace inonego.Xeri.TEST.UI._Game
             // ------------------------------------------------------------
             public bool FailNextDeactivation { get; set; }
 
+            private readonly Transform root = null;
+
             // ------------------------------------------------------------
             /// <summary>
             /// 지정 Root를 사용하는 테스트 backend를 생성한다.
@@ -68,7 +70,7 @@ namespace inonego.Xeri.TEST.UI._Game
             // ------------------------------------------------------------
             public TestLayerDriver(Transform root) : base()
             {
-                Root = root;
+                this.root = root;
             }
 
             // ------------------------------------------------------------
@@ -82,7 +84,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 out string error
             )
             {
-                error = asset == null || Root == null ? "invalid" : "";
+                error = asset == null || root == null ? "invalid" : "";
                 return string.IsNullOrEmpty(error);
             }
 
@@ -252,6 +254,30 @@ namespace inonego.Xeri.TEST.UI._Game
             registry.Dispose();
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Registry 전체 종료가 남은 등록 Handle도 Terminal로 만들어 소비자 재획득을 막는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationLayerRegistry_전체종료_남은HandleTerminal()
+        {
+            var parentObject = new GameObject("Layer Parent");
+            ownedObjects.Add(parentObject);
+            var root = CreateRoot("Shared", parentObject.transform);
+            var registry = new PresentationLayerRegistry();
+            var driver = new TestLayerDriver(root);
+            var handle = registry.Register(CreateAsset("Shared", 0), driver);
+
+            registry.Dispose();
+
+            Assert.IsTrue(handle.IsDisposed);
+            Assert.IsFalse(handle.HasConsumers);
+            Assert.IsFalse(driver.IsActive);
+            Assert.Throws<ObjectDisposedException>(() => handle.AcquireUsage());
+            Assert.DoesNotThrow(handle.Dispose);
+        }
+
     #endregion
 
     #region X-1: Order 충돌
@@ -289,11 +315,11 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// backend 비활성화 실패 전에 Registry 소유권을 제거하지 않고 재시도하는지 검증한다.
+        /// backend 비활성화 실패 뒤에도 Registry 등록과 Handle이 Terminal인지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_PresentationLayerRegistry_비활성화실패_등록유지후재시도()
+        public void TEST_PresentationLayerRegistry_비활성화실패_등록과HandleTerminal()
         {
             var parentObject = new GameObject("Layer Parent");
             ownedObjects.Add(parentObject);
@@ -303,15 +329,15 @@ namespace inonego.Xeri.TEST.UI._Game
             var handle = registry.Register(CreateAsset("Retry", 10), driver);
             driver.FailNextDeactivation = true;
 
-            Assert.Throws<InvalidOperationException>(handle.Dispose);
-            Assert.IsTrue(registry.Contains("Retry"));
+            Assert.Throws<AggregateException>(handle.Dispose);
+            Assert.IsFalse(registry.Contains("Retry"));
             Assert.IsTrue(driver.IsActive);
-            Assert.IsFalse(handle.IsDisposed);
+            Assert.IsTrue(handle.IsDisposed);
 
-            handle.Dispose();
+            Assert.DoesNotThrow(handle.Dispose);
 
             Assert.IsFalse(registry.Contains("Retry"));
-            Assert.IsFalse(driver.IsActive);
+            Assert.IsTrue(driver.IsActive);
             Assert.IsTrue(handle.IsDisposed);
             registry.Dispose();
         }

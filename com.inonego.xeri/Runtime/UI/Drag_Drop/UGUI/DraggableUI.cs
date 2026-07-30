@@ -1,13 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DraggableUI.cs
-수정일 : 2026-05-22
+수정일 : 2026-07-30
 
 # 설명
-UGUI EventSystem 입력을 Core Draggable에 연결하는 드래그 가능 UI 컴포넌트.
+UGUI EventSystem 입력을 Core Draggable에 연결하고 모든 종료 경로에서 입력 상태를 복원한다.
 ========================================================================= BLOCK_HEADER_END */
-
-using System;
-using System.Collections;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -328,9 +325,21 @@ namespace inonego.Xeri.UI.DragDrop
             if (draggable == null) return;
             if (!draggable.IsDragging) return;
 
-            Coordinator.HandleDragCancel(draggable);
-            draggable.ForceDragEnd();
-            raycastPolicy?.End();
+            try
+            {
+                Coordinator.HandleDragCancel(draggable);
+            }
+            finally
+            {
+                try
+                {
+                    draggable.ForceDragEnd();
+                }
+                finally
+                {
+                    raycastPolicy?.End();
+                }
+            }
         }
 
     #endregion
@@ -381,13 +390,30 @@ namespace inonego.Xeri.UI.DragDrop
             coordinateProvider.RefreshEventData(eventData);
             var input = CreateInputPoint(eventData);
 
-            raycastPolicy.Begin();
-            draggable.InvokeDragBegin(input);
-
-            if (draggable.IsDragging)
+            try
             {
-                Coordinator.HandleDragBegin(draggable);
-                Coordinator.HandleDrag(draggable, input);
+                raycastPolicy.Begin();
+                draggable.InvokeDragBegin(input);
+
+                if (draggable.IsDragging)
+                {
+                    Coordinator.HandleDragBegin(draggable);
+                    Coordinator.HandleDrag(draggable, input);
+                }
+            }
+            catch
+            {
+                // Begin 구독 또는 Coordinator 실패 뒤 활성 Drag와 Raycast 상태를 남기지 않는다.
+                if (draggable.IsDragging)
+                {
+                    ForceDragEnd();
+                }
+                else
+                {
+                    raycastPolicy.End();
+                }
+
+                throw;
             }
         }
 
@@ -420,9 +446,21 @@ namespace inonego.Xeri.UI.DragDrop
             coordinateProvider.RefreshEventData(eventData);
             var input = CreateInputPoint(eventData);
 
-            Coordinator.HandleDragEnd(draggable);
-            draggable.InvokeDragEnd(input);
-            raycastPolicy.End();
+            try
+            {
+                Coordinator.HandleDragEnd(draggable);
+            }
+            finally
+            {
+                try
+                {
+                    draggable.InvokeDragEnd(input);
+                }
+                finally
+                {
+                    raycastPolicy.End();
+                }
+            }
         }
 
     #endregion

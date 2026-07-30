@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationTransitionHandle.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 진행 중 Presentation Transition의 취소와 정확히 한 번 종결을 소유한다.
@@ -40,6 +40,13 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public bool IsCancelled => state == State.Cancelled;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Transition 적용이 실패했는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsFailed => state == State.Failed;
+
         private Action cancel = null;
         private State state = State.Pending;
 
@@ -52,6 +59,7 @@ namespace inonego.Xeri.UI.Game
             Pending = 0,
             Completed = 1,
             Cancelled = 2,
+            Failed = 3,
         }
 
     #endregion
@@ -88,6 +96,20 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
+        /// Transition을 적용 실패 상태로 확정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool Fail()
+        {
+            if (state != State.Pending) return false;
+
+            state = State.Failed;
+            cancel = null;
+            return true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 진행 중 Transition을 취소한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -96,9 +118,9 @@ namespace inonego.Xeri.UI.Game
             if (state != State.Pending) return;
 
             var action = cancel;
-            action?.Invoke();
             state = State.Cancelled;
             cancel = null;
+            action?.Invoke();
         }
 
     #endregion

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : VisibilityController.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Target별 중첩 Visibility 요청을 획득 순서로 합성하고 마지막 해제 시 기준 상태를 복원한다.
@@ -22,7 +22,6 @@ namespace inonego.Xeri.UI.Game
 
         private sealed class Request
         {
-            public long ID = 0L;
             public bool Visible = true;
         }
 
@@ -38,7 +37,6 @@ namespace inonego.Xeri.UI.Game
 
         private readonly Dictionary<IVisibilityTarget, Entry> entries =
             new Dictionary<IVisibilityTarget, Entry>();
-        private long nextRequestID = 1L;
         private bool isDisposed = false;
 
     #endregion
@@ -47,16 +45,19 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Target에 새 Visibility 요청을 적용하고 Handle을 반환한다.
+        /// Target에 새 Visibility 요청을 적용하고 Lease를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public VisibilityHandle Set
+        public Lease Set
         (
             IVisibilityTarget target,
             bool visible
         )
         {
-            ThrowIfDisposed();
+            if (isDisposed)
+            {
+                throw new ObjectDisposedException(nameof(VisibilityController));
+            }
 
             if (target == null)
             {
@@ -72,7 +73,6 @@ namespace inonego.Xeri.UI.Game
 
             var request = new Request
             {
-                ID = nextRequestID++,
                 Visible = visible,
             };
 
@@ -84,7 +84,7 @@ namespace inonego.Xeri.UI.Game
             }
 
             entry.Requests.Add(request);
-            return new VisibilityHandle(this, target, request.ID);
+            return new Lease(() => Release(target, request));
         }
 
         // ------------------------------------------------------------
@@ -92,25 +92,16 @@ namespace inonego.Xeri.UI.Game
         /// 지정 요청만 제거하고 다음 유효 요청 또는 기준 상태를 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void Release
+        private void Release
         (
             IVisibilityTarget target,
-            long requestID
+            Request request
         )
         {
             if (isDisposed) return;
             if (!entries.TryGetValue(target, out var entry)) return;
 
-            var index = -1;
-
-            for (var i = entry.Requests.Count - 1; i >= 0; i--)
-            {
-                if (entry.Requests[i].ID == requestID)
-                {
-                    index = i;
-                    break;
-                }
-            }
+            var index = entry.Requests.IndexOf(request);
 
             if (index < 0) return;
 
@@ -118,26 +109,36 @@ namespace inonego.Xeri.UI.Game
                 ? index > 0 ? entry.Requests[index - 1].Visible : entry.Baseline
                 : entry.Requests[entry.Requests.Count - 1].Visible;
 
-            target.SetVisible(nextVisible);
             entry.Requests.RemoveAt(index);
 
             if (entry.Requests.Count == 0)
             {
-                entries.Remove(target);
+                ReleaseTarget(target, entry);
+                return;
             }
+
+            target.SetVisible(nextVisible);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 해제된 Controller 사용을 거부한다.
+        /// <br/> Target의 마지막 Visibility 요청을 종료하고 기준 상태를 복원한다.
+        /// <br/> Controller 전체 종료에서는 원본 목록을 순회한 뒤 한 번에 비우도록 등록 제거를 생략한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private void ThrowIfDisposed()
+        // ----------------------------------------------------------------------
+        private void ReleaseTarget
+        (
+            IVisibilityTarget target,
+            Entry entry,
+            bool removeFromEntries = true
+        )
         {
-            if (isDisposed)
+            if (removeFromEntries)
             {
-                throw new ObjectDisposedException(nameof(VisibilityController));
+                entries.Remove(target);
             }
+
+            target.SetVisible(entry.Baseline);
         }
 
     #endregion
@@ -153,22 +154,32 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
+            isDisposed = true;
             var errors = new List<Exception>();
-            var targets = new List<IVisibilityTarget>(entries.Keys);
 
-            for (var i = targets.Count - 1; i >= 0; i--)
+            try
             {
-                var target = targets[i];
-
-                try
+                // 종료 상태에서는 Handle 해제가 목록을 변경하지 않으므로 원본 Target 목록을 직접 순회한다.
+                foreach (var pair in entries)
                 {
-                    target.SetVisible(entries[target].Baseline);
-                    entries.Remove(target);
+                    try
+                    {
+                        ReleaseTarget
+                        (
+                            pair.Key,
+                            pair.Value,
+                            removeFromEntries: false
+                        );
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add(exception);
+                    }
                 }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
+            }
+            finally
+            {
+                entries.Clear();
             }
 
             if (errors.Count > 0)
@@ -176,7 +187,6 @@ namespace inonego.Xeri.UI.Game
                 throw new AggregateException("Visibility Controller 해제가 실패했습니다.", errors);
             }
 
-            isDisposed = true;
         }
 
     #endregion

@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 App 단위 Game UI 서비스, Scene 구성 검증, 기본·추가 Profile과 Host backend의 생성·역순 해제를 소유한다.
+Shutdown은 논리 소유권을 한 번씩 정리하고, 소유권 유지가 명시된 Provider 반환 실패만 후속 Shutdown까지 보존한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -193,7 +194,6 @@ namespace inonego.Xeri.UI.Game
         private DOTweenPresentationTransitioner transitioner = null;
         private GameObjectProviderOverlaySource<ISceneFadeDriver> sceneFadeSource = null;
         private GameUIProfileHandle defaultProfile = null;
-        private bool releasingNotified = false;
         private bool sceneLoadedSubscribed = false;
 
     #endregion
@@ -327,7 +327,6 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            var errors = new List<Exception>();
             var coreReady = false;
 
             try
@@ -354,7 +353,7 @@ namespace inonego.Xeri.UI.Game
                 FocusHighlights = new FocusHighlightController();
                 Projection = new ProjectionController();
                 Placement = new PlacementController();
-                DragVisuals = new DragVisualController();
+                DragVisuals = new DragVisualController(LayerRegistry);
 
                 defaultProfile = AcquireProfileInternal(settings.DefaultProfile);
 
@@ -393,16 +392,7 @@ namespace inonego.Xeri.UI.Game
                 coreReady = true;
                 SubscribeSceneValidation();
 
-                errors.AddRange(InvokeSubscribers(OnInitialized));
-
-                if (errors.Count > 0)
-                {
-                    throw new AggregateException
-                    (
-                        "Game UI Runtime 초기화 구독자 실행이 실패했습니다.",
-                        errors
-                    );
-                }
+                OnInitialized?.Invoke(this);
 
                 // 모든 조립과 외부 구독이 성공한 실행 Host만 App 수명으로 커밋한다.
                 if (Application.isPlaying)
@@ -412,19 +402,15 @@ namespace inonego.Xeri.UI.Game
             }
             catch (Exception exception)
             {
-                if (errors.Count == 0)
-                {
-                    errors.Add(exception);
-                }
-
                 IsInitialized = false;
-                errors.AddRange(ShutdownInternal(coreReady));
+                var errors = Release(coreReady);
 
-                if (errors.Count == 1)
+                if (errors.Count == 0)
                 {
                     throw;
                 }
 
+                errors.Insert(0, exception);
                 throw new AggregateException("Game UI Runtime 초기화와 롤백이 실패했습니다.", errors);
             }
         }
@@ -454,9 +440,13 @@ namespace inonego.Xeri.UI.Game
 
             profile.Validate();
 
-            var handle = new GameUIProfileHandle(profile, HandleProfileDisposed);
+            var handle = new GameUIProfileHandle
+            (
+                profile,
+                HandleProfileReleaseCompleted
+            );
             profileHandles.Add(handle);
-            var prepared = new List<(GameUIProfileHandle.Entry Entry, PresentationLayerAsset Asset, UGUILayerCanvas Driver)>();
+            var prepared = new List<(GameUIProfileHandle.OwnedLayer Layer, PresentationLayerAsset Asset, UGUILayerCanvas Driver)>();
 
             try
             {
@@ -466,7 +456,7 @@ namespace inonego.Xeri.UI.Game
                     var provider = profile.GetProvider(i);
                     var previousParent = provider.Parent;
                     GameObject instance = null;
-                    GameUIProfileHandle.Entry entry = null;
+                    GameUIProfileHandle.OwnedLayer ownedLayer = null;
 
                     try
                     {
@@ -475,7 +465,8 @@ namespace inonego.Xeri.UI.Game
 
                         if (instance != null)
                         {
-                            entry = handle.Add(provider, instance);
+                            // Parent 복원도 실패할 수 있으므로 획득 직후 물리 소유권부터 기록한다.
+                            ownedLayer = handle.AddLayer(provider, instance);
                         }
                     }
                     finally
@@ -503,7 +494,7 @@ namespace inonego.Xeri.UI.Game
                         );
                     }
 
-                    prepared.Add((entry, asset, driver));
+                    prepared.Add((ownedLayer, asset, driver));
                 }
 
                 for (var i = 0; i < prepared.Count; i++)
@@ -523,7 +514,7 @@ namespace inonego.Xeri.UI.Game
                 {
                     var item = prepared[i];
                     var layerHandle = LayerRegistry.Register(item.Asset, item.Driver);
-                    handle.SetLayerHandle(item.Entry, layerHandle);
+                    handle.AttachLayerHandle(item.Layer, layerHandle);
                 }
 
                 return handle;
@@ -553,7 +544,7 @@ namespace inonego.Xeri.UI.Game
         /// 완전히 반환된 Profile Handle을 Runtime 추적에서 제거한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void HandleProfileDisposed(GameUIProfileHandle handle)
+        private void HandleProfileReleaseCompleted(GameUIProfileHandle handle)
         {
             profileHandles.Remove(handle);
 
@@ -795,14 +786,13 @@ namespace inonego.Xeri.UI.Game
         // ----------------------------------------------------------------------
         /// <summary>
         /// <br/> Screen, 프로젝트 Composition, 표시 서비스, Profile과 backend를 역순 해제한다.
-        /// <br/> 정리가 끝난 뒤 수집한 예외를 호출자에게 전파한다.
+        /// <br/> 논리 소유권은 한 번만 정리하고 Runtime은 오류와 관계없이 Terminal 상태로 끝난다.
+        /// <br/> 후속 Shutdown은 소유권 유지가 명시된 Provider 반환 실패만 다시 시도한다.
         /// </summary>
         // ----------------------------------------------------------------------
         public void Shutdown()
         {
-            if (IsReleased) return;
-
-            var errors = ShutdownInternal(true);
+            var errors = Release(invokeReleasingEvent: true);
 
             if (errors.Count > 0)
             {
@@ -817,7 +807,7 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         private void ShutdownFallback()
         {
-            var errors = ShutdownInternal(true);
+            var errors = Release(invokeReleasingEvent: true);
 
             for (var i = 0; i < errors.Count; i++)
             {
@@ -833,95 +823,21 @@ namespace inonego.Xeri.UI.Game
         /// 현재까지 생성된 Runtime 소유 리소스를 해제하고 오류를 수집한다.
         /// </summary>
         // ------------------------------------------------------------
-        private List<Exception> ShutdownInternal(bool notifyReleasing)
+        private List<Exception> Release(bool invokeReleasingEvent)
         {
             var errors = new List<Exception>();
 
-            if (IsReleased) return errors;
+            if (IsReleasing) return errors;
 
-            IsInitialized = false;
-            IsReleasing = true;
-            UnsubscribeSceneValidation();
-
-            if (Screens != null)
+            if (IsReleased)
             {
-                errors.AddRange(Screens.Shutdown());
-
-                if (!Screens.IsShutdownComplete)
-                {
-                    return errors;
-                }
-            }
-
-            if (notifyReleasing && !releasingNotified)
-            {
-                releasingNotified = true;
-                errors.AddRange(InvokeSubscribers(OnReleasing));
-                OnInitialized = null;
-                OnReleasing = null;
-            }
-
-            if (inputDriver != null)
-            {
-                try
-                {
-                    inputDriver.ForceReleaseAll();
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
-
-            DisposeOwned(SceneFader, errors, () => SceneFader = null);
-
-            if (SceneFader == null)
-            {
-                DisposeOwned(sceneFadeSource, errors, () => sceneFadeSource = null);
-            }
-
-            DisposeOwned(Modals, errors, () => Modals = null);
-            DisposeOwned(FocusHighlights, errors, () => FocusHighlights = null);
-            DisposeOwned(DragVisuals, errors, () => DragVisuals = null);
-            DisposeOwned(Visibility, errors, () => Visibility = null);
-
-            if (ScreenRegistry != null)
-            {
-                try
-                {
-                    ScreenRegistry.Dispose();
-                    ScreenRegistry = null;
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
-
-            var profiles = profileHandles.ToArray();
-
-            for (var i = profiles.Length - 1; i >= 0; i--)
-            {
-                try
-                {
-                    profiles[i].Dispose();
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
-
-            DisposeOwned(layoutController, errors, () => layoutController = null);
-
-            if (profileHandles.Count == 0)
-            {
-                if (inputDriver != null)
+                // Terminal Runtime에서는 명시적으로 남아 있는 Provider 물리 반환만 다시 시도한다.
+                if (sceneFadeSource != null)
                 {
                     try
                     {
-                        inputDriver.Dispose();
-                        inputDriver = null;
+                        sceneFadeSource.Dispose();
+                        sceneFadeSource = null;
                     }
                     catch (Exception exception)
                     {
@@ -929,81 +845,40 @@ namespace inonego.Xeri.UI.Game
                     }
                 }
 
-                DisposeOwned(transitioner, errors, () => transitioner = null);
-                DisposeOwned(LayerRegistry, errors, () => LayerRegistry = null);
+                for (var i = profileHandles.Count - 1; i >= 0; i--)
+                {
+                    DisposeOwned(profileHandles[i], errors);
+                }
+
+                return errors;
             }
 
-            if (profileHandles.Count == 0 &&
-                SceneFader == null &&
-                sceneFadeSource == null &&
-                Modals == null &&
-                FocusHighlights == null &&
-                DragVisuals == null &&
-                Visibility == null &&
-                ScreenRegistry == null &&
-                layoutController == null &&
-                inputDriver == null &&
-                transitioner == null &&
-                LayerRegistry == null &&
-                !sceneLoadedSubscribed)
-            {
-                Screens = null;
-                Focus = null;
-                Projection = null;
-                Placement = null;
-                Settings = null;
-                OnInitialized = null;
-                OnReleasing = null;
-                IsReleasing = false;
-                IsReleased = true;
-            }
+            IsInitialized = false;
+            IsReleasing = true;
+            var screens = Screens;
+            var sceneFader = SceneFader;
+            var fadeSource = sceneFadeSource;
+            var modals = Modals;
+            var focusHighlights = FocusHighlights;
+            var dragVisuals = DragVisuals;
+            var visibility = Visibility;
+            var screenRegistry = ScreenRegistry;
+            var layout = layoutController;
+            var input = inputDriver;
+            var currentTransitioner = transitioner;
+            var layerRegistry = LayerRegistry;
+            var releasingSubscribers =
+                invokeReleasingEvent
+                    ? OnReleasing
+                    : null;
 
-            return errors;
-        }
+            UnsubscribeSceneValidation();
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// IDisposable 서비스 해제를 시도하고 성공한 참조만 제거한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void DisposeOwned
-        (
-            IDisposable owned,
-            List<Exception> errors,
-            Action clear
-        )
-        {
-            if (owned == null) return;
-
-            try
-            {
-                owned.Dispose();
-                clear();
-            }
-            catch (Exception exception)
-            {
-                errors.Add(exception);
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// event 구독자를 각각 호출해 한 구독자 실패가 나머지를 막지 않게 한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private List<Exception> InvokeSubscribers(Action<GameUIRuntime> subscribers)
-        {
-            var errors = new List<Exception>();
-
-            if (subscribers == null) return errors;
-
-            var invocationList = subscribers.GetInvocationList();
-
-            for (var i = 0; i < invocationList.Length; i++)
+            if (screens != null)
             {
                 try
                 {
-                    ((Action<GameUIRuntime>)invocationList[i]).Invoke(this);
+                    errors.AddRange(screens.Shutdown());
                 }
                 catch (Exception exception)
                 {
@@ -1011,7 +886,106 @@ namespace inonego.Xeri.UI.Game
                 }
             }
 
+            if (releasingSubscribers != null)
+            {
+                try
+                {
+                    releasingSubscribers.Invoke(this);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            // 종료 구독자가 살아 있는 Runtime 서비스를 확인한 뒤 public 접근 경계를 닫는다.
+            Screens = null;
+            SceneFader = null;
+            Modals = null;
+            FocusHighlights = null;
+            DragVisuals = null;
+            Visibility = null;
+            ScreenRegistry = null;
+            defaultProfile = null;
+            layoutController = null;
+            inputDriver = null;
+            transitioner = null;
+            LayerRegistry = null;
+            Focus = null;
+            Projection = null;
+            Placement = null;
+            Settings = null;
+            OnInitialized = null;
+            OnReleasing = null;
+
+            DisposeOwned(input, errors);
+
+            DisposeOwned(sceneFader, errors);
+
+            if (fadeSource != null)
+            {
+                try
+                {
+                    fadeSource.Dispose();
+                    sceneFadeSource = null;
+                }
+                catch (Exception exception)
+                {
+                    // Provider 계약상 반환 실패한 물리 소유권은 Source가 다음 Shutdown까지 보존한다.
+                    errors.Add(exception);
+                }
+            }
+
+            DisposeOwned(modals, errors);
+            DisposeOwned(focusHighlights, errors);
+            DisposeOwned(dragVisuals, errors);
+            DisposeOwned(visibility, errors);
+            DisposeOwned(screenRegistry, errors);
+
+            // 완료 Callback은 성공한 Handle을 즉시 제거하고 Provider 반환 실패 Handle만 남긴다.
+            for (var i = profileHandles.Count - 1; i >= 0; i--)
+            {
+                var profileHandle = profileHandles[i];
+                DisposeOwned(profileHandle, errors);
+
+                if (!profileHandle.IsDisposed)
+                {
+                    // 논리 종료 전에 실패한 Handle은 attempt-once 정책에 따라 재시도 대상으로 남기지 않는다.
+                    profileHandles.Remove(profileHandle);
+                }
+            }
+
+            DisposeOwned(layout, errors);
+            DisposeOwned(currentTransitioner, errors);
+            DisposeOwned(layerRegistry, errors);
+
+            IsReleasing = false;
+            IsReleased = true;
+
             return errors;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Terminal 상태로 분리한 IDisposable 서비스를 한 번 해제하고 오류를 수집한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void DisposeOwned
+        (
+            IDisposable owned,
+            List<Exception> errors
+        )
+        {
+            if (owned == null) return;
+
+            try
+            {
+                owned.Dispose();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
         }
 
         // ------------------------------------------------------------

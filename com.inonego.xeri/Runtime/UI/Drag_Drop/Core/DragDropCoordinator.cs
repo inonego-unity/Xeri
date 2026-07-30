@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DragDropCoordinator.cs
-수정일 : 2026-05-22
+수정일 : 2026-07-30
 
 # 설명
 Draggable 과 DropZone 의 등록, 활성 드래그 추적, 드롭 라우팅을 조율한다.
@@ -107,14 +107,26 @@ namespace inonego.Xeri.UI.DragDrop
 
             dropZones.Remove(dropZone);
 
-            foreach (var pair in new Dictionary<Draggable, DropZone>(currentDropZones))
+            // 순회 중 원본을 바꾸지 않도록 일치 항목을 하나씩 찾은 뒤 제거한다.
+            while (true)
             {
-                if (pair.Value == dropZone)
+                Draggable matchedDraggable = null;
+
+                foreach (var pair in currentDropZones)
                 {
-                    pair.Value.Exit();
-                    currentDropZones.Remove(pair.Key);
+                    if (ReferenceEquals(pair.Value, dropZone))
+                    {
+                        matchedDraggable = pair.Key;
+                        break;
+                    }
                 }
+
+                if (matchedDraggable == null) break;
+
+                currentDropZones.Remove(matchedDraggable);
             }
+
+            dropZone.Exit();
         }
 
     #endregion
@@ -156,13 +168,28 @@ namespace inonego.Xeri.UI.DragDrop
 
             if (currentDropZone != null)
             {
-                currentDropZone.Exit();
                 currentDropZones.Remove(draggable);
+                currentDropZone.Exit();
             }
 
-            if (nextDropZone != null && nextDropZone.TryAccept(draggable))
+            if (nextDropZone != null)
             {
-                currentDropZones[draggable] = nextDropZone;
+                var replacedDraggable = nextDropZone.Draggable;
+
+                if (nextDropZone.TryAccept(draggable))
+                {
+                    // 단일 DropZone이 새 대상을 수용하면 교체된 대상의 오래된 매핑도 함께 끝낸다.
+                    if (
+                        replacedDraggable != null &&
+                        currentDropZones.TryGetValue(replacedDraggable, out var replacedDropZone) &&
+                        ReferenceEquals(replacedDropZone, nextDropZone)
+                    )
+                    {
+                        currentDropZones.Remove(replacedDraggable);
+                    }
+
+                    currentDropZones[draggable] = nextDropZone;
+                }
             }
         }
 
@@ -175,15 +202,20 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (draggable == null) return;
 
-            if (currentDropZones.TryGetValue(draggable, out DropZone currentDropZone))
-            {
-                currentDropZone.Drop();
-                currentDropZones.Remove(draggable);
-            }
+            currentDropZones.TryGetValue(draggable, out DropZone currentDropZone);
+            currentDropZones.Remove(draggable);
+            var activeCollectionChanged = activeDraggables.Remove(draggable);
 
-            if (activeDraggables.Remove(draggable))
+            try
             {
-                OnActiveCollectionChange?.Invoke();
+                currentDropZone?.Drop();
+            }
+            finally
+            {
+                if (activeCollectionChanged)
+                {
+                    OnActiveCollectionChange?.Invoke();
+                }
             }
         }
 
@@ -196,15 +228,20 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (draggable == null) return;
 
-            if (currentDropZones.TryGetValue(draggable, out DropZone currentDropZone))
-            {
-                currentDropZone.Exit();
-                currentDropZones.Remove(draggable);
-            }
+            currentDropZones.TryGetValue(draggable, out DropZone currentDropZone);
+            currentDropZones.Remove(draggable);
+            var activeCollectionChanged = activeDraggables.Remove(draggable);
 
-            if (activeDraggables.Remove(draggable))
+            try
             {
-                OnActiveCollectionChange?.Invoke();
+                currentDropZone?.Exit();
+            }
+            finally
+            {
+                if (activeCollectionChanged)
+                {
+                    OnActiveCollectionChange?.Invoke();
+                }
             }
         }
 

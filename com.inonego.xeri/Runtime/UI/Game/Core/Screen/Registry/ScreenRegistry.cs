@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Screen Options와 Source를 stable string ID로 등록하고 새 Open 조회를 제공한다.
@@ -42,6 +42,13 @@ namespace inonego.Xeri.UI.Game
             /// </summary>
             // ------------------------------------------------------------
             public IScreenSource Source { get; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 이 등록 소유권을 나타내는 Handle.
+            /// </summary>
+            // ------------------------------------------------------------
+            public ScreenRegistrationHandle Handle { get; set; }
 
         #endregion
 
@@ -103,7 +110,10 @@ namespace inonego.Xeri.UI.Game
             IScreenSource source
         )
         {
-            ThrowIfDisposed();
+            if (isDisposed)
+            {
+                throw new ObjectDisposedException(nameof(ScreenRegistry));
+            }
 
             if (options == null)
             {
@@ -133,7 +143,9 @@ namespace inonego.Xeri.UI.Game
 
             var entry = new Entry(options, source);
             entries.Add(options.ID, entry);
-            return new ScreenRegistrationHandle(this, entry);
+            var handle = new ScreenRegistrationHandle(this, entry);
+            entry.Handle = handle;
+            return handle;
         }
 
         // ------------------------------------------------------------
@@ -185,21 +197,29 @@ namespace inonego.Xeri.UI.Game
             if (entries.TryGetValue(entry.Options.ID, out var current) &&
                 ReferenceEquals(current, entry))
             {
-                entries.Remove(entry.Options.ID);
+                ReleaseRegistration(entry);
             }
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 해제된 Registry 사용을 거부한다.
+        /// <br/> Screen 등록과 Handle의 소유 연결을 종료한다.
+        /// <br/> Registry 전체 종료에서는 원본 목록을 순회한 뒤 한 번에 비우도록 등록 제거를 생략한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private void ThrowIfDisposed()
+        // ----------------------------------------------------------------------
+        private void ReleaseRegistration
+        (
+            Entry entry,
+            bool removeFromEntries = true
+        )
         {
-            if (isDisposed)
+            if (removeFromEntries)
             {
-                throw new ObjectDisposedException(nameof(ScreenRegistry));
+                entries.Remove(entry.Options.ID);
             }
+
+            entry.Handle?.MarkDisposed();
+            entry.Handle = null;
         }
 
     #endregion
@@ -215,8 +235,14 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
-            entries.Clear();
             isDisposed = true;
+
+            foreach (var entry in entries.Values)
+            {
+                ReleaseRegistration(entry, removeFromEntries: false);
+            }
+
+            entries.Clear();
         }
 
     #endregion

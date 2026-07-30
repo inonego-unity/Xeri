@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIInteractionBlocker.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 중첩 점유 수에 따라 명시적 UGUI Blocker Root와 CanvasGroup raycast 상태를 적용한다.
@@ -27,7 +27,7 @@ namespace inonego.Xeri.UI.Game
         [SerializeField]
         private CanvasGroup canvasGroup = null;
 
-        private int count = 0;
+        private int acquisitionCount = 0;
 
     #endregion
 
@@ -35,10 +35,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Interaction Blocker를 한 번 점유하고 Handle을 반환한다.
+        /// Interaction Blocker를 한 번 점유하고 Lease를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public InteractionBlockerHandle Acquire()
+        public Lease Acquire()
         {
             if (root == null && canvasGroup == null)
             {
@@ -48,10 +48,19 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            var nextCount = count + 1;
-            Apply(nextCount > 0);
-            count = nextCount;
-            return new InteractionBlockerHandle(Release);
+            acquisitionCount++;
+
+            try
+            {
+                ApplyState();
+            }
+            catch
+            {
+                acquisitionCount--;
+                throw;
+            }
+
+            return new Lease(Release);
         }
 
         // ------------------------------------------------------------
@@ -61,14 +70,8 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         private void Release()
         {
-            if (count <= 0)
-            {
-                throw new InvalidOperationException("Interaction Blocker 점유 수가 이미 0입니다.");
-            }
-
-            var nextCount = count - 1;
-            Apply(nextCount > 0);
-            count = nextCount;
+            acquisitionCount--;
+            ApplyState();
         }
 
         // ------------------------------------------------------------
@@ -76,17 +79,19 @@ namespace inonego.Xeri.UI.Game
         /// 현재 점유 수를 UGUI 활성·raycast 상태에 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void Apply(bool active)
+        private void ApplyState()
         {
+            var isActive = acquisitionCount > 0;
+
             if (root != null)
             {
-                root.SetActive(active);
+                root.SetActive(isActive);
             }
 
             if (canvasGroup != null)
             {
-                canvasGroup.interactable = active;
-                canvasGroup.blocksRaycasts = active;
+                canvasGroup.interactable = isActive;
+                canvasGroup.blocksRaycasts = isActive;
             }
         }
 

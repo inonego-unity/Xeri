@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationLayerRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 stable string ID로 Presentation Layer를 등록하고 조회하며 활성 소비자 수를 추적한다.
@@ -8,6 +8,8 @@ stable string ID로 Presentation Layer를 등록하고 조회하며 활성 소�
 
 using System;
 using System.Collections.Generic;
+
+using UnityEngine;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -45,10 +47,24 @@ namespace inonego.Xeri.UI.Game
 
             // ------------------------------------------------------------
             /// <summary>
+            /// 등록 검증 시 확정한 Layer Root.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Transform Root { get; }
+
+            // ------------------------------------------------------------
+            /// <summary>
             /// 활성 소비자 수.
             /// </summary>
             // ------------------------------------------------------------
             public int ConsumerCount { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 이 등록 소유권을 나타내는 Handle.
+            /// </summary>
+            // ------------------------------------------------------------
+            public PresentationLayerHandle Handle { get; set; }
 
         #endregion
 
@@ -62,11 +78,13 @@ namespace inonego.Xeri.UI.Game
             public Entry
             (
                 PresentationLayerAsset asset,
-                IPresentationLayerDriver driver
+                IPresentationLayerDriver driver,
+                Transform root
             ) : base()
             {
                 Asset = asset ?? throw new ArgumentNullException(nameof(asset));
                 Driver = driver ?? throw new ArgumentNullException(nameof(driver));
+                Root = root != null ? root : throw new ArgumentNullException(nameof(root));
                 ConsumerCount = 0;
             }
 
@@ -79,10 +97,10 @@ namespace inonego.Xeri.UI.Game
             /// Layer 소비자 수명을 시작한다.
             /// </summary>
             // ------------------------------------------------------------
-            public IDisposable AcquireUsage()
+            public Lease AcquireUsage()
             {
                 ConsumerCount++;
-                return new Usage(this);
+                return new Lease(ReleaseUsage);
             }
 
             // ------------------------------------------------------------
@@ -92,50 +110,7 @@ namespace inonego.Xeri.UI.Game
             // ------------------------------------------------------------
             private void ReleaseUsage()
             {
-                if (ConsumerCount <= 0)
-                {
-                    throw new InvalidOperationException("Presentation Layer 소비자 수가 이미 0입니다.");
-                }
-
                 ConsumerCount--;
-            }
-
-        #endregion
-
-        #region 내부 데이터
-
-            // ============================================================
-            /// <summary>
-            /// Entry 소비자 수를 정확히 한 번 반환하는 내부 Handle.
-            /// </summary>
-            // ============================================================
-            private sealed class Usage : IDisposable
-            {
-                private Entry owner = null;
-
-                // ------------------------------------------------------------
-                /// <summary>
-                /// Layer 사용 Handle을 생성한다.
-                /// </summary>
-                // ------------------------------------------------------------
-                public Usage(Entry owner) : base()
-                {
-                    this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
-                }
-
-                // ------------------------------------------------------------
-                /// <summary>
-                /// Layer 소비자 수를 정확히 한 번 반환한다.
-                /// </summary>
-                // ------------------------------------------------------------
-                public void Dispose()
-                {
-                    if (owner == null) return;
-
-                    var current = owner;
-                    owner = null;
-                    current.ReleaseUsage();
-                }
             }
 
         #endregion
@@ -194,7 +169,9 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            if (driver.Root == null)
+            var root = driver.Root;
+
+            if (root == null)
             {
                 throw new InvalidOperationException
                 (
@@ -202,31 +179,44 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            ValidateOrder(asset, driver);
+            ValidateOrder(asset, root);
 
-            // Registry 공개 전 backend를 활성화해 조회 시 항상 사용 가능한 상태를 보장한다.
-            driver.SetActive(true);
-            var entry = new Entry(asset, driver);
-            entries.Add(asset.ID, entry);
+            var entry = new Entry(asset, driver, root);
 
             try
             {
+                // backend 활성화가 끝난 등록만 Registry에 공개한다.
+                driver.SetActive(true);
+                entries.Add(asset.ID, entry);
                 ReorderSharedLayers();
+
+                var handle = new PresentationLayerHandle(this, entry);
+                entry.Handle = handle;
+                return handle;
             }
             catch (Exception exception)
             {
                 var errors = new List<Exception> { exception };
-                entries.Remove(asset.ID);
 
-                try
+                // Registry에 공개한 등록만 제거하고 남은 Layer 순서를 복원한다.
+                if (entries.TryGetValue(asset.ID, out var current) &&
+                    ReferenceEquals(current, entry))
                 {
-                    ReorderSharedLayers();
-                }
-                catch (Exception cleanupException)
-                {
-                    errors.Add(cleanupException);
+                    entries.Remove(asset.ID);
+                    entry.Handle?.MarkDisposed();
+                    entry.Handle = null;
+
+                    try
+                    {
+                        ReorderSharedLayers();
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        errors.Add(cleanupException);
+                    }
                 }
 
+                // 활성화가 일부 적용된 뒤 실패했을 수 있으므로 이번 backend를 비활성화한다.
                 try
                 {
                     driver.SetActive(false);
@@ -247,8 +237,6 @@ namespace inonego.Xeri.UI.Game
                     errors
                 );
             }
-
-            return new PresentationLayerHandle(this, entry);
         }
 
         // ------------------------------------------------------------
@@ -301,7 +289,7 @@ namespace inonego.Xeri.UI.Game
         (
             string id,
             out IPresentationLayerDriver driver,
-            out IDisposable usage
+            out Lease usage
         )
         {
             ThrowIfDisposed();
@@ -346,49 +334,58 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            entry.Driver.SetActive(false);
+            // Preflight가 끝났으므로 등록 소유권을 먼저 종료하고 외부 적용을 한 번씩 시도한다.
+            ReleaseRegistration(entry);
+
+            var errors = new List<Exception>();
 
             try
             {
-                ReorderSharedLayers(entry);
+                entry.Driver.SetActive(false);
             }
             catch (Exception exception)
             {
-                var errors = new List<Exception> { exception };
+                errors.Add(exception);
+            }
 
-                // Registry 소유권이 남아 있으므로 backend 활성 상태와 기존 정렬을 되돌린다.
-                try
-                {
-                    entry.Driver.SetActive(true);
-                }
-                catch (Exception rollbackException)
-                {
-                    errors.Add(rollbackException);
-                }
+            try
+            {
+                ReorderSharedLayers();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
 
-                try
-                {
-                    ReorderSharedLayers();
-                }
-                catch (Exception rollbackException)
-                {
-                    errors.Add(rollbackException);
-                }
-
-                if (errors.Count == 1)
-                {
-                    throw;
-                }
-
+            if (errors.Count > 0)
+            {
                 throw new AggregateException
                 (
-                    $"Presentation Layer '{entry.Asset.ID}' 해제와 롤백이 실패했습니다.",
+                    $"Presentation Layer '{entry.Asset.ID}' 해제가 실패했습니다.",
                     errors
                 );
             }
+        }
 
-            // backend 비활성화와 남은 Layer 재정렬이 끝난 뒤 Registry 제거를 커밋한다.
-            entries.Remove(entry.Asset.ID);
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Layer 등록과 Handle의 소유 연결을 종료한다.
+        /// <br/> Registry 전체 종료에서는 원본 목록을 순회한 뒤 한 번에 비우도록 등록 제거를 생략한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ReleaseRegistration
+        (
+            Entry entry,
+            bool removeFromEntries = true
+        )
+        {
+            if (removeFromEntries)
+            {
+                entries.Remove(entry.Asset.ID);
+            }
+
+            entry.Handle?.MarkDisposed();
+            entry.Handle = null;
         }
 
         // ----------------------------------------------------------------------
@@ -400,7 +397,7 @@ namespace inonego.Xeri.UI.Game
         private void ValidateOrder
         (
             PresentationLayerAsset asset,
-            IPresentationLayerDriver driver
+            Transform root
         )
         {
             foreach (var pair in entries)
@@ -419,7 +416,7 @@ namespace inonego.Xeri.UI.Game
 
                 if (asset.Mode == PresentationLayerMode.Shared &&
                     current.Asset.Mode == PresentationLayerMode.Shared &&
-                    current.Driver.Root.parent != driver.Root.parent)
+                    current.Root.parent != root.parent)
                 {
                     throw new InvalidOperationException
                     (
@@ -434,14 +431,15 @@ namespace inonego.Xeri.UI.Game
         /// 살아 있는 모든 공유 Layer를 Order 정렬 키 순서로 다시 배치한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void ReorderSharedLayers(Entry excluded = null)
+        private void ReorderSharedLayers()
         {
+            if (isDisposed) return;
+
             var shared = new List<Entry>();
 
             foreach (var pair in entries)
             {
-                if (!ReferenceEquals(pair.Value, excluded) &&
-                    pair.Value.Asset.Mode == PresentationLayerMode.Shared)
+                if (pair.Value.Asset.Mode == PresentationLayerMode.Shared)
                 {
                     shared.Add(pair.Value);
                 }
@@ -454,7 +452,7 @@ namespace inonego.Xeri.UI.Game
 
             for (var i = 0; i < shared.Count; i++)
             {
-                shared[i].Driver.Root.SetSiblingIndex(i);
+                shared[i].Root.SetSiblingIndex(i);
             }
         }
 
@@ -496,13 +494,38 @@ namespace inonego.Xeri.UI.Game
                 }
             }
 
-            foreach (var pair in entries)
+            isDisposed = true;
+            var errors = new List<Exception>();
+
+            // 외부 비활성화 콜백 전에 모든 등록 Handle을 함께 Terminal로 전환한다.
+            foreach (var entry in entries.Values)
             {
-                pair.Value.Driver.SetActive(false);
+                ReleaseRegistration(entry, removeFromEntries: false);
             }
 
-            entries.Clear();
-            isDisposed = true;
+            try
+            {
+                foreach (var entry in entries.Values)
+                {
+                    try
+                    {
+                        entry.Driver.SetActive(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add(exception);
+                    }
+                }
+            }
+            finally
+            {
+                entries.Clear();
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("Presentation Layer Registry 해제가 실패했습니다.", errors);
+            }
         }
 
     #endregion

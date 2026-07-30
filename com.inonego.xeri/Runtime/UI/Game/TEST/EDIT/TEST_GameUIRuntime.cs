@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIRuntime.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 GameUIRuntime의 Profile 롤백, Scene 중복 구성과 초기화·종료 실패 정리를 검증한다.
@@ -8,8 +8,8 @@ GameUIRuntime의 Profile 롤백, Scene 중복 구성과 초기화·종료 실패
 # 테스트 구성
  P: Profile 획득 실패 롤백
  I: OnInitialized 실패 롤백
- R: OnReleasing 예외 격리
- S: Screen 정리 실패와 Scene 구독 해제
+ R: OnReleasing 실패와 Terminal 정리
+ S: Screen 정리 실패와 Terminal Shutdown
  C: Scene 구성 중복 검증
 ========================================================================= BLOCK_HEADER_END */
 
@@ -51,7 +51,21 @@ namespace inonego.Xeri.TEST.UI._Game
             /// Provider 기본 부모.
             /// </summary>
             // ------------------------------------------------------------
-            public Transform Parent { get; set; }
+            public Transform Parent
+            {
+                get => parent;
+                set
+                {
+                    if (FailWhenClearingParent && value == null)
+                    {
+                        throw new InvalidOperationException("injected provider parent restore failure");
+                    }
+
+                    parent = value;
+                }
+            }
+
+            private Transform parent = null;
 
             // ------------------------------------------------------------
             /// <summary>
@@ -66,6 +80,20 @@ namespace inonego.Xeri.TEST.UI._Game
             /// </summary>
             // ------------------------------------------------------------
             public int ReleaseCount { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// null Parent 복원에서 예외를 발생시키는지 여부.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool FailWhenClearingParent { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 앞으로 실패시킬 반환 호출 수.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int ReleaseFailuresRemaining { get; set; }
 
             // ------------------------------------------------------------
             /// <summary>
@@ -128,6 +156,12 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 ReleaseCount++;
                 LastReleaseWorldPositionStays = worldPositionStays;
+
+                if (ReleaseFailuresRemaining > 0)
+                {
+                    ReleaseFailuresRemaining--;
+                    throw new InvalidOperationException("injected provider release failure");
+                }
             }
         }
 
@@ -271,18 +305,16 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ============================================================
         /// <summary>
-        /// 첫 해제만 실패하고 다음 해제에서 완료되는 하위 Handle.
+        /// Dispose 호출을 기록한 뒤 예외를 던지는 하위 Handle.
         /// </summary>
         // ============================================================
-        private sealed class FailOnceHandle : IDisposable
+        private sealed class ThrowingHandle : IDisposable
         {
-            private bool failed = false;
+            public int DisposeCount { get; private set; }
 
             public void Dispose()
             {
-                if (failed) return;
-
-                failed = true;
+                DisposeCount++;
                 throw new InvalidOperationException("injected runtime screen child failure");
             }
         }
@@ -641,6 +673,42 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(0, handles.Count);
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Provider Parent 복원 실패도 이미 획득한 Layer 인스턴스를 반환하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_ProfileParent복원실패_획득Instance롤백()
+        {
+            var host = new GameObject("Profile Runtime");
+            var layerRoot = new GameObject("Layer Root", typeof(RectTransform));
+            layerRoot.transform.SetParent(host.transform, false);
+            ownedObjects.Add(host);
+            var runtime = host.AddComponent<GameUIRuntime>();
+            SetField(runtime, "layerRoot", layerRoot.transform);
+            SetProperty(runtime, "LayerRegistry", new PresentationLayerRegistry());
+            var provider = new TestProvider
+            (
+                parent => CreateLayerRoot(parent, "Restored Layer")
+            )
+            {
+                FailWhenClearingParent = true,
+            };
+            var profile = CreateProfile
+            (
+                (CreateLayerAsset("Restored", 0), provider)
+            );
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => Invoke(runtime, "AcquireProfileInternal", profile)
+            );
+
+            Assert.AreEqual(1, provider.AcquireCount);
+            Assert.AreEqual(1, provider.ReleaseCount);
+        }
+
     #endregion
 
     #region I-1: 초기화 구독자 실패
@@ -685,7 +753,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 sourceReleasedBeforeReleasing = source.ReleaseCount == 1;
             };
 
-            Assert.Throws<AggregateException>
+            Assert.Throws<InvalidOperationException>
             (
                 () => fixture.Runtime.Initialize(fixture.Settings)
             );
@@ -737,20 +805,28 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 한 OnReleasing 구독자 예외가 뒤 구독자와 표시·Profile 정리를 막지 않고,
+        /// <br/> OnReleasing 실패가 표시·Profile 정리를 막지 않고,
         /// <br/> 반복 Shutdown에서 구독자와 Provider를 다시 호출하지 않는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_GameUIRuntime_OnReleasing실패_나머지구독자와Core정리완료()
+        public void TEST_GameUIRuntime_OnReleasing실패_Core정리완료()
         {
             var fixture = CreateRuntimeFixture();
-            var secondSubscriberCount = 0;
+            var releasingCount = 0;
+            var servicesAvailableToSubscriber = false;
+            fixture.Runtime.OnReleasing += runtime =>
+            {
+                releasingCount++;
+                servicesAvailableToSubscriber =
+                    runtime.Visibility != null &&
+                    runtime.Modals != null &&
+                    runtime.LayerRegistry != null;
+            };
             fixture.Runtime.OnReleasing += _ =>
             {
                 throw new InvalidOperationException("injected releasing subscriber failure");
             };
-            fixture.Runtime.OnReleasing += _ => secondSubscriberCount++;
             fixture.Runtime.Initialize(fixture.Settings);
             var target = new TestVisibilityTarget();
             fixture.Runtime.Visibility.Set(target, false);
@@ -758,30 +834,83 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsFalse(target.IsVisible);
             Assert.Throws<AggregateException>(fixture.Runtime.Shutdown);
 
-            Assert.AreEqual(1, secondSubscriberCount);
+            Assert.AreEqual(1, releasingCount);
+            Assert.IsTrue(servicesAvailableToSubscriber);
             Assert.IsTrue(target.IsVisible);
             Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
             Assert.IsTrue(fixture.Runtime.IsReleased);
 
             Assert.DoesNotThrow(fixture.Runtime.Shutdown);
-            Assert.AreEqual(1, secondSubscriberCount);
+            Assert.AreEqual(1, releasingCount);
             Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
         }
 
-    #endregion
-
-    #region S-1: Screen 정리 실패와 Scene 구독
-
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> Screen 정리가 첫 Shutdown에서 끝나지 않아도 Scene 정적 이벤트를 즉시 해제하고,
-        /// <br/> 다음 Shutdown에서 남은 Screen과 Runtime 정리를 재시도하는지 검증한다.
+        /// Terminal Runtime의 후속 Shutdown이 소유권이 남은 Provider 반환만 다시 시도하는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_GameUIRuntime_Screen정리실패_Scene구독즉시해제후재시도()
+        public void TEST_GameUIRuntime_Provider반환실패_후속Shutdown에서물리반환재시도()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.Initialize(fixture.Settings);
+            fixture.LayerProvider.ReleaseFailuresRemaining = 1;
+
+            Assert.Throws<AggregateException>(fixture.Runtime.Shutdown);
+
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
+
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
+
+            Assert.AreEqual(2, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 종료 콜백의 재귀 Shutdown이 진행 중 종료를 조기 완료로 바꾸지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_OnReleasing재귀Shutdown_외부종료만Terminal확정()
+        {
+            var fixture = CreateRuntimeFixture();
+            var callbackCount = 0;
+            fixture.Runtime.OnReleasing += runtime =>
+            {
+                callbackCount++;
+                Assert.IsTrue(runtime.IsReleasing);
+                Assert.IsFalse(runtime.IsReleased);
+                Assert.DoesNotThrow(runtime.Shutdown);
+                Assert.IsTrue(runtime.IsReleasing);
+                Assert.IsFalse(runtime.IsReleased);
+            };
+            fixture.Runtime.Initialize(fixture.Settings);
+
+            fixture.Runtime.Shutdown();
+
+            Assert.AreEqual(1, callbackCount);
+            Assert.IsFalse(fixture.Runtime.IsReleasing);
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+        }
+
+    #endregion
+
+    #region S-1: Screen 정리 실패와 Terminal Shutdown
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Screen 자식 정리가 실패해도 Scene 구독과 나머지 소유권을 한 번씩 정리하고,
+        /// <br/> Runtime을 Terminal 상태로 확정하여 다음 Shutdown이 no-op인지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_Screen정리실패_TerminalShutdown()
         {
             var fixture = CreateRuntimeFixture();
             fixture.Runtime.Initialize(fixture.Settings);
@@ -798,21 +927,28 @@ namespace inonego.Xeri.TEST.UI._Game
                 source
             );
             var response = fixture.Runtime.Screens.Open("Cleanup");
-            response.Session.RegisterChild(new FailOnceHandle());
+            var child = new ThrowingHandle();
+            response.Session.RegisterChild(child);
 
             Assert.Throws<AggregateException>(fixture.Runtime.Shutdown);
 
             Assert.IsFalse(GetField<bool>(fixture.Runtime, "sceneLoadedSubscribed"));
-            Assert.IsTrue(fixture.Runtime.IsReleasing);
-            Assert.IsFalse(fixture.Runtime.IsReleased);
-            Assert.AreEqual(ScreenState.Closing, response.Session.State);
-            Assert.AreEqual(0, source.ReleaseCount);
+            Assert.IsFalse(fixture.Runtime.IsReleasing);
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+            Assert.AreEqual(ScreenState.Closed, response.Session.State);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(1, child.DisposeCount);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
 
             Assert.DoesNotThrow(fixture.Runtime.Shutdown);
 
             Assert.IsTrue(fixture.Runtime.IsReleased);
             Assert.AreEqual(ScreenState.Closed, response.Session.State);
             Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(1, child.DisposeCount);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
         }
 
     #endregion

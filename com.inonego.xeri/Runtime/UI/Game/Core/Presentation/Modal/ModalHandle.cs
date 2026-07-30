@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ModalHandle.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Modal Stack 등록과 Modal이 소유한 표시 Handle의 대칭 해제를 묶는다.
@@ -26,13 +26,6 @@ namespace inonego.Xeri.UI.Game
         /// </summary>
         // ------------------------------------------------------------
         public bool IsDisposed => owner == null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Modal Stack 표시 수명이 이미 종료됐는지 여부.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal bool IsStackReleased { get; private set; }
 
         internal IModalDriver Driver { get; }
 
@@ -84,10 +77,12 @@ namespace inonego.Xeri.UI.Game
 
             for (var i = ownedHandles.Count - 1; i >= 0; i--)
             {
+                var handle = ownedHandles[i];
+                ownedHandles.RemoveAt(i);
+
                 try
                 {
-                    ownedHandles[i].Dispose();
-                    ownedHandles.RemoveAt(i);
+                    handle.Dispose();
                 }
                 catch (Exception exception)
                 {
@@ -103,12 +98,12 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Stack 제거가 완료돼 이후 Dispose가 남은 표시 Handle만 재시도하게 한다.
+        /// Modal의 공개 Stack 소유권이 종료됐음을 기록한다.
         /// </summary>
         // ------------------------------------------------------------
         internal void MarkStackReleased()
         {
-            IsStackReleased = true;
+            owner = null;
         }
 
     #endregion
@@ -125,8 +120,8 @@ namespace inonego.Xeri.UI.Game
             if (owner == null) return;
 
             var current = owner;
-            current.Release(this);
             owner = null;
+            current.Release(this);
         }
 
     #endregion

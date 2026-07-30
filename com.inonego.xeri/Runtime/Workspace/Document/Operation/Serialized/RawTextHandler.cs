@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : RawTextHandler.cs
-수정일 : 2026-07-01
+수정일 : 2026-07-30
 
 # 설명
 문자열 파일을 serializer 없이 그대로 열고 저장하는 document handler를 정의한다.
@@ -220,7 +220,7 @@ namespace inonego.Xeri.Workspace.Document
          }
 
          var response = reader.Read(ioLoc);
-         var releaseHandle = response.ReleaseHandle;
+         var lease = response.Lease;
 
          try
          {
@@ -238,7 +238,7 @@ namespace inonego.Xeri.Workspace.Document
          finally
          {
             // Raw text body는 문자열을 복사해 보관하므로 IO 수명은 즉시 해제한다.
-            releaseHandle?.Release();
+            lease?.Dispose();
          }
       }
 

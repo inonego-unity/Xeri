@@ -1,0 +1,136 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : UGUIDragVisualBinding.cs
+수정일 : 2026-07-30
+
+# 설명
+기존 DraggableUI의 Begin·End·Cancel 수명에 UGUI Drag Visual Handle을 연결한다.
+========================================================================= BLOCK_HEADER_END */
+
+using System;
+
+using inonego.Xeri.UI.DragDrop;
+
+namespace inonego.Xeri.UI.Game
+{
+    // ============================================================
+    /// <summary>
+    /// 기존 DraggableUI와 한 Drag Visual 설정의 연결 수명.
+    /// </summary>
+    // ============================================================
+    internal sealed class UGUIDragVisualBinding : IDisposable
+    {
+    #region 필드
+
+        private DragVisualController owner = null;
+        private DraggableUI draggable = null;
+        private DragVisualHandle activeHandle = null;
+        private readonly DragVisualParams parameters;
+
+    #endregion
+
+    #region 생성자
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// DraggableUI의 Begin과 End 이벤트에 Drag Visual 처리를 연결한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal UGUIDragVisualBinding
+        (
+            DragVisualController owner,
+            DraggableUI draggable,
+            in DragVisualParams parameters
+        ) : base()
+        {
+            this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            this.draggable = draggable ?? throw new ArgumentNullException(nameof(draggable));
+            this.parameters = parameters;
+
+            draggable.OnDragBegin += HandleDragBegin;
+            draggable.OnDragEnd += HandleDragEnd;
+        }
+
+    #endregion
+
+    #region 이벤트 핸들러
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Drag 시작에 맞춰 선택한 Presentation Layer로 시각물을 승격한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDragBegin(Draggable sender, DragEventArgs eventData)
+        {
+            if (owner == null || activeHandle != null) return;
+
+            activeHandle = owner.Begin(parameters);
+
+            // 부모 좌표계가 달라졌으므로 다음 이동 전에 현재 Pointer offset을 새 기준으로 확정한다.
+            sender.RebaseDrag();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 정상 종료와 강제 취소의 공통 Drag End에서 시각물을 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDragEnd(Draggable sender, DragEventArgs eventData)
+        {
+            var handle = activeHandle;
+            activeHandle = null;
+            handle?.Dispose();
+        }
+
+    #endregion
+
+    #region IDisposable
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Draggable 이벤트 연결과 남은 활성 Drag Visual을 한 번 종료한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Dispose()
+        {
+            Release();
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Draggable 이벤트 연결을 끊고 남은 활성 Drag Visual을 한 번 종료한다.
+        /// <br/> Controller 전체 종료에서는 목록을 순회한 뒤 한 번에 비우도록 등록 제거를 생략한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal void Release(bool removeFromBindings = true)
+        {
+            if (owner == null) return;
+
+            var currentOwner = owner;
+            var currentDraggable = draggable;
+            var handle = activeHandle;
+            owner = null;
+            draggable = null;
+            activeHandle = null;
+
+            if (removeFromBindings)
+            {
+                currentOwner.Release(this);
+            }
+
+            try
+            {
+                // Screen이나 Runtime이 연결을 먼저 닫아도 Drag 의미와 Raycast 상태를 함께 종료한다.
+                currentDraggable.ForceDragEnd();
+            }
+            finally
+            {
+                currentDraggable.OnDragBegin -= HandleDragBegin;
+                currentDraggable.OnDragEnd -= HandleDragEnd;
+                handle?.Dispose();
+            }
+        }
+
+    #endregion
+
+    }
+}

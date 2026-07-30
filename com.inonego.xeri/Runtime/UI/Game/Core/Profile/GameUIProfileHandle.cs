@@ -1,9 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIProfileHandle.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Profile이 획득한 Layer 등록과 Provider GameObject의 대칭 수명을 생성 역순으로 소유한다.
+
+# 종료 계약
+논리 UI 소유권은 첫 Dispose에서 종료한다.
+Provider 반환 실패 시 소유권이 남는 GameObject만 보존하며 다른 UI 정리와 Callback은 반복하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -22,13 +26,16 @@ namespace inonego.Xeri.UI.Game
     {
     #region 내부 데이터
 
-        internal sealed class Entry
+        // ============================================================
+        /// <summary>
+        /// Profile이 획득한 한 Layer의 Provider 인스턴스와 등록 Handle.
+        /// </summary>
+        // ============================================================
+        internal sealed class OwnedLayer
         {
             public IGameObjectProvider Provider = null;
             public GameObject Instance = null;
             public PresentationLayerHandle LayerHandle = null;
-            public bool LayerReleased = true;
-            public bool InstanceReleased = false;
         }
 
     #endregion
@@ -37,7 +44,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Profile Handle의 모든 소유 리소스가 반환됐는지 여부.
+        /// Profile의 논리 소유권과 Layer 등록이 종료됐는지 여부.
         /// </summary>
         // ------------------------------------------------------------
         public bool IsDisposed { get; private set; }
@@ -49,8 +56,8 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public GameUIProfileAsset Profile { get; }
 
-        private readonly List<Entry> entries = new List<Entry>();
-        private Action<GameUIProfileHandle> onDisposed = null;
+        private readonly List<OwnedLayer> ownedLayers = new List<OwnedLayer>();
+        private Action<GameUIProfileHandle> onReleaseCompleted = null;
 
     #endregion
 
@@ -64,11 +71,11 @@ namespace inonego.Xeri.UI.Game
         internal GameUIProfileHandle
         (
             GameUIProfileAsset profile,
-            Action<GameUIProfileHandle> onDisposed
+            Action<GameUIProfileHandle> onReleaseCompleted
         ) : base()
         {
             Profile = profile ?? throw new ArgumentNullException(nameof(profile));
-            this.onDisposed = onDisposed;
+            this.onReleaseCompleted = onReleaseCompleted;
             IsDisposed = false;
         }
 
@@ -81,40 +88,49 @@ namespace inonego.Xeri.UI.Game
         /// Profile 획득 중 생성한 Provider 인스턴스 소유권을 즉시 기록한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal Entry Add
+        internal OwnedLayer AddLayer
         (
             IGameObjectProvider provider,
             GameObject instance
         )
         {
-            var entry = new Entry
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(GameUIProfileHandle));
+            }
+
+            var layer = new OwnedLayer
             {
                 Provider = provider ?? throw new ArgumentNullException(nameof(provider)),
                 Instance = instance ?? throw new ArgumentNullException(nameof(instance)),
             };
 
-            entries.Add(entry);
-            return entry;
+            ownedLayers.Add(layer);
+            return layer;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Entry에 완료된 Layer 등록 Handle을 연결한다.
+        /// 소유 Layer에 완료된 등록 Handle을 연결한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void SetLayerHandle
+        internal void AttachLayerHandle
         (
-            Entry entry,
+            OwnedLayer layer,
             PresentationLayerHandle layerHandle
         )
         {
-            if (entry == null)
+            if (IsDisposed)
             {
-                throw new ArgumentNullException(nameof(entry));
+                throw new ObjectDisposedException(nameof(GameUIProfileHandle));
             }
 
-            entry.LayerHandle = layerHandle ?? throw new ArgumentNullException(nameof(layerHandle));
-            entry.LayerReleased = false;
+            if (layer == null)
+            {
+                throw new ArgumentNullException(nameof(layer));
+            }
+
+            layer.LayerHandle = layerHandle ?? throw new ArgumentNullException(nameof(layerHandle));
         }
 
     #endregion
@@ -123,21 +139,24 @@ namespace inonego.Xeri.UI.Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 활성 Layer 소비자가 없는지 먼저 검증한 뒤 등록과 Provider 인스턴스를 역순 반환한다.
-        /// <br/> Provider 반환 실패 Entry는 소유권을 유지해 다음 Dispose에서 재시도한다.
+        /// <br/> 활성 Layer 소비자가 없는지 먼저 검증한 뒤 소유권을 Terminal 상태로 확정한다.
+        /// <br/> 일반 UI 정리는 한 번만 시도하며, 실패 시 소유권 유지가 명시된 Provider 반환만 후속 Dispose에서 진행한다.
         /// </summary>
         // ----------------------------------------------------------------------
         public void Dispose()
         {
-            if (IsDisposed) return;
+            if (IsDisposed)
+            {
+                ReleasePendingInstances();
+                return;
+            }
 
             // 일부 반환 전에 모든 활성 소비자를 검증해 잘못된 호출 순서가 상태를 훼손하지 않게 한다.
-            for (var i = entries.Count - 1; i >= 0; i--)
+            for (var i = ownedLayers.Count - 1; i >= 0; i--)
             {
-                var layerHandle = entries[i].LayerHandle;
+                var layerHandle = ownedLayers[i].LayerHandle;
 
-                if (!entries[i].LayerReleased &&
-                    layerHandle != null &&
+                if (layerHandle != null &&
                     layerHandle.HasConsumers)
                 {
                     throw new InvalidOperationException
@@ -147,62 +166,119 @@ namespace inonego.Xeri.UI.Game
                 }
             }
 
+            IsDisposed = true;
+
             var errors = new List<Exception>();
 
-            for (var i = entries.Count - 1; i >= 0; i--)
+            // 모든 Layer 등록을 먼저 종료해 Provider 인스턴스 반환 전에 UI 사용 경계를 닫는다.
+            for (var i = ownedLayers.Count - 1; i >= 0; i--)
             {
-                var entry = entries[i];
+                var layer = ownedLayers[i];
 
-                if (!entry.LayerReleased && entry.LayerHandle != null)
+                if (layer.LayerHandle == null) continue;
+
+                try
                 {
-                    try
-                    {
-                        entry.LayerHandle.Dispose();
-                        entry.LayerReleased = true;
-                    }
-                    catch (Exception exception)
-                    {
-                        errors.Add(exception);
-                    }
+                    layer.LayerHandle.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
                 }
 
-                if (!entry.InstanceReleased && entry.LayerReleased)
+                layer.LayerHandle = null;
+            }
+
+            // Provider 반환 실패 항목만 목록에 남겨 명시된 물리 소유권 재시도 범위를 보존한다.
+            for (var i = ownedLayers.Count - 1; i >= 0; i--)
+            {
+                var layer = ownedLayers[i];
+                var provider = layer.Provider;
+                var instance = layer.Instance;
+
+                if (provider == null || instance == null)
                 {
-                    try
-                    {
-                        entry.Provider.Release(entry.Instance, false);
-                        entry.InstanceReleased = true;
-                    }
-                    catch (Exception exception)
-                    {
-                        errors.Add(exception);
-                    }
+                    ownedLayers.RemoveAt(i);
+                    continue;
+                }
+
+                try
+                {
+                    provider.Release(instance, false);
+                    layer.Provider = null;
+                    layer.Instance = null;
+                    ownedLayers.RemoveAt(i);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
                 }
             }
 
-            var allReleased = true;
-
-            for (var i = 0; i < entries.Count; i++)
-            {
-                if (!entries[i].LayerReleased || !entries[i].InstanceReleased)
-                {
-                    allReleased = false;
-                    break;
-                }
-            }
-
-            if (allReleased)
-            {
-                IsDisposed = true;
-                var callback = onDisposed;
-                onDisposed = null;
-                callback?.Invoke(this);
-            }
+            NotifyReleaseCompletedIfReady();
 
             if (errors.Count > 0)
             {
                 throw new AggregateException("Game UI Profile 해제 중 하나 이상의 반환이 실패했습니다.", errors);
             }
+        }
+
+    #endregion
+
+    #region 내부 처리
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Provider 계약에 따라 소유권이 남은 GameObject의 물리 반환만 다시 시도한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ReleasePendingInstances()
+        {
+            if (ownedLayers.Count == 0) return;
+
+            var errors = new List<Exception>();
+
+            for (var i = ownedLayers.Count - 1; i >= 0; i--)
+            {
+                var layer = ownedLayers[i];
+
+                try
+                {
+                    layer.Provider.Release(layer.Instance, false);
+                    layer.Provider = null;
+                    layer.Instance = null;
+                    ownedLayers.RemoveAt(i);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            NotifyReleaseCompletedIfReady();
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException
+                (
+                    "Game UI Profile Provider 인스턴스 반환이 실패했습니다.",
+                    errors
+                );
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 논리 종료와 모든 Provider 물리 반환이 끝난 Handle을 Runtime 추적에서 제거한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void NotifyReleaseCompletedIfReady()
+        {
+            if (ownedLayers.Count > 0 || onReleaseCompleted == null) return;
+
+            var callback = onReleaseCompleted;
+            onReleaseCompleted = null;
+            callback(this);
         }
 
     #endregion

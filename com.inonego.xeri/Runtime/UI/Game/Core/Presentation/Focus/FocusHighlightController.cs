@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : FocusHighlightController.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Driver별 중첩 Focus Highlight 요청을 최신 표시 우선으로 합성하고 해제 시 이전 요청을 복원한다.
@@ -29,13 +29,6 @@ namespace inonego.Xeri.UI.Game
         {
             // ------------------------------------------------------------
             /// <summary>
-            /// 표시 요청 식별 값.
-            /// </summary>
-            // ------------------------------------------------------------
-            public long ID { get; }
-
-            // ------------------------------------------------------------
-            /// <summary>
             /// 표시 호출 인자.
             /// </summary>
             // ------------------------------------------------------------
@@ -48,11 +41,9 @@ namespace inonego.Xeri.UI.Game
             // ------------------------------------------------------------
             public Request
             (
-                long id,
                 FocusHighlightParams parameters
             ) : base()
             {
-                ID = id;
                 Params = parameters ?? throw new ArgumentNullException(nameof(parameters));
             }
         }
@@ -63,7 +54,6 @@ namespace inonego.Xeri.UI.Game
 
         private readonly Dictionary<IFocusHighlightDriver, List<Request>> requests =
             new Dictionary<IFocusHighlightDriver, List<Request>>();
-        private long nextRequestID = 1L;
         private bool isDisposed = false;
 
     #endregion
@@ -72,10 +62,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Driver에 Focus Highlight 요청을 표시하고 소유 Handle을 반환한다.
+        /// Driver에 Focus Highlight 요청을 표시하고 소유 Lease를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public FocusHighlightHandle Show
+        public Lease Show
         (
             IFocusHighlightDriver driver,
             FocusHighlightParams parameters
@@ -109,9 +99,9 @@ namespace inonego.Xeri.UI.Game
                 requests.Add(driver, list);
             }
 
-            var request = new Request(nextRequestID++, parameters);
+            var request = new Request(parameters);
             list.Add(request);
-            return new FocusHighlightHandle(this, driver, request.ID);
+            return new Lease(() => Release(driver, request));
         }
 
         // ------------------------------------------------------------
@@ -119,61 +109,55 @@ namespace inonego.Xeri.UI.Game
         /// 지정 요청을 제거하고 이전 최신 요청 또는 숨김 상태를 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void Release
+        private void Release
         (
             IFocusHighlightDriver driver,
-            long requestID
+            Request request
         )
         {
             if (isDisposed) return;
             if (!requests.TryGetValue(driver, out var list)) return;
 
-            var index = FindRequest(list, requestID);
+            var index = list.IndexOf(request);
 
             if (index < 0) return;
 
             var wasTop = index == list.Count - 1;
-
-            if (wasTop)
-            {
-                if (index > 0)
-                {
-                    driver.Show(list[index - 1].Params);
-                }
-                else
-                {
-                    driver.Hide();
-                }
-            }
+            var nextParams = wasTop && index > 0
+                ? list[index - 1].Params
+                : null;
 
             list.RemoveAt(index);
 
             if (list.Count == 0)
             {
-                requests.Remove(driver);
+                ReleaseDriver(driver);
+                return;
             }
+
+            if (!wasTop) return;
+
+            driver.Show(nextParams);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 요청 ID에 해당하는 목록 인덱스를 찾는다.
+        /// <br/> Driver의 마지막 Highlight 표시를 종료한다.
+        /// <br/> Controller 전체 종료에서는 원본 목록을 순회한 뒤 한 번에 비우도록 등록 제거를 생략한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static int FindRequest
+        // ----------------------------------------------------------------------
+        private void ReleaseDriver
         (
-            List<Request> list,
-            long requestID
+            IFocusHighlightDriver driver,
+            bool removeFromRequests = true
         )
         {
-            for (var i = list.Count - 1; i >= 0; i--)
+            if (removeFromRequests)
             {
-                if (list[i].ID == requestID)
-                {
-                    return i;
-                }
+                requests.Remove(driver);
             }
 
-            return -1;
+            driver.Hide();
         }
 
     #endregion
@@ -189,20 +173,27 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
+            isDisposed = true;
             var errors = new List<Exception>();
-            var drivers = new List<IFocusHighlightDriver>(requests.Keys);
 
-            for (var i = drivers.Count - 1; i >= 0; i--)
+            try
             {
-                try
+                // 종료 상태에서는 Handle 해제가 목록을 변경하지 않으므로 원본 Driver 목록을 직접 순회한다.
+                foreach (var driver in requests.Keys)
                 {
-                    drivers[i].Hide();
-                    requests.Remove(drivers[i]);
+                    try
+                    {
+                        ReleaseDriver(driver, removeFromRequests: false);
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add(exception);
+                    }
                 }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
+            }
+            finally
+            {
+                requests.Clear();
             }
 
             if (errors.Count > 0)
@@ -210,7 +201,6 @@ namespace inonego.Xeri.UI.Game
                 throw new AggregateException("Focus Highlight 해제가 실패했습니다.", errors);
             }
 
-            isDisposed = true;
         }
 
     #endregion

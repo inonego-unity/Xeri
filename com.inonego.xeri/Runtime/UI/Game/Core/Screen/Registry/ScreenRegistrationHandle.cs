@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenRegistrationHandle.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 동적 Screen Source 등록 소유권을 해제하되 이미 열린 Session 수명은 건드리지 않는다.
@@ -58,6 +58,21 @@ namespace inonego.Xeri.UI.Game
 
     #endregion
 
+    #region 메서드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Registry가 등록 전체를 종료할 때 Handle을 Terminal 상태로 전환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void MarkDisposed()
+        {
+            owner = null;
+            entry = null;
+        }
+
+    #endregion
+
     #region IDisposable
 
         // ------------------------------------------------------------
@@ -72,9 +87,9 @@ namespace inonego.Xeri.UI.Game
             var currentOwner = owner;
             var currentEntry = entry;
 
-            currentOwner.Unregister(currentEntry);
             owner = null;
             entry = null;
+            currentOwner.Unregister(currentEntry);
         }
 
     #endregion

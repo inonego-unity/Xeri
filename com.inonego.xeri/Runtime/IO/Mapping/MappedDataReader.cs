@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MappedDataReader.cs
-수정일 : 2026-06-21
+수정일 : 2026-07-30
 
 # 설명
 기존 reader가 읽은 response value를 다른 값으로 변환해 반환하는 동기 IO reader adapter를 정의한다.
@@ -65,7 +65,7 @@ namespace inonego.Xeri.IO
             (
                sourceResponse.Error,
                sourceResponse.Exception,
-               sourceResponse.ReleaseHandle
+               sourceResponse.Lease
             );
          }
 
@@ -73,7 +73,7 @@ namespace inonego.Xeri.IO
          {
             var value = map(sourceResponse.Value);
 
-            return ReadResponse<TValue>.Succeed(value, sourceResponse.ReleaseHandle);
+            return ReadResponse<TValue>.Succeed(value, sourceResponse.Lease);
          }
          catch (Exception exception)
          {
@@ -81,7 +81,7 @@ namespace inonego.Xeri.IO
             (
                exception.Message,
                exception,
-               sourceResponse.ReleaseHandle
+               sourceResponse.Lease
             );
          }
       }

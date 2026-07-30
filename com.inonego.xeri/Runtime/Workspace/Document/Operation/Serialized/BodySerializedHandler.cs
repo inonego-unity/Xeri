@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BodySerializedHandler.cs
-수정일 : 2026-07-01
+수정일 : 2026-07-30
 
 # 설명
 DocumentEnvelope 없이 body 자체를 serializer root로 열고 저장하는 document handler를 정의한다.
@@ -210,7 +210,7 @@ namespace inonego.Xeri.Workspace.Document
          }
 
          var readResponse = reader.Read(ioLoc);
-         var releaseHandle = readResponse.ReleaseHandle;
+         var lease = readResponse.Lease;
 
          try
          {
@@ -237,7 +237,7 @@ namespace inonego.Xeri.Workspace.Document
          finally
          {
             // Body-root handler는 serialized text를 body로 복원한 뒤 원본 IO 수명을 보관하지 않는다.
-            releaseHandle?.Release();
+            lease?.Dispose();
          }
       }
 

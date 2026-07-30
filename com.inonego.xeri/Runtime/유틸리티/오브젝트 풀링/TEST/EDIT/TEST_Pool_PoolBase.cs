@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Pool_PoolBase.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 PoolBase 시스템의 핵심 기능 테스트. Edit Mode.
@@ -10,6 +10,7 @@ PoolBase 시스템의 핵심 기능 테스트. Edit Mode.
  X: 예외 처리 (미등록 아이템/이중 Release)
  C: 콜백 (AcquireInternal/ReleaseInternal)
  M: 풀 관리 (PushToReleased/PopFromReleased/Move*)
+ L: Lease와 Generation
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -110,6 +111,7 @@ public class TEST_Pool_PoolBase
     {
         public int AcquireCallCount { get; private set; }
         public int ReleaseCallCount { get; private set; }
+        public int PublicReleaseCallCount { get; private set; }
 
         protected override TestPoolItem AcquireNew()
         {
@@ -128,11 +130,61 @@ public class TEST_Pool_PoolBase
             item.Value = 100;
         }
 
+        public override void Release(TestPoolItem item, bool pushToReleased = true)
+        {
+            PublicReleaseCallCount++;
+            base.Release(item, pushToReleased);
+        }
+
         protected override void ReleaseInternal(TestPoolItem item, bool removeFromAcquired = true, bool pushToReleased = true)
         {
-            base.ReleaseInternal(item, removeFromAcquired, pushToReleased);
             ReleaseCallCount++;
             item.Value = 0;
+            base.ReleaseInternal(item, removeFromAcquired, pushToReleased);
+        }
+    }
+
+    // ------------------------------------------------------------
+    /// <summary>
+    /// 반환 실패와 Discard 횟수를 관찰하는 테스트용 Pool.
+    /// </summary>
+    // ------------------------------------------------------------
+    private class FailingReleasePool : PoolBase<TestPoolItem>
+    {
+        public TestPoolItem FailureItem { get; set; }
+        public int ReleaseAttemptCount { get; private set; }
+        public int DiscardCount { get; private set; }
+
+        protected override TestPoolItem AcquireNew()
+        {
+            return new TestPoolItem();
+        }
+
+        protected override async Awaitable<TestPoolItem> AcquireNewAsync()
+        {
+            return await Task.FromResult(new TestPoolItem());
+        }
+
+        protected override void ReleaseInternal
+        (
+            TestPoolItem item,
+            bool removeFromAcquired = true,
+            bool pushToReleased = true
+        )
+        {
+            ReleaseAttemptCount++;
+
+            if (ReferenceEquals(item, FailureItem))
+            {
+                throw new InvalidOperationException("release failure");
+            }
+
+            base.ReleaseInternal(item, removeFromAcquired, pushToReleased);
+        }
+
+        protected override void OnDiscard(TestPoolItem item)
+        {
+            DiscardCount++;
         }
     }
 
@@ -224,7 +276,7 @@ public class TEST_Pool_PoolBase
     [Test]
     public void TEST_Pool_PoolBase_ReleaseAll_모든_아이템_반환()
     {
-        var pool = new TestPool();
+        var pool = new TestPoolWithCallbacks();
         pool.Acquire();
         pool.Acquire();
         pool.Acquire();
@@ -233,6 +285,124 @@ public class TEST_Pool_PoolBase
 
         Assert.AreEqual(0, pool.Acquired.Count);
         Assert.AreEqual(3, pool.Released.Count);
+        Assert.AreEqual(3, pool.PublicReleaseCallCount);
+        Assert.AreEqual(3, pool.ReleaseCallCount);
+    }
+
+#endregion
+
+#region L-1: Lease 기본 반환
+
+    [Test]
+    public void TEST_Pool_AcquireLease_Release시_Released로_복귀()
+    {
+        var pool = new TestPoolWithCallbacks();
+        var lease = pool.AcquireLease();
+
+        lease.Dispose();
+
+        Assert.IsTrue(lease.IsDisposed);
+        Assert.AreEqual(0, pool.Acquired.Count);
+        Assert.AreEqual(1, pool.Released.Count);
+        Assert.AreEqual(1, pool.PublicReleaseCallCount);
+        Assert.AreEqual(1, pool.ReleaseCallCount, "Lease 반환도 기존 virtual Release 경계를 통과해야 합니다.");
+    }
+
+    [Test]
+    public async Task TEST_Pool_AcquireLeaseAsync_Release시_Released로_복귀()
+    {
+        var pool = new TestPool();
+        var lease = await pool.AcquireLeaseAsync();
+
+        lease.Dispose();
+
+        Assert.AreEqual(0, pool.Acquired.Count);
+        Assert.AreEqual(1, pool.Released.Count);
+    }
+
+#endregion
+
+#region L-2: 오래된 Generation
+
+    [Test]
+    public void TEST_Pool_직접반환과_재획득후_이전Lease는_현재Item에_영향없음()
+    {
+        var pool = new TestPool();
+        var lease = pool.AcquireLease();
+        var item = lease.Value;
+
+        pool.Release(item);
+        var reacquired = pool.Acquire();
+        lease.Dispose();
+
+        Assert.AreSame(item, reacquired);
+        Assert.IsTrue(pool.IsAcquired(reacquired));
+        Assert.AreEqual(1, pool.Acquired.Count);
+        Assert.AreEqual(0, pool.Released.Count);
+    }
+
+#endregion
+
+#region L-3: Lease 반환 실패
+
+    [Test]
+    public void TEST_Pool_Lease반환실패_Item을_Released에_공개하지않고_Discard()
+    {
+        var pool = new FailingReleasePool();
+        var lease = pool.AcquireLease();
+        pool.FailureItem = lease.Value;
+
+        Assert.Throws<InvalidOperationException>(() => lease.Dispose());
+        lease.Dispose();
+
+        Assert.AreEqual(1, pool.ReleaseAttemptCount);
+        Assert.AreEqual(1, pool.DiscardCount);
+        Assert.AreEqual(0, pool.Acquired.Count);
+        Assert.AreEqual(0, pool.Released.Count);
+    }
+
+#endregion
+
+#region L-4: ReleaseAll 실패 격리
+
+    [Test]
+    public void TEST_Pool_ReleaseAll_일부실패에도_나머지_초기대상을_처리()
+    {
+        var pool = new FailingReleasePool();
+        var first = pool.Acquire();
+        var failed = pool.Acquire();
+        var third = pool.Acquire();
+        pool.FailureItem = failed;
+
+        var exception = Assert.Throws<AggregateException>(() => pool.ReleaseAll());
+
+        Assert.AreEqual(1, exception.InnerExceptions.Count);
+        Assert.AreEqual(3, pool.ReleaseAttemptCount);
+        Assert.AreEqual(1, pool.DiscardCount);
+        Assert.AreEqual(0, pool.Acquired.Count);
+        Assert.AreEqual(2, pool.Released.Count);
+        Assert.IsTrue(pool.IsReleased(first));
+        Assert.IsTrue(pool.IsReleased(third));
+        Assert.IsFalse(pool.IsReleased(failed));
+    }
+
+    // ----------------------------------------------------------------------
+    /// <summary>
+    /// Bulk 반환도 개별 반환과 같은 public virtual Release 확장 경계를 사용하는지 검증합니다.
+    /// </summary>
+    // ----------------------------------------------------------------------
+    [Test]
+    public void TEST_Pool_ReleaseAll_PublicReleaseOverride를_호출()
+    {
+        var pool = new TestPoolWithCallbacks();
+        var item = pool.Acquire();
+
+        Assert.DoesNotThrow(() => pool.ReleaseAll());
+
+        Assert.AreEqual(1, pool.PublicReleaseCallCount);
+        Assert.AreEqual(0, pool.Acquired.Count);
+        Assert.AreEqual(1, pool.Released.Count);
+        Assert.IsTrue(pool.IsReleased(item));
     }
 
 #endregion

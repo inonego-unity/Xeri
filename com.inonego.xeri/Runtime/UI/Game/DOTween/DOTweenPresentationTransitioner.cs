@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DOTweenPresentationTransitioner.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Core Presentation Transition 계약을 DOTween float tween과 취소 Handle로 구현한다.
@@ -59,8 +59,9 @@ namespace inonego.Xeri.UI.Game
 
             if (parameters.Duration <= 0.0f)
             {
-                var immediate = new PresentationTransitionHandle(null);
                 parameters.Target.Apply(parameters.EndValue);
+
+                var immediate = new PresentationTransitionHandle(null);
                 immediate.Complete();
                 InvokeCompleted(onCompleted);
                 return immediate;
@@ -78,7 +79,8 @@ namespace inonego.Xeri.UI.Game
                     tween.Kill(false);
                 }
 
-                if (handle != null)
+                // 전체 종료 중에는 활성 목록을 직접 순회한 뒤 한 번에 비운다.
+                if (handle != null && !isDisposed)
                 {
                     active.Remove(handle);
                 }
@@ -99,7 +101,7 @@ namespace inonego.Xeri.UI.Game
                     failed = true;
                     tween?.Kill(false);
 
-                    if (handle != null && handle.Complete())
+                    if (handle != null && handle.Fail())
                     {
                         active.Remove(handle);
                         InvokeFailed(onFailed, exception);
@@ -121,20 +123,24 @@ namespace inonego.Xeri.UI.Game
             (
                 () =>
                 {
-                    if (!handle.Complete()) return;
-
-                    active.Remove(handle);
-
                     try
                     {
                         parameters.Target.Apply(parameters.EndValue);
                     }
                     catch (Exception exception)
                     {
-                        InvokeFailed(onFailed, exception);
+                        if (handle.Fail())
+                        {
+                            active.Remove(handle);
+                            InvokeFailed(onFailed, exception);
+                        }
+
                         return;
                     }
 
+                    if (!handle.Complete()) return;
+
+                    active.Remove(handle);
                     InvokeCompleted(onCompleted);
                 }
             );
@@ -194,15 +200,32 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
-            var handles = new List<PresentationTransitionHandle>(active.Keys);
+            isDisposed = true;
+            var errors = new List<Exception>();
 
-            for (var i = handles.Count - 1; i >= 0; i--)
+            try
             {
-                handles[i].Cancel();
+                foreach (var handle in active.Keys)
+                {
+                    try
+                    {
+                        handle.Cancel();
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add(exception);
+                    }
+                }
+            }
+            finally
+            {
+                active.Clear();
             }
 
-            active.Clear();
-            isDisposed = true;
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("DOTween Presentation Transitioner 해제가 실패했습니다.", errors);
+            }
         }
 
     #endregion

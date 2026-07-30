@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationOverrideController.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 한 속성의 기준 값과 중첩 Override를 획득 순서로 합성하는 범용 Controller를 제공한다.
@@ -22,7 +22,6 @@ namespace inonego.Xeri.UI.Game
 
         private sealed class Request
         {
-            public long ID = 0L;
             public TValue Value = default;
         }
 
@@ -33,7 +32,6 @@ namespace inonego.Xeri.UI.Game
         private readonly Action<TValue> apply = null;
         private readonly TValue baseline = default;
         private readonly List<Request> requests = new List<Request>();
-        private long nextRequestID = 1L;
         private bool isDisposed = false;
 
     #endregion
@@ -66,10 +64,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 새 Override 값을 적용하고 요청 Handle을 반환한다.
+        /// 새 Override 값을 적용하고 요청 Lease를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public PresentationOverrideHandle Set(TValue value)
+        public Lease Set(TValue value)
         {
             if (isDisposed)
             {
@@ -78,14 +76,13 @@ namespace inonego.Xeri.UI.Game
 
             var request = new Request
             {
-                ID = nextRequestID++,
                 Value = value,
             };
 
             apply(value);
             requests.Add(request);
 
-            return new PresentationOverrideHandle(() => Release(request.ID));
+            return new Lease(() => Release(request));
         }
 
         // ------------------------------------------------------------
@@ -93,20 +90,11 @@ namespace inonego.Xeri.UI.Game
         /// 지정 Override를 제거하고 다음 유효 값 또는 기준 값을 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void Release(long requestID)
+        private void Release(Request request)
         {
             if (isDisposed) return;
 
-            var index = -1;
-
-            for (var i = requests.Count - 1; i >= 0; i--)
-            {
-                if (requests[i].ID == requestID)
-                {
-                    index = i;
-                    break;
-                }
-            }
+            var index = requests.IndexOf(request);
 
             if (index < 0) return;
 
@@ -114,8 +102,8 @@ namespace inonego.Xeri.UI.Game
                 ? index > 0 ? requests[index - 1].Value : baseline
                 : requests[requests.Count - 1].Value;
 
-            apply(value);
             requests.RemoveAt(index);
+            apply(value);
         }
 
     #endregion
@@ -131,9 +119,17 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
-            apply(baseline);
-            requests.Clear();
             isDisposed = true;
+
+            try
+            {
+                apply(baseline);
+            }
+            finally
+            {
+                // 기준 값 복원 결과와 관계없이 Terminal Controller는 요청 참조를 남기지 않는다.
+                requests.Clear();
+            }
         }
 
     #endregion

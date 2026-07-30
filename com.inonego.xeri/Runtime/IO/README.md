@@ -21,9 +21,9 @@ JSON/XML/YAML 같은 포맷 변환은 serializer가 맡고, IO는 이미 정해�
 | `IDataWriter<TLocation, TValue>` | location에 value를 쓰는 동기 계약 |
 | `IAsyncDataReader<TLocation, TValue>` | 비동기로 value를 읽는 계약 |
 | `IAsyncDataWriter<TLocation, TValue>` | 비동기로 value를 쓰는 계약 |
-| `ReadResponse<TValue>` | read 성공/실패, value, optional release handle을 담는 응답 |
+| `ReadResponse<TValue>` | read 성공/실패, value, optional `Lease`를 담는 응답 |
 | `WriteResponse` | write 성공/실패를 담는 응답 |
-| `IReleaseHandle` | 읽은 value의 수명을 유지하기 위해 함께 보관할 release handle |
+| `Lease` | 읽은 value의 수명을 유지하기 위해 함께 전달하는 일회 종료 책임 |
 
 ## 제공 구현
 
@@ -33,8 +33,7 @@ Runtime/IO/
 ├── IDataWriter.cs
 ├── Response/
 │   ├── ReadResponse.cs
-│   ├── WriteResponse.cs
-│   └── IReleaseHandle.cs
+│   └── WriteResponse.cs
 ├── File/
 │   ├── TextFileIO.cs
 │   └── BinaryFileIO.cs
@@ -56,7 +55,7 @@ Runtime/IO/
 | `MemoryLocation<T>` | location container | 메모리 안의 값을 IO location처럼 전달 |
 | `MemoryIO<T>` | `IDataReader<MemoryLocation<T>, T>`, `IDataWriter<MemoryLocation<T>, T>` | 테스트, 임시 저장, 런타임 memory 저장 |
 | `ResourcesAssetReader<TAsset>` | `IDataReader<string, TAsset>` | Unity Resources에서 asset 읽기 |
-| `AddressablesAssetReader<TAsset>` | sync/async reader | Addressables에서 asset을 읽고 release handle을 response로 전달 |
+| `AddressablesAssetReader<TAsset>` | sync/async reader | Addressables에서 asset을 읽고 release Lease를 response로 전달 |
 | `MappedDataReader` 계열 | reader adapter | 원본 reader의 response value를 필요한 타입으로 변환 |
 
 ## 기본 사용
@@ -82,7 +81,7 @@ if (!read.Success)
 var text = read.Value;
 ```
 
-파일 IO는 외부 handle 수명이 없으므로 `read.ReleaseHandle`은 `null`입니다.
+파일 IO는 외부 수명이 없으므로 `read.Lease`는 `null`입니다.
 
 ### 메모리 IO
 
@@ -137,16 +136,16 @@ var read = await reader.ReadAsync("config/sample");
 
 if (!read.Success)
 {
-   read.ReleaseHandle?.Release();
+   read.Lease?.Dispose();
    return;
 }
 
 var asset = read.Value;
-var handle = read.ReleaseHandle;
+var lease = read.Lease;
 ```
 
 Addressables는 asset을 읽은 뒤 operation handle release가 필요합니다.
-`AddressablesAssetReader<TAsset>`는 raw asset을 `Value`로 반환하고, release 책임은 `ReleaseHandle`로 함께 전달합니다.
+`AddressablesAssetReader<TAsset>`는 raw asset을 `Value`로 반환하고, release 책임은 `Lease`로 함께 전달합니다.
 
 단기 사용이면 사용이 끝난 뒤 직접 release합니다.
 
@@ -157,31 +156,31 @@ try
 }
 finally
 {
-   read.ReleaseHandle?.Release();
+   read.Lease?.Dispose();
 }
 ```
 
-장기 보관이면 `Value`를 보관하는 session/model/cache가 `ReleaseHandle`도 함께 보관하고, 자신이 닫힐 때 release합니다.
+장기 보관이면 `Value`를 보관하는 session/model/cache가 `Lease`도 함께 보관하고, 자신이 닫힐 때 Dispose합니다.
 
-`ReleaseHandle`은 `Success`와 독립적인 수명 책임입니다.
-실패 응답이라도 handle이 있으면 호출자가 즉시 release하거나, 값을 소유할 객체가 함께 보관해야 합니다.
+`Lease`는 `Success`와 독립적인 수명 책임입니다.
+실패 응답이라도 Lease가 있으면 호출자가 즉시 Dispose하거나, 값을 소유할 객체가 함께 보관해야 합니다.
 
-## Mapping과 release handle
+## Mapping과 Lease
 
 `MappedDataReader`는 source response의 `Value`만 변환합니다.
-source response에 `ReleaseHandle`이 있으면 mapped response에도 같은 handle을 유지합니다.
+source response에 `Lease`가 있으면 mapped response에도 같은 Lease를 유지합니다.
 
 ```text
 ReadResponse<TSource>
 -> map(source.Value)
 -> ReadResponse<TValue>
    - Value = mapped value
-   - ReleaseHandle = source.ReleaseHandle
+   - Lease = source.Lease
 ```
 
-따라서 `TextAsset.GetData<T>()`, `Texture2D.GetRawTextureData<T>()`처럼 asset 내부 buffer view를 반환하는 mapping도 handle이 끊기지 않습니다.
+따라서 `TextAsset.GetData<T>()`, `Texture2D.GetRawTextureData<T>()`처럼 asset 내부 buffer view를 반환하는 mapping도 Lease가 끊기지 않습니다.
 
-독립 값으로 확실히 복사한 경우에도 기본 mapper는 handle을 유지합니다.
+독립 값으로 확실히 복사한 경우에도 기본 mapper는 Lease를 유지합니다.
 조기 release 최적화는 기본 계약에 넣지 않습니다.
 
 ## 상위 시스템과 조합
@@ -222,7 +221,7 @@ IO는 `domain object`가 무엇인지, 문자열이 JSON인지 XML인지 알지 
 - serializer 포맷을 IO 타입 이름에 섞지 않습니다. 예: `JsonFileIO`보다 `TextFileIO` + `ISerializer` 조합을 우선합니다.
 - location 타입은 "어디서 읽는가"를 표현하고, value 타입은 "무엇을 읽는가"를 표현합니다.
 - reader와 writer는 필요할 때만 둘 다 구현합니다. 읽기 전용 입력원은 reader만 둡니다.
-- Addressables처럼 release가 필요한 입력원은 `ReadResponse<TValue>.ReleaseHandle`로 수명 책임을 전달합니다.
+- Addressables처럼 release가 필요한 입력원은 `ReadResponse<TValue>.Lease`로 수명 책임을 전달합니다.
 - 변환이 목적이면 새 reader를 만들기 전에 `MappedDataReader` 또는 `AsyncMappedDataReader` 조합을 검토합니다.
 - async가 실제 입력원 계약이면 `IAsyncDataReader`/`IAsyncDataWriter`를 함께 구현합니다. sync 구현이 자연스럽지 않으면 억지로 sync를 만들지 않습니다.
 
@@ -234,7 +233,7 @@ AI가 이 영역을 수정하거나 확장할 때는 다음 순서로 판단합�
 2. `TLocation`과 `TValue`를 한 문장으로 정의합니다.
 3. 기존 구현 또는 mapping adapter 조합으로 해결 가능한지 확인합니다.
 4. 새 구현이 필요하면 읽기 전용인지 읽기/쓰기 모두 필요한지 정합니다.
-5. Unity asset 수명 관리가 있으면 `ReleaseHandle`이 필요한지 검토합니다.
+5. Unity asset 수명 관리가 있으면 `Lease`가 필요한지 검토합니다.
 6. 테스트가 필요하면 파일 시스템 의존이 핵심이 아닌 한 `MemoryIO<T>`를 우선 사용합니다.
 
 잘못된 방향의 예:

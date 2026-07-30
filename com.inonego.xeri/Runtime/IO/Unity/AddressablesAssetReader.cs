@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AddressablesAssetReader.cs
-수정일 : 2026-06-21
+수정일 : 2026-07-30
 
 # 설명
 Unity Addressables 주소 또는 AssetReferenceT<TAsset>에서 asset을 읽는 IO reader를 정의한다.
-읽은 asset의 Addressables handle release 책임은 ReadResponse의 ReleaseHandle로 전달한다.
+읽은 asset의 Addressables handle release 책임은 ReadResponse의 Lease로 전달한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -32,84 +32,6 @@ namespace inonego.Xeri.IO
       IAsyncDataReader<AssetReferenceT<TAsset>, TAsset>
    where TAsset : UnityEngine.Object
    {
-
-   #region 내부 데이터
-
-      // =======================================================================
-      /// <summary>
-      /// Addressables operation handle release 책임을 보관하는 handle.
-      /// </summary>
-      // =======================================================================
-      [Serializable]
-      private sealed class AddressablesReleaseHandle : IReleaseHandle
-      {
-
-      #region 필드
-
-         // ------------------------------------------------------------
-         /// <summary>
-         /// Addressables handle이 release 되었는지 여부.
-         /// </summary>
-         // ------------------------------------------------------------
-         public bool IsReleased => isReleased;
-
-         private bool isReleased = false;
-
-         private AsyncOperationHandle<TAsset> handle;
-
-      #endregion
-
-      #region 생성자
-
-         // ------------------------------------------------------------
-         /// <summary>
-         /// Addressables release handle을 생성한다.
-         /// </summary>
-         // ------------------------------------------------------------
-         public AddressablesReleaseHandle(AsyncOperationHandle<TAsset> handle) : base()
-         {
-            this.handle = handle;
-         }
-
-      #endregion
-
-      #region 메서드
-
-         // ------------------------------------------------------------
-         /// <summary>
-         /// Addressables operation handle을 release한다.
-         /// </summary>
-         // ------------------------------------------------------------
-         public void Release()
-         {
-            if (isReleased)
-            {
-               return;
-            }
-
-            if (handle.IsValid())
-            {
-               Addressables.Release(handle);
-            }
-
-            isReleased = true;
-         }
-
-         // ------------------------------------------------------------
-         /// <summary>
-         /// Addressables operation handle을 release한다.
-         /// </summary>
-         // ------------------------------------------------------------
-         public void Dispose()
-         {
-            Release();
-         }
-
-      #endregion
-
-      }
-
-   #endregion
 
    #region 필드
 
@@ -260,12 +182,15 @@ namespace inonego.Xeri.IO
                throw new FileNotFoundException($"Addressables asset을 로드할 수 없습니다. Type: {typeof(TAsset).Name}", location);
             }
 
-            return ReadResponse<TAsset>.Succeed(asset, new AddressablesReleaseHandle(handle));
+            return ReadResponse<TAsset>.Succeed
+            (
+               asset,
+               new Lease(() => ReleaseAddressablesHandle(handle))
+            );
          }
          catch (Exception exception)
          {
-            ReleaseFailedHandle(handle);
-
+            ReleaseAddressablesHandle(handle);
             return ReadResponse<TAsset>.Fail(exception.Message, exception);
          }
       }
@@ -291,12 +216,15 @@ namespace inonego.Xeri.IO
                throw new FileNotFoundException($"Addressables asset을 로드할 수 없습니다. Type: {typeof(TAsset).Name}", location);
             }
 
-            return ReadResponse<TAsset>.Succeed(asset, new AddressablesReleaseHandle(handle));
+            return ReadResponse<TAsset>.Succeed
+            (
+               asset,
+               new Lease(() => ReleaseAddressablesHandle(handle))
+            );
          }
          catch (Exception exception)
          {
-            ReleaseFailedHandle(handle);
-
+            ReleaseAddressablesHandle(handle);
             return ReadResponse<TAsset>.Fail(exception.Message, exception);
          }
       }
@@ -304,7 +232,7 @@ namespace inonego.Xeri.IO
       // ----------------------------------------------------------------------
       /// <summary>
       /// <br/> Addressables handle 완료 또는 cancellation 중 먼저 발생한 상태를 기다린다.
-      /// <br/> Cancellation이 먼저 발생하면 호출자가 더 기다리지 않도록 handle release 후 취소를 전파한다.
+      /// <br/> Cancellation이 먼저 발생하면 정리 소유자인 상위 실패 경계로 취소를 전파한다.
       /// </summary>
       // ----------------------------------------------------------------------
       private static async Task<TAsset> WaitForAssetAsync
@@ -324,7 +252,6 @@ namespace inonego.Xeri.IO
 
          if (completedTask == cancellationTask)
          {
-            ReleaseFailedHandle(handle);
             cancellationToken.ThrowIfCancellationRequested();
          }
 
@@ -336,7 +263,7 @@ namespace inonego.Xeri.IO
       /// 실패한 Addressables handle을 release한다.
       /// </summary>
       // ------------------------------------------------------------
-      private static void ReleaseFailedHandle(AsyncOperationHandle<TAsset> handle)
+      private static void ReleaseAddressablesHandle(AsyncOperationHandle<TAsset> handle)
       {
          if (handle.IsValid())
          {

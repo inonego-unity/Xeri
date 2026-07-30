@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragDropCoordinator.cs
-수정일 : 2026-05-22
+수정일 : 2026-07-30
 
 # 설명
 DragDropCoordinator 활성 드래그 추적과 드롭 라우팅 테스트.
@@ -179,6 +179,36 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
             Assert.IsTrue(fired);
             CollectionAssert.DoesNotContain(coordinator.ActiveDraggables, draggable);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 같은 DropZone을 새 대상이 점유한 뒤 이전 Drag 종료가 현재 대상을 Drop하지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragDropCoordinator_DropZone대상교체_이전Drag종료가현재대상유지()
+        {
+            var nextDraggable = new Draggable(this, new CoordinateProvider());
+            nextDraggable.PrepareDrag(new InputPoint(2, Vector2.zero));
+            nextDraggable.InvokeDragBegin(new InputPoint(2, Vector2.zero));
+            resolver.DropZone = dropZone;
+            Draggable dropped = null;
+            dropZone.OnDropDone += (_, args) => dropped = args.Draggable;
+
+            coordinator.HandleDragBegin(draggable);
+            coordinator.HandleDrag(draggable, new InputPoint(1, Vector2.zero));
+            coordinator.HandleDragBegin(nextDraggable);
+            coordinator.HandleDrag(nextDraggable, new InputPoint(2, Vector2.zero));
+
+            coordinator.HandleDragEnd(draggable);
+
+            Assert.IsNull(dropped);
+            Assert.AreSame(nextDraggable, dropZone.Draggable);
+
+            coordinator.HandleDragEnd(nextDraggable);
+
+            Assert.AreSame(nextDraggable, dropped);
         }
 
     #endregion

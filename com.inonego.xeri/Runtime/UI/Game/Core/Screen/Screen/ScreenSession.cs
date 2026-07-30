@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenSession.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 한 Screen의 상태, Source, Transition, Layer, 입력과 하위 표시 Handle 수명을 묶는다.
@@ -211,8 +211,8 @@ namespace inonego.Xeri.UI.Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 하위 표시 Handle을 생성 역순으로 해제한다.
-        /// <br/> 실패한 Handle은 소유권을 유지해 다음 종료 시도에서 재시도한다.
+        /// <br/> 하위 표시 Handle을 생성 역순으로 소유 목록에서 먼저 제거한 뒤 한 번 해제한다.
+        /// <br/> 실패한 Handle은 다시 보관하지 않고 나머지 독립 정리를 계속한다.
         /// </summary>
         // ----------------------------------------------------------------------
         internal List<Exception> ReleaseChildren()
@@ -221,10 +221,12 @@ namespace inonego.Xeri.UI.Game
 
             for (var i = childHandles.Count - 1; i >= 0; i--)
             {
+                var handle = childHandles[i];
+                childHandles.RemoveAt(i);
+
                 try
                 {
-                    childHandles[i].Dispose();
-                    childHandles.RemoveAt(i);
+                    handle.Dispose();
                 }
                 catch (Exception exception)
                 {

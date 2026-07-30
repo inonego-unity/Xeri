@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenInputSession.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 한 Screen의 입력·Cursor 정책 점유와 닫기 입력 해제 대기 수명을 표현한다.
@@ -48,7 +48,7 @@ namespace inonego.Xeri.UI.Game
         public ScreenOptions Options { get; }
 
         private Action<ScreenInputSession, bool, bool> release = null;
-        private Action onReleased = null;
+        private Action onReleaseCompleted = null;
 
     #endregion
 
@@ -85,16 +85,12 @@ namespace inonego.Xeri.UI.Game
         (
             bool waitForInputRelease,
             bool retainCursorWhileAwaitingRelease = true,
-            Action onReleased = null
+            Action onReleaseCompleted = null
         )
         {
-            if (IsReleased)
-            {
-                onReleased?.Invoke();
-                return;
-            }
+            if (IsReleased) return;
 
-            this.onReleased += onReleased;
+            this.onReleaseCompleted += onReleaseCompleted;
 
             try
             {
@@ -102,7 +98,7 @@ namespace inonego.Xeri.UI.Game
             }
             catch
             {
-                this.onReleased -= onReleased;
+                this.onReleaseCompleted -= onReleaseCompleted;
                 throw;
             }
         }
@@ -122,23 +118,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 입력 해제 대기 적용 실패 뒤 활성 Session 상태로 되돌린다.
+        /// backend가 Session 수명을 최종 해제 상태로 확정하고 필요할 때 완료 callback을 알린다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void ClearAwaitingRelease()
-        {
-            if (IsReleased) return;
-
-            IsAwaitingRelease = false;
-            RetainsCursorWhileAwaitingRelease = false;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// backend가 Session 수명을 최종 해제 상태로 확정한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal void MarkReleased()
+        internal void MarkReleased(bool invokeCompletionCallback = true)
         {
             if (IsReleased) return;
 
@@ -147,9 +130,13 @@ namespace inonego.Xeri.UI.Game
             IsReleased = true;
             release = null;
 
-            var callback = onReleased;
-            onReleased = null;
-            callback?.Invoke();
+            var completionCallback = onReleaseCompleted;
+            onReleaseCompleted = null;
+
+            if (invokeCompletionCallback)
+            {
+                completionCallback?.Invoke();
+            }
         }
 
     #endregion

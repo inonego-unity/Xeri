@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUILayoutController.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 화면 크기와 Safe Area 변경을 감지해 명시적으로 연결된 RectTransform 경계를 갱신한다.
@@ -80,7 +80,15 @@ namespace inonego.Xeri.UI.Game
 
             lastSafeArea = area;
             lastScreenSize = new Vector2Int(width, height);
-            InvokeLayoutChanged();
+
+            try
+            {
+                OnLayoutChanged?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
         }
 
         // ------------------------------------------------------------
@@ -97,30 +105,6 @@ namespace inonego.Xeri.UI.Game
             if (size == lastScreenSize && Screen.safeArea == lastSafeArea) return;
 
             Refresh();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Layout 변경 구독자를 독립 호출해 Safe Area 갱신 상태를 유지한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void InvokeLayoutChanged()
-        {
-            if (OnLayoutChanged == null) return;
-
-            var invocationList = OnLayoutChanged.GetInvocationList();
-
-            for (var i = 0; i < invocationList.Length; i++)
-            {
-                try
-                {
-                    ((Action)invocationList[i]).Invoke();
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogException(exception, this);
-                }
-            }
         }
 
     #endregion

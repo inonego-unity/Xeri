@@ -201,8 +201,15 @@ namespace inonego.Xeri.UI.DragDrop
             if (currentDraggable == null) return;
 
             var eventArgs = CreateDropEventArgs();
-            OnDropDone?.Invoke(this, eventArgs);
-            Exit();
+
+            try
+            {
+                OnDropDone?.Invoke(this, eventArgs);
+            }
+            finally
+            {
+                Exit();
+            }
         }
 
     #endregion

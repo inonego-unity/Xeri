@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GOCompPool.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-30
 
 # 설명
 Unity Component를 대상으로 하는 오브젝트 풀.
@@ -275,12 +275,18 @@ namespace inonego.Xeri.Pool
         // ------------------------------------------------------------
         public override void Release(T item, bool pushToReleased = true)
         {
-            Release
-            (
-                item,
-                pushToReleased,
-                worldPositionStays: true
-            );
+            if (item == null)
+            {
+                throw new ArgumentNullException(nameof(item));
+            }
+
+            if (!IsAcquired(item))
+            {
+                throw new InvalidOperationException("현재 풀에서 사용 중이지 않은 Component를 반환할 수 없습니다.");
+            }
+
+            // 기본 반환은 PoolBase의 단일 획득 해제 계약을 그대로 사용한다.
+            base.Release(item, pushToReleased);
         }
 
         // ------------------------------------------------------------
@@ -394,6 +400,17 @@ namespace inonego.Xeri.Pool
             );
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Pool이 소유한 채 반환에 실패한 Component의 GameObject를 Provider에 반환합니다.
+        /// <br/> Provider 반환은 이 Terminal 정리 경계에서 한 번만 시도합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected override void OnDiscard(T item)
+        {
+            RequiredProvider.Release(item.gameObject);
+        }
+
     #endregion
 
     #region 풀 사이 이동
@@ -469,7 +486,7 @@ namespace inonego.Xeri.Pool
                 throw;
             }
 
-            acquired.Remove(item);
+            acquiredGens.Remove(item);
         }
 
         // ------------------------------------------------------------
