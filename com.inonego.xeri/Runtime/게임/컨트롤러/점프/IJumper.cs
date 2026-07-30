@@ -5,7 +5,7 @@
 # 설명
 점프 기능의 인터페이스.
 점프 실행 허용 상태와 MaxCount/Count/CoyoteJumpDuration/JumpBufferDuration 설정,
-OnJump 이벤트, Trigger/CancelPending/FixedTick/Reset 메서드를 정의한다.
+OnJump 이벤트, 즉시 실행과 버퍼 요청 메서드를 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -90,6 +90,13 @@ namespace inonego.Xeri.Game.Controller
         /// </summary>
         // ------------------------------------------------------------
         public void Trigger();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 점프 조건이 충족되면 즉시 점프를 실행합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool TryJump();
 
         // ------------------------------------------------------------
         /// <summary>

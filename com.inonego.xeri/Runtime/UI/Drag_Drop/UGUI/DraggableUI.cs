@@ -6,6 +6,8 @@
 UGUI EventSystem 입력을 Core Draggable에 연결하고 모든 종료 경로에서 입력 상태를 복원한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -107,8 +109,12 @@ namespace inonego.Xeri.UI.DragDrop
             set
             {
                 disableRaycastDuringDrag = value;
-                raycastPolicy?.End();
-                raycastPolicy = new UGUIRaycastPolicy(canvasGroup, value);
+
+                if (raycastPolicy != null)
+                {
+                    raycastPolicy.End();
+                    raycastPolicy = new UGUIRaycastPolicy(canvasGroup, value);
+                }
             }
         }
 
@@ -146,6 +152,7 @@ namespace inonego.Xeri.UI.DragDrop
         private UGUIDragCoordinateProvider coordinateProvider = null;
         private UGUIMouseButtonFilter mouseButtonFilter = null;
         private UGUIRaycastPolicy raycastPolicy = null;
+        private Action dragEndCleanup = null;
 
     #endregion
 
@@ -156,57 +163,21 @@ namespace inonego.Xeri.UI.DragDrop
         /// 드래그 시작 시 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event DragEventHandler OnDragBegin
-        {
-            add
-            {
-                EnsureRuntimeObjects();
-                draggable.OnDragBegin += value;
-            }
-            remove
-            {
-                EnsureRuntimeObjects();
-                draggable.OnDragBegin -= value;
-            }
-        }
+        public event DragEventHandler OnDragBegin = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 드래그 진행 중 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event DragEventHandler OnDrag
-        {
-            add
-            {
-                EnsureRuntimeObjects();
-                draggable.OnDrag += value;
-            }
-            remove
-            {
-                EnsureRuntimeObjects();
-                draggable.OnDrag -= value;
-            }
-        }
+        public event DragEventHandler OnDrag = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 드래그 종료 시 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event DragEventHandler OnDragEnd
-        {
-            add
-            {
-                EnsureRuntimeObjects();
-                draggable.OnDragEnd += value;
-            }
-            remove
-            {
-                EnsureRuntimeObjects();
-                draggable.OnDragEnd -= value;
-            }
-        }
+        public event DragEventHandler OnDragEnd = null;
 
     #endregion
 
@@ -219,7 +190,7 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         private void Awake()
         {
-            EnsureRuntimeObjects();
+            InitializeRuntime();
         }
 
         // ------------------------------------------------------------
@@ -238,22 +209,14 @@ namespace inonego.Xeri.UI.DragDrop
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 필요한 컴포넌트를 캐시한다.
+        /// UGUI 컴포넌트와 Core 드래그 연결 객체를 초기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void GetComponents()
+        internal void InitializeRuntime()
         {
             canvasGroup   = GetComponent<CanvasGroup>();
             rectTransform = GetComponent<RectTransform>();
-        }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Core 드래그와 UGUI 연결 객체를 생성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void CreateRuntimeObjects()
-        {
             coordinateProvider = new UGUIDragCoordinateProvider(rectTransform);
             draggable          = new Draggable(this, coordinateProvider)
             {
@@ -262,19 +225,11 @@ namespace inonego.Xeri.UI.DragDrop
             };
             mouseButtonFilter = new UGUIMouseButtonFilter(dragButton);
             raycastPolicy     = new UGUIRaycastPolicy(canvasGroup, disableRaycastDuringDrag);
-        }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// UGUI 연결 객체가 생성되어 있는지 확인한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void EnsureRuntimeObjects()
-        {
-            if (draggable != null) return;
-
-            GetComponents();
-            CreateRuntimeObjects();
+            // 공개 이벤트는 컴포넌트가 소유해 구독만으로 런타임 객체가 생성되지 않게 한다.
+            draggable.OnDragBegin += HandleDragBegin;
+            draggable.OnDrag      += HandleDrag;
+            draggable.OnDragEnd   += HandleDragEnd;
         }
 
         // ------------------------------------------------------------
@@ -294,7 +249,7 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         private bool CanStartDrag(PointerEventData eventData)
         {
-            return mouseButtonFilter != null && mouseButtonFilter.CanDrag(eventData);
+            return mouseButtonFilter.CanDrag(eventData);
         }
 
         // ------------------------------------------------------------
@@ -313,6 +268,26 @@ namespace inonego.Xeri.UI.DragDrop
             if (parent == null) return;
 
             ExecuteEvents.ExecuteHierarchy(parent.gameObject, eventData, callback);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 드래그 종료 경로에서 반드시 실행할 내부 정리 Callback을 추가한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void AddDragEndCleanup(Action cleanup)
+        {
+            dragEndCleanup += cleanup;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 드래그 종료 내부 정리 Callback을 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void RemoveDragEndCleanup(Action cleanup)
+        {
+            dragEndCleanup -= cleanup;
         }
 
         // ------------------------------------------------------------
@@ -337,9 +312,50 @@ namespace inonego.Xeri.UI.DragDrop
                 }
                 finally
                 {
-                    raycastPolicy?.End();
+                    try
+                    {
+                        dragEndCleanup?.Invoke();
+                    }
+                    finally
+                    {
+                        raycastPolicy.End();
+                    }
                 }
             }
+        }
+
+    #endregion
+
+    #region 이벤트 핸들러
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Core 드래그 시작을 컴포넌트 구독자에게 전달한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDragBegin(Draggable sender, DragEventArgs eventData)
+        {
+            OnDragBegin?.Invoke(sender, eventData);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Core 드래그 진행을 컴포넌트 구독자에게 전달한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDrag(Draggable sender, DragEventArgs eventData)
+        {
+            OnDrag?.Invoke(sender, eventData);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Core 드래그 종료를 컴포넌트 구독자에게 전달한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDragEnd(Draggable sender, DragEventArgs eventData)
+        {
+            OnDragEnd?.Invoke(sender, eventData);
         }
 
     #endregion
@@ -350,7 +366,6 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (eventData == null) return;
 
-            EnsureRuntimeObjects();
             coordinateProvider.RefreshEventData(eventData);
 
             if (!CanStartDrag(eventData))
@@ -372,7 +387,6 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (eventData == null) return;
 
-            EnsureRuntimeObjects();
             if (!CanStartDrag(eventData))
             {
                 eventData.pointerDrag = null;
@@ -383,7 +397,6 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (eventData == null) return;
 
-            EnsureRuntimeObjects();
             if (draggable.IsDragging) return;
             if (!CanStartDrag(eventData)) return;
 
@@ -421,7 +434,6 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (eventData == null) return;
 
-            EnsureRuntimeObjects();
             coordinateProvider.RefreshEventData(eventData);
             var input = CreateInputPoint(eventData);
 
@@ -440,7 +452,6 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (eventData == null) return;
 
-            EnsureRuntimeObjects();
             if (!draggable.IsDragging) return;
 
             coordinateProvider.RefreshEventData(eventData);
@@ -458,7 +469,15 @@ namespace inonego.Xeri.UI.DragDrop
                 }
                 finally
                 {
-                    raycastPolicy.End();
+                    try
+                    {
+                        // 공개 종료 구독자가 실패해도 연결이 소유한 시각 자원은 반환한다.
+                        dragEndCleanup?.Invoke();
+                    }
+                    finally
+                    {
+                        raycastPolicy.End();
+                    }
                 }
             }
         }

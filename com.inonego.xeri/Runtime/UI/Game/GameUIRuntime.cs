@@ -831,7 +831,8 @@ namespace inonego.Xeri.UI.Game
 
             if (IsReleased)
             {
-                // Terminal Runtime에서는 명시적으로 남아 있는 Provider 물리 반환만 다시 시도한다.
+                // Terminal Runtime에서는 상태 변경 전 거부되었거나 Provider 반환이 남은
+                // 명시적 소유권만 다시 정리한다.
                 if (sceneFadeSource != null)
                 {
                     try
@@ -942,17 +943,11 @@ namespace inonego.Xeri.UI.Game
             DisposeOwned(visibility, errors);
             DisposeOwned(screenRegistry, errors);
 
-            // 완료 Callback은 성공한 Handle을 즉시 제거하고 Provider 반환 실패 Handle만 남긴다.
+            // 성공한 Handle은 완료 Callback이 제거한다. 상태 변경 전 거부와 Provider 반환 실패는
+            // Runtime 소유 목록에 남겨 후속 Shutdown까지 소유권을 보존한다.
             for (var i = profileHandles.Count - 1; i >= 0; i--)
             {
-                var profileHandle = profileHandles[i];
-                DisposeOwned(profileHandle, errors);
-
-                if (!profileHandle.IsDisposed)
-                {
-                    // 논리 종료 전에 실패한 Handle은 attempt-once 정책에 따라 재시도 대상으로 남기지 않는다.
-                    profileHandles.Remove(profileHandle);
-                }
+                DisposeOwned(profileHandles[i], errors);
             }
 
             DisposeOwned(layout, errors);

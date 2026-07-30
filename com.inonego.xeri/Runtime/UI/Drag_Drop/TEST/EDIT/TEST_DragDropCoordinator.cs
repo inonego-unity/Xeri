@@ -156,6 +156,33 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             Assert.AreSame(draggable, dropZone.Draggable);
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 진입 알림 실패 뒤에도 종료 경로가 실제 DropZone 점유를 정리하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragDropCoordinator_DropEnter실패_종료시점유정리()
+        {
+            resolver.DropZone = dropZone;
+            dropZone.OnDropEnter += (_, _) => throw new InvalidOperationException();
+            coordinator.HandleDragBegin(draggable);
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => coordinator.HandleDrag(draggable, new InputPoint(1, Vector2.zero))
+            );
+
+            var dropped = false;
+            dropZone.OnDropDone += (_, _) => dropped = true;
+
+            coordinator.HandleDragEnd(draggable);
+
+            Assert.IsTrue(dropped);
+            Assert.IsNull(dropZone.Draggable);
+            CollectionAssert.DoesNotContain(coordinator.ActiveDraggables, draggable);
+        }
+
     #endregion
 
     #region R-2: Drop
@@ -200,6 +227,47 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             coordinator.HandleDrag(draggable, new InputPoint(1, Vector2.zero));
             coordinator.HandleDragBegin(nextDraggable);
             coordinator.HandleDrag(nextDraggable, new InputPoint(2, Vector2.zero));
+
+            coordinator.HandleDragEnd(draggable);
+
+            Assert.IsNull(dropped);
+            Assert.AreSame(nextDraggable, dropZone.Draggable);
+
+            coordinator.HandleDragEnd(nextDraggable);
+
+            Assert.AreSame(nextDraggable, dropped);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 교체 이탈 알림 실패 뒤 이전 Drag 종료가 새 점유자를 종료하지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragDropCoordinator_DropExit실패_이전Drag종료가새점유자유지()
+        {
+            var nextDraggable = new Draggable(this, new CoordinateProvider());
+            nextDraggable.PrepareDrag(new InputPoint(2, Vector2.zero));
+            nextDraggable.InvokeDragBegin(new InputPoint(2, Vector2.zero));
+            resolver.DropZone = dropZone;
+
+            coordinator.HandleDragBegin(draggable);
+            coordinator.HandleDrag(draggable, new InputPoint(1, Vector2.zero));
+
+            DropEventHandler throwOnExit = (_, _) => throw new InvalidOperationException();
+            dropZone.OnDropExit += throwOnExit;
+            coordinator.HandleDragBegin(nextDraggable);
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => coordinator.HandleDrag(nextDraggable, new InputPoint(2, Vector2.zero))
+            );
+
+            dropZone.OnDropExit -= throwOnExit;
+            coordinator.HandleDrag(nextDraggable, new InputPoint(2, Vector2.zero));
+
+            Draggable dropped = null;
+            dropZone.OnDropDone += (_, args) => dropped = args.Draggable;
 
             coordinator.HandleDragEnd(draggable);
 

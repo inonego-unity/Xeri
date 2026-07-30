@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GammaRTBlitter.cs
-수정일 : 2026-05-08
+수정일 : 2026-07-30
 
 # 설명
 UI Toolkit PanelSettings 를 offscreen RenderTexture 로 렌더링한 뒤 카메라 출력 위에 gamma→linear blit 합성하는 컴포넌트 비종속 헬퍼.
@@ -123,7 +123,7 @@ namespace inonego.Xeri.UI
             previousForceGammaRendering = panelSettings.forceGammaRendering;
             isPanelOwner                = true;
 
-            EnsureBlitMaterial();
+            PrepareBlitMaterial();
             EnsureRenderTexture();
             ApplyPanelOverrides();
 
@@ -326,7 +326,7 @@ namespace inonego.Xeri.UI
         /// blit 머티리얼을 한 번만 생성한다. 셰이더 누락 시 경고 1회.
         /// </summary>
         // ------------------------------------------------------------
-        private static void EnsureBlitMaterial()
+        private static void PrepareBlitMaterial()
         {
             if (blitMaterial != null) return;
 
@@ -383,7 +383,7 @@ namespace inonego.Xeri.UI
 
             if (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView) return;
 
-            EnsureBlitMaterial();
+            PrepareBlitMaterial();
 
             if (blitMaterial == null) return;
 

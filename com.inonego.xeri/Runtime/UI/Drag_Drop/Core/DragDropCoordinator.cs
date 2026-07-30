@@ -176,11 +176,16 @@ namespace inonego.Xeri.UI.DragDrop
             {
                 var replacedDraggable = nextDropZone.Draggable;
 
-                if (nextDropZone.TryAccept(draggable))
+                try
                 {
-                    // 단일 DropZone이 새 대상을 수용하면 교체된 대상의 오래된 매핑도 함께 끝낸다.
+                    nextDropZone.TryAccept(draggable);
+                }
+                finally
+                {
+                    // DropZone 이벤트가 실패해도 실제 점유 상태와 두 대상의 매핑은 일치시킨다.
                     if (
                         replacedDraggable != null &&
+                        !ReferenceEquals(nextDropZone.Draggable, replacedDraggable) &&
                         currentDropZones.TryGetValue(replacedDraggable, out var replacedDropZone) &&
                         ReferenceEquals(replacedDropZone, nextDropZone)
                     )
@@ -188,7 +193,10 @@ namespace inonego.Xeri.UI.DragDrop
                         currentDropZones.Remove(replacedDraggable);
                     }
 
-                    currentDropZones[draggable] = nextDropZone;
+                    if (ReferenceEquals(nextDropZone.Draggable, draggable))
+                    {
+                        currentDropZones[draggable] = nextDropZone;
+                    }
                 }
             }
         }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DropZoneUI.cs
-수정일 : 2026-05-22
+수정일 : 2026-07-30
 
 # 설명
 UGUI 오브젝트를 Core DropZone으로 등록하는 드롭 가능 UI 컴포넌트.
@@ -96,57 +96,21 @@ namespace inonego.Xeri.UI.DragDrop
         /// 드래그 대상이 드롭 영역에 진입할 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event DropEventHandler OnDropEnter
-        {
-            add
-            {
-                EnsureRuntimeObjects();
-                dropZone.OnDropEnter += value;
-            }
-            remove
-            {
-                EnsureRuntimeObjects();
-                dropZone.OnDropEnter -= value;
-            }
-        }
+        public event DropEventHandler OnDropEnter = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 드래그 대상이 드롭 영역에서 이탈할 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event DropEventHandler OnDropExit
-        {
-            add
-            {
-                EnsureRuntimeObjects();
-                dropZone.OnDropExit += value;
-            }
-            remove
-            {
-                EnsureRuntimeObjects();
-                dropZone.OnDropExit -= value;
-            }
-        }
+        public event DropEventHandler OnDropExit = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 드래그 대상이 드롭 영역에 드롭될 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event DropEventHandler OnDropDone
-        {
-            add
-            {
-                EnsureRuntimeObjects();
-                dropZone.OnDropDone += value;
-            }
-            remove
-            {
-                EnsureRuntimeObjects();
-                dropZone.OnDropDone -= value;
-            }
-        }
+        public event DropEventHandler OnDropDone = null;
 
     #endregion
 
@@ -159,7 +123,20 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         private void Awake()
         {
-            EnsureRuntimeObjects();
+            dropZone = new DropZone(this)
+            {
+                CanDrop = canDrop,
+            };
+
+            foreach (var dropRuleAsset in dropRuleAssets)
+            {
+                dropZone.AddDropRule(dropRuleAsset);
+            }
+
+            // 공개 이벤트는 컴포넌트가 소유해 구독만으로 Core 객체가 생성되지 않게 한다.
+            dropZone.OnDropEnter += HandleDropEnter;
+            dropZone.OnDropExit  += HandleDropExit;
+            dropZone.OnDropDone  += HandleDropDone;
         }
 
         // ------------------------------------------------------------
@@ -169,7 +146,6 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         private void OnEnable()
         {
-            EnsureRuntimeObjects();
             Coordinator.Register(dropZone);
         }
 
@@ -185,36 +161,36 @@ namespace inonego.Xeri.UI.DragDrop
 
     #endregion
 
-    #region 메서드
+    #region 이벤트 핸들러
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Core DropZone과 규칙 목록을 생성한다.
+        /// Core 드롭 진입을 컴포넌트 구독자에게 전달한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void CreateRuntimeObjects()
+        private void HandleDropEnter(DropZone sender, DropEventArgs eventData)
         {
-            dropZone = new DropZone(this)
-            {
-                CanDrop = canDrop,
-            };
-
-            foreach (var dropRuleAsset in dropRuleAssets)
-            {
-                dropZone.AddDropRule(dropRuleAsset);
-            }
+            OnDropEnter?.Invoke(sender, eventData);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Core DropZone이 생성되어 있는지 확인한다.
+        /// Core 드롭 이탈을 컴포넌트 구독자에게 전달한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void EnsureRuntimeObjects()
+        private void HandleDropExit(DropZone sender, DropEventArgs eventData)
         {
-            if (dropZone != null) return;
+            OnDropExit?.Invoke(sender, eventData);
+        }
 
-            CreateRuntimeObjects();
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Core 드롭 완료를 컴포넌트 구독자에게 전달한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDropDone(DropZone sender, DropEventArgs eventData)
+        {
+            OnDropDone?.Invoke(sender, eventData);
         }
 
     #endregion

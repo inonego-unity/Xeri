@@ -32,7 +32,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// DraggableUI의 Begin과 End 이벤트에 Drag Visual 처리를 연결한다.
+        /// DraggableUI의 시작과 보장된 종료 정리에 Drag Visual 처리를 연결한다.
         /// </summary>
         // ------------------------------------------------------------
         internal UGUIDragVisualBinding
@@ -47,7 +47,7 @@ namespace inonego.Xeri.UI.Game
             this.parameters = parameters;
 
             draggable.OnDragBegin += HandleDragBegin;
-            draggable.OnDragEnd += HandleDragEnd;
+            draggable.AddDragEndCleanup(ReleaseDragVisual);
         }
 
     #endregion
@@ -74,7 +74,7 @@ namespace inonego.Xeri.UI.Game
         /// 정상 종료와 강제 취소의 공통 Drag End에서 시각물을 복원한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void HandleDragEnd(Draggable sender, DragEventArgs eventData)
+        private void ReleaseDragVisual()
         {
             var handle = activeHandle;
             activeHandle = null;
@@ -107,10 +107,8 @@ namespace inonego.Xeri.UI.Game
 
             var currentOwner = owner;
             var currentDraggable = draggable;
-            var handle = activeHandle;
             owner = null;
             draggable = null;
-            activeHandle = null;
 
             if (removeFromBindings)
             {
@@ -125,8 +123,8 @@ namespace inonego.Xeri.UI.Game
             finally
             {
                 currentDraggable.OnDragBegin -= HandleDragBegin;
-                currentDraggable.OnDragEnd -= HandleDragEnd;
-                handle?.Dispose();
+                currentDraggable.RemoveDragEndCleanup(ReleaseDragVisual);
+                ReleaseDragVisual();
             }
         }
 

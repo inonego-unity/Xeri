@@ -5,7 +5,7 @@
 # 설명
 IJumper 구현체.
 코요테 점프와 점프 버퍼를 Timer로 관리하며,
-IGroundChecker를 주입 받아 바닥 여부에 따라 점프 가능 여부를 판단한다.
+IGroundChecker를 주입 받아 착지 전환과 현재 접지에 따라 점프 상태를 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -168,7 +168,13 @@ namespace inonego.Xeri.Game.Controller
                 throw new ArgumentNullException("바닥 체커가 null입니다.");
             }
 
+            if (this.groundChecker != null)
+            {
+                this.groundChecker.OnLand -= _OnLand;
+            }
+
             this.groundChecker = groundChecker;
+            this.groundChecker.OnLand += _OnLand;
 
             coyoteJumpTimer.Stop();
             CancelPending();
@@ -182,6 +188,11 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public void Release()
         {
+            if (groundChecker != null)
+            {
+                groundChecker.OnLand -= _OnLand;
+            }
+
             coyoteJumpTimer.Stop();
             CancelPending();
             Reset();
@@ -201,6 +212,36 @@ namespace inonego.Xeri.Game.Controller
         public void Trigger()
         {
             StartJumpBufferTimer();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 점프 조건이 충족되면 즉시 점프를 실행합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool TryJump()
+        {
+            if (groundChecker == null)
+            {
+                throw new NullReferenceException("바닥 체커가 null입니다. Init 메서드를 통해 초기화해주세요.");
+            }
+
+            var canJump = IsJumpAllowed &&
+                          (coyoteJumpTimer.IsRunning || isJumping);
+
+            if (!canJump || Count <= 0)
+            {
+                return false;
+            }
+
+            jumpBufferTimer.Stop();
+            coyoteJumpTimer.Stop();
+
+            Count--;
+            isJumping = true;
+
+            OnJump?.Invoke(this, new() { MaxCount = MaxCount, Count = Count });
+            return true;
         }
 
         // ------------------------------------------------------------
@@ -231,21 +272,15 @@ namespace inonego.Xeri.Game.Controller
             bool isTriggered = jumpBufferTimer.IsRunning;
             bool isGrounded  = groundChecker.IsOnGround;
 
-            // 점프를 했음에도 바닥에서 벗어나지 못하는 경우에 대비해
-            // 업데이트에서 횟수를 리셋합니다.
+            // 접지 중에는 코요테 시간을 유지하되 점프 상태와 횟수는 실제 OnLand 전환에서만 초기화한다.
             if (isGrounded)
             {
-                Reset();
-
                 StartCoyoteJumpTimer();
             }
 
-            bool canJump = IsJumpAllowed &&
-                           (coyoteJumpTimer.IsRunning || isJumping);
-
-            if (isTriggered && canJump)
+            if (isTriggered)
             {
-                Jump();
+                TryJump();
             }
 
             // 타이머 업데이트
@@ -262,28 +297,6 @@ namespace inonego.Xeri.Game.Controller
             isJumping = false;
 
             Count = MaxCount;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 점프를 실행합니다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void Jump()
-        {
-            if (Count <= 0)
-            {
-                return;
-            }
-
-            jumpBufferTimer.Stop();
-            coyoteJumpTimer.Stop();
-
-            Count--;
-
-            isJumping = true;
-
-            OnJump?.Invoke(this, new() { MaxCount = MaxCount, Count = Count });
         }
 
         // ------------------------------------------------------------
@@ -306,6 +319,24 @@ namespace inonego.Xeri.Game.Controller
         {
             jumpBufferTimer.Stop();
             jumpBufferTimer.Start(JumpBufferDuration);
+        }
+
+    #endregion
+
+    #region 이벤트 핸들러
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 실제 비접지에서 접지로 전환된 경우 점프 상태와 횟수를 초기화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void _OnLand
+        (
+            object sender,
+            ValueChangeEventArgs<GameObject> e
+        )
+        {
+            Reset();
         }
 
     #endregion

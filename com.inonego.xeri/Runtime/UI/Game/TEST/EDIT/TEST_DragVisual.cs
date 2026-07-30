@@ -14,9 +14,11 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 
 using NUnit.Framework;
 
@@ -184,6 +186,9 @@ namespace inonego.Xeri.TEST.UI._Game
             target.localScale = new Vector3(1.1f, 0.9f, 1.0f);
             draggable = targetObject.GetComponent<DraggableUI>();
 
+            // EditMode에서는 Unity가 Awake를 호출하지 않으므로 같은 초기화 진입점을 사용한다.
+            draggable.InitializeRuntime();
+
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             ownedObjects.Add(asset);
             SetField(asset, "id", "Drag");
@@ -325,6 +330,62 @@ namespace inonego.Xeri.TEST.UI._Game
                 ExecuteEvents.endDragHandler
             );
 
+            Assert.IsFalse(draggable.IsDragging);
+            Assert.AreSame(originalParent, target.parent);
+            Assert.IsFalse(layerHandle.HasConsumers);
+            Assert.IsTrue(target.GetComponent<CanvasGroup>().blocksRaycasts);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 먼저 등록된 공개 종료 구독자가 실패해도 Drag Visual과 Layer Usage를 정리하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragVisualBinding_종료구독자실패_Visual과LayerUsage정리()
+        {
+            var endCount = 0;
+            draggable.OnDragEnd += (_, _) =>
+            {
+                endCount++;
+                throw new InvalidOperationException
+                (
+                    "injected drag end subscriber failure"
+                );
+            };
+            binding = controller.Bind
+            (
+                draggable,
+                new DragVisualParams(target, "Drag")
+            );
+            var eventData = CreateEventData(new Vector2(100.0f, 120.0f));
+            LogAssert.Expect
+            (
+                LogType.Exception,
+                new Regex("injected drag end subscriber failure")
+            );
+
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.pointerDownHandler
+            );
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.beginDragHandler
+            );
+
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.endDragHandler
+            );
+
+            Assert.AreEqual(1, endCount);
             Assert.IsFalse(draggable.IsDragging);
             Assert.AreSame(originalParent, target.parent);
             Assert.IsFalse(layerHandle.HasConsumers);

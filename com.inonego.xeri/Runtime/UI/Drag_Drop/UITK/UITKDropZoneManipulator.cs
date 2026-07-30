@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKDropZoneManipulator.cs
-수정일 : 2026-05-22
+수정일 : 2026-07-30
 
 # 설명
 UI Toolkit VisualElement 를 Core DropZone으로 등록하는 Manipulator.
@@ -166,38 +166,6 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         protected override void RegisterCallbacksOnTarget()
         {
-            EnsureRuntimeObjects();
-
-            Coordinator.Register(dropZone);
-            dropResolver?.Register(target, dropZone);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// target VisualElement 의 DropZone 등록을 해제한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected override void UnregisterCallbacksFromTarget()
-        {
-            if (dropZone == null) return;
-
-            Coordinator.Unregister(dropZone);
-            dropResolver?.Unregister(target);
-        }
-
-    #endregion
-
-    #region 메서드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Core DropZone이 생성되어 있는지 확인한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void EnsureRuntimeObjects()
-        {
-            if (dropZone != null) return;
-
             dropZone = new DropZone(target)
             {
                 CanDrop = canDrop,
@@ -210,6 +178,33 @@ namespace inonego.Xeri.UI.DragDrop
             {
                 dropZone.AddDropRule(dropRule);
             }
+
+            Coordinator.Register(dropZone);
+            dropResolver?.Register(target, dropZone);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// target VisualElement 의 DropZone 등록을 해제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override void UnregisterCallbacksFromTarget()
+        {
+            try
+            {
+                Coordinator.Unregister(dropZone);
+            }
+            finally
+            {
+                // 이탈 알림이 실패해도 Manipulator가 소유한 Resolver와 이벤트 연결은 해제한다.
+                dropResolver?.Unregister(target);
+                dropZone.OnDropEnter -= InvokeDropEnter;
+                dropZone.OnDropExit  -= InvokeDropExit;
+                dropZone.OnDropDone  -= InvokeDropDone;
+            }
+
+            // Unregister 예외 시 Unity가 기존 target을 유지하므로 성공한 해제에서만 참조를 끝낸다.
+            dropZone = null;
         }
 
     #endregion

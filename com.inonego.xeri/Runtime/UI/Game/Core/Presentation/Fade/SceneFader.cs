@@ -102,7 +102,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                EnsureOverlay();
+                AcquireOverlay();
                 driver = overlay.View;
 
                 // 새 요청은 기존 실행을 끝낸 뒤 색상과 상태를 함께 교체한다.
@@ -198,7 +198,7 @@ namespace inonego.Xeri.UI.Game
         /// Fade Overlay가 없으면 지정 Layer에서 한 번 획득한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void EnsureOverlay()
+        private void AcquireOverlay()
         {
             if (overlay != null && overlayInitialized) return;
 

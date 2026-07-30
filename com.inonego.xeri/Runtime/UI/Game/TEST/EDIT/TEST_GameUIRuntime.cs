@@ -8,7 +8,7 @@ GameUIRuntime의 Profile 롤백, Scene 중복 구성과 초기화·종료 실패
 # 테스트 구성
  P: Profile 획득 실패 롤백
  I: OnInitialized 실패 롤백
- R: OnReleasing 실패와 Terminal 정리
+ R: Runtime 종료 실패와 Terminal 정리
  S: Screen 정리 실패와 Terminal Shutdown
  C: Scene 구성 중복 검증
 ========================================================================= BLOCK_HEADER_END */
@@ -868,6 +868,40 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.DoesNotThrow(fixture.Runtime.Shutdown);
 
             Assert.AreEqual(2, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 활성 Layer 소비자로 Profile 종료가 상태 변경 전에 거부돼도 소유권을 보존하고,
+        /// <br/> 소비자 반환 뒤 후속 Shutdown이 Profile Provider를 반환하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_활성Layer소비자_후속Shutdown에서Profile반환()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.Initialize(fixture.Settings);
+            Assert.IsTrue
+            (
+                fixture.Runtime.LayerRegistry.TryAcquireUsage
+                (
+                    "Fade",
+                    out _,
+                    out var usage
+                )
+            );
+
+            Assert.Throws<AggregateException>(fixture.Runtime.Shutdown);
+
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+            Assert.AreEqual(0, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
+
+            usage.Dispose();
+
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
         }
 

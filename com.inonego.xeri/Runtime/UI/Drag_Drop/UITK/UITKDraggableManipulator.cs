@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKDraggableManipulator.cs
-수정일 : 2026-05-22
+수정일 : 2026-07-30
 
 # 설명
 UI Toolkit Pointer 이벤트를 Core Draggable에 연결하는 Manipulator.
@@ -106,6 +106,11 @@ namespace inonego.Xeri.UI.DragDrop
                 {
                     uitkProvider.ForceAbsolutePosition = value;
                 }
+
+                if (defaultCoordinateProvider != null)
+                {
+                    defaultCoordinateProvider.ForceAbsolutePosition = value;
+                }
             }
         }
 
@@ -147,7 +152,7 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         public IDragCoordinateProvider CoordinateProvider
         {
-            get => coordinateProvider;
+            get => coordinateProvider ?? defaultCoordinateProvider;
             set
             {
                 if (draggable != null) return;
@@ -157,6 +162,7 @@ namespace inonego.Xeri.UI.DragDrop
         }
 
         private IDragCoordinateProvider coordinateProvider = null;
+        private UITKDragCoordinateProvider defaultCoordinateProvider = null;
         private readonly UITKMouseButtonFilter mouseButtonFilter = new();
         private InputPoint beginInput = default;
         private int activeID = -1;
@@ -212,7 +218,27 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         protected override void RegisterCallbacksOnTarget()
         {
-            EnsureRuntimeObjects();
+            var activeCoordinateProvider = coordinateProvider;
+
+            if (activeCoordinateProvider == null)
+            {
+                defaultCoordinateProvider = new UITKDragCoordinateProvider
+                (
+                    target,
+                    forceAbsolutePosition
+                );
+                activeCoordinateProvider = defaultCoordinateProvider;
+            }
+
+            draggable = new Draggable(target, activeCoordinateProvider)
+            {
+                CanMove = canMove,
+                CanDrop = canDrop,
+            };
+            draggable.OnDragBegin += InvokeDragBegin;
+            draggable.OnDrag      += InvokeDrag;
+            draggable.OnDragEnd   += InvokeDragEnd;
+            mouseButtonFilter.Button = dragButton;
 
             target.RegisterCallback<PointerDownEvent>  (OnPointerDown);
             target.RegisterCallback<PointerMoveEvent>  (OnPointerMove);
@@ -232,33 +258,26 @@ namespace inonego.Xeri.UI.DragDrop
             target.UnregisterCallback<PointerUpEvent>    (OnPointerUp);
             target.UnregisterCallback<PointerCancelEvent>(OnPointerCancel);
 
-            ForceDragCancel();
+            try
+            {
+                ForceDragCancel();
+            }
+            finally
+            {
+                // 취소 알림이 실패해도 target에 속한 Core 연결은 함께 끝낸다.
+                draggable.OnDragBegin -= InvokeDragBegin;
+                draggable.OnDrag      -= InvokeDrag;
+                draggable.OnDragEnd   -= InvokeDragEnd;
+            }
+
+            // Unregister 예외 시 Unity가 기존 target을 유지하므로 성공한 해제에서만 참조를 끝낸다.
+            draggable = null;
+            defaultCoordinateProvider = null;
         }
 
     #endregion
 
     #region 메서드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Core Draggable과 UI Toolkit 연결 객체가 생성되어 있는지 확인한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void EnsureRuntimeObjects()
-        {
-            if (draggable != null) return;
-
-            coordinateProvider ??= new UITKDragCoordinateProvider(target, forceAbsolutePosition);
-            draggable          = new Draggable(target, coordinateProvider)
-            {
-                CanMove = canMove,
-                CanDrop = canDrop,
-            };
-            draggable.OnDragBegin += InvokeDragBegin;
-            draggable.OnDrag      += InvokeDrag;
-            draggable.OnDragEnd   += InvokeDragEnd;
-            mouseButtonFilter.Button = dragButton;
-        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -287,20 +306,33 @@ namespace inonego.Xeri.UI.DragDrop
         // ------------------------------------------------------------
         private void ForceDragCancel()
         {
-            if (draggable != null && draggable.IsDragging)
+            try
             {
-                Coordinator.HandleDragCancel(draggable);
-                draggable.ForceDragEnd();
+                if (draggable != null && draggable.IsDragging)
+                {
+                    Coordinator.HandleDragCancel(draggable);
+                }
             }
-
-            if (target != null && activeID >= 0 && target.HasPointerCapture(activeID))
+            finally
             {
-                target.ReleasePointer(activeID);
-            }
+                try
+                {
+                    // Coordinator 실패와 무관하게 Core Draggable의 활성 상태를 끝낸다.
+                    draggable?.ForceDragEnd();
+                }
+                finally
+                {
+                    // 종료 구독자가 실패해도 Manipulator가 소유한 pointer 상태는 반환한다.
+                    if (target != null && activeID >= 0 && target.HasPointerCapture(activeID))
+                    {
+                        target.ReleasePointer(activeID);
+                    }
 
-            activeID            = -1;
-            isWaitingDragBegin = false;
-            beginInput          = default;
+                    activeID            = -1;
+                    isWaitingDragBegin = false;
+                    beginInput          = default;
+                }
+            }
         }
 
     #endregion
@@ -316,8 +348,6 @@ namespace inonego.Xeri.UI.DragDrop
         {
             if (eventData == null) return;
             if (!mouseButtonFilter.CanDrag(eventData)) return;
-
-            EnsureRuntimeObjects();
 
             beginInput = CreateInputPoint(eventData);
             activeID   = beginInput.ID;
@@ -353,12 +383,22 @@ namespace inonego.Xeri.UI.DragDrop
                 // ------------------------------------------------------------
                 // Threshold 지연 보정
                 // ------------------------------------------------------------
-                draggable.InvokeDragBegin(input);
-
-                if (draggable.IsDragging)
+                try
                 {
-                    Coordinator.HandleDragBegin(draggable);
-                    Coordinator.HandleDrag(draggable, input);
+                    draggable.InvokeDragBegin(input);
+
+                    if (draggable.IsDragging)
+                    {
+                        Coordinator.HandleDragBegin(draggable);
+                        Coordinator.HandleDrag(draggable, input);
+                    }
+                }
+                catch
+                {
+                    // 시작 알림 이후 실패한 Drag와 pointer 점유를 같은 입력 흐름에서 끝낸다.
+                    eventData.StopPropagation();
+                    ForceDragCancel();
+                    throw;
                 }
 
                 eventData.StopPropagation();
@@ -389,21 +429,34 @@ namespace inonego.Xeri.UI.DragDrop
 
             var input = CreateInputPoint(eventData);
 
-            if (draggable.IsDragging)
+            try
             {
-                Coordinator.HandleDragEnd(draggable);
-                draggable.InvokeDragEnd(input);
+                if (draggable.IsDragging)
+                {
+                    Coordinator.HandleDragEnd(draggable);
+                }
             }
-
-            if (target.HasPointerCapture(activeID))
+            finally
             {
-                target.ReleasePointer(activeID);
-            }
+                try
+                {
+                    // Coordinator 종료가 실패해도 Core Draggable 상태는 끝낸다.
+                    draggable.InvokeDragEnd(input);
+                }
+                finally
+                {
+                    // 종료 구독자가 실패해도 pointer 상태는 다음 입력을 받을 수 있게 반환한다.
+                    if (target.HasPointerCapture(activeID))
+                    {
+                        target.ReleasePointer(activeID);
+                    }
 
-            activeID            = -1;
-            isWaitingDragBegin = false;
-            beginInput          = default;
-            eventData.StopPropagation();
+                    activeID            = -1;
+                    isWaitingDragBegin = false;
+                    beginInput          = default;
+                    eventData.StopPropagation();
+                }
+            }
         }
 
         // ------------------------------------------------------------
@@ -416,8 +469,14 @@ namespace inonego.Xeri.UI.DragDrop
             if (eventData == null) return;
             if (eventData.pointerId != activeID) return;
 
-            ForceDragCancel();
-            eventData.StopPropagation();
+            try
+            {
+                ForceDragCancel();
+            }
+            finally
+            {
+                eventData.StopPropagation();
+            }
         }
 
     #endregion
