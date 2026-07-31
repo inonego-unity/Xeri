@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenController.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Screen Open·Close·Replace·Clear 명령과 Stack, 상태 훅, Transition과 대칭 수명을 중재한다.
@@ -164,8 +164,7 @@ namespace inonego.Xeri.UI.Game
             if (hookDepth > 0) return false;
             if (!IsAvailable || session == null || !ReferenceEquals(Top, session)) return false;
 
-            if (session.State != ScreenState.Opening &&
-                session.State != ScreenState.Active)
+            if (session.State != ScreenState.Opening && session.State != ScreenState.Active)
             {
                 return false;
             }
@@ -261,9 +260,7 @@ namespace inonego.Xeri.UI.Game
                 return ScreenOpenResponse.Reject("Replace는 Active top Screen에서만 시작할 수 있습니다.");
             }
 
-            if (!replace &&
-                previous != null &&
-                previous.State != ScreenState.Active)
+            if (!replace && previous != null && previous.State != ScreenState.Active)
             {
                 return ScreenOpenResponse.Reject("현재 top Screen이 전환 중입니다.");
             }
@@ -273,18 +270,20 @@ namespace inonego.Xeri.UI.Game
                 return ScreenOpenResponse.Reject($"Screen '{id}'가 등록되어 있지 않습니다.");
             }
 
-            if (registration.Options.DuplicatePolicy == ScreenDuplicatePolicy.Reject &&
-                HasLiveScreen(id))
+            if (registration.Options.DuplicatePolicy == ScreenDuplicatePolicy.Reject && HasLiveScreen(id))
             {
                 return ScreenOpenResponse.Reject($"Screen '{id}'의 중복 Open이 거부됐습니다.");
             }
 
-            if (!layerRegistry.TryAcquireUsage
+            if
+            (
+                !layerRegistry.TryAcquireUsage
                 (
                     registration.Options.LayerID,
                     out var layerDriver,
                     out var layerUsage
-                ))
+                )
+            )
             {
                 return ScreenOpenResponse.Reject
                 (
@@ -472,8 +471,11 @@ namespace inonego.Xeri.UI.Game
         {
             for (var i = 0; i < liveSessions.Count; i++)
             {
-                if (liveSessions[i].State != ScreenState.Closed &&
-                    string.Equals(liveSessions[i].ID, id, StringComparison.Ordinal))
+                if
+                (
+                    liveSessions[i].State != ScreenState.Closed &&
+                    string.Equals(liveSessions[i].ID, id, StringComparison.Ordinal)
+                )
                 {
                     return true;
                 }
@@ -1158,9 +1160,7 @@ namespace inonego.Xeri.UI.Game
                 session.SourceReleased = true;
             }
 
-            if (releaseSource &&
-                session.Instance != null &&
-                !session.SourceReleased)
+            if (releaseSource && session.Instance != null && !session.SourceReleased)
             {
                 try
                 {

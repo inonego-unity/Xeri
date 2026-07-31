@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationLayerRegistry.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 stable string ID로 Presentation Layer를 등록하고 조회하며 활성 소비자 수를 추적한다.
@@ -199,8 +199,7 @@ namespace inonego.Xeri.UI.Game
                 var errors = new List<Exception> { exception };
 
                 // Registry에 공개한 등록만 제거하고 남은 Layer 순서를 복원한다.
-                if (entries.TryGetValue(asset.ID, out var current) &&
-                    ReferenceEquals(current, entry))
+                if (entries.TryGetValue(asset.ID, out var current) && ReferenceEquals(current, entry))
                 {
                     entries.Remove(asset.ID);
                     entry.Handle?.MarkDisposed();
@@ -320,8 +319,7 @@ namespace inonego.Xeri.UI.Game
 
             if (isDisposed) return;
 
-            if (!entries.TryGetValue(entry.Asset.ID, out var current) ||
-                !ReferenceEquals(current, entry))
+            if (!entries.TryGetValue(entry.Asset.ID, out var current) || !ReferenceEquals(current, entry))
             {
                 return;
             }
@@ -404,8 +402,7 @@ namespace inonego.Xeri.UI.Game
             {
                 var current = pair.Value;
 
-                if (current.Asset.Mode == asset.Mode &&
-                    current.Asset.Order == asset.Order)
+                if (current.Asset.Mode == asset.Mode && current.Asset.Order == asset.Order)
                 {
                     throw new InvalidOperationException
                     (
@@ -414,9 +411,12 @@ namespace inonego.Xeri.UI.Game
                     );
                 }
 
-                if (asset.Mode == PresentationLayerMode.Shared &&
+                if
+                (
+                    asset.Mode == PresentationLayerMode.Shared &&
                     current.Asset.Mode == PresentationLayerMode.Shared &&
-                    current.Root.parent != root.parent)
+                    current.Root.parent != root.parent
+                )
                 {
                     throw new InvalidOperationException
                     (

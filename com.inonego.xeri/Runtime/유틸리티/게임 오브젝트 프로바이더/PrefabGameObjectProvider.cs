@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PrefabGameObjectProvider.cs
-수정일 : 2026-07-28
+수정일 : 2026-07-31
 
 # 설명
 프리팹을 이용하여 게임 오브젝트를 생성하는 기본 프로바이더.
@@ -119,12 +119,7 @@ namespace inonego.Xeri
             var instances = await GameObject.InstantiateAsync(prefab, parameters);
             await Awaitable.MainThreadAsync();
 
-            if
-            (
-                instances == null
-                || instances.Length == 0
-                || instances[0] == null
-            )
+            if (instances == null || instances.Length == 0 || instances[0] == null)
             {
                 throw new InvalidOperationException("Prefab 인스턴스를 생성하지 못했습니다.");
             }

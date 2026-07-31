@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityViewBinder.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 EntitySpawnRegistry의 필수 소유권 바인딩을 Entity View 생성·회수 흐름으로 동기화한다.
@@ -249,8 +249,7 @@ namespace inonego.Xeri.Game
         {
             if (boundRegistry == null) return;
 
-            if (!boundRegistry.Spawned.TryGetValue(key, out var current) ||
-                !ReferenceEquals(current, entity))
+            if (!boundRegistry.Spawned.TryGetValue(key, out var current) || !ReferenceEquals(current, entity))
             {
                 return;
             }

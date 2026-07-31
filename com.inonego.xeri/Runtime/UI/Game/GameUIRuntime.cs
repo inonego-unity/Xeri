@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 App 단위 Game UI 서비스, Scene 구성 검증, 기본·추가 Profile과 Host backend의 생성·역순 해제를 소유한다.
@@ -662,14 +662,12 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("Input Module과 EventSystem이 같은 Host에 연결되지 않았습니다.");
             }
 
-            if (layoutController == null || !layoutController.enabled ||
-                layoutController.SafeAreaRoot == null)
+            if (layoutController == null || !layoutController.enabled || layoutController.SafeAreaRoot == null)
             {
                 throw new InvalidOperationException("활성 UGUI Layout Controller와 Safe Area Root가 필요합니다.");
             }
 
-            if (focusDriver == null || !focusDriver.enabled ||
-                focusDriver.EventSystem != eventSystem)
+            if (focusDriver == null || !focusDriver.enabled || focusDriver.EventSystem != eventSystem)
             {
                 throw new InvalidOperationException("UGUI Focus Driver가 Host EventSystem에 연결되지 않았습니다.");
             }

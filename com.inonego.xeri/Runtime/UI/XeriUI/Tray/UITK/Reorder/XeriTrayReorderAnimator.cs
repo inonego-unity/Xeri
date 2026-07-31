@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명: XeriTrayReorderAnimator.cs
-수정일: 2026-05-25
+수정일: 2026-07-31
 
 # 설명
 Tray reorder preview에서 주변 entry를 transform 기반으로 이동시킨다.
@@ -120,16 +120,12 @@ namespace inonego.Xeri.UI.Tray
         {
             var offset = 0f;
 
-            if (targetIndex > sourceIndex &&
-                index > sourceIndex &&
-                index <= targetIndex)
+            if (targetIndex > sourceIndex && index > sourceIndex && index <= targetIndex)
             {
                 offset = GetAxisCenter(bounds[index - 1], axis) -
                          GetAxisCenter(bounds[index], axis);
             }
-            else if (targetIndex < sourceIndex &&
-                     index >= targetIndex &&
-                     index < sourceIndex)
+            else if (targetIndex < sourceIndex && index >= targetIndex && index < sourceIndex)
             {
                 offset = GetAxisCenter(bounds[index + 1], axis) -
                          GetAxisCenter(bounds[index], axis);

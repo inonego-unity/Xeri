@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowTitleBarManipulator.cs
-수정일 : 2026-06-08
+수정일 : 2026-07-31
 
 # 설명
 XeriWindowPanel titlebar drag와 double click 상태 전환을 처리하는 wrapper manipulator.
@@ -339,9 +339,12 @@ namespace inonego.Xeri.UI.Window
         {
             var now = Time.realtimeSinceStartup;
 
-            if (hasPreviousTitleBarClick &&
+            if
+            (
+                hasPreviousTitleBarClick &&
                 now - lastClickTime <= DOUBLE_CLICK_INTERVAL &&
-                Vector2.Distance(clickPos, lastClickPos) <= DOUBLE_CLICK_DISTANCE)
+                Vector2.Distance(clickPos, lastClickPos) <= DOUBLE_CLICK_DISTANCE
+            )
             {
                 ClearTitleBarClick();
                 return true;

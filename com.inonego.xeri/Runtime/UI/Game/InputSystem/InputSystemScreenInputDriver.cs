@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : InputSystemScreenInputDriver.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Screen 입력 정책을 Input System Action Map과 Cursor 상태에 합성하고 입력 해제 장벽을 갱신한다.
@@ -612,9 +612,12 @@ namespace inonego.Xeri.UI.Game
                 {
                     hasReleaseBarrier = true;
 
-                    if (sessionState.Session.RetainsCursorWhileAwaitingRelease &&
+                    if
+                    (
+                        sessionState.Session.RetainsCursorWhileAwaitingRelease &&
                         (retainedCursorSession == null ||
-                        sessionState.Sequence > retainedCursorSession.Sequence))
+                        sessionState.Sequence > retainedCursorSession.Sequence)
+                    )
                     {
                         retainedCursorSession = sessionState;
                     }
@@ -624,10 +627,13 @@ namespace inonego.Xeri.UI.Game
 
                 blocksGameplay |= sessionState.Session.Options.BlocksGameplayInput;
 
-                if (cursorSession == null ||
+                if
+                (
+                    cursorSession == null ||
                     sessionState.Session.Options.InputPriority > cursorSession.Session.Options.InputPriority ||
                     (sessionState.Session.Options.InputPriority == cursorSession.Session.Options.InputPriority &&
-                    sessionState.Sequence > cursorSession.Sequence))
+                    sessionState.Sequence > cursorSession.Sequence)
+                )
                 {
                     cursorSession = sessionState;
                 }
@@ -867,8 +873,7 @@ namespace inonego.Xeri.UI.Game
             InputActionChange change
         )
         {
-            if (change != InputActionChange.ActionPerformed ||
-                changedObject is not InputAction action)
+            if (change != InputActionChange.ActionPerformed || changedObject is not InputAction action)
             {
                 return;
             }

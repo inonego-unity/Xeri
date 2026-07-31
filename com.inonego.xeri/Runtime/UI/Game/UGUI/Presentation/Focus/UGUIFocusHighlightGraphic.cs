@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIFocusHighlightGraphic.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 UGUI dim 영역을 여러 사각 Focus 구멍으로 분할 렌더링하고 구멍 바깥 Raycast만 차단한다.
@@ -91,13 +91,16 @@ namespace inonego.Xeri.UI.Game
         {
             if (!blocksOutsideInput) return false;
 
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle
+            if
+            (
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle
                 (
                     rectTransform,
                     screenPoint,
                     eventCamera,
                     out var localPoint
-                ))
+                )
+            )
             {
                 return true;
             }

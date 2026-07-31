@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowController.cs
-수정일 : 2026-06-08
+수정일 : 2026-07-31
 
 # 설명
 Xeri 커스텀 윈도우 상태 전환, 명령, 이벤트를 관리하는 controller.
@@ -413,8 +413,7 @@ namespace inonego.Xeri.UI.Window
                 return false;
             }
 
-            if (request.Kind == XeriWindowStateCommandKind.Restore &&
-                currentState == XeriWindowState.Minimized)
+            if (request.Kind == XeriWindowStateCommandKind.Restore && currentState == XeriWindowState.Minimized)
             {
                 nextState = minimizedRestoreState;
             }

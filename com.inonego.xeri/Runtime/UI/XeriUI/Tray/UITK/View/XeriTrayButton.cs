@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명: XeriTrayButton.cs
-수정일: 2026-05-23
+수정일: 2026-07-31
 
 # 설명
 공통 Tray entry 하나를 표시하는 UITK VisualElement.
@@ -180,8 +180,11 @@ namespace inonego.Xeri.UI.Tray
             badgeLabel  = tree.Q<Label>("entry-badge");
             closeButton = tree.Q<Button>("entry-close-button");
 
-            if (stateMarker == null || iconElement == null || titleLabel == null ||
-                badgeLabel == null || closeButton == null)
+            if
+            (
+                stateMarker == null || iconElement == null || titleLabel == null ||
+                badgeLabel == null || closeButton == null
+            )
             {
                 throw new InvalidOperationException("XeriTrayButton UXML에 필수 element가 없습니다.");
             }

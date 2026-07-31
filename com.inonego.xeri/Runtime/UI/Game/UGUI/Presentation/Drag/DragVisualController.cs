@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DragVisualController.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 UGUI Drag Visual의 Layer Usage, 일시적 계층 재배치와 기존 Draggable 연결을 소유한다.
@@ -82,12 +82,7 @@ namespace inonego.Xeri.UI.Game
             ValidateParameters(parameters);
             ThrowIfLayerRegistryMissing();
 
-            if (!layerRegistry.TryAcquireUsage
-            (
-                parameters.LayerID,
-                out var driver,
-                out var usage
-            ))
+            if (!layerRegistry.TryAcquireUsage(parameters.LayerID, out var driver, out var usage))
             {
                 throw new InvalidOperationException
                 (

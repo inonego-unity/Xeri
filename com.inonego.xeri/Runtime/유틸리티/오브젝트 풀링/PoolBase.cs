@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PoolBase.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 오브젝트 풀링을 위한 추상 베이스 클래스.
@@ -524,11 +524,7 @@ namespace inonego.Xeri.Pool
             bool removeFromAcquired = true
         )
         {
-            if
-            (
-                !acquiredGens.TryGetValue(item, out var currentGeneration) ||
-                currentGeneration != generation
-            )
+            if (!acquiredGens.TryGetValue(item, out var currentGeneration) || currentGeneration != generation)
             {
                 return;
             }

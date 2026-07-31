@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenRegistry.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Screen Options와 Source를 stable string ID로 등록하고 새 Open 조회를 제공한다.
@@ -194,8 +194,7 @@ namespace inonego.Xeri.UI.Game
 
             if (isDisposed) return;
 
-            if (entries.TryGetValue(entry.Options.ID, out var current) &&
-                ReferenceEquals(current, entry))
+                if (entries.TryGetValue(entry.Options.ID, out var current) && ReferenceEquals(current, entry))
             {
                 ReleaseRegistration(entry);
             }

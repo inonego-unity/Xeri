@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowRegistry.cs
-수정일 : 2026-06-08
+수정일 : 2026-07-31
 
 # 설명
 Xeri 커스텀 윈도우 controller와 저장 record를 관리하는 registry.
@@ -369,10 +369,13 @@ namespace inonego.Xeri.UI.Window
         // ------------------------------------------------------------
         private bool TryGetEntry(XeriWindowHandle handle, out RegistryEntry entry)
         {
-            if (handle != null &&
+            if
+            (
+                handle != null &&
                 !string.IsNullOrEmpty(handle.ID) &&
                 entries.TryGetValue(handle.ID, out entry) &&
-                entry.Handle == handle)
+                entry.Handle == handle
+            )
             {
                 return true;
             }

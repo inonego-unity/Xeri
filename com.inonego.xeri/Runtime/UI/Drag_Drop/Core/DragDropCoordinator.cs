@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DragDropCoordinator.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Draggable 과 DropZone 의 등록, 활성 드래그 추적, 드롭 라우팅을 조율한다.
@@ -183,7 +183,8 @@ namespace inonego.Xeri.UI.DragDrop
                 finally
                 {
                     // DropZone 이벤트가 실패해도 실제 점유 상태와 두 대상의 매핑은 일치시킨다.
-                    if (
+                    if
+                    (
                         replacedDraggable != null &&
                         !ReferenceEquals(nextDropZone.Draggable, replacedDraggable) &&
                         currentDropZones.TryGetValue(replacedDraggable, out var replacedDropZone) &&

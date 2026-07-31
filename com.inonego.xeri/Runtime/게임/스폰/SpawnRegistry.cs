@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SpawnRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 스폰 레지스트리 베이스·구현체와 스폰된 객체 사전, 디스폰 확장 메서드 정의.
@@ -497,8 +497,11 @@ namespace inonego.Xeri.Game
                 throw new InvalidOperationException("디스폰할 객체에 키가 설정되어 있지 않습니다.");
             }
 
-            if (!_Spawned.TryGetValue(despawnable.Key, out var registered) ||
-                !ReferenceEquals(registered, despawnable))
+            if
+            (
+                !_Spawned.TryGetValue(despawnable.Key, out var registered) ||
+                !ReferenceEquals(registered, despawnable)
+            )
             {
                 throw new KeyNotFoundException
                 (
@@ -597,9 +600,12 @@ namespace inonego.Xeri.Game
                 foreach (var (key, entity) in snapshot)
                 {
                     // 앞선 구독자가 이미 처리한 항목은 중복 디스폰하지 않는다.
-                    if (!_Spawned.TryGetValue(key, out var current) ||
+                    if
+                    (
+                        !_Spawned.TryGetValue(key, out var current) ||
                         !ReferenceEquals(current, entity) ||
-                        entity.SpawnState != SpawnState.Spawned)
+                        entity.SpawnState != SpawnState.Spawned
+                    )
                     {
                         continue;
                     }

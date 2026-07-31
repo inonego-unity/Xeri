@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityBase.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 엔티티 추상 베이스 클래스.
@@ -364,8 +364,7 @@ namespace inonego.Xeri.Game
             OnHPStateChange(sender, e);
 
             // 파생 훅이 다른 사유로 먼저 디스폰했다면 해당 결정을 보존한다.
-            if (e.Current == HPState.Dead &&
-                spawnState == SpawnState.Spawned)
+            if (e.Current == HPState.Dead && spawnState == SpawnState.Spawned)
             {
                 this.Despawn(DespawnReason.Dead);
             }

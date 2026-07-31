@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIProfileHandle.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Profile이 획득한 Layer 등록과 Provider GameObject의 대칭 수명을 생성 역순으로 소유한다.
@@ -156,8 +156,7 @@ namespace inonego.Xeri.UI.Game
             {
                 var layerHandle = ownedLayers[i].LayerHandle;
 
-                if (layerHandle != null &&
-                    layerHandle.HasConsumers)
+                if (layerHandle != null && layerHandle.HasConsumers)
                 {
                     throw new InvalidOperationException
                     (

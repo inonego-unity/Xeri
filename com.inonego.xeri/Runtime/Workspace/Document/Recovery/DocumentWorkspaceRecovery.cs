@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentWorkspaceRecovery.cs
-수정일 : 2026-07-01
+수정일 : 2026-07-31
 
 # 설명
 DocumentWorkspace의 열린 session 목록을 recovery record로 만들고, workspace 단위 recovery record를 복구한다.
@@ -154,7 +154,8 @@ namespace inonego.Xeri.Workspace.Document
 
          // Location을 가진 recovery는 Open과 같은 중복 기준을 따른다.
          // 새 candidate를 workspace에 공개하기 전에 확인해야 기존 session을 덮거나 중복 추가하지 않는다.
-         if (
+            if
+            (
                session.Location != null &&
                workspace.TryFindOpenSession(session.Document.TypeID, session.Location, out var existingSession)
             )

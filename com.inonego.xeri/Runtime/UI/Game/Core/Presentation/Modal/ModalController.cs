@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ModalController.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Modal 표시 순서를 소유하고 Stack 상단만 상호작용 가능하도록 backend 상태를 갱신한다.
@@ -157,11 +157,14 @@ namespace inonego.Xeri.UI.Game
             }
 
             // 현재 Modal의 필수 정리가 모두 성공한 경우에만 이전 화면을 다시 공개한다.
-            if (errors.Count == 0 &&
+            if
+            (
+                errors.Count == 0 &&
                 previous != null &&
                 !isDisposed &&
                 stack.Count > 0 &&
-                ReferenceEquals(stack[stack.Count - 1], previous))
+                ReferenceEquals(stack[stack.Count - 1], previous)
+            )
             {
                 try
                 {

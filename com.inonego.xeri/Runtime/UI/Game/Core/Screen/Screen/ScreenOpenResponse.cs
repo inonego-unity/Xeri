@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenOpenResponse.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 Screen Open 시작 결과와 성공 Session 또는 실패 정보를 불변 응답으로 제공한다.
@@ -101,15 +101,16 @@ namespace inonego.Xeri.UI.Game
                 }
             }
 
-            if ((kind == ScreenOpenKind.Rejected || kind == ScreenOpenKind.Cancelled) &&
-                exception != null)
+            if ((kind == ScreenOpenKind.Rejected || kind == ScreenOpenKind.Cancelled) && exception != null)
             {
                 throw new ArgumentException("거부·취소 응답에는 Exception을 포함할 수 없습니다.", nameof(exception));
             }
 
-            if ((kind == ScreenOpenKind.SourceFailed ||
-                kind == ScreenOpenKind.TransitionFailed) &&
-                exception == null)
+            if
+            (
+                (kind == ScreenOpenKind.SourceFailed || kind == ScreenOpenKind.TransitionFailed) &&
+                exception == null
+            )
             {
                 throw new ArgumentNullException(nameof(exception));
             }

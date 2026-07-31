@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriUITKWindowStateTransitioner.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-31
 
 # 설명
 Xeri window 상태 전환 lifecycle과 UITK animator를 연결한다.
@@ -137,8 +137,11 @@ namespace inonego.Xeri.UI.Window
       {
          if (!IsRunning) return true;
 
-         if (pendingState == request.NextState &&
-             request.InterruptPolicy == XeriWindowTransitionInterruptPolicy.IgnoreSameTarget)
+         if
+         (
+             pendingState == request.NextState &&
+             request.InterruptPolicy == XeriWindowTransitionInterruptPolicy.IgnoreSameTarget
+         )
          {
             return false;
          }
@@ -160,8 +163,7 @@ namespace inonego.Xeri.UI.Window
       private static void PrepareDriver(XeriWindowStateTransitionRequest request)
       {
          // 표시되는 상태로 들어가는 animation은 완료 전에도 element가 보일 수 있어야 한다.
-         if (request.NextState != XeriWindowState.Minimized &&
-             request.NextState != XeriWindowState.Closed)
+         if (request.NextState != XeriWindowState.Minimized && request.NextState != XeriWindowState.Closed)
          {
             request.Driver.SetVisible(true);
          }
@@ -220,8 +222,7 @@ namespace inonego.Xeri.UI.Window
 
          request.Driver.CommitState(request.NextState);
 
-         if (request.NextState == XeriWindowState.Minimized ||
-             request.NextState == XeriWindowState.Closed)
+         if (request.NextState == XeriWindowState.Minimized || request.NextState == XeriWindowState.Closed)
          {
             request.Driver.SetVisible(false);
          }

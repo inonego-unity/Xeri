@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SceneFader.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 App 기본 Layer의 Fade Overlay를 Cover부터 Reveal 또는 종료까지 소유하는 상태 머신이다.
@@ -320,9 +320,12 @@ namespace inonego.Xeri.UI.Game
             }
 
             // 동기 완료 backend는 callback에서 이미 상태를 확정했으므로 Handle을 보관하지 않는다.
-            if (currentGeneration == generation &&
+            if
+            (
+                currentGeneration == generation &&
                 (State == SceneFadeState.Covering || State == SceneFadeState.Revealing) &&
-                handle.IsPending)
+                handle.IsPending
+            )
             {
                 transition = handle;
             }

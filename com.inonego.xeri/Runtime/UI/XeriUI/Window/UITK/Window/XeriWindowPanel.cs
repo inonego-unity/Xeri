@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriWindowPanel.cs
-수정일 : 2026-06-09
+수정일 : 2026-07-31
 
 # 설명
 Xeri 커스텀 윈도우 하나를 표시하는 UITK VisualElement.
@@ -495,12 +495,15 @@ namespace inonego.Xeri.UI.Window
             resizeBottomLeft  = tree.Q<VisualElement>("resize-bottom-left");
             resizeBottomRight = tree.Q<VisualElement>("resize-bottom-right");
 
-            if (titleBar == null || titleIcon == null || titleLabel == null ||
+            if
+            (
+                titleBar == null || titleIcon == null || titleLabel == null ||
                 contentSlot == null || titleActions == null ||
                 minimizeButton == null || maximizeButton == null || closeButton == null ||
                 resizeLeft == null || resizeTop == null || resizeRight == null ||
                 resizeBottom == null || resizeTopLeft == null || resizeTopRight == null ||
-                resizeBottomLeft == null || resizeBottomRight == null)
+                resizeBottomLeft == null || resizeBottomRight == null
+            )
             {
                 throw new InvalidOperationException("XeriWindow UXML에 필수 element가 없습니다.");
             }

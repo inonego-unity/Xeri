@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntitySpawnRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 엔티티 전용 스폰 레지스트리 베이스·구현체.
@@ -100,9 +100,7 @@ namespace inonego.Xeri.Game
         // ----------------------------------------------------------------------
         protected static void ClearAssignedKey(TEntity entity)
         {
-            if (entity != null &&
-                entity.SpawnState == SpawnState.Despawned &&
-                entity.HasKey)
+            if (entity != null && entity.SpawnState == SpawnState.Despawned && entity.HasKey)
             {
                 entity.ClearKey();
             }
@@ -161,9 +159,7 @@ namespace inonego.Xeri.Game
                 finally
                 {
                     // 공통 Spawn에 진입하기 전 실패한 유효 후보만 획득 출처에 직접 반환한다.
-                    if (!wasSpawnStarted &&
-                        entity != null &&
-                        entity.SpawnState == SpawnState.Despawned)
+                    if (!wasSpawnStarted && entity != null && entity.SpawnState == SpawnState.Despawned)
                     {
                         Release(entity, DespawnReason.SpawnRollback);
                     }
@@ -256,9 +252,7 @@ namespace inonego.Xeri.Game
                 finally
                 {
                     // 공통 Spawn에 진입하기 전 실패한 유효 후보만 획득 출처에 직접 반환한다.
-                    if (!wasSpawnStarted &&
-                        entity != null &&
-                        entity.SpawnState == SpawnState.Despawned)
+                    if (!wasSpawnStarted && entity != null && entity.SpawnState == SpawnState.Despawned)
                     {
                         Release(entity, DespawnReason.SpawnRollback);
                     }

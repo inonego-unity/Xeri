@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriUITKWindowStateAnimator.cs
-수정일 : 2026-05-28
+수정일 : 2026-07-31
 
 # 설명
 Xeri window 상태 전환을 UITK VisualElement style animation으로 표현한다.
@@ -178,15 +178,17 @@ namespace inonego.Xeri.UI.Window
       // ------------------------------------------------------------
       private void ApplyOpacity(float progress)
       {
-         if (context.NextState == XeriWindowState.Minimized ||
-             context.NextState == XeriWindowState.Closed)
+         if (context.NextState == XeriWindowState.Minimized || context.NextState == XeriWindowState.Closed)
          {
             target.style.opacity = Mathf.Lerp(1f, options.HiddenOpacity, progress);
             return;
          }
 
-         if (context.PreviousState == XeriWindowState.Minimized ||
-             context.PreviousState == XeriWindowState.Closed)
+         if
+         (
+             context.PreviousState == XeriWindowState.Minimized ||
+             context.PreviousState == XeriWindowState.Closed
+         )
          {
             target.style.opacity = Mathf.Lerp(options.HiddenOpacity, 1f, progress);
             return;
@@ -205,8 +207,11 @@ namespace inonego.Xeri.UI.Window
          var from = context.PreviousBounds;
          var to = context.TargetBounds ?? targetProvider.GetTargetBounds(context.NextState, from);
 
-         if (context.NextState != XeriWindowState.Maximized &&
-             !(context.NextState == XeriWindowState.Normal && context.TargetBounds.HasValue))
+         if
+         (
+             context.NextState != XeriWindowState.Maximized &&
+             !(context.NextState == XeriWindowState.Normal && context.TargetBounds.HasValue)
+         )
          {
             return;
          }

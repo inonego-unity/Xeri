@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DocumentRecoveryResponse.cs
-수정일 : 2026-07-01
+수정일 : 2026-07-31
 
 # 설명
 Workspace document recovery record 생성과 복구 요청의 성공 여부를 담는 응답 값을 정의한다.
@@ -485,8 +485,11 @@ namespace inonego.Xeri.Workspace.Document
             throw new ArgumentNullException(nameof(session));
          }
 
-         if (kind != DocumentSessionRecoveryKind.Recovered &&
-             kind != DocumentSessionRecoveryKind.AlreadyOpen)
+            if
+            (
+                kind != DocumentSessionRecoveryKind.Recovered &&
+                kind != DocumentSessionRecoveryKind.AlreadyOpen
+            )
          {
             throw new ArgumentException("Session recovery 성공 종류가 올바르지 않습니다.", nameof(kind));
          }
