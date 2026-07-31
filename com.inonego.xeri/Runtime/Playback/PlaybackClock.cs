@@ -33,7 +33,6 @@ namespace inonego.Xeri.Playback
     /// 외부 delta로 재생 상태와 위치를 진행하는 Playback Clock.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PlaybackClock : IPlaybackClock
     {
     #region 필드
@@ -89,9 +88,13 @@ namespace inonego.Xeri.Playback
             get => speed;
             set
             {
-                if (value <= 0.0f)
+                if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0.0f)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(value), "Speed는 0보다 커야 합니다.");
+                    throw new ArgumentOutOfRangeException
+                    (
+                        nameof(value),
+                        "Speed는 유한한 0보다 큰 값이어야 합니다."
+                    );
                 }
 
                 speed = value;
@@ -134,7 +137,7 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Loop 재생이 Duration 경계를 통과할 때 발생한다.
+        /// Loop 재생이 하나 이상의 Duration 경계를 통과한 Tick에 한 번 발생한다.
         /// </summary>
         // ------------------------------------------------------------
         public event Action OnLooped = null;
@@ -146,14 +149,19 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------
         /// <summary>
         /// <br/> 전체 재생 길이를 변경하고 현재 위치를 새 범위에 맞춘다.
-        /// <br/> 재생 중 현재 위치 이하로 줄어들면 최종 위치를 확정하고 자연 완료한다.
+        /// <br/> Loop가 아닌 재생 중 현재 위치 이하로 줄어들면 최종 위치를 확정하고 자연 완료한다.
+        /// <br/> Loop 재생은 새 Duration 끝으로 위치를 맞추고 재생을 유지한다.
         /// </summary>
         // ----------------------------------------------------------------------
         public void SetDuration(float duration)
         {
-            if (duration < 0.0f)
+            if (float.IsNaN(duration) || float.IsInfinity(duration) || duration < 0.0f)
             {
-                throw new ArgumentOutOfRangeException(nameof(duration), "Duration은 0 이상이어야 합니다.");
+                throw new ArgumentOutOfRangeException
+                (
+                    nameof(duration),
+                    "Duration은 유한한 0 이상의 값이어야 합니다."
+                );
             }
 
             var previousDuration = this.duration;
@@ -185,9 +193,10 @@ namespace inonego.Xeri.Playback
             this.duration = duration;
             time = Mathf.Clamp(time, 0.0f, duration);
 
-            // 재생 중 Duration 축소가 playhead를 따라잡으면 마지막 위치를 알린 뒤 완료한다.
+            // Loop가 아닌 재생에서 Duration 축소가 playhead를 따라잡으면 마지막 위치를 알린 뒤 완료한다.
             var hasCompleted =
                 previousState == PlaybackState.Playing &&
+                !IsLooping &&
                 duration < previousDuration &&
                 duration <= previousTime;
 
@@ -214,11 +223,16 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 재생 위치를 Duration 범위 안으로 이동한다.
+        /// 유한한 재생 위치를 Duration 범위 안으로 이동한다.
         /// </summary>
         // ------------------------------------------------------------
         public void SetTime(float time)
         {
+            if (float.IsNaN(time) || float.IsInfinity(time))
+            {
+                throw new ArgumentOutOfRangeException(nameof(time), "Time은 유한한 값이어야 합니다.");
+            }
+
             var previousTime = this.time;
             var nextTime = Mathf.Clamp(time, 0.0f, duration);
             if (previousTime == nextTime) return;
@@ -297,21 +311,23 @@ namespace inonego.Xeri.Playback
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 외부에서 공급한 delta만큼 재생 위치를 진행한다.
+        /// <br/> 유한한 외부 delta만큼 재생 위치를 진행한다.
         /// <br/> delta의 Time Domain 선택은 호출자가 담당한다.
         /// </summary>
         // ----------------------------------------------------------------------
         public void Tick(float deltaTime)
         {
-            if (state != PlaybackState.Playing || deltaTime <= 0.0f) return;
+            if (state != PlaybackState.Playing) return;
+            if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime <= 0.0f) return;
 
+            // 유한한 float 입력끼리의 곱셈이 overflow하지 않도록 중간 위치를 double로 계산한다.
             var previousState = state;
             var previousTime = time;
-            var advancedTime = time + deltaTime * speed;
+            var advancedTime = time + (double)deltaTime * speed;
 
             if (advancedTime < duration)
             {
-                time = advancedTime;
+                time = (float)advancedTime;
                 OnTimeChange?.Invoke(this, new(previousTime, time));
                 return;
             }
@@ -319,7 +335,13 @@ namespace inonego.Xeri.Playback
             // Loop 경계를 먼저 알린 뒤 새 주기 위치를 Sample할 수 있도록 시간 변경을 알린다.
             if (IsLooping)
             {
-                time = advancedTime % duration;
+                time = (float)(advancedTime % duration);
+                if (time >= duration)
+                {
+                    // double 나머지의 float 반올림이 끝점을 만들면 가장 가까운 Loop 내부 위치를 유지한다.
+                    time = BitConverter.Int32BitsToSingle(BitConverter.SingleToInt32Bits(duration) - 1);
+                }
+
                 OnLooped?.Invoke();
                 OnTimeChange?.Invoke(this, new(previousTime, time));
                 return;
