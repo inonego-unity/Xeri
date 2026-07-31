@@ -156,10 +156,9 @@ namespace inonego.Xeri.UI.Game
                 errors.Add(exception);
             }
 
-            // 현재 Modal의 필수 정리가 모두 성공한 경우에만 이전 화면을 다시 공개한다.
+            // 현재 Modal 정리 결과와 관계없이 남은 Stack top의 상호작용 상태를 복원한다.
             if
             (
-                errors.Count == 0 &&
                 previous != null &&
                 !isDisposed &&
                 stack.Count > 0 &&

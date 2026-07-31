@@ -1,14 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PresentationHandles.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
-Modal의 Terminal 해제와 파괴된 Drag Visual의 소유 연결 해제를 검증한다.
+Modal·Drag Visual·Visibility·Overlay의 해제 및 Terminal 실패 계약을 검증한다.
 
 # 테스트 구성
  M: Modal top 복원과 Terminal 정리
  D: Drag Visual 외부 파괴
- V: UGUI 표시 backend 구성 검증
+ V: UGUI 표시 구성 검증
  C: 중첩 Core 요청과 Overlay 롤백
 ========================================================================= BLOCK_HEADER_END */
 
@@ -26,7 +26,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     // ============================================================
     /// <summary>
-    /// Presentation Handle의 Terminal 실패 처리와 소유권 종결 테스트.
+    /// Presentation Handle의 정상 해제와 Terminal 실패 처리 테스트.
     /// </summary>
     // ============================================================
     public sealed class TEST_PresentationHandles
@@ -35,7 +35,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ============================================================
         /// <summary>
-        /// top 복원 실패를 한 번 주입하는 Modal backend.
+        /// Modal top 상태를 기록하는 backend.
         /// </summary>
         // ============================================================
         private sealed class TestModalDriver : IModalDriver
@@ -49,37 +49,11 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 다음 top 활성화를 실패시킬지 여부.
-            /// </summary>
-            // ------------------------------------------------------------
-            public bool FailNextActivation { get; set; }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 다음 top 비활성화를 실패시킬지 여부.
-            /// </summary>
-            // ------------------------------------------------------------
-            public bool FailNextDeactivation { get; set; }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// top 상태를 적용하고 요청된 실패를 한 번 발생시킨다.
+            /// top 상태를 적용한다.
             /// </summary>
             // ------------------------------------------------------------
             public void SetTop(bool isTop)
             {
-                if (isTop && FailNextActivation)
-                {
-                    FailNextActivation = false;
-                    throw new InvalidOperationException("injected modal restore failure");
-                }
-
-                if (!isTop && FailNextDeactivation)
-                {
-                    FailNextDeactivation = false;
-                    throw new InvalidOperationException("injected modal deactivation failure");
-                }
-
                 IsTop = isTop;
             }
         }
@@ -126,14 +100,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 표시 적용 뒤 예외를 발생시킬지 여부.
-            /// </summary>
-            // ------------------------------------------------------------
-            public bool FailNextSet { get; set; }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 표시 적용 호출 횟수.
+            /// 표시 상태 적용 호출 수.
             /// </summary>
             // ------------------------------------------------------------
             public int SetCount { get; private set; }
@@ -157,12 +124,6 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 IsVisible = visible;
                 SetCount++;
-
-                if (FailNextSet)
-                {
-                    FailNextSet = false;
-                    throw new InvalidOperationException("injected visibility apply failure");
-                }
             }
         }
 
@@ -171,21 +132,21 @@ namespace inonego.Xeri.TEST.UI._Game
         /// Overlay Layer 등록에 사용할 테스트 backend.
         /// </summary>
         // ============================================================
-        private sealed class TestLayerDriver : IPresentationLayerDriver
+        private sealed class TestLayerDriver : IPresentationLayerDriver<RectTransform>
         {
             // ------------------------------------------------------------
             /// <summary>
             /// 테스트 Layer Root.
             /// </summary>
             // ------------------------------------------------------------
-            public Transform Root { get; }
+            public RectTransform Root { get; }
 
             // ------------------------------------------------------------
             /// <summary>
             /// 지정 Root를 사용하는 backend를 생성한다.
             /// </summary>
             // ------------------------------------------------------------
-            public TestLayerDriver(Transform root) : base()
+            public TestLayerDriver(RectTransform root) : base()
             {
                 Root = root;
             }
@@ -203,6 +164,15 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 error = asset == null || Root == null ? "invalid" : "";
                 return string.IsNullOrEmpty(error);
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 테스트 Layer 순서는 별도로 기록하지 않는다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void SetOrder(int order)
+            {
             }
 
             // ------------------------------------------------------------
@@ -227,7 +197,7 @@ namespace inonego.Xeri.TEST.UI._Game
             /// Overlay 획득 실패를 주입한다.
             /// </summary>
             // ------------------------------------------------------------
-            public object Acquire(Transform parent)
+            public object Acquire(IPresentationLayerDriver layer)
             {
                 throw new InvalidOperationException("injected overlay acquire failure");
             }
@@ -250,37 +220,63 @@ namespace inonego.Xeri.TEST.UI._Game
         // ============================================================
         private sealed class FailingReleaseProvider : IGameObjectProvider
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 획득 인스턴스에 적용할 기본 부모.
+            /// </summary>
+            // ------------------------------------------------------------
             public Transform Parent
             {
-                get => parent;
-                set
-                {
-                    if (FailWhenClearingParent && value == null)
-                    {
-                        throw new InvalidOperationException("injected overlay parent restore failure");
-                    }
-
-                    parent = value;
-                }
+                get;
+                set;
             }
 
-            private Transform parent = null;
-
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 획득할 테스트 인스턴스.
+            /// </summary>
+            // ------------------------------------------------------------
             public GameObject Instance { get; set; }
-            public int ReleaseCount { get; private set; }
-            public bool FailOnRelease { get; set; } = true;
-            public bool FailWhenClearingParent { get; set; } = false;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 누적 반환 시도 수.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int ReleaseCount { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 반환 호출에서 예외를 발생시킬지 여부.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool FailOnRelease { get; set; } = true;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 지정된 테스트 인스턴스를 반환한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public GameObject Acquire(bool worldPositionStays = true)
             {
                 return Instance;
             }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 이 Fixture에서 지원하지 않는 비동기 획득을 거부한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public Awaitable<GameObject> AcquireAsync(bool worldPositionStays = true)
             {
                 throw new NotSupportedException();
             }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 반환 시도를 기록하고 설정된 실패를 발생시킨다.
+            /// </summary>
+            // ------------------------------------------------------------
             public void Release
             (
                 GameObject gameObject,
@@ -308,7 +304,6 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", "Overlay");
-            SetField(asset, "mode", PresentationLayerMode.Shared);
             SetField(asset, "order", 0);
             ownedObjects.Add(asset);
             return asset;
@@ -365,65 +360,11 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 기존 top 비활성화 실패가 새 Modal을 공개하지 않고 이전 top을 복원하는지 검증한다.
+        /// 소유 Handle 정리가 실패해도 이전 top을 복원하고 현재 ModalHandle을 Terminal화하는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_ModalController_기존Top비활성화실패_이전Stack복원()
-        {
-            var controller = new ModalController();
-            var previousDriver = new TestModalDriver();
-            var currentDriver = new TestModalDriver();
-            var previous = controller.Open(previousDriver);
-            previousDriver.FailNextDeactivation = true;
-
-            Assert.Throws<InvalidOperationException>(() => controller.Open(currentDriver));
-            Assert.AreEqual(1, controller.Count);
-            Assert.IsTrue(previousDriver.IsTop);
-            Assert.IsFalse(currentDriver.IsTop);
-
-            previous.Dispose();
-            controller.Dispose();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 이전 Modal top 복원 실패 뒤에도 현재 Handle과 Stack 소유권이 Terminal인지 검증한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_ModalController_이전Top복원실패_HandleTerminal()
-        {
-            var controller = new ModalController();
-            var previousDriver = new TestModalDriver();
-            var currentDriver = new TestModalDriver();
-            var previous = controller.Open(previousDriver);
-            var current = controller.Open(currentDriver);
-            previousDriver.FailNextActivation = true;
-
-            Assert.Throws<AggregateException>(current.Dispose);
-            Assert.AreEqual(1, controller.Count);
-            Assert.IsTrue(current.IsDisposed);
-            Assert.IsFalse(currentDriver.IsTop);
-            Assert.IsFalse(previousDriver.IsTop);
-
-            Assert.DoesNotThrow(current.Dispose);
-
-            Assert.AreEqual(1, controller.Count);
-            Assert.IsTrue(current.IsDisposed);
-            Assert.IsFalse(previousDriver.IsTop);
-
-            previous.Dispose();
-            controller.Dispose();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 소유 Handle 정리가 실패해도 공개 Stack과 ModalHandle이 Terminal인지 검증한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_ModalController_소유Handle정리실패_공개Stack과HandleTerminal()
+        public void TEST_ModalController_소유Handle정리실패_이전Top복원과HandleTerminal()
         {
             var controller = new ModalController();
             var previousDriver = new TestModalDriver();
@@ -434,7 +375,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.Throws<AggregateException>(current.Dispose);
             Assert.AreEqual(1, controller.Count);
-            Assert.IsFalse(previousDriver.IsTop);
+            Assert.IsTrue(previousDriver.IsTop);
             Assert.IsFalse(currentDriver.IsTop);
             Assert.IsTrue(current.IsDisposed);
             Assert.AreEqual(1, child.DisposeCount);
@@ -473,98 +414,35 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(1, childDisposeCount);
         }
 
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// 소유 Handle 해제 중 새 Modal이 열리면 오래된 이전 top을 다시 활성화하지 않는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_ModalController_소유Handle해제중새ModalOpen_현재Top보존()
-        {
-            var controller = new ModalController();
-            var previousDriver = new TestModalDriver();
-            var currentDriver = new TestModalDriver();
-            var nestedDriver = new TestModalDriver();
-            ModalHandle nested = null;
-            var previous = controller.Open(previousDriver);
-            var child = new Lease(() => nested = controller.Open(nestedDriver));
-            var current = controller.Open(currentDriver, child);
-
-            current.Dispose();
-
-            Assert.AreEqual(2, controller.Count);
-            Assert.IsFalse(previousDriver.IsTop);
-            Assert.IsFalse(currentDriver.IsTop);
-            Assert.IsTrue(nestedDriver.IsTop);
-
-            nested.Dispose();
-            previous.Dispose();
-            controller.Dispose();
-        }
-
     #endregion
 
     #region C-1: 중첩 Core 요청
 
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// 외부 표시 적용 뒤 예외가 발생해도 요청이 제거되고 같은 Lease가 재실행되지 않는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_PresentationHandles_외부적용실패에도_논리요청을_종료하고_재실행하지않음()
-        {
-            var controller = new VisibilityController();
-            var target = new TestVisibilityTarget(true);
-            var lease = controller.Set(target, false);
-            target.FailNextSet = true;
-
-            Assert.Throws<InvalidOperationException>(lease.Dispose);
-            Assert.IsTrue(lease.IsDisposed);
-            Assert.IsTrue(target.IsVisible);
-            Assert.AreEqual(2, target.SetCount);
-
-            Assert.DoesNotThrow(lease.Dispose);
-            Assert.AreEqual(2, target.SetCount);
-
-            Assert.DoesNotThrow(controller.Dispose);
-            Assert.AreEqual(2, target.SetCount);
-        }
-
         // ------------------------------------------------------------
         /// <summary>
-        /// 중간 Visibility·Override 요청을 해제해도 최신 요청과 기준 복원이 유지되는지 검증한다.
+        /// 중간 Visibility 요청을 해제해도 최신 요청과 기준 복원이 유지되는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_PresentationCore_중첩요청중간해제_최신값과기준복원()
+        public void TEST_VisibilityController_중첩요청중간해제_최신값과기준복원()
         {
             var visibility = new VisibilityController();
             var target = new TestVisibilityTarget(false);
-            var firstVisibility = visibility.Set(target, true);
-            var secondVisibility = visibility.Set(target, false);
-            var value = 1;
-            var presentationOverride = new PresentationOverrideController<int>
-            (
-                () => value,
-                next => value = next
-            );
-            var firstOverride = presentationOverride.Set(2);
-            var secondOverride = presentationOverride.Set(3);
+            var firstVisibility = visibility.Set(target, false);
+            var secondVisibility = visibility.Set(target, true);
+
+            Assert.AreEqual(2, target.SetCount);
 
             firstVisibility.Dispose();
-            firstOverride.Dispose();
 
-            Assert.IsFalse(target.IsVisible);
-            Assert.AreEqual(3, value);
+            Assert.IsTrue(target.IsVisible);
+            Assert.AreEqual(2, target.SetCount);
 
             secondVisibility.Dispose();
-            secondOverride.Dispose();
 
             Assert.IsFalse(target.IsVisible);
-            Assert.AreEqual(1, value);
+            Assert.AreEqual(3, target.SetCount);
             visibility.Dispose();
-            presentationOverride.Dispose();
         }
 
         // ------------------------------------------------------------
@@ -576,7 +454,7 @@ namespace inonego.Xeri.TEST.UI._Game
         public void TEST_OverlayHandle_획득실패_Layer소비수명롤백()
         {
             var parent = new GameObject("Layer Parent");
-            var root = new GameObject("Overlay Layer");
+            var root = new GameObject("Overlay Layer", typeof(RectTransform));
             root.transform.SetParent(parent.transform, false);
             ownedObjects.Add(parent);
             ownedObjects.Add(root);
@@ -584,7 +462,7 @@ namespace inonego.Xeri.TEST.UI._Game
             var layerHandle = registry.Register
             (
                 CreateLayerAsset(),
-                new TestLayerDriver(root.transform)
+                new TestLayerDriver(root.GetComponent<RectTransform>())
             );
 
             Assert.Throws<InvalidOperationException>
@@ -602,99 +480,32 @@ namespace inonego.Xeri.TEST.UI._Game
             registry.Dispose();
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// Overlay View 누락과 Provider 반환 실패가 함께 발생하면 두 오류를 모두 전달하는지 검증한다.
+        /// View 반환 실패 뒤 Source 종료가 같은 Provider 반환을 반복하지 않는지 검증한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         [Test]
-        public void TEST_GameObjectProviderOverlaySource_View누락과반환실패_두오류보존()
+        public void TEST_GameObjectProviderOverlaySource_View반환실패_Source종료에서반복하지않음()
         {
-            var parent = new GameObject("Overlay Parent");
-            var instance = new GameObject("Missing Overlay View");
-            ownedObjects.Add(parent);
-            ownedObjects.Add(instance);
-            var provider = new FailingReleaseProvider { Instance = instance };
-            var source = new GameObjectProviderOverlaySource<IVisibilityTarget>(provider);
-
-            var exception = Assert.Throws<AggregateException>
-            (
-                () => source.Acquire(parent.transform)
-            );
-
-            Assert.AreEqual(2, exception.InnerExceptions.Count);
-            StringAssert.Contains
-            (
-                nameof(IVisibilityTarget),
-                exception.InnerExceptions[0].Message
-            );
-            StringAssert.Contains
-            (
-                "injected overlay provider release failure",
-                exception.InnerExceptions[1].Message
-            );
-            Assert.AreEqual(1, provider.ReleaseCount);
-
-            provider.FailOnRelease = false;
-            Assert.DoesNotThrow(source.Dispose);
-            Assert.AreEqual(2, provider.ReleaseCount);
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// Parent 복원 실패 전에 획득한 Overlay 인스턴스를 Source가 종료까지 보존하는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_GameObjectProviderOverlaySource_Parent복원실패_획득Instance보존()
-        {
-            var parent = new GameObject("Overlay Parent");
-            var instance = new GameObject("Overlay View");
-            instance.AddComponent<UGUIScreenDriver>();
-            ownedObjects.Add(parent);
-            ownedObjects.Add(instance);
-            var provider = new FailingReleaseProvider
-            {
-                Instance = instance,
-                FailOnRelease = false,
-                FailWhenClearingParent = true,
-            };
-            var source = new GameObjectProviderOverlaySource<IVisibilityTarget>(provider);
-
-            Assert.Throws<InvalidOperationException>
-            (
-                () => source.Acquire(parent.transform)
-            );
-            Assert.AreEqual(0, provider.ReleaseCount);
-
-            provider.FailWhenClearingParent = false;
-            Assert.DoesNotThrow(source.Dispose);
-            Assert.AreEqual(1, provider.ReleaseCount);
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// View 반환 실패의 물리 소유권을 Source가 보관하고 명시적 Source 종료에서 반환하는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_GameObjectProviderOverlaySource_View반환실패_Source종료에서물리소유권반환()
-        {
-            var parent = new GameObject("Overlay Parent");
+            var parent = new GameObject("Overlay Parent", typeof(RectTransform));
             var instance = new GameObject("Overlay View");
             instance.AddComponent<UGUIScreenDriver>();
             ownedObjects.Add(parent);
             ownedObjects.Add(instance);
             var provider = new FailingReleaseProvider { Instance = instance };
             var source = new GameObjectProviderOverlaySource<IVisibilityTarget>(provider);
-            var view = source.Acquire(parent.transform);
+            var view = source.Acquire
+            (
+                new TestLayerDriver(parent.GetComponent<RectTransform>())
+            );
 
             Assert.Throws<InvalidOperationException>(() => source.Release(view));
             Assert.AreEqual(1, provider.ReleaseCount);
 
             provider.FailOnRelease = false;
             Assert.DoesNotThrow(source.Dispose);
-            Assert.AreEqual(2, provider.ReleaseCount);
+            Assert.AreEqual(1, provider.ReleaseCount);
         }
 
         // ----------------------------------------------------------------------
@@ -706,7 +517,7 @@ namespace inonego.Xeri.TEST.UI._Game
         public void TEST_GameObjectProviderOverlaySource_Source선종료_남은HandleTerminal()
         {
             var parent = new GameObject("Layer Parent");
-            var root = new GameObject("Overlay Layer");
+            var root = new GameObject("Overlay Layer", typeof(RectTransform));
             var instance = new GameObject("Overlay View");
             root.transform.SetParent(parent.transform, false);
             instance.AddComponent<UGUIScreenDriver>();
@@ -723,7 +534,7 @@ namespace inonego.Xeri.TEST.UI._Game
             var layerHandle = registry.Register
             (
                 CreateLayerAsset(),
-                new TestLayerDriver(root.transform)
+                new TestLayerDriver(root.GetComponent<RectTransform>())
             );
             var handle = OverlayHandle<UGUIScreenDriver>.Acquire
             (

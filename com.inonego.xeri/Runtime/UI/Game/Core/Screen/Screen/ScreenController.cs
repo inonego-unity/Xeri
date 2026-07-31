@@ -320,7 +320,7 @@ namespace inonego.Xeri.UI.Game
                     parameters,
                     session,
                     registration.Options.LayerID,
-                    layerDriver.Root
+                    layerDriver
                 );
 
                 session.Instance = registration.Source.Acquire(scope);
@@ -842,7 +842,7 @@ namespace inonego.Xeri.UI.Game
             ScreenSession previous = null;
             Action restoreFocus = null;
 
-            if (detached && restorePrevious && errors.Count == 0)
+            if (detached && restorePrevious)
             {
                 previous = Top;
                 restoreFocus = () =>
@@ -888,6 +888,11 @@ namespace inonego.Xeri.UI.Game
                 catch (Exception exception)
                 {
                     errors.Add(exception);
+
+                    if (restoreFocus != null)
+                    {
+                        RestorePrevious(previous);
+                    }
                 }
             }
 

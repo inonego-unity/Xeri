@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIProfileHandle.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
-GameUIProfileHandle의 활성 Layer 소비자 보호와 Provider 물리 반환 소유권을 검증한다.
+GameUIProfileHandle의 활성 Layer 소비자 보호와 Provider 반환의 attempt-once 계약을 검증한다.
 
 # 테스트 구성
  C: 활성 Layer 소비자 보호
- R: Provider 반환 실패의 소유권 유지
+ R: Provider 반환 실패의 Terminal 처리
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -24,7 +24,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     // ============================================================
     /// <summary>
-    /// GameUIProfileHandle의 대칭 소유권과 Provider 반환 실패 처리 테스트.
+    /// GameUIProfileHandle의 대칭 소유권과 Provider 반환 실패 Terminal 처리 테스트.
     /// </summary>
     // ============================================================
     public sealed class TEST_GameUIProfileHandle
@@ -36,7 +36,7 @@ namespace inonego.Xeri.TEST.UI._Game
         /// 테스트 Transform을 제공하는 Layer backend.
         /// </summary>
         // ============================================================
-        private sealed class TestLayerDriver : IPresentationLayerDriver
+        private sealed class TestLayerDriver : IPresentationLayerDriver<Transform>
         {
             // ------------------------------------------------------------
             /// <summary>
@@ -68,6 +68,16 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 error = "";
                 return asset != null && Root != null;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 테스트 Layer 순서는 별도로 기록하지 않는다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void SetOrder(int order)
+            {
+                // NONE
             }
 
             // ------------------------------------------------------------
@@ -175,7 +185,6 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", id);
-            SetField(asset, "mode", PresentationLayerMode.Shared);
             SetField(asset, "order", order);
             ownedObjects.Add(asset);
             return asset;
@@ -284,11 +293,11 @@ namespace inonego.Xeri.TEST.UI._Game
         // ----------------------------------------------------------------------
         /// <summary>
         /// <br/> Provider 반환 일부 실패 뒤 논리 Handle은 Terminal이고,
-        /// <br/> 실패 시 소유권이 남는 Provider 인스턴스만 다음 Dispose에서 반환하는지 검증한다.
+        /// <br/> 후속 Dispose가 성공하거나 실패한 Provider 반환을 반복하지 않는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_GameUIProfileHandle_Provider부분반환실패_실패Instance만물리반환재시도()
+        public void TEST_GameUIProfileHandle_Provider부분반환실패_모든Instance반환AttemptOnce()
         {
             var profile = ScriptableObject.CreateInstance<GameUIProfileAsset>();
             var first = new GameObject("First Layer");
@@ -312,18 +321,13 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsTrue(handle.IsDisposed);
             Assert.AreEqual(1, provider.GetReleaseCount(first));
             Assert.AreEqual(1, provider.GetReleaseCount(second));
-            Assert.AreEqual(0, disposedCount);
+            Assert.AreEqual(1, disposedCount);
 
             Assert.DoesNotThrow(handle.Dispose);
 
             Assert.IsTrue(handle.IsDisposed);
             Assert.AreEqual(1, provider.GetReleaseCount(first));
-            Assert.AreEqual(2, provider.GetReleaseCount(second));
-            Assert.AreEqual(1, disposedCount);
-
-            handle.Dispose();
-            Assert.AreEqual(1, provider.GetReleaseCount(first));
-            Assert.AreEqual(2, provider.GetReleaseCount(second));
+            Assert.AreEqual(1, provider.GetReleaseCount(second));
             Assert.AreEqual(1, disposedCount);
         }
 

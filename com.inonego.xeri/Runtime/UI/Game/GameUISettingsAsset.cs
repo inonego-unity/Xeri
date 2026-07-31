@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUISettingsAsset.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
-Game UI Runtime backend, 기본 Profile, Scene Fade와 Input System의 순수 설정을 정의한다.
+Game UI Runtime의 기본 Profile, Scene Fade와 Input System 공통 설정을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -46,16 +46,6 @@ namespace inonego.Xeri.UI.Game
 
         [SerializeField]
         private string sceneFadeLayerID = "";
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Scene Fade View를 공급하는 Provider.
-        /// </summary>
-        // ------------------------------------------------------------
-        public IGameObjectProvider SceneFadeViewProvider => sceneFadeViewProvider;
-
-        [SerializeReference]
-        private IGameObjectProvider sceneFadeViewProvider = new PrefabGameObjectProvider();
 
         // ------------------------------------------------------------
         /// <summary>
@@ -127,11 +117,6 @@ namespace inonego.Xeri.UI.Game
             if (string.IsNullOrWhiteSpace(sceneFadeLayerID))
             {
                 throw new InvalidOperationException("Scene Fade Layer ID가 비어 있습니다.");
-            }
-
-            if (sceneFadeViewProvider == null)
-            {
-                throw new InvalidOperationException("Scene Fade View Provider가 설정되지 않았습니다.");
             }
 
             if (defaultFadeDuration < 0.0f)

@@ -78,7 +78,7 @@ namespace inonego.Xeri.TEST._Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Tick은 Speed를 반영하고 비재생 상태와 0 이하 delta에서는 진행하지 않는다.
+        /// Tick은 유효한 delta에서만 Speed를 반영한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
@@ -99,6 +99,12 @@ namespace inonego.Xeri.TEST._Playback
             clock.Play();
             clock.Tick(0.0f);
             clock.Tick(-1.0f);
+            clock.Tick(float.NaN);
+            clock.Tick(float.PositiveInfinity);
+            Assert.AreEqual(2.0f, clock.Time);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetTime(float.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetTime(float.PositiveInfinity));
             Assert.AreEqual(2.0f, clock.Time);
 
             clock.SetTime(12.0f);
@@ -112,15 +118,17 @@ namespace inonego.Xeri.TEST._Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 0 이하 Speed는 거부하고 이전 Speed를 유지한다.
+        /// 유효하지 않은 Speed는 거부하고 기존 값을 유지한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_PlaybackClock_0이하_Speed는_거부하고_기존값을_유지()
+        public void TEST_PlaybackClock_유효하지않은_Speed는_거부하고_기존값을_유지()
         {
             var clock = new PlaybackClock();
             clock.Speed = 2.0f;
 
+            Assert.Throws<ArgumentOutOfRangeException>(() => clock.Speed = float.NaN);
+            Assert.Throws<ArgumentOutOfRangeException>(() => clock.Speed = float.PositiveInfinity);
             Assert.Throws<ArgumentOutOfRangeException>(() => clock.Speed = 0.0f);
             Assert.Throws<ArgumentOutOfRangeException>(() => clock.Speed = -1.0f);
             Assert.AreEqual(2.0f, clock.Speed);
@@ -196,11 +204,39 @@ namespace inonego.Xeri.TEST._Playback
 
     #endregion
 
-    #region D-3: Duration 경계
+    #region D-3: Loop Duration 보존
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 음수 Duration은 상태를 보존하고 Duration 0은 완료 없이 정지한다.
+        /// Loop 재생 중 Duration 축소는 완료하지 않고 새 범위에서 재생을 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PlaybackClock_Loop재생중_Duration축소는_재생상태를_유지()
+        {
+            var completedCount = 0;
+            var clock = new PlaybackClock();
+            clock.SetDuration(10.0f);
+            clock.SetTime(6.0f);
+            clock.IsLooping = true;
+            clock.Play();
+            clock.OnCompleted += () => completedCount++;
+
+            clock.SetDuration(5.0f);
+
+            Assert.AreEqual(PlaybackState.Playing, clock.State);
+            Assert.AreEqual(5.0f, clock.Time);
+            Assert.AreEqual(0, completedCount);
+        }
+
+    #endregion
+
+    #region D-4: Duration 경계
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 유효하지 않은 Duration은 기존 상태를 보존한다.
+        /// <br/> Duration 0은 완료 없이 정지한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
@@ -213,6 +249,8 @@ namespace inonego.Xeri.TEST._Playback
             clock.Play();
             clock.OnCompleted += () => completedCount++;
 
+            Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetDuration(float.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetDuration(float.PositiveInfinity));
             Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetDuration(-1.0f));
             Assert.AreEqual(10.0f, clock.Duration);
             Assert.AreEqual(3.0f, clock.Time);
@@ -317,6 +355,27 @@ namespace inonego.Xeri.TEST._Playback
             Assert.AreEqual(1.0f, timeChanges[0].Current);
             Assert.AreEqual(PlaybackState.Playing, clock.State);
             Assert.AreEqual(1.0f, clock.Time);
+            Assert.AreEqual(0, completedCount);
+
+            clock.Speed = float.MaxValue;
+            clock.Tick(2.0f);
+
+            Assert.IsFalse(float.IsNaN(clock.Time));
+            Assert.IsFalse(float.IsInfinity(clock.Time));
+            Assert.GreaterOrEqual(clock.Time, 0.0f);
+            Assert.Less(clock.Time, clock.Duration);
+            Assert.AreEqual(PlaybackState.Playing, clock.State);
+            Assert.AreEqual(0, completedCount);
+
+            clock.Stop();
+            clock.SetDuration(1.0f);
+            clock.Speed = 0.9999999f;
+            clock.Play();
+            clock.Tick(2.00000024f);
+
+            Assert.Greater(clock.Time, 0.99f);
+            Assert.Less(clock.Time, clock.Duration);
+            Assert.AreEqual(PlaybackState.Playing, clock.State);
             Assert.AreEqual(0, completedCount);
         }
 

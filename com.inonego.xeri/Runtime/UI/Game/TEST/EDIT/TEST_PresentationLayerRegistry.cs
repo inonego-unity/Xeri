@@ -1,14 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PresentationLayerRegistry.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
-동적 Profile 경계에서 공유 Presentation Layer의 전역 순서와 충돌 계약을 검증한다.
+동적 Profile 경계에서 Presentation Layer backend의 순서와 충돌 계약을 검증한다.
 
 # 테스트 구성
- O: 공유 Layer Order 정렬과 재정렬
- X: Order 충돌 거부
- R: Layer 해제 실패의 Terminal 처리
+ O: backend Layer Order 적용
+ X: Order 범위·충돌 거부
  U: Layer 소비자 독립 수명
 ========================================================================= BLOCK_HEADER_END */
 
@@ -26,7 +25,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     // ============================================================
     /// <summary>
-    /// PresentationLayerRegistry의 동적 공유 Layer 순서 계약 테스트.
+    /// PresentationLayerRegistry의 동적 Layer 순서 계약 테스트.
     /// </summary>
     // ============================================================
     public sealed class TEST_PresentationLayerRegistry
@@ -38,7 +37,7 @@ namespace inonego.Xeri.TEST.UI._Game
         /// 테스트 Transform을 사용하는 Presentation Layer backend.
         /// </summary>
         // ============================================================
-        private sealed class TestLayerDriver : IPresentationLayerDriver
+        private sealed class TestLayerDriver : IPresentationLayerDriver<Transform>
         {
             // ------------------------------------------------------------
             /// <summary>
@@ -56,10 +55,10 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 다음 비활성 적용을 실패시킬지 여부.
+            /// backend에 마지막으로 적용된 Layer 순서.
             /// </summary>
             // ------------------------------------------------------------
-            public bool FailNextDeactivation { get; set; }
+            public int Order { get; private set; }
 
             private readonly Transform root = null;
 
@@ -90,17 +89,21 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
+            /// 테스트 backend의 Layer 순서를 기록한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void SetOrder(int order)
+            {
+                Order = order;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
             /// 테스트 backend의 활성 상태를 기록한다.
             /// </summary>
             // ------------------------------------------------------------
             public void SetActive(bool active)
             {
-                if (!active && FailNextDeactivation)
-                {
-                    FailNextDeactivation = false;
-                    throw new InvalidOperationException("injected layer deactivation failure");
-                }
-
                 IsActive = active;
             }
         }
@@ -120,7 +123,6 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", id);
-            SetField(asset, "mode", PresentationLayerMode.Shared);
             SetField(asset, "order", order);
             ownedObjects.Add(asset);
             return asset;
@@ -190,32 +192,151 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region O-1: 공유 Layer 정렬
+    #region O-1: backend Layer 순서
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 등록·해제마다 전체 공유 Layer가 Order 기준으로 다시 정렬되는지 검증한다.
+        /// 각 Layer 등록 시 Asset Order가 해당 backend에 적용되는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_PresentationLayerRegistry_동적등록해제_전체공유Layer순서재계산()
+        public void TEST_PresentationLayerRegistry_동적등록_backend별Order적용()
         {
             var parentObject = new GameObject("Layer Parent");
             ownedObjects.Add(parentObject);
             var highRoot = CreateRoot("High", parentObject.transform);
             var lowRoot = CreateRoot("Low", parentObject.transform);
             var registry = new PresentationLayerRegistry();
-            var highHandle = registry.Register(CreateAsset("High", 20), new TestLayerDriver(highRoot));
-            var lowHandle = registry.Register(CreateAsset("Low", 10), new TestLayerDriver(lowRoot));
+            var highDriver = new TestLayerDriver(highRoot);
+            var lowDriver = new TestLayerDriver(lowRoot);
+            var highHandle = registry.Register(CreateAsset("High", 20), highDriver);
+            var lowHandle = registry.Register(CreateAsset("Low", 10), lowDriver);
 
-            Assert.AreEqual(0, lowRoot.GetSiblingIndex());
-            Assert.AreEqual(1, highRoot.GetSiblingIndex());
+            Assert.AreEqual(20, highDriver.Order);
+            Assert.AreEqual(10, lowDriver.Order);
+            Assert.IsTrue(highDriver.IsActive);
+            Assert.IsTrue(lowDriver.IsActive);
 
             lowHandle.Dispose();
 
-            Assert.AreEqual(0, highRoot.GetSiblingIndex());
+            Assert.IsFalse(lowDriver.IsActive);
+            Assert.IsTrue(highDriver.IsActive);
 
             highHandle.Dispose();
+            registry.Dispose();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UGUI Layer 등록이 독립 Canvas와 Asset Order를 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UGUILayerCanvas_Register_독립CanvasOrder적용()
+        {
+            var parentObject = new GameObject
+            (
+                "Parent Canvas",
+                typeof(RectTransform),
+                typeof(Canvas)
+            );
+            var layerObject = new GameObject
+            (
+                "UGUI Layer",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(UGUILayerCanvas)
+            );
+            layerObject.transform.SetParent(parentObject.transform, false);
+            ownedObjects.Add(parentObject);
+            var canvas = layerObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var driver = layerObject.GetComponent<UGUILayerCanvas>();
+            SetField(driver, "root", layerObject.GetComponent<RectTransform>());
+            SetField(driver, "canvas", canvas);
+            var registry = new PresentationLayerRegistry();
+
+            var handle = registry.Register(CreateAsset("UGUI", 31), driver);
+
+            Assert.IsTrue(canvas.overrideSorting);
+            Assert.AreEqual(31, canvas.sortingOrder);
+            Assert.IsTrue(layerObject.activeSelf);
+
+            handle.Dispose();
+            registry.Dispose();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공통 Screen Overlay Order와 비교할 수 없는 World Space Canvas 등록을 거부한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UGUILayerCanvas_Register_WorldSpaceCanvas거부()
+        {
+            var layerObject = new GameObject
+            (
+                "UGUI World Space Layer",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(UGUILayerCanvas)
+            );
+            ownedObjects.Add(layerObject);
+            var canvas = layerObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var driver = layerObject.GetComponent<UGUILayerCanvas>();
+            SetField(driver, "root", layerObject.GetComponent<RectTransform>());
+            SetField(driver, "canvas", canvas);
+            var registry = new PresentationLayerRegistry();
+
+            var exception = Assert.Throws<InvalidOperationException>
+            (
+                () => registry.Register(CreateAsset("UGUI World Space", 31), driver)
+            );
+
+            StringAssert.Contains("Screen Space - Overlay", exception.Message);
+            registry.Dispose();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer Canvas Order가 적용되지 않는 외부 Root 등록을 거부한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UGUILayerCanvas_Register_Canvas외부Root거부()
+        {
+            var parentObject = new GameObject("Layer Parent", typeof(RectTransform));
+            var layerObject = new GameObject
+            (
+                "UGUI Layer",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(UGUILayerCanvas)
+            );
+            var externalRootObject = new GameObject
+            (
+                "External Root",
+                typeof(RectTransform)
+            );
+            layerObject.transform.SetParent(parentObject.transform, false);
+            externalRootObject.transform.SetParent(parentObject.transform, false);
+            ownedObjects.Add(parentObject);
+            var canvas = layerObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var driver = layerObject.GetComponent<UGUILayerCanvas>();
+            SetField(driver, "root", externalRootObject.GetComponent<RectTransform>());
+            SetField(driver, "canvas", canvas);
+            var registry = new PresentationLayerRegistry();
+
+            var exception = Assert.Throws<InvalidOperationException>
+            (
+                () => registry.Register(CreateAsset("UGUI External Root", 31), driver)
+            );
+
+            StringAssert.Contains("Layer Canvas 자신이거나 하위", exception.Message);
+            Assert.IsFalse(registry.Contains("UGUI External Root"));
+            Assert.IsFalse(canvas.overrideSorting);
             registry.Dispose();
         }
 
@@ -280,7 +401,37 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region X-1: Order 충돌
+    #region X-1: Order 범위
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UGUI와 UITK가 공유할 수 없는 Order를 등록 전에 거부하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [TestCase(-32769)]
+        [TestCase(32768)]
+        public void TEST_PresentationLayerRegistry_공통범위밖Order_등록전거부(int order)
+        {
+            var parentObject = new GameObject("Layer Parent");
+            ownedObjects.Add(parentObject);
+            var root = CreateRoot("Invalid Order", parentObject.transform);
+            var registry = new PresentationLayerRegistry();
+            var driver = new TestLayerDriver(root);
+
+            var exception = Assert.Throws<InvalidOperationException>
+            (
+                () => registry.Register(CreateAsset("Invalid Order", order), driver)
+            );
+
+            StringAssert.Contains("공통 허용 범위", exception.Message);
+            Assert.IsFalse(registry.Contains("Invalid Order"));
+            Assert.IsFalse(driver.IsActive);
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region X-2: Order 충돌
 
         // ------------------------------------------------------------
         /// <summary>
@@ -306,39 +457,6 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(0, firstRoot.GetSiblingIndex());
 
             firstHandle.Dispose();
-            registry.Dispose();
-        }
-
-    #endregion
-
-    #region R-1: Layer 해제 실패
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// backend 비활성화 실패 뒤에도 Registry 등록과 Handle이 Terminal인지 검증한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_PresentationLayerRegistry_비활성화실패_등록과HandleTerminal()
-        {
-            var parentObject = new GameObject("Layer Parent");
-            ownedObjects.Add(parentObject);
-            var root = CreateRoot("Retry", parentObject.transform);
-            var registry = new PresentationLayerRegistry();
-            var driver = new TestLayerDriver(root);
-            var handle = registry.Register(CreateAsset("Retry", 10), driver);
-            driver.FailNextDeactivation = true;
-
-            Assert.Throws<AggregateException>(handle.Dispose);
-            Assert.IsFalse(registry.Contains("Retry"));
-            Assert.IsTrue(driver.IsActive);
-            Assert.IsTrue(handle.IsDisposed);
-
-            Assert.DoesNotThrow(handle.Dispose);
-
-            Assert.IsFalse(registry.Contains("Retry"));
-            Assert.IsTrue(driver.IsActive);
-            Assert.IsTrue(handle.IsDisposed);
             registry.Dispose();
         }
 

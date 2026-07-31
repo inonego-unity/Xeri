@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUILayerCanvas.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
-PresentationLayerAsset 구성을 Unity Canvas와 RectTransform Root로 검증하고 활성화한다.
+PresentationLayerAsset의 공통 Screen Overlay 순서를 Canvas에 적용하고 RectTransform Root를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEngine;
@@ -15,7 +15,7 @@ namespace inonego.Xeri.UI.Game
     /// UGUI Presentation Layer backend.
     /// </summary>
     // ============================================================
-    public sealed class UGUILayerCanvas : MonoBehaviour, IPresentationLayerDriver
+    public sealed class UGUILayerCanvas : MonoBehaviour, IPresentationLayerDriver<RectTransform>
     {
     #region 필드
 
@@ -24,7 +24,7 @@ namespace inonego.Xeri.UI.Game
         /// 표시 View를 배치할 Layer Root.
         /// </summary>
         // ------------------------------------------------------------
-        public Transform Root => root;
+        public RectTransform Root => root;
 
         [SerializeField]
         private RectTransform root = null;
@@ -45,7 +45,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// RectTransform과 Canvas 구성이 Layer Asset 정책과 일치하는지 검증한다.
+        /// RectTransform과 Canvas가 공통 Screen Overlay 정렬 공간에 속하는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool Validate
@@ -66,43 +66,49 @@ namespace inonego.Xeri.UI.Game
                 return false;
             }
 
-            if (asset.Mode == PresentationLayerMode.Independent)
+            if (canvas == null)
             {
-                if (canvas == null)
-                {
-                    error = "독립 Layer Canvas가 연결되지 않았습니다.";
-                    return false;
-                }
-
-                if (!canvas.overrideSorting)
-                {
-                    error = "독립 Layer Canvas의 overrideSorting이 꺼져 있습니다.";
-                    return false;
-                }
-
-                if (canvas.sortingOrder != asset.Order)
-                {
-                    error = $"Canvas sortingOrder가 Asset Order({asset.Order})와 다릅니다.";
-                    return false;
-                }
+                error = "Layer Canvas가 연결되지 않았습니다.";
+                return false;
             }
-            else
-            {
-                if (root.parent == null)
-                {
-                    error = "공유 Layer Root에 부모 Transform이 없습니다.";
-                    return false;
-                }
 
-                if (canvas != null && canvas.overrideSorting)
-                {
-                    error = "공유 Layer Canvas에 overrideSorting이 설정되어 있습니다.";
-                    return false;
-                }
+            if (root != canvas.transform && !root.IsChildOf(canvas.transform))
+            {
+                error = "Layer Root는 Layer Canvas 자신이거나 하위에 있어야 합니다.";
+                return false;
+            }
+
+            if (canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                error = "Layer Canvas는 Screen Space - Overlay여야 합니다.";
+                return false;
+            }
+
+            if (canvas.targetDisplay != 0)
+            {
+                error = "Layer Canvas는 기본 Display를 사용해야 합니다.";
+                return false;
+            }
+
+            if (canvas.sortingLayerID != 0)
+            {
+                error = "Layer Canvas는 Default Sorting Layer를 사용해야 합니다.";
+                return false;
             }
 
             error = "";
             return true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Canvas를 독립 정렬 단위로 설정하고 공통 Layer 순서를 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void SetOrder(int order)
+        {
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = order;
         }
 
         // ------------------------------------------------------------

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SceneFader.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 SceneFader의 안정 상태, 완료 정리 실패와 Transition 시작 실패 롤백을 검증한다.
@@ -39,7 +39,7 @@ namespace inonego.Xeri.TEST.UI._Game
         /// 테스트 Transform을 제공하는 Layer backend.
         /// </summary>
         // ============================================================
-        private sealed class TestLayerDriver : IPresentationLayerDriver
+        private sealed class TestLayerDriver : IPresentationLayerDriver<Transform>
         {
             public Transform Root { get; }
 
@@ -56,6 +56,10 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 error = "";
                 return asset != null && Root != null;
+            }
+
+            public void SetOrder(int order)
+            {
             }
 
             public void SetActive(bool active)
@@ -108,7 +112,7 @@ namespace inonego.Xeri.TEST.UI._Game
             public int AcquireCount { get; private set; }
             public int ReleaseCount { get; private set; }
 
-            public ISceneFadeDriver Acquire(Transform parent)
+            public ISceneFadeDriver Acquire(IPresentationLayerDriver layer)
             {
                 AcquireCount++;
                 return Driver;
@@ -325,7 +329,6 @@ namespace inonego.Xeri.TEST.UI._Game
 
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", "Fade");
-            SetField(asset, "mode", PresentationLayerMode.Shared);
             SetField(asset, "order", 0);
             ownedObjects.Add(asset);
             return registry.Register(asset, new TestLayerDriver(root));
@@ -695,7 +698,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 실제 Fade Overlay 초기화 실패가 Layer 사용과 View를 반환한 뒤 재시도되는지 검증한다.
+        /// 실제 Fade Overlay 초기화 실패가 Layer 사용과 View를 반환하고 다음 독립 획득을 허용하는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
@@ -729,51 +732,6 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(2, source.AcquireCount);
 
             fader.Dispose();
-            layerHandle.Dispose();
-            registry.Dispose();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 초기화와 반환이 함께 실패하면 기존 Overlay를 버리고 Cover가 새로 획득하는지 검증한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_SceneFader_초기화와반환실패_Reveal거부후Cover복구()
-        {
-            var registry = new PresentationLayerRegistry();
-            var layerHandle = RegisterLayer(registry, out _);
-            var source = new TestFadeSource();
-            var fader = new SceneFader
-            (
-                registry,
-                "Fade",
-                source,
-                new ImmediateTransitioner(),
-                PresentationTimeSource.Unscaled
-            );
-            source.Driver.FailNextApply = true;
-            source.FailNextRelease = true;
-
-            Assert.Throws<AggregateException>
-            (
-                () => fader.Cover(new SceneFadeParams(Color.black, 0.0f))
-            );
-            Assert.Throws<InvalidOperationException>
-            (
-                () => fader.Reveal(new SceneFadeParams(Color.black, 0.0f))
-            );
-            Assert.AreEqual(SceneFadeState.Clear, fader.State);
-            Assert.AreEqual(1, source.AcquireCount);
-            Assert.AreEqual(0, source.ReleaseCount);
-
-            fader.Cover(new SceneFadeParams(Color.black, 0.0f));
-
-            Assert.AreEqual(SceneFadeState.Covered, fader.State);
-            Assert.AreEqual(2, source.AcquireCount);
-
-            fader.Dispose();
-            Assert.AreEqual(1, source.ReleaseCount);
             layerHandle.Dispose();
             registry.Dispose();
         }

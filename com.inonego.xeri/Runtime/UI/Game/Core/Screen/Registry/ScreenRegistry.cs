@@ -194,7 +194,7 @@ namespace inonego.Xeri.UI.Game
 
             if (isDisposed) return;
 
-                if (entries.TryGetValue(entry.Options.ID, out var current) && ReferenceEquals(current, entry))
+            if (entries.TryGetValue(entry.Options.ID, out var current) && ReferenceEquals(current, entry))
             {
                 ReleaseRegistration(entry);
             }

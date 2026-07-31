@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationLayerAsset.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
-stable string ID와 Canvas 배치 정책으로 게임 UI Layer 구성을 정의한다.
+stable string ID와 공통 Screen Overlay 정렬 순서로 게임 UI Layer 구성을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -38,17 +38,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Layer의 Canvas 구성 방식.
-        /// </summary>
-        // ------------------------------------------------------------
-        public PresentationLayerMode Mode => mode;
-
-        [SerializeField]
-        private PresentationLayerMode mode = PresentationLayerMode.Shared;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 공유 Canvas sibling 또는 독립 Canvas sorting 순서.
+        /// UGUI와 UITK Screen Overlay가 함께 사용하는 Layer 정렬 순서.
         /// </summary>
         // ------------------------------------------------------------
         public int Order => order;
@@ -70,6 +60,16 @@ namespace inonego.Xeri.UI.Game
             if (string.IsNullOrWhiteSpace(id))
             {
                 throw new InvalidOperationException("Presentation Layer ID가 비어 있습니다.");
+            }
+
+            // UGUI와 UITK가 같은 값을 유지할 수 있는 공통 정렬 범위만 허용한다.
+            if (order < short.MinValue || order > short.MaxValue)
+            {
+                throw new InvalidOperationException
+                (
+                    $"Presentation Layer Order({order})가 공통 허용 범위" +
+                    $"({short.MinValue}~{short.MaxValue})를 벗어났습니다."
+                );
             }
         }
 

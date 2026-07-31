@@ -9,8 +9,6 @@ stable string ID로 Presentation Layer를 등록하고 조회하며 활성 소�
 using System;
 using System.Collections.Generic;
 
-using UnityEngine;
-
 namespace inonego.Xeri.UI.Game
 {
     // ============================================================
@@ -47,13 +45,6 @@ namespace inonego.Xeri.UI.Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 등록 검증 시 확정한 Layer Root.
-            /// </summary>
-            // ------------------------------------------------------------
-            public Transform Root { get; }
-
-            // ------------------------------------------------------------
-            /// <summary>
             /// 활성 소비자 수.
             /// </summary>
             // ------------------------------------------------------------
@@ -78,13 +69,11 @@ namespace inonego.Xeri.UI.Game
             public Entry
             (
                 PresentationLayerAsset asset,
-                IPresentationLayerDriver driver,
-                Transform root
+                IPresentationLayerDriver driver
             ) : base()
             {
                 Asset = asset ?? throw new ArgumentNullException(nameof(asset));
                 Driver = driver ?? throw new ArgumentNullException(nameof(driver));
-                Root = root != null ? root : throw new ArgumentNullException(nameof(root));
                 ConsumerCount = 0;
             }
 
@@ -123,6 +112,8 @@ namespace inonego.Xeri.UI.Game
 
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
         private bool isDisposed = false;
+
+        internal bool IsDisposed => isDisposed;
 
     #endregion
 
@@ -169,26 +160,16 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            var root = driver.Root;
+            ValidateOrder(asset);
 
-            if (root == null)
-            {
-                throw new InvalidOperationException
-                (
-                    $"Presentation Layer '{asset.ID}' backend의 Root가 없습니다."
-                );
-            }
-
-            ValidateOrder(asset, root);
-
-            var entry = new Entry(asset, driver, root);
+            var entry = new Entry(asset, driver);
 
             try
             {
                 // backend 활성화가 끝난 등록만 Registry에 공개한다.
+                driver.SetOrder(asset.Order);
                 driver.SetActive(true);
                 entries.Add(asset.ID, entry);
-                ReorderSharedLayers();
 
                 var handle = new PresentationLayerHandle(this, entry);
                 entry.Handle = handle;
@@ -198,21 +179,12 @@ namespace inonego.Xeri.UI.Game
             {
                 var errors = new List<Exception> { exception };
 
-                // Registry에 공개한 등록만 제거하고 남은 Layer 순서를 복원한다.
+                // Registry에 공개한 등록만 제거한다.
                 if (entries.TryGetValue(asset.ID, out var current) && ReferenceEquals(current, entry))
                 {
                     entries.Remove(asset.ID);
                     entry.Handle?.MarkDisposed();
                     entry.Handle = null;
-
-                    try
-                    {
-                        ReorderSharedLayers();
-                    }
-                    catch (Exception cleanupException)
-                    {
-                        errors.Add(cleanupException);
-                    }
                 }
 
                 // 활성화가 일부 적용된 뒤 실패했을 수 있으므로 이번 backend를 비활성화한다.
@@ -346,15 +318,6 @@ namespace inonego.Xeri.UI.Game
                 errors.Add(exception);
             }
 
-            try
-            {
-                ReorderSharedLayers();
-            }
-            catch (Exception exception)
-            {
-                errors.Add(exception);
-            }
-
             if (errors.Count > 0)
             {
                 throw new AggregateException
@@ -365,7 +328,7 @@ namespace inonego.Xeri.UI.Game
             }
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// <br/> Layer 등록과 Handle의 소유 연결을 종료한다.
         /// <br/> Registry 전체 종료에서는 원본 목록을 순회한 뒤 한 번에 비우도록 등록 제거를 생략한다.
@@ -386,23 +349,18 @@ namespace inonego.Xeri.UI.Game
             entry.Handle = null;
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/> 같은 Canvas 모드에서 Order가 충돌하지 않는지 검증하고,
-        /// <br/> 공유 Layer가 하나의 부모 계층에 속하는지 확인한다.
+        /// Layer Order가 기존 등록과 충돌하지 않는지 검증한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        private void ValidateOrder
-        (
-            PresentationLayerAsset asset,
-            Transform root
-        )
+        // ------------------------------------------------------------
+        private void ValidateOrder(PresentationLayerAsset asset)
         {
             foreach (var pair in entries)
             {
                 var current = pair.Value;
 
-                if (current.Asset.Mode == asset.Mode && current.Asset.Order == asset.Order)
+                if (current.Asset.Order == asset.Order)
                 {
                     throw new InvalidOperationException
                     (
@@ -410,49 +368,6 @@ namespace inonego.Xeri.UI.Game
                         $"'{current.Asset.ID}'와 충돌합니다."
                     );
                 }
-
-                if
-                (
-                    asset.Mode == PresentationLayerMode.Shared &&
-                    current.Asset.Mode == PresentationLayerMode.Shared &&
-                    current.Root.parent != root.parent
-                )
-                {
-                    throw new InvalidOperationException
-                    (
-                        $"공유 Presentation Layer '{asset.ID}'와 '{current.Asset.ID}'의 부모가 다릅니다."
-                    );
-                }
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 살아 있는 모든 공유 Layer를 Order 정렬 키 순서로 다시 배치한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void ReorderSharedLayers()
-        {
-            if (isDisposed) return;
-
-            var shared = new List<Entry>();
-
-            foreach (var pair in entries)
-            {
-                if (pair.Value.Asset.Mode == PresentationLayerMode.Shared)
-                {
-                    shared.Add(pair.Value);
-                }
-            }
-
-            shared.Sort
-            (
-                (left, right) => left.Asset.Order.CompareTo(right.Asset.Order)
-            );
-
-            for (var i = 0; i < shared.Count; i++)
-            {
-                shared[i].Root.SetSiblingIndex(i);
             }
         }
 

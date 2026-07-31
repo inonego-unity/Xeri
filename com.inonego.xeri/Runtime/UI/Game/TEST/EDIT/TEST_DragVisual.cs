@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragVisual.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 기존 DraggableUI와 UGUI Drag Visual의 좌표·Layer Usage·종료 수명 연동을 검증한다.
@@ -41,21 +41,21 @@ namespace inonego.Xeri.TEST.UI._Game
         /// 테스트 RectTransform을 Presentation Layer backend로 제공한다.
         /// </summary>
         // ============================================================
-        private sealed class TestLayerDriver : IPresentationLayerDriver
+        private sealed class TestLayerDriver : IPresentationLayerDriver<RectTransform>
         {
             // ------------------------------------------------------------
             /// <summary>
             /// 테스트 Layer Root.
             /// </summary>
             // ------------------------------------------------------------
-            public Transform Root { get; }
+            public RectTransform Root { get; }
 
             // ------------------------------------------------------------
             /// <summary>
             /// 지정 Root로 테스트 Driver를 생성한다.
             /// </summary>
             // ------------------------------------------------------------
-            public TestLayerDriver(Transform root) : base()
+            public TestLayerDriver(RectTransform root) : base()
             {
                 Root = root;
             }
@@ -69,6 +69,15 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 error = "";
                 return true;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 테스트 Layer 순서는 별도로 기록하지 않는다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void SetOrder(int order)
+            {
             }
 
             // ------------------------------------------------------------

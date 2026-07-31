@@ -1,12 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : IOverlaySource.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
-Presentation Layer 아래에 Overlay View를 획득하고 반환하는 Source 계약을 정의한다.
+Presentation Layer Driver에 Overlay View를 획득하고 반환하는 Source 계약을 정의한다.
 ========================================================================= BLOCK_HEADER_END */
-
-using UnityEngine;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -20,10 +18,10 @@ namespace inonego.Xeri.UI.Game
     {
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정한 Layer Root 아래에 Overlay View를 획득한다.
+        /// 지정한 Layer Driver에서 Overlay View를 획득한다.
         /// </summary>
         // ------------------------------------------------------------
-        TView Acquire(Transform parent);
+        TView Acquire(IPresentationLayerDriver layer);
 
         // ------------------------------------------------------------
         /// <summary>

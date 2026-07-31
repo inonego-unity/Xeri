@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ScreenController.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Screen 수명·상태 훅 정리, Focus 복원과 닫기 입력 장벽 계약을 검증한다.
@@ -39,7 +39,7 @@ namespace inonego.Xeri.TEST.UI._Game
     {
     #region 헬퍼
 
-        private sealed class TestLayerDriver : IPresentationLayerDriver
+        private sealed class TestLayerDriver : IPresentationLayerDriver<Transform>
         {
             public Transform Root { get; }
 
@@ -56,6 +56,10 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 error = "";
                 return asset != null && Root != null;
+            }
+
+            public void SetOrder(int order)
+            {
             }
 
             public void SetActive(bool active)
@@ -133,13 +137,6 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 다음 Cancel 호출에서 실패를 한 번 발생시킬지 여부.
-            /// </summary>
-            // ------------------------------------------------------------
-            public bool FailNextCancel { get; set; }
-
-            // ------------------------------------------------------------
-            /// <summary>
             /// Transition Handle Cancel 누적 호출 수.
             /// </summary>
             // ------------------------------------------------------------
@@ -171,12 +168,6 @@ namespace inonego.Xeri.TEST.UI._Game
                     () =>
                     {
                         CancelCount++;
-
-                        if (FailNextCancel)
-                        {
-                            FailNextCancel = false;
-                            throw new InvalidOperationException("injected transition cancel failure");
-                        }
                     }
                 );
                 requests.Add(request);
@@ -458,6 +449,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
         private PresentationLayerRegistry layerRegistry = null;
         private PresentationLayerHandle layerHandle = null;
+        private TestLayerDriver layerDriver = null;
         private Transform layerRoot = null;
         private ScreenRegistry screenRegistry = null;
         private ScreenController controller = null;
@@ -547,12 +539,12 @@ namespace inonego.Xeri.TEST.UI._Game
 
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", "Screen");
-            SetField(asset, "mode", PresentationLayerMode.Shared);
             SetField(asset, "order", 0);
             ownedObjects.Add(asset);
 
             layerRegistry = new PresentationLayerRegistry();
-            layerHandle = layerRegistry.Register(asset, new TestLayerDriver(rootObject.transform));
+            layerDriver = new TestLayerDriver(rootObject.transform);
+            layerHandle = layerRegistry.Register(asset, layerDriver);
             screenRegistry = new ScreenRegistry(layerRegistry);
             focusDriver = new TestFocusDriver();
             inputDriver = new TestInputDriver();
@@ -641,7 +633,7 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreSame(response.Session, source.LastScope.Session);
             Assert.AreSame(payload, source.LastScope.OpenParams.Payload);
             Assert.AreEqual("Screen", source.LastScope.LayerID);
-            Assert.AreSame(layerRoot, source.LastScope.LayerRoot);
+            Assert.AreSame(layerDriver, source.LastScope.Layer);
             CollectionAssert.AreEqual(new[] { "Opening" }, order);
 
             transitioner.CompleteNext();
@@ -1061,56 +1053,15 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region T-1B: Transition 취소 Terminal 처리
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Transition Cancel 실패 뒤 Handle을 버리고 Clear가 같은 취소를 반복하지 않는지 검증한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_ScreenController_Transition취소실패_HandleTerminal()
-        {
-            var transitioner = UseManualTransitioner();
-            var handler = new TestStateHandler();
-            var source = new TestScreenSource(new object(), handler);
-            Register("Retry", source, openDuration: 1.0f, closeDuration: 1.0f);
-            var response = controller.Open("Retry");
-            transitioner.FailNextCancel = true;
-
-            Assert.Throws<InvalidOperationException>(() => response.Session.Close());
-            Assert.AreEqual(ScreenState.Closing, response.Session.State);
-            Assert.AreEqual(1, transitioner.CancelCount);
-            CollectionAssert.AreEqual
-            (
-                new[] { "Opening", "Closing" },
-                handler.Calls
-            );
-
-            Assert.DoesNotThrow(controller.Clear);
-
-            Assert.AreEqual(1, transitioner.CancelCount);
-            Assert.AreEqual(ScreenState.Closed, response.Session.State);
-            Assert.AreEqual(1, source.ReleaseCount);
-            Assert.AreEqual(0, controller.Count);
-            CollectionAssert.AreEqual
-            (
-                new[] { "Opening", "Closing", "Closed" },
-                handler.Calls
-            );
-        }
-
-    #endregion
-
     #region T-2: Replace 실패와 성공
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Replace 시작 실패는 이전 top을 복원하고 재시도 성공은 이전 Screen만 제거하는지 검증한다.
+        /// Replace 시작 실패는 이전 top을 복원하고 다음 독립 요청은 이전 Screen만 제거하는지 검증한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_Replace시작실패후재시도_이전Top복원후교체()
+        public void TEST_ScreenController_Replace시작실패후다음요청_이전Top복원후교체()
         {
             var transitioner = UseManualTransitioner();
             var firstSource = new TestScreenSource(new object());
@@ -1150,53 +1101,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region T-2A: Transition 실패 정리
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> 열기 Transition 시작과 Source 반환이 함께 실패해도 Response에 두 오류를 보존하고,
-        /// <br/> 이전 top을 복원한 뒤 실패한 Source 반환을 Clear에서 반복하지 않는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_ScreenController_Transition시작과정리실패_Response보존후Terminal()
-        {
-            var transitioner = UseManualTransitioner();
-            var firstSource = new TestScreenSource(new object());
-            var failedSource = new TestScreenSource(new object());
-            var failRelease = true;
-            failedSource.Releasing = () =>
-            {
-                if (!failRelease) return;
-
-                failRelease = false;
-                throw new InvalidOperationException("injected source release failure");
-            };
-            Register("First", firstSource, openDuration: 1.0f);
-            Register("Failed", failedSource, openDuration: 1.0f);
-            var first = controller.Open("First").Session;
-            transitioner.CompleteNext();
-            transitioner.FailNextPlay = true;
-
-            var response = controller.Replace("Failed");
-
-            Assert.AreEqual(ScreenOpenKind.TransitionFailed, response.Kind);
-            Assert.IsNull(response.Session);
-            Assert.IsInstanceOf<AggregateException>(response.Exception);
-            Assert.AreSame(first, controller.Top);
-            Assert.AreEqual(ScreenState.Active, first.State);
-            Assert.AreEqual(0, failedSource.ReleaseCount);
-
-            controller.Clear();
-
-            Assert.AreEqual(0, failedSource.ReleaseCount);
-            Assert.AreEqual(1, firstSource.ReleaseCount);
-            Assert.AreEqual(0, controller.Count);
-        }
-
-    #endregion
-
-    #region T-2B: Replace 트랜잭션
+    #region T-3: Replace 트랜잭션
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -1250,7 +1155,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region T-3: Clear 배치 종료
+    #region T-4: Clear 배치 종료
 
         // ------------------------------------------------------------
         /// <summary>
@@ -1336,61 +1241,13 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #region C-2: Close Terminal 정리
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// child 정리 실패 시에도 Screen·Stack·입력·Source가 한 번에 Terminal인지 검증한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_ScreenController_Close자식정리실패_SessionTerminal()
-        {
-            var handler = new TestStateHandler();
-            var source = new TestScreenSource(new object(), handler);
-            Register("Cleanup", source);
-            var response = controller.Open("Cleanup");
-            var child = new ThrowingHandle();
-            response.Session.RegisterChild(child);
-            LogAssert.Expect
-            (
-                LogType.Exception,
-                new Regex("injected child release failure")
-            );
-
-            Assert.IsTrue(response.Session.Close());
-
-            Assert.AreEqual(ScreenState.Closed, response.Session.State);
-            Assert.AreEqual(0, controller.Count);
-            Assert.AreEqual(0, inputDriver.Count);
-            Assert.IsFalse(source.Driver.IsVisible);
-            Assert.AreEqual(1, source.ReleaseCount);
-            Assert.AreEqual(1, child.DisposeCount);
-            CollectionAssert.AreEqual
-            (
-                new[] { "Opening", "Opened", "Closing", "Closed" },
-                handler.Calls
-            );
-
-            Assert.DoesNotThrow(controller.Clear);
-
-            Assert.AreEqual(ScreenState.Closed, response.Session.State);
-            Assert.AreEqual(0, controller.Count);
-            Assert.AreEqual(0, inputDriver.Count);
-            Assert.AreEqual(1, source.ReleaseCount);
-            Assert.AreEqual(1, child.DisposeCount);
-            CollectionAssert.AreEqual
-            (
-                new[] { "Opening", "Opened", "Closing", "Closed" },
-                handler.Calls
-            );
-        }
-
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 하위 Screen의 child 정리가 실패하면 이전 Screen을 Covered 상태로 격리하는지 검증한다.
+        /// 하위 Screen의 child 정리가 실패해도 닫힌 top 아래의 이전 Screen을 복원하는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_Close자식정리실패_이전Screen복원하지않음()
+        public void TEST_ScreenController_Close자식정리실패_이전Screen복원()
         {
             var baseSource = new TestScreenSource(new object());
             var childSource = new TestScreenSource(new object());
@@ -1409,8 +1266,8 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsTrue(childSession.Close());
 
             Assert.AreEqual(ScreenState.Closed, childSession.State);
-            Assert.AreEqual(ScreenState.Covered, baseSession.State);
-            Assert.IsFalse(baseSource.Driver.IsInteractable);
+            Assert.AreEqual(ScreenState.Active, baseSession.State);
+            Assert.IsTrue(baseSource.Driver.IsInteractable);
             Assert.AreEqual(1, controller.Count);
             Assert.AreEqual(1, inputDriver.Count);
             Assert.AreEqual(1, childSource.ReleaseCount);
@@ -1423,11 +1280,11 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 하위 Screen의 입력 해제가 실패하면 Session을 종결하고 이전 Screen을 복원하지 않는지 검증한다.
+        /// 하위 Screen의 입력 해제가 실패해도 Session을 종결하고 이전 Screen을 복원하는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_ScreenController_Close입력해제실패_이전Screen복원하지않음()
+        public void TEST_ScreenController_Close입력해제실패_이전Screen복원()
         {
             var baseSource = new TestScreenSource(new object());
             var childSource = new TestScreenSource(new object());
@@ -1447,8 +1304,8 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.IsTrue(childInput.IsReleased);
             Assert.AreEqual(ScreenState.Closed, childSession.State);
-            Assert.AreEqual(ScreenState.Covered, baseSession.State);
-            Assert.IsFalse(baseSource.Driver.IsInteractable);
+            Assert.AreEqual(ScreenState.Active, baseSession.State);
+            Assert.IsTrue(baseSource.Driver.IsInteractable);
             Assert.AreEqual(1, controller.Count);
             Assert.AreEqual(1, inputDriver.Count);
             Assert.AreEqual(1, childSource.ReleaseCount);

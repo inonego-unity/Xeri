@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="LayerRoot">
+        <ui:VisualElement name="SceneFade" />
+        <ui:VisualElement name="ScreenRoot">
+            <ui:Button name="DefaultFocus" text="Close" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

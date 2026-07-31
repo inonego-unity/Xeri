@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : VisibilityController.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Target별 중첩 Visibility 요청을 획득 순서로 합성하고 마지막 해제 시 기준 상태를 복원한다.
@@ -105,9 +105,7 @@ namespace inonego.Xeri.UI.Game
 
             if (index < 0) return;
 
-            var nextVisible = index == entry.Requests.Count - 1
-                ? index > 0 ? entry.Requests[index - 1].Visible : entry.Baseline
-                : entry.Requests[entry.Requests.Count - 1].Visible;
+            var wasTop = index == entry.Requests.Count - 1;
 
             entry.Requests.RemoveAt(index);
 
@@ -117,7 +115,10 @@ namespace inonego.Xeri.UI.Game
                 return;
             }
 
-            target.SetVisible(nextVisible);
+            if (wasTop)
+            {
+                target.SetVisible(entry.Requests[entry.Requests.Count - 1].Visible);
+            }
         }
 
         // ----------------------------------------------------------------------

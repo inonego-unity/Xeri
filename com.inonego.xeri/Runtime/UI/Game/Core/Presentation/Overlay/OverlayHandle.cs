@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : OverlayHandle.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Overlay View와 Presentation Layer 사용 수명을 정확히 한 번 반환하는 Handle을 정의한다.
@@ -100,7 +100,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                var view = source.Acquire(driver.Root);
+                var view = source.Acquire(driver);
 
                 if (view == null)
                 {

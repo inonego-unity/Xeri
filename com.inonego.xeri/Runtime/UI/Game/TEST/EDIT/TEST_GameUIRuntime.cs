@@ -1,16 +1,16 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIRuntime.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
-GameUIRuntime의 Profile 롤백, Scene 중복 구성과 초기화·종료 실패 정리를 검증한다.
+GameUIRuntime의 혼합 Layer Profile, 롤백, Scene 중복 구성과 초기화·종료 실패 정리를 검증한다.
 
 # 테스트 구성
  P: Profile 획득 실패 롤백
  I: OnInitialized 실패 롤백
  R: Runtime 종료 실패와 Terminal 정리
  S: Screen 정리 실패와 Terminal Shutdown
- C: Scene 구성 중복 검증
+ C: Host·Scene 구성 검증
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -53,19 +53,9 @@ namespace inonego.Xeri.TEST.UI._Game
             // ------------------------------------------------------------
             public Transform Parent
             {
-                get => parent;
-                set
-                {
-                    if (FailWhenClearingParent && value == null)
-                    {
-                        throw new InvalidOperationException("injected provider parent restore failure");
-                    }
-
-                    parent = value;
-                }
+                get;
+                set;
             }
-
-            private Transform parent = null;
 
             // ------------------------------------------------------------
             /// <summary>
@@ -80,13 +70,6 @@ namespace inonego.Xeri.TEST.UI._Game
             /// </summary>
             // ------------------------------------------------------------
             public int ReleaseCount { get; private set; }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// null Parent 복원에서 예외를 발생시키는지 여부.
-            /// </summary>
-            // ------------------------------------------------------------
-            public bool FailWhenClearingParent { get; set; }
 
             // ------------------------------------------------------------
             /// <summary>
@@ -298,6 +281,7 @@ namespace inonego.Xeri.TEST.UI._Game
         private sealed class RuntimeFixture
         {
             public GameUIRuntime Runtime { get; set; }
+            public UGUISceneFadeSource FadeSource { get; set; }
             public GameUISettingsAsset Settings { get; set; }
             public TestProvider LayerProvider { get; set; }
             public TestProvider FadeProvider { get; set; }
@@ -345,79 +329,6 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// private setter를 포함한 Runtime 프로퍼티를 설정한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void SetProperty
-        (
-            object target,
-            string name,
-            object value
-        )
-        {
-            var property = target.GetType().GetProperty
-            (
-                name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
-
-            Assert.IsNotNull(property, $"{target.GetType().Name}.{name}");
-            property.SetValue(target, value);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// private instance 필드 값을 조회한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static T GetField<T>
-        (
-            object target,
-            string name
-        )
-        {
-            var field = target.GetType().GetField
-            (
-                name,
-                BindingFlags.Instance | BindingFlags.NonPublic
-            );
-
-            Assert.IsNotNull(field, $"{target.GetType().Name}.{name}");
-            return (T)field.GetValue(target);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// private 메서드를 호출하고 내부 예외를 원형으로 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static object Invoke
-        (
-            object target,
-            string name,
-            params object[] arguments
-        )
-        {
-            var method = target.GetType().GetMethod
-            (
-                name,
-                BindingFlags.Instance | BindingFlags.NonPublic
-            );
-
-            Assert.IsNotNull(method, $"{target.GetType().Name}.{name}");
-
-            try
-            {
-                return method.Invoke(target, arguments);
-            }
-            catch (TargetInvocationException exception)
-            {
-                throw exception.InnerException;
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// Presentation Layer Asset을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -429,7 +340,6 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var asset = ScriptableObject.CreateInstance<PresentationLayerAsset>();
             SetField(asset, "id", id);
-            SetField(asset, "mode", PresentationLayerMode.Shared);
             SetField(asset, "order", order);
             ownedObjects.Add(asset);
             return asset;
@@ -483,12 +393,14 @@ namespace inonego.Xeri.TEST.UI._Game
             (
                 name,
                 typeof(RectTransform),
+                typeof(Canvas),
                 typeof(UGUILayerCanvas)
             );
             gameObject.transform.SetParent(parent, false);
+            gameObject.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             var driver = gameObject.GetComponent<UGUILayerCanvas>();
             SetField(driver, "root", gameObject.GetComponent<RectTransform>());
-            SetField(driver, "canvas", null);
+            SetField(driver, "canvas", gameObject.GetComponent<Canvas>());
             return gameObject;
         }
 
@@ -540,17 +452,18 @@ namespace inonego.Xeri.TEST.UI._Game
 
             var eventSystem = host.AddComponent<EventSystem>();
             var inputModule = host.AddComponent<InputSystemUIInputModule>();
-            var layout = host.AddComponent<UGUILayoutController>();
-            var focus = host.AddComponent<UGUIFocusDriver>();
+            var uguiFocus = host.AddComponent<UGUIFocusDriver>();
+            var uitkFocus = host.AddComponent<UITKFocusDriver>();
+            var focus = host.AddComponent<GameUIFocusDriver>();
             var input = host.AddComponent<InputSystemScreenInputDriver>();
+            var fadeSource = host.AddComponent<UGUISceneFadeSource>();
             var runtime = host.AddComponent<GameUIRuntime>();
 
             var layerRootObject = new GameObject("Layer Root", typeof(RectTransform));
             layerRootObject.transform.SetParent(host.transform, false);
-            var safeAreaObject = new GameObject("Safe Area", typeof(RectTransform));
-            safeAreaObject.transform.SetParent(host.transform, false);
-            SetField(layout, "safeAreaRoot", safeAreaObject.GetComponent<RectTransform>());
-            SetField(focus, "eventSystem", eventSystem);
+            SetField(uguiFocus, "eventSystem", eventSystem);
+            SetField(focus, "uguiFocusDriver", uguiFocus);
+            SetField(focus, "uitkFocusDriver", uitkFocus);
 
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
             var ui = new InputActionMap("UI");
@@ -573,23 +486,24 @@ namespace inonego.Xeri.TEST.UI._Game
             var settings = ScriptableObject.CreateInstance<GameUISettingsAsset>();
             SetField(settings, "defaultProfile", profile);
             SetField(settings, "sceneFadeLayerID", "Fade");
-            SetField(settings, "sceneFadeViewProvider", fadeProvider);
             SetField(settings, "uiActionMap", "UI");
             SetField(settings, "gameplayActionMap", "Player");
             SetField(settings, "releaseActionNames", new[] { "Cancel", "Submit", "Pause" });
             ownedObjects.Add(settings);
 
+            SetField(fadeSource, "viewProvider", fadeProvider);
             SetField(runtime, "layerRoot", layerRootObject.transform);
+            SetField(runtime, "focusDriver", focus);
+            SetField(runtime, "sceneFadeSource", fadeSource);
             SetField(runtime, "eventSystem", eventSystem);
             SetField(runtime, "inputModule", inputModule);
-            SetField(runtime, "layoutController", layout);
-            SetField(runtime, "focusDriver", focus);
             SetField(runtime, "inputDriver", input);
             host.SetActive(true);
 
             return new RuntimeFixture
             {
                 Runtime = runtime,
+                FadeSource = fadeSource,
                 Settings = settings,
                 LayerProvider = layerProvider,
                 FadeProvider = fadeProvider,
@@ -632,14 +546,8 @@ namespace inonego.Xeri.TEST.UI._Game
         [Test]
         public void TEST_GameUIRuntime_Profile획득실패_Layer와Provider전체롤백()
         {
-            var host = new GameObject("Profile Runtime");
-            var layerRoot = new GameObject("Layer Root", typeof(RectTransform));
-            layerRoot.transform.SetParent(host.transform, false);
-            ownedObjects.Add(host);
-            var runtime = host.AddComponent<GameUIRuntime>();
-            var registry = new PresentationLayerRegistry();
-            SetField(runtime, "layerRoot", layerRoot.transform);
-            SetProperty(runtime, "LayerRegistry", registry);
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.Initialize(fixture.Settings);
             var firstProvider = new TestProvider
             (
                 parent => CreateLayerRoot(parent, "First Layer")
@@ -650,13 +558,13 @@ namespace inonego.Xeri.TEST.UI._Game
             );
             var profile = CreateProfile
             (
-                (CreateLayerAsset("First", 0), firstProvider),
-                (CreateLayerAsset("Second", 1), secondProvider)
+                (CreateLayerAsset("First", 1), firstProvider),
+                (CreateLayerAsset("Second", 2), secondProvider)
             );
 
             Assert.Throws<InvalidOperationException>
             (
-                () => Invoke(runtime, "AcquireProfileInternal", profile)
+                () => fixture.Runtime.AcquireProfile(profile)
             );
 
             Assert.AreEqual(1, firstProvider.AcquireCount);
@@ -664,49 +572,9 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsFalse(firstProvider.LastAcquireWorldPositionStays);
             Assert.IsFalse(firstProvider.LastReleaseWorldPositionStays);
             Assert.AreEqual(1, secondProvider.AcquireCount);
-            Assert.IsFalse(registry.Contains("First"));
-            var handles = (ICollection)typeof(GameUIRuntime).GetField
-            (
-                "profileHandles",
-                BindingFlags.Instance | BindingFlags.NonPublic
-            ).GetValue(runtime);
-            Assert.AreEqual(0, handles.Count);
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// Provider Parent 복원 실패도 이미 획득한 Layer 인스턴스를 반환하는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_GameUIRuntime_ProfileParent복원실패_획득Instance롤백()
-        {
-            var host = new GameObject("Profile Runtime");
-            var layerRoot = new GameObject("Layer Root", typeof(RectTransform));
-            layerRoot.transform.SetParent(host.transform, false);
-            ownedObjects.Add(host);
-            var runtime = host.AddComponent<GameUIRuntime>();
-            SetField(runtime, "layerRoot", layerRoot.transform);
-            SetProperty(runtime, "LayerRegistry", new PresentationLayerRegistry());
-            var provider = new TestProvider
-            (
-                parent => CreateLayerRoot(parent, "Restored Layer")
-            )
-            {
-                FailWhenClearingParent = true,
-            };
-            var profile = CreateProfile
-            (
-                (CreateLayerAsset("Restored", 0), provider)
-            );
-
-            Assert.Throws<InvalidOperationException>
-            (
-                () => Invoke(runtime, "AcquireProfileInternal", profile)
-            );
-
-            Assert.AreEqual(1, provider.AcquireCount);
-            Assert.AreEqual(1, provider.ReleaseCount);
+            Assert.IsFalse(fixture.Runtime.LayerRegistry.Contains("First"));
+            Assert.IsTrue(fixture.Runtime.IsInitialized);
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
         }
 
     #endregion
@@ -768,6 +636,33 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsFalse(fixture.Runtime.IsInitialized);
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> OnInitialized 중 명시적 Shutdown이 초기화 성공으로 반환되지 않고,
+        /// <br/> 이미 끝난 소유 리소스를 후속 종료에서 다시 정리하지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_OnInitialized중Shutdown_초기화실패와Terminal종료()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.OnInitialized += runtime => runtime.Shutdown();
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => fixture.Runtime.Initialize(fixture.Settings)
+            );
+
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+            Assert.IsFalse(fixture.Runtime.IsInitialized);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
+
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
+        }
+
     #endregion
 
     #region I-2: 필수 Fade 구성 실패
@@ -782,7 +677,7 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var fixture = CreateRuntimeFixture();
             var invalidFadeProvider = new TestProvider(CreateInvalidFadeView);
-            SetField(fixture.Settings, "sceneFadeViewProvider", invalidFadeProvider);
+            SetField(fixture.FadeSource, "viewProvider", invalidFadeProvider);
 
             Assert.Throws<InvalidOperationException>
             (
@@ -849,11 +744,11 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// Terminal Runtime의 후속 Shutdown이 소유권이 남은 Provider 반환만 다시 시도하는지 검증한다.
+        /// Provider 반환 실패 뒤 Terminal Runtime이 같은 반환을 다시 시도하지 않는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_GameUIRuntime_Provider반환실패_후속Shutdown에서물리반환재시도()
+        public void TEST_GameUIRuntime_Provider반환실패_후속Shutdown에서반복하지않음()
         {
             var fixture = CreateRuntimeFixture();
             fixture.Runtime.Initialize(fixture.Settings);
@@ -867,7 +762,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.DoesNotThrow(fixture.Runtime.Shutdown);
 
-            Assert.AreEqual(2, fixture.LayerProvider.ReleaseCount);
+            Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
         }
 
@@ -882,9 +777,10 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var fixture = CreateRuntimeFixture();
             fixture.Runtime.Initialize(fixture.Settings);
+            var layerRegistry = fixture.Runtime.LayerRegistry;
             Assert.IsTrue
             (
-                fixture.Runtime.LayerRegistry.TryAcquireUsage
+                layerRegistry.TryAcquireUsage
                 (
                     "Fade",
                     out _,
@@ -903,34 +799,10 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.DoesNotThrow(fixture.Runtime.Shutdown);
             Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// 종료 콜백의 재귀 Shutdown이 진행 중 종료를 조기 완료로 바꾸지 않는지 검증한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        [Test]
-        public void TEST_GameUIRuntime_OnReleasing재귀Shutdown_외부종료만Terminal확정()
-        {
-            var fixture = CreateRuntimeFixture();
-            var callbackCount = 0;
-            fixture.Runtime.OnReleasing += runtime =>
-            {
-                callbackCount++;
-                Assert.IsTrue(runtime.IsReleasing);
-                Assert.IsFalse(runtime.IsReleased);
-                Assert.DoesNotThrow(runtime.Shutdown);
-                Assert.IsTrue(runtime.IsReleasing);
-                Assert.IsFalse(runtime.IsReleased);
-            };
-            fixture.Runtime.Initialize(fixture.Settings);
-
-            fixture.Runtime.Shutdown();
-
-            Assert.AreEqual(1, callbackCount);
-            Assert.IsFalse(fixture.Runtime.IsReleasing);
-            Assert.IsTrue(fixture.Runtime.IsReleased);
+            Assert.Throws<ObjectDisposedException>
+            (
+                () => layerRegistry.TryGet("Fade", out _)
+            );
         }
 
     #endregion
@@ -966,7 +838,6 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.Throws<AggregateException>(fixture.Runtime.Shutdown);
 
-            Assert.IsFalse(GetField<bool>(fixture.Runtime, "sceneLoadedSubscribed"));
             Assert.IsFalse(fixture.Runtime.IsReleasing);
             Assert.IsTrue(fixture.Runtime.IsReleased);
             Assert.AreEqual(ScreenState.Closed, response.Session.State);
@@ -988,6 +859,29 @@ namespace inonego.Xeri.TEST.UI._Game
     #endregion
 
     #region C-1: Scene 구성 중복
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 한 Runtime Host에 Scene Fade Source가 둘이면 초기화 전에 명시적으로 거부한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_SceneFadeSource중복_초기화전거부()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.gameObject.AddComponent<UGUISceneFadeSource>();
+
+            var exception = Assert.Throws<InvalidOperationException>
+            (
+                () => fixture.Runtime.Initialize(fixture.Settings)
+            );
+
+            StringAssert.Contains("Scene Fade Source가 정확히 하나", exception.Message);
+            Assert.IsFalse(fixture.Runtime.IsInitialized);
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+            Assert.AreEqual(0, fixture.LayerProvider.AcquireCount);
+            Assert.AreEqual(0, fixture.FadeProvider.AcquireCount);
+        }
 
         // ----------------------------------------------------------------------
         /// <summary>

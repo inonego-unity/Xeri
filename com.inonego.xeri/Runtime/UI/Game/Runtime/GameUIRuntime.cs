@@ -1,0 +1,989 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : GameUIRuntime.cs
+수정일 : 2026-07-31
+
+# 설명
+App 단위 Game UI 서비스, Scene 구성 검증, 혼합 Layer Profile, Focus와 Fade Source의 조립·역순 해제를 소유한다.
+Shutdown은 일반 소유 객체를 한 번씩 정리하고, 사전 조건에서 거부된 Profile과 Layer Registry 소유권만 유지한다.
+========================================================================= BLOCK_HEADER_END */
+
+using System;
+using System.Collections.Generic;
+
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
+
+namespace inonego.Xeri.UI.Game
+{
+    // ============================================================
+    /// <summary>
+    /// 게임 UI Runtime의 명시적 Composition Root.
+    /// </summary>
+    // ============================================================
+    public sealed class GameUIRuntime : MonoBehaviour
+    {
+    #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime 초기화가 완료됐는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsInitialized { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime이 해제 중인지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsReleasing { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime Core 해제가 완료됐는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsReleased { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime이 사용하는 Settings.
+        /// </summary>
+        // ------------------------------------------------------------
+        public GameUISettingsAsset Settings { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Host에 직렬화된 혼합 Focus Driver.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal GameUIFocusDriver FocusDriver => focusDriver;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Host에 직렬화된 Scene Fade Source.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal GameUISceneFadeSource SceneFadeSource => sceneFadeSource;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Presentation Layer 등록과 소비자 수명 Registry.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PresentationLayerRegistry LayerRegistry { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 동적 Screen 등록 Registry.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenRegistry ScreenRegistry { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 명령과 Stack 수명 Controller.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ScreenController Screens { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen Focus 기록과 복원 Controller.
+        /// </summary>
+        // ------------------------------------------------------------
+        public FocusController Focus { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// App 기본 Profile Layer를 사용하는 Scene Fade 서비스.
+        /// </summary>
+        // ------------------------------------------------------------
+        public SceneFader SceneFader { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Visibility Override Controller.
+        /// </summary>
+        // ------------------------------------------------------------
+        public VisibilityController Visibility { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Modal Stack Controller.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ModalController Modals { get; private set; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 마지막으로 UI 입력을 수행한 장치.
+        /// </summary>
+        // ------------------------------------------------------------
+        public InputDevice LastInputDevice
+        {
+            get
+            {
+                ThrowIfUnavailable();
+                return inputDriver.LastInputDevice;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Settings의 기본 Scene Fade 실행 인자.
+        /// </summary>
+        // ------------------------------------------------------------
+        public SceneFadeParams DefaultSceneFadeParams
+        {
+            get
+            {
+                ThrowIfUnavailable();
+                return new SceneFadeParams(Settings.DefaultFadeColor, Settings.DefaultFadeDuration);
+            }
+        }
+
+        [SerializeField]
+        private Transform layerRoot = null;
+
+        [SerializeField]
+        private GameUIFocusDriver focusDriver = null;
+
+        [SerializeField]
+        private GameUISceneFadeSource sceneFadeSource = null;
+
+        [SerializeField]
+        private EventSystem eventSystem = null;
+
+        [SerializeField]
+        private InputSystemUIInputModule inputModule = null;
+
+        [SerializeField]
+        private InputSystemScreenInputDriver inputDriver = null;
+
+        private readonly List<GameUIProfileHandle> profileHandles =
+            new List<GameUIProfileHandle>();
+
+        private PresentationLayerRegistry pendingLayerRegistry = null;
+        private DOTweenPresentationTransitioner transitioner = null;
+        private GameUIProfileHandle defaultProfile = null;
+        private bool sceneLoadedSubscribed = false;
+
+    #endregion
+
+    #region 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Core와 기본 Profile 조립이 완료된 뒤 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event Action<GameUIRuntime> OnInitialized = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 Screen Source 반환 뒤 프로젝트 소유 리소스 해제 직전에 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event Action<GameUIRuntime> OnReleasing = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 마지막 UI 입력 장치가 바뀌었을 때 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event Action<InputDevice> OnLastInputDeviceChanged
+        {
+            add
+            {
+                ThrowIfUnavailable();
+                inputDriver.OnLastInputDeviceChanged += value;
+            }
+            remove
+            {
+                if (inputDriver != null)
+                {
+                    inputDriver.OnLastInputDeviceChanged -= value;
+                }
+            }
+        }
+
+    #endregion
+
+    #region Unity 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Application 종료 fallback 여부를 기록하고 Runtime을 정리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnApplicationQuit()
+        {
+            ShutdownFallback();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Host 비활성화 시 조립 Component 파괴 순서보다 먼저 Runtime 소유권을 정리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnDisable()
+        {
+            if (!Application.isPlaying || IsReleased) return;
+
+            ShutdownFallback();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 명시적 Shutdown이 누락된 Host 파괴에서 같은 종료 경로를 실행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnDestroy()
+        {
+            if (!IsReleased)
+            {
+                ShutdownFallback();
+            }
+        }
+
+    #endregion
+
+    #region 초기화
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Host 참조와 Settings를 검증하고 Core 서비스와 기본 Profile을 조립한다.
+        /// <br/> 구독자 실패를 포함한 초기화 실패는 생성된 소유 리소스를 역순 롤백한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void Initialize(GameUISettingsAsset settings)
+        {
+            if (IsInitialized)
+            {
+                throw new InvalidOperationException("Game UI Runtime이 이미 초기화됐습니다.");
+            }
+
+            if (IsReleasing || IsReleased)
+            {
+                throw new InvalidOperationException("해제 중이거나 해제된 Game UI Runtime은 초기화할 수 없습니다.");
+            }
+
+            var coreReady = false;
+
+            try
+            {
+                ValidateHost(settings);
+                Settings = settings;
+
+                LayerRegistry = new PresentationLayerRegistry();
+                transitioner = new DOTweenPresentationTransitioner();
+                inputDriver.Initialize(inputModule, settings);
+                focusDriver.Initialize(eventSystem);
+                sceneFadeSource.Initialize();
+                Focus = new FocusController(focusDriver);
+                ScreenRegistry = new ScreenRegistry(LayerRegistry);
+                Screens = new ScreenController
+                (
+                    ScreenRegistry,
+                    LayerRegistry,
+                    transitioner,
+                    Focus,
+                    inputDriver
+                );
+
+                Visibility = new VisibilityController();
+                Modals = new ModalController();
+
+                defaultProfile = AcquireProfileInternal(settings.DefaultProfile);
+
+                if (!LayerRegistry.Contains(settings.SceneFadeLayerID))
+                {
+                    throw new InvalidOperationException
+                    (
+                        $"기본 Profile에 Scene Fade Layer '{settings.SceneFadeLayerID}'가 없습니다."
+                    );
+                }
+
+                if (!LayerRegistry.TryGet(settings.SceneFadeLayerID, out var fadeLayer))
+                {
+                    throw new InvalidOperationException
+                    (
+                        $"Scene Fade Layer '{settings.SceneFadeLayerID}' Driver를 조회할 수 없습니다."
+                    );
+                }
+
+                ValidateSceneFadeSource(sceneFadeSource, fadeLayer);
+
+                SceneFader = new SceneFader
+                (
+                    LayerRegistry,
+                    settings.SceneFadeLayerID,
+                    sceneFadeSource,
+                    transitioner,
+                    PresentationTimeSource.Unscaled
+                );
+
+                Screens.Activate();
+                IsInitialized = true;
+                coreReady = true;
+                SubscribeSceneValidation();
+
+                // 초기화 완료 구독자가 동기 Scene 전환을 시작해도 Host가 유지되도록 알림 전에 App 수명으로 확정한다.
+                if (Application.isPlaying)
+                {
+                    DontDestroyOnLoad(gameObject);
+                }
+
+                OnInitialized?.Invoke(this);
+
+                // 완료 알림 중 명시적으로 종료된 Runtime을 초기화 성공 상태로 반환하지 않는다.
+                if (!IsInitialized)
+                {
+                    throw new InvalidOperationException
+                    (
+                        "OnInitialized 처리 중 Game UI Runtime이 종료됐습니다."
+                    );
+                }
+            }
+            catch (Exception exception)
+            {
+                IsInitialized = false;
+                var errors = Release(coreReady);
+
+                if (errors.Count == 0)
+                {
+                    throw;
+                }
+
+                errors.Insert(0, exception);
+                throw new AggregateException("Game UI Runtime 초기화와 롤백이 실패했습니다.", errors);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// App·Scene·게임 모드 Layer Profile을 명시적으로 획득한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public GameUIProfileHandle AcquireProfile(GameUIProfileAsset profile)
+        {
+            ThrowIfUnavailable();
+            return AcquireProfileInternal(profile);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Provider Layer Root를 모두 준비한 뒤 Registry에 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private GameUIProfileHandle AcquireProfileInternal(GameUIProfileAsset profile)
+        {
+            if (profile == null)
+            {
+                throw new ArgumentNullException(nameof(profile));
+            }
+
+            profile.Validate();
+
+            var handle = new GameUIProfileHandle
+            (
+                profile,
+                HandleProfileReleaseCompleted
+            );
+            profileHandles.Add(handle);
+            var prepared =
+                new List<(GameUIProfileHandle.OwnedLayer Layer, PresentationLayerAsset Asset, IPresentationLayerDriver Driver)>();
+
+            try
+            {
+                for (var i = 0; i < profile.Count; i++)
+                {
+                    var asset = profile.GetLayerAsset(i);
+                    var provider = profile.GetProvider(i);
+                    var previousParent = provider.Parent;
+                    GameObject instance = null;
+                    GameUIProfileHandle.OwnedLayer ownedLayer = null;
+
+                    try
+                    {
+                        provider.Parent = layerRoot;
+                        instance = provider.Acquire(false);
+
+                        if (instance != null)
+                        {
+                            // 후속 Layer 검증·등록이 실패해도 획득한 인스턴스를 반환할 수 있게 즉시 기록한다.
+                            ownedLayer = handle.AddLayer(provider, instance);
+                        }
+                    }
+                    finally
+                    {
+                        provider.Parent = previousParent;
+                    }
+
+                    if (instance == null)
+                    {
+                        throw new InvalidOperationException
+                        (
+                            $"Profile Layer '{asset.ID}' Provider가 null 인스턴스를 반환했습니다."
+                        );
+                    }
+
+                    instance.SetActive(false);
+
+                    var driver = GetLayerDriver(instance);
+
+                    prepared.Add((ownedLayer, asset, driver));
+                }
+
+                for (var i = 0; i < prepared.Count; i++)
+                {
+                    var item = prepared[i];
+
+                    if (!item.Driver.Validate(item.Asset, out var error))
+                    {
+                        throw new InvalidOperationException
+                        (
+                            $"Profile Layer '{item.Asset.ID}' 구성이 유효하지 않습니다. {error}"
+                        );
+                    }
+                }
+
+                for (var i = 0; i < prepared.Count; i++)
+                {
+                    var item = prepared[i];
+                    var layerHandle = LayerRegistry.Register(item.Asset, item.Driver);
+                    handle.AttachLayerHandle(item.Layer, layerHandle);
+                }
+
+                return handle;
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    handle.Dispose();
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException
+                    (
+                        $"Game UI Profile '{profile.name}' 획득과 롤백이 실패했습니다.",
+                        exception,
+                        cleanupException
+                    );
+                }
+
+                throw;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Terminal Profile Handle을 Runtime 추적에서 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleProfileReleaseCompleted(GameUIProfileHandle handle)
+        {
+            profileHandles.Remove(handle);
+
+            if (ReferenceEquals(defaultProfile, handle))
+            {
+                defaultProfile = null;
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Layer Prefab Root에서 기술과 무관하게 Presentation Layer Driver 하나를 찾는다.
+        /// <br/> Root 소유권이 모호한 0개 또는 복수 구성은 Registry 공개 전에 거부한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static IPresentationLayerDriver GetLayerDriver(GameObject instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+
+            var components = instance.GetComponents<MonoBehaviour>();
+            IPresentationLayerDriver driver = null;
+
+            for (var i = 0; i < components.Length; i++)
+            {
+                if (!(components[i] is IPresentationLayerDriver candidate)) continue;
+
+                if (driver != null)
+                {
+                    throw new InvalidOperationException
+                    (
+                        $"Profile Layer '{instance.name}' Root에는 " +
+                        "IPresentationLayerDriver가 정확히 하나 필요합니다."
+                    );
+                }
+
+                driver = candidate;
+            }
+
+            if (driver == null)
+            {
+                throw new InvalidOperationException
+                (
+                    $"Profile Layer '{instance.name}' Root에 IPresentationLayerDriver가 없습니다."
+                );
+            }
+
+            return driver;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Fade View Provider와 Driver를 초기화 시점에 한 번 획득·반환해 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void ValidateSceneFadeSource
+        (
+            IOverlaySource<ISceneFadeDriver> source,
+            IPresentationLayerDriver layer
+        )
+        {
+            ISceneFadeDriver view = null;
+            Exception validationError = null;
+
+            try
+            {
+                view = source.Acquire(layer);
+
+                if (!view.IsValid)
+                {
+                    validationError = new InvalidOperationException
+                    (
+                        "Scene Fade View Driver 참조가 유효하지 않습니다."
+                    );
+                }
+                else
+                {
+                    view.Apply(0.0f);
+                }
+            }
+            catch (Exception exception)
+            {
+                validationError = exception;
+            }
+
+            if (view != null)
+            {
+                try
+                {
+                    source.Release(view);
+                }
+                catch (Exception releaseException)
+                {
+                    validationError = validationError == null
+                        ? releaseException
+                        : new AggregateException(validationError, releaseException);
+                }
+            }
+
+            if (validationError != null)
+            {
+                throw new InvalidOperationException
+                (
+                    "Scene Fade View Provider 또는 Driver 검증이 실패했습니다.",
+                    validationError
+                );
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Host, EventSystem, Focus Driver와 Scene Fade Source 참조를 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ValidateHost(GameUISettingsAsset settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            settings.Validate();
+
+            if (!gameObject.activeInHierarchy)
+            {
+                throw new InvalidOperationException("Game UI Runtime Host Root가 활성 상태가 아닙니다.");
+            }
+
+            if (transform != transform.root)
+            {
+                throw new InvalidOperationException("GameUIRuntime은 Game UI Host Root에 있어야 합니다.");
+            }
+
+            if (!enabled)
+            {
+                throw new InvalidOperationException("Game UI Runtime Component가 비활성 상태입니다.");
+            }
+
+            if (layerRoot == null)
+            {
+                throw new InvalidOperationException("Game UI Layer 부모 Root가 연결되지 않았습니다.");
+            }
+
+            if (eventSystem == null || !eventSystem.enabled)
+            {
+                throw new InvalidOperationException("활성 EventSystem이 연결되지 않았습니다.");
+            }
+
+            if (inputModule == null || !inputModule.enabled)
+            {
+                throw new InvalidOperationException("활성 InputSystemUIInputModule이 연결되지 않았습니다.");
+            }
+
+            if (inputModule.GetComponent<EventSystem>() != eventSystem)
+            {
+                throw new InvalidOperationException("Input Module과 EventSystem이 같은 Host에 연결되지 않았습니다.");
+            }
+
+            if (focusDriver == null || !focusDriver.enabled)
+            {
+                throw new InvalidOperationException("활성 Game UI Focus Driver가 연결되지 않았습니다.");
+            }
+
+            var focusDrivers = GetComponents<GameUIFocusDriver>();
+
+            if (focusDrivers.Length != 1 || focusDrivers[0] != focusDriver)
+            {
+                throw new InvalidOperationException
+                (
+                    "Game UI Runtime Host에는 직렬화 참조와 일치하는 " +
+                    "GameUIFocusDriver가 정확히 하나 필요합니다."
+                );
+            }
+
+            if (sceneFadeSource == null || !sceneFadeSource.enabled)
+            {
+                throw new InvalidOperationException("활성 Scene Fade Source가 연결되지 않았습니다.");
+            }
+
+            var sceneFadeSources = GetComponents<GameUISceneFadeSource>();
+
+            if (sceneFadeSources.Length != 1 || sceneFadeSources[0] != sceneFadeSource)
+            {
+                throw new InvalidOperationException
+                (
+                    "Game UI Runtime Host에는 직렬화 참조와 일치하는 " +
+                    "Scene Fade Source가 정확히 하나 필요합니다."
+                );
+            }
+
+            if (inputDriver == null || !inputDriver.enabled)
+            {
+                throw new InvalidOperationException("활성 Input System Screen Input Driver가 연결되지 않았습니다.");
+            }
+
+            ValidateSceneComposition();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 로드된 Scene 전체에서 Runtime Host와 EventSystem의 단일 구성을 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void ValidateSceneComposition()
+        {
+            var runtimes = FindObjectsByType<GameUIRuntime>
+            (
+                FindObjectsInactive.Include
+            );
+
+            for (var i = 0; i < runtimes.Length; i++)
+            {
+                if (runtimes[i] != this)
+                {
+                    throw new InvalidOperationException
+                    (
+                        $"다른 Game UI Runtime Host '{runtimes[i].name}'가 이미 로드되어 있습니다."
+                    );
+                }
+            }
+
+            var eventSystems = FindObjectsByType<EventSystem>
+            (
+                FindObjectsInactive.Include
+            );
+
+            for (var i = 0; i < eventSystems.Length; i++)
+            {
+                if (eventSystems[i] != eventSystem)
+                {
+                    throw new InvalidOperationException
+                    (
+                        $"다른 EventSystem '{eventSystems[i].name}'가 이미 로드되어 있습니다."
+                    );
+                }
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime 초기화 뒤 Scene 로드 경계 검증을 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void SubscribeSceneValidation()
+        {
+            if (sceneLoadedSubscribed) return;
+
+            SceneManager.sceneLoaded += HandleSceneLoaded;
+            sceneLoadedSubscribed = true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Runtime 종료 전에 Scene 로드 경계 검증을 해제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void UnsubscribeSceneValidation()
+        {
+            if (!sceneLoadedSubscribed) return;
+
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+            sceneLoadedSubscribed = false;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 새 Scene이 추가한 중복 Runtime 또는 EventSystem을 명시적 오류로 보고한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleSceneLoaded
+        (
+            Scene scene,
+            LoadSceneMode mode
+        )
+        {
+            if (!IsInitialized || IsReleasing || IsReleased) return;
+
+            try
+            {
+                ValidateSceneComposition();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException
+                (
+                    new InvalidOperationException
+                    (
+                        $"Scene '{scene.name}'의 Game UI 구성이 유효하지 않습니다.",
+                        exception
+                    ),
+                    this
+                );
+            }
+        }
+
+    #endregion
+
+    #region 종료
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Screen, 프로젝트 Composition, Fade, Profile과 공통 서비스를 역순 해제한다.
+        /// <br/> 논리 소유권은 한 번만 정리하고 Runtime은 오류와 관계없이 Terminal 상태로 끝난다.
+        /// <br/> 후속 Shutdown은 상태 변경 전에 거부되어 Runtime 소유권이 남은 Profile과 Layer Registry만 다시 정리한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void Shutdown()
+        {
+            var errors = Release(invokeReleasingEvent: true);
+
+            if (errors.Count > 0)
+            {
+                throw new AggregateException("Game UI Runtime 종료 중 하나 이상의 정리가 실패했습니다.", errors);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 종료 callback에서 같은 종료 오류를 기록만 한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ShutdownFallback()
+        {
+            var errors = Release(invokeReleasingEvent: true);
+
+            for (var i = 0; i < errors.Count; i++)
+            {
+                if (errors[i] != null)
+                {
+                    Debug.LogException(errors[i], this);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재까지 생성된 Runtime 소유 리소스를 해제하고 오류를 수집한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private List<Exception> Release(bool invokeReleasingEvent)
+        {
+            var errors = new List<Exception>();
+
+            if (IsReleasing) return errors;
+
+            if (IsReleased)
+            {
+                // 활성 소비자 사전 조건에서 상태 변경 전에 거부된 소유권만 남는다.
+                for (var i = profileHandles.Count - 1; i >= 0; i--)
+                {
+                    DisposeOwned(profileHandles[i], errors);
+                }
+
+                DisposePendingLayerRegistry(errors);
+                return errors;
+            }
+
+            IsInitialized = false;
+            IsReleasing = true;
+            var screens = Screens;
+            var sceneFader = SceneFader;
+            var modals = Modals;
+            var visibility = Visibility;
+            var screenRegistry = ScreenRegistry;
+            var input = inputDriver;
+            var currentTransitioner = transitioner;
+            var layerRegistry = LayerRegistry;
+            var currentSceneFadeSource = sceneFadeSource;
+            var releasingSubscribers =
+                invokeReleasingEvent
+                    ? OnReleasing
+                    : null;
+
+            UnsubscribeSceneValidation();
+
+            if (screens != null)
+            {
+                try
+                {
+                    errors.AddRange(screens.Shutdown());
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            if (releasingSubscribers != null)
+            {
+                try
+                {
+                    releasingSubscribers.Invoke(this);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            // 종료 구독자가 살아 있는 Runtime 서비스를 확인한 뒤 public 접근 경계를 닫는다.
+            Screens = null;
+            SceneFader = null;
+            Modals = null;
+            Visibility = null;
+            ScreenRegistry = null;
+            defaultProfile = null;
+            inputDriver = null;
+            transitioner = null;
+            LayerRegistry = null;
+            Focus = null;
+            Settings = null;
+            OnInitialized = null;
+            OnReleasing = null;
+
+            // Fader가 보유한 View를 Source에 먼저 반환한 뒤 Source 자체를 종료한다.
+            DisposeOwned(sceneFader, errors);
+            DisposeOwned(currentSceneFadeSource, errors);
+
+            DisposeOwned(modals, errors);
+            DisposeOwned(visibility, errors);
+            DisposeOwned(screenRegistry, errors);
+            DisposeOwned(input, errors);
+
+            // 시작된 종료는 결과와 관계없이 Callback이 제거하고 사전 조건에서 거부된 소유권만 보존한다.
+            for (var i = profileHandles.Count - 1; i >= 0; i--)
+            {
+                DisposeOwned(profileHandles[i], errors);
+            }
+
+            DisposeOwned(currentTransitioner, errors);
+            pendingLayerRegistry = layerRegistry;
+            DisposePendingLayerRegistry(errors);
+
+            IsReleasing = false;
+            IsReleased = true;
+
+            return errors;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Terminal 상태로 분리한 IDisposable 서비스를 한 번 해제하고 오류를 수집한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void DisposeOwned
+        (
+            IDisposable owned,
+            List<Exception> errors
+        )
+        {
+            if (owned == null) return;
+
+            try
+            {
+                owned.Dispose();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 활성 소비자 사전 조건에서 거부된 Layer Registry 소유권을 Terminal 전까지만 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void DisposePendingLayerRegistry(List<Exception> errors)
+        {
+            var registry = pendingLayerRegistry;
+
+            if (registry == null) return;
+
+            DisposeOwned(registry, errors);
+
+            if (registry.IsDisposed)
+            {
+                pendingLayerRegistry = null;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 초기화 완료 상태에서만 public Runtime 서비스를 사용하게 한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ThrowIfUnavailable()
+        {
+            if (!IsInitialized || IsReleasing || IsReleased)
+            {
+                throw new InvalidOperationException("Game UI Runtime이 사용 가능한 상태가 아닙니다.");
+            }
+        }
+
+    #endregion
+
+    }
+}

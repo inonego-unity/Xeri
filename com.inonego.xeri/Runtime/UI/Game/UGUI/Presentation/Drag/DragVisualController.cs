@@ -90,16 +90,16 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            if (driver.Root is not RectTransform dragRoot)
+            if (!(driver is IPresentationLayerDriver<RectTransform> layerCanvas))
             {
                 usage.Dispose();
                 throw new InvalidOperationException
                 (
-                    $"Drag Visual Layer '{parameters.LayerID}' Root가 RectTransform이 아닙니다."
+                    $"Drag Visual Layer '{parameters.LayerID}'가 UGUI Layer가 아닙니다."
                 );
             }
 
-            return BeginInternal(parameters.Target, dragRoot, usage);
+            return BeginInternal(parameters.Target, layerCanvas.Root, usage);
         }
 
         // ----------------------------------------------------------------------

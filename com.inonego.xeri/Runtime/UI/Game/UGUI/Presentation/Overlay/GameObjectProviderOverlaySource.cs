@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameObjectProviderOverlaySource.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
-IGameObjectProvider를 Overlay View Source로 연결하고 Parent와 반환 소유권을 보존한다.
+IGameObjectProvider를 Overlay View Source로 연결하고 Parent와 View 반환 수명을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -64,8 +64,6 @@ namespace inonego.Xeri.UI.Game
 
         private readonly IGameObjectProvider provider = null;
         private readonly List<OwnedView> ownedViews = new List<OwnedView>();
-        private readonly List<GameObject> pendingReleaseInstances = new List<GameObject>();
-        private bool isReleasing = false;
         private bool isDisposed = false;
 
     #endregion
@@ -92,16 +90,21 @@ namespace inonego.Xeri.UI.Game
         /// <br/> 요청 View 계약을 구현한 Component를 반환한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public TView Acquire(Transform parent)
+        public TView Acquire(IPresentationLayerDriver layer)
         {
-            if (isReleasing || isDisposed)
+            if (isDisposed)
             {
                 throw new ObjectDisposedException(nameof(GameObjectProviderOverlaySource<TView>));
             }
 
-            if (parent == null)
+            if (!(layer is IPresentationLayerDriver<RectTransform> layerCanvas))
             {
-                throw new ArgumentNullException(nameof(parent));
+                throw new InvalidOperationException("UGUI Overlay Source에는 RectTransform Layer가 필요합니다.");
+            }
+
+            if (layerCanvas.Root == null)
+            {
+                throw new InvalidOperationException("UGUI Overlay Layer Root가 없습니다.");
             }
 
             var previousParent = provider.Parent;
@@ -109,14 +112,8 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                provider.Parent = parent;
+                provider.Parent = layerCanvas.Root;
                 instance = provider.Acquire(false);
-
-                if (instance != null)
-                {
-                    // Parent 복원도 실패할 수 있으므로 View 확인 전 물리 소유권부터 보존한다.
-                    pendingReleaseInstances.Add(instance);
-                }
             }
             finally
             {
@@ -140,7 +137,6 @@ namespace inonego.Xeri.UI.Game
                 try
                 {
                     provider.Release(instance, false);
-                    pendingReleaseInstances.RemoveAt(pendingReleaseInstances.Count - 1);
                 }
                 catch (Exception releaseException)
                 {
@@ -162,16 +158,14 @@ namespace inonego.Xeri.UI.Game
             }
 
             ownedViews.Add(new OwnedView(component, instance));
-            pendingReleaseInstances.RemoveAt(pendingReleaseInstances.Count - 1);
             return component;
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/> 대응하는 GameObject를 Provider에 한 번 반환하고 성공한 매핑만 종료한다.
-        /// <br/> 반환 실패 시 Provider 계약에 따라 Source가 물리 소유권을 계속 보관한다.
+        /// 대응하는 GameObject 소유 매핑을 종료하고 Provider 반환을 한 번 시도한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public void Release(TView view)
         {
             if (view == null)
@@ -179,8 +173,7 @@ namespace inonego.Xeri.UI.Game
                 throw new ArgumentNullException(nameof(view));
             }
 
-            // Source 종료가 남은 물리 소유권을 맡으므로 늦은 Handle 종료는 no-op이다.
-            if (isReleasing || isDisposed) return;
+            if (isDisposed) return;
 
             var index = FindOwnedViewIndex(view);
 
@@ -189,8 +182,9 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("이 Source가 소유하지 않은 Overlay View입니다.");
             }
 
-            provider.Release(ownedViews[index].Instance, false);
+            var instance = ownedViews[index].Instance;
             ownedViews.RemoveAt(index);
+            provider.Release(instance, false);
         }
 
     #endregion
@@ -228,29 +222,18 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
-            isReleasing = true;
+            isDisposed = true;
             var errors = new List<Exception>();
 
-            // Provider 반환 실패는 물리 소유권을 남기므로 성공한 항목만 원본 목록에서 제거한다.
+            // Source가 소유한 각 인스턴스를 목록에서 먼저 제거해 반환 실패도 Terminal로 확정한다.
             for (var i = ownedViews.Count - 1; i >= 0; i--)
             {
-                try
-                {
-                    provider.Release(ownedViews[i].Instance, false);
-                    ownedViews.RemoveAt(i);
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
+                var instance = ownedViews[i].Instance;
+                ownedViews.RemoveAt(i);
 
-            for (var i = pendingReleaseInstances.Count - 1; i >= 0; i--)
-            {
                 try
                 {
-                    provider.Release(pendingReleaseInstances[i], false);
-                    pendingReleaseInstances.RemoveAt(i);
+                    provider.Release(instance, false);
                 }
                 catch (Exception exception)
                 {
@@ -262,8 +245,6 @@ namespace inonego.Xeri.UI.Game
             {
                 throw new AggregateException("Overlay Source 해제가 실패했습니다.", errors);
             }
-
-            isDisposed = true;
         }
 
     #endregion
