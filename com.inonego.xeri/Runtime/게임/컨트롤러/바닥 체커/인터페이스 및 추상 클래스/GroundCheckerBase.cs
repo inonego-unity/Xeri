@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundCheckerBase.cs
-수정일 : 2026-07-25
+수정일 : 2026-08-01
 
 # 설명
 IGroundChecker의 공통 구현을 담당하는 추상 기본 클래스.
@@ -38,6 +38,7 @@ namespace inonego.Xeri.Game.Controller
 
         public abstract Vector3 Velocity { get; }
         public abstract Vector3 GroundLinearVelocity { get; }
+        public abstract Vector3 GroundAngularVelocity { get; }
         public abstract Vector3 Gravity { get; }
         public abstract GameObject GameObject { get; }
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker3D.cs
-수정일 : 2026-07-25
+수정일 : 2026-08-01
 
 # 설명
 Rigidbody/Collider를 사용하는 3D 바닥 체커.
@@ -57,6 +57,13 @@ namespace inonego.Xeri.Game.Controller
         /// </summary>
         // ------------------------------------------------------------
         protected override Vector3 GetLinearVelocity(Rigidbody rigidbody) => rigidbody.linearVelocity;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody의 월드 각속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override Vector3 GetAngularVelocity(Rigidbody rigidbody) => rigidbody.angularVelocity;
 
         // ------------------------------------------------------------
         /// <summary>

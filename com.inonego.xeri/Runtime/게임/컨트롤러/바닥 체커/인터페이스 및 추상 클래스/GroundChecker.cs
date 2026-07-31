@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker.cs
-수정일 : 2026-07-30
+수정일 : 2026-08-01
 
 # 설명
 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커.
@@ -73,6 +73,13 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
+        /// Rigidbody에서 라디안 단위 월드 각속도를 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected abstract Vector3 GetAngularVelocity(TRigidbody rigidbody);
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// Rigidbody의 지정한 월드 지점 속도를 가져옵니다.
         /// </summary>
         // ------------------------------------------------------------
@@ -93,6 +100,11 @@ namespace inonego.Xeri.Game.Controller
         public override Vector3 GroundLinearVelocity
         {
             get => groundRigid != null ? GetLinearVelocity(groundRigid) : Vector3.zero;
+        }
+
+        public override Vector3 GroundAngularVelocity
+        {
+            get => groundRigid != null ? GetAngularVelocity(groundRigid) : Vector3.zero;
         }
 
     #endregion

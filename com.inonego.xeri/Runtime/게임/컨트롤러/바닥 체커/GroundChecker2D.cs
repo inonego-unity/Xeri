@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker2D.cs
-수정일 : 2026-07-25
+수정일 : 2026-08-01
 
 # 설명
 Rigidbody2D/Collider2D를 사용하는 2D 바닥 체커.
@@ -53,6 +53,13 @@ namespace inonego.Xeri.Game.Controller
         /// </summary>
         // ------------------------------------------------------------
         protected override Vector3 GetLinearVelocity(Rigidbody2D rigidbody) => rigidbody.linearVelocity;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Rigidbody2D의 각속도를 라디안 단위 월드 벡터로 가져옵니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override Vector3 GetAngularVelocity(Rigidbody2D rigidbody) => Vector3.forward * (rigidbody.angularVelocity * Mathf.Deg2Rad);
 
         // ------------------------------------------------------------
         /// <summary>
