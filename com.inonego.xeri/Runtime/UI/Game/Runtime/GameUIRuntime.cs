@@ -57,20 +57,6 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Host에 직렬화된 혼합 Focus Driver.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal GameUIFocusDriver FocusDriver => focusDriver;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Host에 직렬화된 Scene Fade Source.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal GameUISceneFadeSource SceneFadeSource => sceneFadeSource;
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// Presentation Layer 등록과 소비자 수명 Registry.
         /// </summary>
         // ------------------------------------------------------------
@@ -415,8 +401,25 @@ namespace inonego.Xeri.UI.Game
 
                         if (instance != null)
                         {
-                            // 후속 Layer 검증·등록이 실패해도 획득한 인스턴스를 반환할 수 있게 즉시 기록한다.
-                            ownedLayer = handle.AddLayer(provider, instance);
+                            try
+                            {
+                                // Handle에 기록된 시점부터 후속 Layer 준비 실패를 Profile 정리가 담당한다.
+                                ownedLayer = handle.AddLayer(provider, instance);
+                            }
+                            catch (Exception exception)
+                            {
+                                try
+                                {
+                                    // 종료된 Handle이 받지 못한 미확정 인스턴스는 현재 획득 경로가 한 번 반환한다.
+                                    provider.Release(instance, false);
+                                }
+                                catch (Exception cleanupException)
+                                {
+                                    throw new AggregateException(exception, cleanupException);
+                                }
+
+                                throw;
+                            }
                         }
                     }
                     finally
@@ -457,6 +460,7 @@ namespace inonego.Xeri.UI.Game
                     var item = prepared[i];
                     var layerHandle = LayerRegistry.Register(item.Asset, item.Driver);
                     handle.AttachLayerHandle(item.Layer, layerHandle);
+                    focusDriver.RegisterLayer(item.Driver);
                 }
 
                 return handle;
@@ -632,9 +636,19 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("Game UI Layer 부모 Root가 연결되지 않았습니다.");
             }
 
+            if (layerRoot.root != transform)
+            {
+                throw new InvalidOperationException("Game UI Layer 부모 Root는 Runtime Host 내부에 있어야 합니다.");
+            }
+
             if (eventSystem == null || !eventSystem.enabled)
             {
                 throw new InvalidOperationException("활성 EventSystem이 연결되지 않았습니다.");
+            }
+
+            if (eventSystem.transform.root != transform)
+            {
+                throw new InvalidOperationException("EventSystem은 Runtime Host 내부에 있어야 합니다.");
             }
 
             if (inputModule == null || !inputModule.enabled)
@@ -646,6 +660,8 @@ namespace inonego.Xeri.UI.Game
             {
                 throw new InvalidOperationException("Input Module과 EventSystem이 같은 Host에 연결되지 않았습니다.");
             }
+
+            ValidateInputModuleActions(inputModule, settings);
 
             if (focusDriver == null || !focusDriver.enabled)
             {
@@ -684,7 +700,78 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("활성 Input System Screen Input Driver가 연결되지 않았습니다.");
             }
 
+            if (inputDriver.transform.root != transform)
+            {
+                throw new InvalidOperationException
+                (
+                    "Input System Screen Input Driver는 Runtime Host 내부에 있어야 합니다."
+                );
+            }
+
             ValidateSceneComposition();
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> EventSystem에 필요한 UI Action Reference가 Settings의 UI Map에
+        /// <br/> 실제로 연결됐는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static void ValidateInputModuleActions
+        (
+            InputSystemUIInputModule inputModule,
+            GameUISettingsAsset settings
+        )
+        {
+            var actionsAsset = inputModule.actionsAsset;
+
+            if (actionsAsset == null)
+            {
+                throw new InvalidOperationException
+                (
+                    "InputSystemUIInputModule Actions Asset이 연결되지 않았습니다."
+                );
+            }
+
+            var uiActionMap = actionsAsset.FindActionMap(settings.UIActionMap, false);
+
+            if (uiActionMap == null)
+            {
+                throw new InvalidOperationException
+                (
+                    $"InputSystemUIInputModule에서 UI Action Map '{settings.UIActionMap}'을 찾을 수 없습니다."
+                );
+            }
+
+            ValidateInputModuleAction(inputModule.point, uiActionMap, "Point");
+            ValidateInputModuleAction(inputModule.move, uiActionMap, "Move");
+            ValidateInputModuleAction(inputModule.submit, uiActionMap, "Submit");
+            ValidateInputModuleAction(inputModule.cancel, uiActionMap, "Cancel");
+            ValidateInputModuleAction(inputModule.leftClick, uiActionMap, "Left Click");
+            ValidateInputModuleAction(inputModule.scrollWheel, uiActionMap, "Scroll Wheel");
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Input Module Action Reference 하나의 UI Map 소속을 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void ValidateInputModuleAction
+        (
+            InputActionReference reference,
+            InputActionMap uiActionMap,
+            string role
+        )
+        {
+            var action = reference?.action;
+
+            if (action == null || !ReferenceEquals(action.actionMap, uiActionMap))
+            {
+                throw new InvalidOperationException
+                (
+                    $"InputSystemUIInputModule {role} Action이 Settings UI Map에 연결되지 않았습니다."
+                );
+            }
         }
 
         // ------------------------------------------------------------
@@ -837,10 +924,7 @@ namespace inonego.Xeri.UI.Game
             if (IsReleased)
             {
                 // 활성 소비자 사전 조건에서 상태 변경 전에 거부된 소유권만 남는다.
-                for (var i = profileHandles.Count - 1; i >= 0; i--)
-                {
-                    DisposeOwned(profileHandles[i], errors);
-                }
+                ReleaseProfileHandles(errors);
 
                 DisposePendingLayerRegistry(errors);
                 return errors;
@@ -913,10 +997,7 @@ namespace inonego.Xeri.UI.Game
             DisposeOwned(input, errors);
 
             // 시작된 종료는 결과와 관계없이 Callback이 제거하고 사전 조건에서 거부된 소유권만 보존한다.
-            for (var i = profileHandles.Count - 1; i >= 0; i--)
-            {
-                DisposeOwned(profileHandles[i], errors);
-            }
+            ReleaseProfileHandles(errors);
 
             DisposeOwned(currentTransitioner, errors);
             pendingLayerRegistry = layerRegistry;
@@ -926,6 +1007,42 @@ namespace inonego.Xeri.UI.Game
             IsReleased = true;
 
             return errors;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Runtime 추적에서 Profile 소유권을 하나씩 분리해 종료하고,
+        /// <br/> 상태 변경 전 사전 조건에서 거부된 Handle만 다시 보존한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ReleaseProfileHandles(List<Exception> errors)
+        {
+            if (profileHandles.Count == 0) return;
+
+            var retainedProfiles = new List<GameUIProfileHandle>();
+
+            // 외부 Provider callback이 다른 Profile을 해제해도 현재 종료 대상 인덱스는 변하지 않는다.
+            while (profileHandles.Count > 0)
+            {
+                var index = profileHandles.Count - 1;
+                var handle = profileHandles[index];
+                profileHandles.RemoveAt(index);
+                DisposeOwned(handle, errors);
+
+                if (!handle.IsDisposed)
+                {
+                    retainedProfiles.Add(handle);
+                }
+            }
+
+            // 역순으로 분리한 사전 조건 거부 Handle의 기존 획득 순서를 복원한다.
+            for (var i = retainedProfiles.Count - 1; i >= 0; i--)
+            {
+                if (!retainedProfiles[i].IsDisposed)
+                {
+                    profileHandles.Add(retainedProfiles[i]);
+                }
+            }
         }
 
         // ------------------------------------------------------------

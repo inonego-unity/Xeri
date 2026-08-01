@@ -22,6 +22,19 @@ namespace inonego.Xeri.UI.Game
 
         // ============================================================
         /// <summary>
+        /// 외부 backend 적용을 기준으로 한 Layer 등록 단계.
+        /// </summary>
+        // ============================================================
+        internal enum EntryState
+        {
+            Activating = 0,
+            Available = 1,
+            Releasing = 2,
+            Released = 3,
+        }
+
+        // ============================================================
+        /// <summary>
         /// 등록된 Layer와 활성 소비자 수를 보관한다.
         /// </summary>
         // ============================================================
@@ -52,6 +65,13 @@ namespace inonego.Xeri.UI.Game
 
             // ------------------------------------------------------------
             /// <summary>
+            /// 현재 등록이 외부 backend 적용 경계의 어느 단계인지 나타낸다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public EntryState State { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
             /// 이 등록 소유권을 나타내는 Handle.
             /// </summary>
             // ------------------------------------------------------------
@@ -75,6 +95,7 @@ namespace inonego.Xeri.UI.Game
                 Asset = asset ?? throw new ArgumentNullException(nameof(asset));
                 Driver = driver ?? throw new ArgumentNullException(nameof(driver));
                 ConsumerCount = 0;
+                State = EntryState.Activating;
             }
 
         #endregion
@@ -163,38 +184,45 @@ namespace inonego.Xeri.UI.Game
             ValidateOrder(asset);
 
             var entry = new Entry(asset, driver);
+            var handle = new PresentationLayerHandle(this, entry);
+            entry.Handle = handle;
+
+            // 외부 backend callback보다 먼저 ID와 Order를 예약하되 소비자에게는 아직 공개하지 않는다.
+            entries.Add(asset.ID, entry);
 
             try
             {
-                // backend 활성화가 끝난 등록만 Registry에 공개한다.
                 driver.SetOrder(asset.Order);
-                driver.SetActive(true);
-                entries.Add(asset.ID, entry);
+                ThrowIfDisposed();
 
-                var handle = new PresentationLayerHandle(this, entry);
-                entry.Handle = handle;
+                driver.SetActive(true);
+                ThrowIfDisposed();
+
+                // 활성화가 끝난 예약만 조회와 Usage 획득에 공개한다.
+                entry.State = EntryState.Available;
                 return handle;
             }
             catch (Exception exception)
             {
                 var errors = new List<Exception> { exception };
 
-                // Registry에 공개한 등록만 제거한다.
+                // 아직 이 Register가 소유하는 예약만 종료한다.
                 if (entries.TryGetValue(asset.ID, out var current) && ReferenceEquals(current, entry))
                 {
-                    entries.Remove(asset.ID);
-                    entry.Handle?.MarkDisposed();
-                    entry.Handle = null;
+                    ReleaseRegistration(entry);
                 }
 
-                // 활성화가 일부 적용된 뒤 실패했을 수 있으므로 이번 backend를 비활성화한다.
-                try
+                // Registry 전체 종료가 이미 비활성화한 backend를 중복으로 정리하지 않는다.
+                if (!isDisposed)
                 {
-                    driver.SetActive(false);
-                }
-                catch (Exception cleanupException)
-                {
-                    errors.Add(cleanupException);
+                    try
+                    {
+                        driver.SetActive(false);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        errors.Add(cleanupException);
+                    }
                 }
 
                 if (errors.Count == 1)
@@ -212,10 +240,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// ID에 해당하는 Layer backend를 조회한다.
+        /// Runtime 조립 검증을 위해 ID에 해당하는 Layer backend를 조회한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool TryGet
+        internal bool TryGet
         (
             string id,
             out IPresentationLayerDriver driver
@@ -229,7 +257,7 @@ namespace inonego.Xeri.UI.Game
                 return false;
             }
 
-            if (!entries.TryGetValue(id, out var entry))
+            if (!entries.TryGetValue(id, out var entry) || entry.State != EntryState.Available)
             {
                 driver = null;
                 return false;
@@ -248,7 +276,7 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed || string.IsNullOrWhiteSpace(id)) return false;
 
-            return entries.ContainsKey(id);
+            return entries.TryGetValue(id, out var entry) && entry.State == EntryState.Available;
         }
 
         // ------------------------------------------------------------
@@ -265,7 +293,7 @@ namespace inonego.Xeri.UI.Game
         {
             ThrowIfDisposed();
 
-            if (!entries.TryGetValue(id, out var entry))
+            if (!entries.TryGetValue(id, out var entry) || entry.State != EntryState.Available)
             {
                 driver = null;
                 usage = null;
@@ -304,18 +332,23 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            // Preflight가 끝났으므로 등록 소유권을 먼저 종료하고 외부 적용을 한 번씩 시도한다.
-            ReleaseRegistration(entry);
-
+            // 비활성화 callback이 같은 등록을 소비하지 못하도록 먼저 공개 수명을 종료한다.
+            entry.State = EntryState.Releasing;
             var errors = new List<Exception>();
 
             try
             {
+                // 비활성화 callback이 같은 ID를 재등록하지 못하도록 적용이 끝날 때까지 ID를 예약한다.
                 entry.Driver.SetActive(false);
             }
             catch (Exception exception)
             {
                 errors.Add(exception);
+            }
+            finally
+            {
+                // backend 적용 결과와 관계없이 등록 소유권은 한 번만 종료한다.
+                ReleaseRegistration(entry);
             }
 
             if (errors.Count > 0)
@@ -340,6 +373,8 @@ namespace inonego.Xeri.UI.Game
             bool removeFromEntries = true
         )
         {
+            entry.State = EntryState.Released;
+
             if (removeFromEntries)
             {
                 entries.Remove(entry.Asset.ID);
@@ -412,16 +447,16 @@ namespace inonego.Xeri.UI.Game
             isDisposed = true;
             var errors = new List<Exception>();
 
-            // 외부 비활성화 콜백 전에 모든 등록 Handle을 함께 Terminal로 전환한다.
-            foreach (var entry in entries.Values)
-            {
-                ReleaseRegistration(entry, removeFromEntries: false);
-            }
-
             try
             {
                 foreach (var entry in entries.Values)
                 {
+                    // 개별 해제가 이미 비활성화 중이면 Registry 종료가 같은 backend를 다시 호출하지 않는다.
+                    var shouldDeactivate = entry.State != EntryState.Releasing;
+                    ReleaseRegistration(entry, removeFromEntries: false);
+
+                    if (!shouldDeactivate) continue;
+
                     try
                     {
                         entry.Driver.SetActive(false);

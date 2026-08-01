@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIInteractionBlocker.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 중첩 점유 수에 따라 명시적 UGUI Blocker Root와 CanvasGroup raycast 상태를 적용한다.
@@ -93,6 +93,20 @@ namespace inonego.Xeri.UI.Game
                 canvasGroup.interactable = isActive;
                 canvasGroup.blocksRaycasts = isActive;
             }
+        }
+
+    #endregion
+
+    #region Unity 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 활성화 시 현재 점유 수를 실제 UGUI 차단 상태에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnEnable()
+        {
+            ApplyState();
         }
 
     #endregion

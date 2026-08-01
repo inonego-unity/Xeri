@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenController.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 Screen Open·Close·Replace·Clear 명령과 Stack, 상태 훅, Transition과 대칭 수명을 중재한다.
@@ -49,13 +49,6 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public bool IsAvailable => isActive && !isReleasing && !isReleased;
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 모든 생존 Screen과 입력 Session 정리가 끝났는지 여부.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal bool IsShutdownComplete => isReleased;
-
         private readonly ScreenRegistry screenRegistry = null;
         private readonly PresentationLayerRegistry layerRegistry = null;
         private readonly IPresentationTransitioner transitioner = null;
@@ -68,6 +61,7 @@ namespace inonego.Xeri.UI.Game
         private bool isActive = false;
         private bool isReleasing = false;
         private bool isReleased = false;
+        private bool isOpening = false;
         private int hookDepth = 0;
 
     #endregion
@@ -162,6 +156,7 @@ namespace inonego.Xeri.UI.Game
         internal bool Close(ScreenSession session)
         {
             if (hookDepth > 0) return false;
+            if (isOpening) return false;
             if (!IsAvailable || session == null || !ReferenceEquals(Top, session)) return false;
 
             if (session.State != ScreenState.Opening && session.State != ScreenState.Active)
@@ -182,6 +177,11 @@ namespace inonego.Xeri.UI.Game
             if (hookDepth > 0)
             {
                 throw new InvalidOperationException("Screen 상태 훅 안에서는 Clear를 호출할 수 없습니다.");
+            }
+
+            if (isOpening)
+            {
+                throw new InvalidOperationException("Screen Open 계열 명령이 진행 중일 때는 Clear를 호출할 수 없습니다.");
             }
 
             if (!IsAvailable || liveSessions.Count == 0) return;
@@ -243,11 +243,41 @@ namespace inonego.Xeri.UI.Game
                 return ScreenOpenResponse.Reject("Screen 상태 훅 안에서는 Open 계열 명령을 호출할 수 없습니다.");
             }
 
+            if (isOpening)
+            {
+                return ScreenOpenResponse.Reject("다른 Screen Open 계열 명령이 진행 중입니다.");
+            }
+
             if (!IsAvailable)
             {
                 return ScreenOpenResponse.Reject("Game UI Runtime이 Screen 명령을 받을 수 없는 상태입니다.");
             }
 
+            isOpening = true;
+
+            try
+            {
+                return OpenCore(id, parameters, replace);
+            }
+            finally
+            {
+                isOpening = false;
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 검증된 단일 Open 명령의 Source·Layer·입력 수명을 준비한 뒤,
+        /// <br/> Stack에 공개하고 열기 Transition을 시작한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private ScreenOpenResponse OpenCore
+        (
+            string id,
+            ScreenOpenParams parameters,
+            bool replace
+        )
+        {
             if (string.IsNullOrWhiteSpace(id))
             {
                 return ScreenOpenResponse.Reject("Screen ID가 비어 있습니다.");
@@ -296,22 +326,29 @@ namespace inonego.Xeri.UI.Game
                 this,
                 registration.Options,
                 parameters,
-                registration.Source
+                registration.Source,
+                layerUsage
             )
             {
-                LayerUsage = layerUsage,
                 ReplacedSession = replace ? previous : null,
             };
 
             liveSessions.Add(session);
 
-            // Source 획득·Bind는 하나의 원자적 외부 단계로 취급한다.
             try
             {
                 // 외부 Source와 훅이 EventSystem 선택을 바꾸기 전에 이전 화면의 실제 선택을 기록한다.
                 if (previous != null)
                 {
                     focusController.Cover(previous);
+
+                    if (IsOpenInterrupted(session))
+                    {
+                        return ScreenOpenResponse.Reject
+                        (
+                            $"Screen '{id}' Focus 기록 중 Runtime이 종료됐습니다."
+                        );
+                    }
                 }
 
                 var scope = new ScreenViewScope
@@ -323,24 +360,28 @@ namespace inonego.Xeri.UI.Game
                     layerDriver
                 );
 
-                session.Instance = registration.Source.Acquire(scope);
-
-                if (session.Instance == null)
+                if (!session.Resources.TryAcquireSource(scope))
                 {
-                    throw new InvalidOperationException("Screen Source가 null ScreenInstance를 반환했습니다.");
-                }
-
-                if (!session.Instance.Driver.IsValid)
-                {
-                    throw new InvalidOperationException("Screen Driver가 유효하지 않습니다.");
+                    return ScreenOpenResponse.Reject
+                    (
+                        $"Screen '{id}' Source 획득 중 Runtime이 종료됐습니다."
+                    );
                 }
             }
             catch (Exception exception)
             {
+                if (IsOpenInterrupted(session))
+                {
+                    return ScreenOpenResponse.SourceFailure
+                    (
+                        $"Screen '{id}' Source 획득 중 Runtime 종료가 실패했습니다.",
+                        exception
+                    );
+                }
+
                 var failure = CleanupUnacceptedFailure
                 (
                     session,
-                    session.Instance != null,
                     previous,
                     exception
                 );
@@ -352,17 +393,63 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
-            var driver = session.Instance.Driver;
+            try
+            {
+                if (session.Resources.Instance == null)
+                {
+                    throw new InvalidOperationException("Screen Source가 null ScreenInstance를 반환했습니다.");
+                }
+
+                if (!session.Resources.Instance.Driver.IsValid)
+                {
+                    throw new InvalidOperationException("Screen Driver가 유효하지 않습니다.");
+                }
+            }
+            catch (Exception exception)
+            {
+                var failure = CleanupUnacceptedFailure
+                (
+                    session,
+                    previous,
+                    exception
+                );
+
+                return ScreenOpenResponse.SourceFailure
+                (
+                    $"Screen '{id}' Source 획득·Bind가 실패했습니다.",
+                    failure
+                );
+            }
+
+            var driver = session.Resources.Instance.Driver;
 
             try
             {
                 driver.SetVisible(true);
+
+                if (IsOpenInterrupted(session))
+                {
+                    return ScreenOpenResponse.Reject
+                    (
+                        $"Screen '{id}' Driver 표시 중 Runtime이 종료됐습니다."
+                    );
+                }
+
                 driver.SetInteractable(false);
                 driver.Apply(0.0f);
             }
             catch (Exception exception)
             {
-                var failure = CleanupUnacceptedFailure(session, true, previous, exception);
+                if (IsOpenInterrupted(session))
+                {
+                    return ScreenOpenResponse.SourceFailure
+                    (
+                        $"Screen '{id}' Driver 준비 중 Runtime이 종료됐습니다.",
+                        exception
+                    );
+                }
+
+                var failure = CleanupUnacceptedFailure(session, previous, exception);
                 return ScreenOpenResponse.SourceFailure
                 (
                     $"Screen '{id}' Driver 준비가 실패했습니다.",
@@ -387,9 +474,14 @@ namespace inonego.Xeri.UI.Game
             }
             catch (Exception exception)
             {
+                if (IsOpenInterrupted(session))
+                {
+                    throw;
+                }
+
                 try
                 {
-                    ReleaseUnacceptedAndRestorePrevious(session, true, previous);
+                    ReleaseUnacceptedAndRestorePrevious(session, previous);
                 }
                 catch (Exception cleanupException)
                 {
@@ -401,17 +493,28 @@ namespace inonego.Xeri.UI.Game
 
             if (openingContext.IsCancelled)
             {
-                ReleaseUnacceptedAndRestorePrevious(session, true, previous);
+                ReleaseUnacceptedAndRestorePrevious(session, previous);
                 return ScreenOpenResponse.Cancel($"Screen '{id}'의 OnOpening에서 취소됐습니다.");
             }
 
             try
             {
-                session.InputSession = inputDriver.Acquire(session.Options);
+                if (!session.Resources.TryAcquireInput(inputDriver, session.Options))
+                {
+                    return ScreenOpenResponse.Reject
+                    (
+                        $"Screen '{id}' 입력 획득 중 Runtime이 종료됐습니다."
+                    );
+                }
             }
             catch (Exception exception)
             {
-                throw CleanupUnacceptedFailure(session, true, previous, exception);
+                if (IsOpenInterrupted(session))
+                {
+                    throw;
+                }
+
+                throw CleanupUnacceptedFailure(session, previous, exception);
             }
 
             try
@@ -420,11 +523,14 @@ namespace inonego.Xeri.UI.Game
                 if (previous != null)
                 {
                     previous.State = ScreenState.Covered;
-                    previous.Instance.Driver.SetInteractable(false);
+                    previous.Resources.Instance.Driver.SetInteractable(false);
                 }
 
                 stack.Add(session);
                 session.IsAccepted = true;
+
+                // Stack이 소유권을 수락한 뒤에는 동기 완료 callback도 일반 공개 명령을 사용할 수 있다.
+                isOpening = false;
                 StartOpening(session);
             }
             catch (Exception exception)
@@ -498,7 +604,7 @@ namespace inonego.Xeri.UI.Game
                 : PresentationTimeSource.Scaled;
             var parameters = new PresentationTransitionParams
             (
-                session.Instance.Driver,
+                session.Resources.Instance.Driver,
                 0.0f,
                 1.0f,
                 session.Options.OpenDuration,
@@ -517,7 +623,7 @@ namespace inonego.Xeri.UI.Game
 
                     try
                     {
-                        session.Instance.Driver.Apply(1.0f);
+                        session.Resources.Instance.Driver.Apply(1.0f);
                     }
                     catch (Exception applyException)
                     {
@@ -551,7 +657,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                session.Instance.Driver.Apply(1.0f);
+                session.Resources.Instance.Driver.Apply(1.0f);
             }
             catch (Exception exception)
             {
@@ -560,7 +666,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                session.Instance.Driver.SetInteractable(true);
+                session.Resources.Instance.Driver.SetInteractable(true);
             }
             catch (Exception exception)
             {
@@ -569,24 +675,64 @@ namespace inonego.Xeri.UI.Game
 
             session.State = ScreenState.Active;
 
-            var defaultFocus = session.Options.DefaultFocus ?? session.Instance.Driver.DefaultFocus;
-
             try
             {
-                focusController.Activate(session, defaultFocus);
+                focusController.Activate
+                (
+                    session,
+                    session.Options.DefaultFocus,
+                    session.Resources.Instance.Driver.DefaultFocus
+                );
             }
             catch (Exception exception)
             {
                 Debug.LogException(exception);
             }
 
+            // Focus callback에서 새 Screen이 덮었으면 Replace 이전 Session을 확정하고 현재 top Focus를 다시 적용한다.
+            if (!IsExpected(session, generation, ScreenState.Active))
+            {
+                if (session.State == ScreenState.Covered)
+                {
+                    FinishReplace(session);
+                }
+
+                var activeTop = Top;
+
+                if (activeTop != null && activeTop.State == ScreenState.Active)
+                {
+                    RestorePrevious(activeTop);
+                }
+
+                return;
+            }
+
             InvokeNonCancellingHook(session, ScreenState.Active, HookKind.Opened);
 
-            var replaced = session.ReplacedSession;
+            FinishReplace(session);
+        }
 
-            if (replaced != null && replaced.State == ScreenState.Covered)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Replace로 대체된 이전 Session과 아직 확정되지 않은 교체 대상을 순서대로 닫는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void FinishReplace(ScreenSession session)
+        {
+            var replaced = session.ReplacedSession;
+            session.ReplacedSession = null;
+
+            while (replaced != null)
             {
-                BeginClose(replaced, false, true, false, true, false);
+                var next = replaced.ReplacedSession;
+                replaced.ReplacedSession = null;
+
+                if (replaced.State == ScreenState.Covered)
+                {
+                    BeginClose(replaced, false, true, false, true, false);
+                }
+
+                replaced = next;
             }
         }
 
@@ -608,7 +754,31 @@ namespace inonego.Xeri.UI.Game
             if (session == null || session.State == ScreenState.Closed) return false;
             if (session.State == ScreenState.Closing) return false;
 
-            var closingContext = InvokeClosing(session, canCancel);
+            var stateBeforeClosing = session.State;
+            ScreenStateContext closingContext;
+
+            // 취소 판단 전 상태는 유지하되 강제 종료 재진입이 같은 Closing 훅을 반복하지 않게 표시한다.
+            session.IsClosingHookRunning = true;
+
+            try
+            {
+                closingContext = InvokeClosing(session, canCancel);
+            }
+            finally
+            {
+                session.IsClosingHookRunning = false;
+            }
+
+            // OnClosing에서 Runtime 종료가 Screen을 이미 정리했으면 바깥 닫기 흐름을 재개하지 않는다.
+            if (session.State == ScreenState.Closed || !liveSessions.Contains(session))
+            {
+                return true;
+            }
+
+            if (!IsAvailable || session.State != stateBeforeClosing)
+            {
+                return false;
+            }
 
             if (canCancel && closingContext.IsCancelled)
             {
@@ -629,7 +799,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                session.Instance.Driver.SetInteractable(false);
+                session.Resources.Instance.Driver.SetInteractable(false);
             }
             catch (Exception exception)
             {
@@ -640,7 +810,7 @@ namespace inonego.Xeri.UI.Game
             {
                 try
                 {
-                    session.Instance.Driver.Apply(0.0f);
+                    session.Resources.Instance.Driver.Apply(0.0f);
                 }
                 catch (Exception exception)
                 {
@@ -669,7 +839,7 @@ namespace inonego.Xeri.UI.Game
 
                 try
                 {
-                    session.Instance.Driver.Apply(0.0f);
+                    session.Resources.Instance.Driver.Apply(0.0f);
                 }
                 catch (Exception applyException)
                 {
@@ -702,8 +872,8 @@ namespace inonego.Xeri.UI.Game
                 : PresentationTimeSource.Scaled;
             var parameters = new PresentationTransitionParams
             (
-                session.Instance.Driver,
-                session.Instance.Driver.Visibility,
+                session.Resources.Instance.Driver,
+                session.Resources.Instance.Driver.Visibility,
                 0.0f,
                 session.Options.CloseDuration,
                 timeSource
@@ -721,7 +891,7 @@ namespace inonego.Xeri.UI.Game
 
                     try
                     {
-                        session.Instance.Driver.Apply(0.0f);
+                        session.Resources.Instance.Driver.Apply(0.0f);
                     }
                     catch (Exception applyException)
                     {
@@ -779,18 +949,17 @@ namespace inonego.Xeri.UI.Game
         )
         {
             var errors = new List<Exception>();
-            var childErrors = session.ReleaseChildren();
+            var resources = session.Resources;
 
-            if (childErrors.Count > 0)
-            {
-                errors.AddRange(childErrors);
-            }
+            // 늦게 도착한 외부 획득 결과가 종료 Session에 다시 연결되지 않게 먼저 닫는다.
+            resources.BeginRelease();
+            resources.ReleaseChildren(errors);
 
-            if (!session.SourceReleased)
+            if (session.Resources.Instance != null)
             {
                 try
                 {
-                    session.Instance.Driver.SetVisible(false);
+                    session.Resources.Instance.Driver.SetVisible(false);
                 }
                 catch (Exception exception)
                 {
@@ -804,36 +973,8 @@ namespace inonego.Xeri.UI.Game
                 InvokeNonCancellingHook(session, ScreenState.Closing, HookKind.Closed);
             }
 
-            if (!session.SourceReleased)
-            {
-                var instance = session.Instance;
-                session.SourceReleased = true;
-
-                try
-                {
-                    session.Source.Release(instance);
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
-
-            if (!session.LayerReleased)
-            {
-                var layerUsage = session.LayerUsage;
-                session.LayerUsage = null;
-                session.LayerReleased = true;
-
-                try
-                {
-                    layerUsage?.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
+            resources.ReleaseSource(errors);
+            resources.ReleaseLayer(errors);
 
             var detached = stack.Remove(session);
             focusController.Remove(session);
@@ -856,43 +997,38 @@ namespace inonego.Xeri.UI.Game
                 };
             }
 
-            if (!session.InputReleased)
+            var inputSession = resources.TakeInputSession();
+
+            try
             {
-                var inputSession = session.InputSession;
-                session.InputSession = null;
-                session.InputReleased = true;
-
-                try
+                if (inputSession != null)
                 {
-                    if (inputSession != null)
-                    {
-                        inputSession.Release
-                        (
-                            waitForInputRelease,
-                            retainCursorWhileAwaitingRelease,
-                            restoreFocus
-                        );
-                    }
-                    else
-                    {
-                        restoreRequested = restoreFocus != null;
-                    }
-
-                    inputReleaseSucceeded = true;
-
-                    if (restoreRequested)
-                    {
-                        RestorePrevious(previous);
-                    }
+                    inputSession.Release
+                    (
+                        waitForInputRelease,
+                        retainCursorWhileAwaitingRelease,
+                        restoreFocus
+                    );
                 }
-                catch (Exception exception)
+                else
                 {
-                    errors.Add(exception);
+                    restoreRequested = restoreFocus != null;
+                }
 
-                    if (restoreFocus != null)
-                    {
-                        RestorePrevious(previous);
-                    }
+                inputReleaseSucceeded = true;
+
+                if (restoreRequested)
+                {
+                    RestorePrevious(previous);
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+
+                if (restoreFocus != null)
+                {
+                    RestorePrevious(previous);
                 }
             }
 
@@ -991,7 +1127,7 @@ namespace inonego.Xeri.UI.Game
                 if (previous != null && previous.State == ScreenState.Covered)
                 {
                     previous.State = ScreenState.Active;
-                    previous.Instance.Driver.SetInteractable(true);
+                    previous.Resources.Instance.Driver.SetInteractable(true);
                 }
 
                 focusController.Restore(previous);
@@ -1037,7 +1173,6 @@ namespace inonego.Xeri.UI.Game
                     ReleaseUnaccepted
                     (
                         session,
-                        !session.SourceReleased,
                         removeFromLiveSessions
                     );
                 }
@@ -1051,7 +1186,11 @@ namespace inonego.Xeri.UI.Game
 
             if (session.State != ScreenState.Closing)
             {
-                InvokeClosing(session, false);
+                if (!session.IsClosingHookRunning)
+                {
+                    InvokeClosing(session, false);
+                }
+
                 session.State = ScreenState.Closing;
             }
 
@@ -1069,8 +1208,8 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                session.Instance.Driver.SetInteractable(false);
-                session.Instance.Driver.Apply(0.0f);
+                session.Resources.Instance.Driver.SetInteractable(false);
+                session.Resources.Instance.Driver.Apply(0.0f);
             }
             catch (Exception exception)
             {
@@ -1109,7 +1248,7 @@ namespace inonego.Xeri.UI.Game
 
                 try
                 {
-                    ReleaseUnaccepted(session, true);
+                    ReleaseUnaccepted(session);
                 }
                 catch (Exception exception)
                 {
@@ -1125,7 +1264,7 @@ namespace inonego.Xeri.UI.Game
 
                     try
                     {
-                        previous.Instance.Driver.SetInteractable(true);
+                        previous.Resources.Instance.Driver.SetInteractable(true);
                         focusController.Restore(previous);
                     }
                     catch (Exception exception)
@@ -1149,39 +1288,22 @@ namespace inonego.Xeri.UI.Game
         private void ReleaseUnaccepted
         (
             ScreenSession session,
-            bool releaseSource,
             bool removeFromLiveSessions = true
         )
         {
             var errors = new List<Exception>();
+            var resources = session.Resources;
 
             // 하위 Handle 해제 콜백이 새 자식을 등록하지 못하도록 먼저 종료 상태를 공개한다.
             session.State = ScreenState.Closing;
-            var childErrors = session.ReleaseChildren();
-            errors.AddRange(childErrors);
+            resources.BeginRelease();
+            resources.ReleaseChildren(errors);
 
-            if (!releaseSource)
-            {
-                session.SourceReleased = true;
-            }
-
-            if (releaseSource && session.Instance != null && !session.SourceReleased)
+            if (session.Resources.Instance != null)
             {
                 try
                 {
-                    session.Instance.Driver.SetVisible(false);
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-
-                var instance = session.Instance;
-                session.SourceReleased = true;
-
-                try
-                {
-                    session.Source.Release(instance);
+                    session.Resources.Instance.Driver.SetVisible(false);
                 }
                 catch (Exception exception)
                 {
@@ -1189,36 +1311,18 @@ namespace inonego.Xeri.UI.Game
                 }
             }
 
-            if (!session.LayerReleased)
-            {
-                var layerUsage = session.LayerUsage;
-                session.LayerUsage = null;
-                session.LayerReleased = true;
+            resources.ReleaseSource(errors);
+            resources.ReleaseLayer(errors);
 
-                try
-                {
-                    layerUsage?.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
+            var inputSession = resources.TakeInputSession();
+
+            try
+            {
+                inputSession?.Release(false);
             }
-
-            if (!session.InputReleased)
+            catch (Exception exception)
             {
-                var inputSession = session.InputSession;
-                session.InputSession = null;
-                session.InputReleased = true;
-
-                try
-                {
-                    inputSession?.Release(false);
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
+                errors.Add(exception);
             }
 
             if (removeFromLiveSessions)
@@ -1242,14 +1346,13 @@ namespace inonego.Xeri.UI.Game
         private Exception CleanupUnacceptedFailure
         (
             ScreenSession session,
-            bool releaseSource,
             ScreenSession previous,
             Exception failure
         )
         {
             try
             {
-                ReleaseUnacceptedAndRestorePrevious(session, releaseSource, previous);
+                ReleaseUnacceptedAndRestorePrevious(session, previous);
                 return failure;
             }
             catch (Exception cleanupException)
@@ -1267,7 +1370,6 @@ namespace inonego.Xeri.UI.Game
         private void ReleaseUnacceptedAndRestorePrevious
         (
             ScreenSession session,
-            bool releaseSource,
             ScreenSession previous
         )
         {
@@ -1275,7 +1377,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                ReleaseUnaccepted(session, releaseSource);
+                ReleaseUnaccepted(session);
             }
             catch (Exception exception)
             {
@@ -1306,7 +1408,7 @@ namespace inonego.Xeri.UI.Game
         private ScreenStateContext InvokeOpening(ScreenSession session)
         {
             var context = new ScreenStateContext(session, ScreenState.Opening, true);
-            var handler = session.Instance.StateHandler;
+            var handler = session.Resources.Instance.StateHandler;
 
             if (handler == null) return context;
 
@@ -1336,7 +1438,7 @@ namespace inonego.Xeri.UI.Game
         )
         {
             var context = new ScreenStateContext(session, session.State, canCancel);
-            var handler = session.Instance.StateHandler;
+            var handler = session.Resources.Instance.StateHandler;
 
             if (handler == null) return context;
 
@@ -1370,7 +1472,7 @@ namespace inonego.Xeri.UI.Game
             HookKind kind
         )
         {
-            var handler = session.Instance.StateHandler;
+            var handler = session.Resources.Instance.StateHandler;
 
             if (handler == null) return;
 

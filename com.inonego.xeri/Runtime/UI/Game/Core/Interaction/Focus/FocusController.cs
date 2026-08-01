@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : FocusController.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
-Screen별 마지막 Focus와 기본·대체 선택을 관리하고 새로 노출된 Screen에 복원한다.
+Screen별 마지막 Focus와 화면·Driver 기본값·대체 선택을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -22,13 +22,14 @@ namespace inonego.Xeri.UI.Game
 
         // ============================================================
         /// <summary>
-        /// Screen별 마지막 선택과 기본 Focus를 보관한다.
+        /// Screen별 마지막 선택과 화면·Driver 기본 Focus를 보관한다.
         /// </summary>
         // ============================================================
         private sealed class Record
         {
             public object Last = null;
             public object Default = null;
+            public object DriverDefault = null;
         }
 
     #endregion
@@ -65,7 +66,8 @@ namespace inonego.Xeri.UI.Game
         public void Activate
         (
             ScreenSession session,
-            object defaultFocus
+            object defaultFocus,
+            object driverDefaultFocus
         )
         {
             if (session == null)
@@ -80,6 +82,7 @@ namespace inonego.Xeri.UI.Game
             }
 
             record.Default = defaultFocus;
+            record.DriverDefault = driverDefaultFocus;
             var target = Resolve(record);
             driver.Select(target);
         }
@@ -122,7 +125,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 새로 노출된 Screen의 마지막·기본·대체 Focus 순서로 복원한다.
+        /// 새로 노출된 Screen의 마지막·화면 기본·Driver 기본·대체 Focus 순서로 복원한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Restore(ScreenSession session)
@@ -155,7 +158,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 마지막·기본·대체 순서로 유효한 Focus 대상을 결정한다.
+        /// 마지막·화면 기본·Driver 기본·대체 순서로 유효한 Focus 대상을 결정한다.
         /// </summary>
         // ------------------------------------------------------------
         private object Resolve(Record record)
@@ -168,6 +171,11 @@ namespace inonego.Xeri.UI.Game
             if (driver.IsValid(record.Default))
             {
                 return record.Default;
+            }
+
+            if (driver.IsValid(record.DriverDefault))
+            {
+                return record.DriverDefault;
             }
 
             return driver.FindFallback();

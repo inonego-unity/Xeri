@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenOptions.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 Screen 등록 시 재사용할 Layer, 중복, Focus, 입력과 Transition 정책을 정의한다.
@@ -132,12 +132,22 @@ namespace inonego.Xeri.UI.Game
                 throw new ArgumentException("Screen Layer ID가 비어 있습니다.", nameof(layerID));
             }
 
-            if (openDuration < 0.0f)
+            if
+            (
+                float.IsNaN(openDuration) ||
+                float.IsInfinity(openDuration) ||
+                openDuration < 0.0f
+            )
             {
                 throw new ArgumentOutOfRangeException(nameof(openDuration));
             }
 
-            if (closeDuration < 0.0f)
+            if
+            (
+                float.IsNaN(closeDuration) ||
+                float.IsInfinity(closeDuration) ||
+                closeDuration < 0.0f
+            )
             {
                 throw new ArgumentOutOfRangeException(nameof(closeDuration));
             }

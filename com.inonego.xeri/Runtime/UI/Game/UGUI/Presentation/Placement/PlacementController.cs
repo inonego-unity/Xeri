@@ -3,7 +3,7 @@
 수정일 : 2026-07-31
 
 # 설명
-현재 Safe Area 로컬 Rect를 기준으로 UI 요소의 정렬 위치와 clamp를 계산한다.
+현재 Safe Area 로컬 Rect를 기준으로 UI 요소 중심의 정렬 위치와 clamp를 계산한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -14,7 +14,7 @@ namespace inonego.Xeri.UI.Game
 {
     // ============================================================
     /// <summary>
-    /// UI 요소의 현재 영역 배치 위치를 계산한다.
+    /// UI 요소 중심의 현재 영역 배치 위치를 계산한다.
     /// </summary>
     // ============================================================
     public sealed class PlacementController
@@ -23,7 +23,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Safe Area RectTransform을 읽어 UI 요소 배치 위치를 계산한다.
+        /// 현재 Safe Area RectTransform을 읽어 UI 요소 중심의 배치 위치를 계산한다.
         /// </summary>
         // ------------------------------------------------------------
         public PlacementResult Place
@@ -44,7 +44,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 로컬 Rect 안에서 UI 요소 배치 위치를 계산한다.
+        /// 지정 로컬 Rect 안에서 UI 요소 중심의 배치 위치를 계산한다.
         /// </summary>
         // ------------------------------------------------------------
         public PlacementResult Place

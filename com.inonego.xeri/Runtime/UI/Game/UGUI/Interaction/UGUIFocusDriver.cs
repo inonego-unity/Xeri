@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIFocusDriver.cs
-수정일 : 2026-07-29
+수정일 : 2026-08-01
 
 # 설명
 명시적으로 연결한 EventSystem으로 Screen Focus 선택과 유효성 검사를 수행한다.
@@ -69,7 +69,8 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public void Select(object target)
         {
-            if (eventSystem == null) return;
+            // EventSystem은 선택 callback 안의 중첩 선택을 거부하므로 바깥 선택이 끝난 뒤 다시 요청하게 둔다.
+            if (eventSystem == null || eventSystem.alreadySelecting) return;
 
             eventSystem.SetSelectedGameObject(IsValid(target) ? (GameObject)target : null);
         }

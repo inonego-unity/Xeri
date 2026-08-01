@@ -125,6 +125,31 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("GameObject Provider가 null 인스턴스를 반환했습니다.");
             }
 
+            if (isDisposed)
+            {
+                var disposedException = new ObjectDisposedException
+                (
+                    nameof(GameObjectProviderOverlaySource<TView>)
+                );
+
+                try
+                {
+                    // 획득 중 종료 뒤 도착한 인스턴스는 Source 목록에 공개하지 않고 즉시 반환한다.
+                    ReleaseInstance(instance);
+                }
+                catch (Exception releaseException)
+                {
+                    throw new AggregateException
+                    (
+                        "종료된 Overlay Source의 미확정 GameObject 반환이 실패했습니다.",
+                        disposedException,
+                        releaseException
+                    );
+                }
+
+                throw disposedException;
+            }
+
             var component = instance.GetComponent(typeof(TView)) as TView;
 
             if (component == null)
@@ -136,7 +161,7 @@ namespace inonego.Xeri.UI.Game
 
                 try
                 {
-                    provider.Release(instance, false);
+                    ReleaseInstance(instance);
                 }
                 catch (Exception releaseException)
                 {
@@ -184,7 +209,7 @@ namespace inonego.Xeri.UI.Game
 
             var instance = ownedViews[index].Instance;
             ownedViews.RemoveAt(index);
-            provider.Release(instance, false);
+            ReleaseInstance(instance);
         }
 
     #endregion
@@ -207,6 +232,18 @@ namespace inonego.Xeri.UI.Game
             }
 
             return -1;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Overlay를 즉시 비활성화해 지연 반환 중 표시·입력 참여를 끝내고,
+        /// <br/> Provider 반환 책임을 한 번 전달한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ReleaseInstance(GameObject instance)
+        {
+            instance.SetActive(false);
+            provider.Release(instance, false);
         }
 
     #endregion
@@ -233,7 +270,7 @@ namespace inonego.Xeri.UI.Game
 
                 try
                 {
-                    provider.Release(instance, false);
+                    ReleaseInstance(instance);
                 }
                 catch (Exception exception)
                 {

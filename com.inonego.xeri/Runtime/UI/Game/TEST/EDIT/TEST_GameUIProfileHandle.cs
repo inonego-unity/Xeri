@@ -263,7 +263,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 CreateLayerAsset("Profile"),
                 new TestLayerDriver(root.transform)
             );
-            var usage = layerHandle.AcquireUsage();
+            Assert.IsTrue(registry.TryAcquireUsage("Profile", out _, out var usage));
             var handle = new GameUIProfileHandle
             (
                 profile,

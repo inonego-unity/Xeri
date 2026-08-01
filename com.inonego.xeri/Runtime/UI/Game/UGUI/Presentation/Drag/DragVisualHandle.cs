@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DragVisualHandle.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 드래그 시각물의 원래 계층·RectTransform pose와 Presentation Layer Usage를 함께 소유한다.
@@ -28,6 +28,13 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public bool IsDisposed => owner == null;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Controller가 중복 점유를 판정할 현재 Drag Visual 대상.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal RectTransform Target => target;
+
         private DragVisualController owner = null;
         private RectTransform target = null;
         private Lease layerUsage = null;
@@ -36,7 +43,7 @@ namespace inonego.Xeri.UI.Game
         private readonly Vector2 originalAnchorMin = default;
         private readonly Vector2 originalAnchorMax = default;
         private readonly Vector2 originalPivot = default;
-        private readonly Vector2 originalAnchoredPosition = default;
+        private readonly Vector3 originalAnchoredPosition = default;
         private readonly Vector2 originalSizeDelta = default;
         private readonly Quaternion originalRotation = default;
         private readonly Vector3 originalScale = default;
@@ -65,7 +72,7 @@ namespace inonego.Xeri.UI.Game
             originalAnchorMin = target.anchorMin;
             originalAnchorMax = target.anchorMax;
             originalPivot = target.pivot;
-            originalAnchoredPosition = target.anchoredPosition;
+            originalAnchoredPosition = target.anchoredPosition3D;
             originalSizeDelta = target.sizeDelta;
             originalRotation = target.localRotation;
             originalScale = target.localScale;
@@ -98,14 +105,8 @@ namespace inonego.Xeri.UI.Game
             var current = target;
             var currentOwner = owner;
             var usage = layerUsage;
-            target = null;
             owner = null;
             layerUsage = null;
-
-            if (removeFromHandles)
-            {
-                currentOwner.Release(this);
-            }
 
             try
             {
@@ -116,7 +117,7 @@ namespace inonego.Xeri.UI.Game
                     current.anchorMin = originalAnchorMin;
                     current.anchorMax = originalAnchorMax;
                     current.pivot = originalPivot;
-                    current.anchoredPosition = originalAnchoredPosition;
+                    current.anchoredPosition3D = originalAnchoredPosition;
                     current.sizeDelta = originalSizeDelta;
                     current.localRotation = originalRotation;
                     current.localScale = originalScale;
@@ -124,6 +125,14 @@ namespace inonego.Xeri.UI.Game
             }
             finally
             {
+                // 계층 복원 callback 동안 같은 Target의 새 Begin을 막은 뒤 점유와 Layer Usage를 종료한다.
+                target = null;
+
+                if (removeFromHandles)
+                {
+                    currentOwner.Release(this);
+                }
+
                 usage?.Dispose();
             }
         }

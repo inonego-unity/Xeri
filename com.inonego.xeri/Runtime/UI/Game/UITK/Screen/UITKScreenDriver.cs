@@ -34,7 +34,7 @@ namespace inonego.Xeri.UI.Game
         /// 현재 Screen 표시 진행 값.
         /// </summary>
         // ------------------------------------------------------------
-        public float Visibility => visibility;
+        public float Visibility => root.resolvedStyle.opacity;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -48,12 +48,10 @@ namespace inonego.Xeri.UI.Game
         /// 현재 Screen Root 표시 상태.
         /// </summary>
         // ------------------------------------------------------------
-        public bool IsVisible => isVisible;
+        public bool IsVisible => root.resolvedStyle.display != DisplayStyle.None;
 
         private readonly VisualElement root = null;
         private readonly VisualElement defaultFocus = null;
-        private float visibility = 1.0f;
-        private bool isVisible = true;
 
     #endregion
 
@@ -86,7 +84,6 @@ namespace inonego.Xeri.UI.Game
         public void SetVisible(bool visible)
         {
             root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-            isVisible = visible;
         }
 
         // ------------------------------------------------------------
@@ -111,8 +108,7 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public void Apply(float value)
         {
-            visibility = Mathf.Clamp01(value);
-            root.style.opacity = visibility;
+            root.style.opacity = Mathf.Clamp01(value);
         }
 
     #endregion

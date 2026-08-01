@@ -738,5 +738,36 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
+    #region V-1: Transition 인자 검증
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Fade와 공통 Transition 생성자가 유한하지 않은 시간을 거부한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationTransitionParams_유한하지않은시간_생성거부()
+        {
+            var target = new TestFadeDriver();
+
+            Assert.Throws<ArgumentOutOfRangeException>
+            (
+                () => new SceneFadeParams(Color.black, float.PositiveInfinity)
+            );
+            Assert.Throws<ArgumentOutOfRangeException>
+            (
+                () => new PresentationTransitionParams
+                (
+                    target,
+                    0.0f,
+                    1.0f,
+                    float.NaN,
+                    PresentationTimeSource.Unscaled
+                )
+            );
+        }
+
+    #endregion
+
     }
 }

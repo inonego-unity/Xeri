@@ -6,6 +6,8 @@
 UI Toolkit Panel의 VisualElement Focus 선택, 유효성 검사와 fallback 조회를 수행한다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System.Collections.Generic;
+
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -22,7 +24,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 마지막으로 선택한 Panel의 현재 Focus Element.
+        /// 마지막으로 Focus가 이동한 Panel의 현재 Focus Element.
         /// </summary>
         // ------------------------------------------------------------
         public object Current
@@ -41,6 +43,7 @@ namespace inonego.Xeri.UI.Game
         [SerializeField]
         private string fallbackName = "";
 
+        private readonly List<VisualElement> panelRoots = new List<VisualElement>();
         private VisualElement current = null;
 
     #endregion
@@ -76,20 +79,15 @@ namespace inonego.Xeri.UI.Game
         {
             if (!IsValid(target))
             {
-                if (Current is VisualElement selected)
-                {
-                    selected.Blur();
-                }
-                else
-                {
-                    current?.Blur();
-                }
-
+                ClearTrackedFocus(null);
                 current = null;
                 return;
             }
 
-            current = (VisualElement)target;
+            var element = (VisualElement)target;
+            RegisterPanel(element);
+            ClearTrackedFocus(element.panel);
+            current = element;
             current.Focus();
         }
 
@@ -107,6 +105,126 @@ namespace inonego.Xeri.UI.Game
 
             var fallback = fallbackDocument.rootVisualElement?.Q<VisualElement>(fallbackName);
             return IsValid(fallback) ? fallback : null;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Focus 대상이 속한 Panel의 실제 Focus 이동을 추적한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void RegisterPanel(VisualElement element)
+        {
+            if (element == null)
+            {
+                throw new System.ArgumentNullException(nameof(element));
+            }
+
+            var panelRoot = element.panel?.visualTree;
+
+            if (panelRoot == null)
+            {
+                throw new System.InvalidOperationException
+                (
+                    "Focus 추적 대상이 UI Toolkit Panel에 연결되지 않았습니다."
+                );
+            }
+
+            if (panelRoots.Contains(panelRoot)) return;
+
+            panelRoots.Add(panelRoot);
+            panelRoot.RegisterCallback<FocusInEvent>
+            (
+                HandleFocusIn,
+                TrickleDown.TrickleDown
+            );
+            panelRoot.RegisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 Panel을 제외한 추적 Panel의 native Focus를 비운다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ClearTrackedFocus(IPanel exceptPanel)
+        {
+            for (var i = 0; i < panelRoots.Count; i++)
+            {
+                var panel = panelRoots[i].panel;
+
+                if (panel == null || ReferenceEquals(panel, exceptPanel)) continue;
+
+                if (panel.focusController?.focusedElement is VisualElement focused)
+                {
+                    focused.Blur();
+                }
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 사용자 입력으로 이동한 실제 Panel Focus를 현재 대상으로 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleFocusIn(FocusInEvent eventData)
+        {
+            if (!(eventData.target is VisualElement focused) || focused.panel == null) return;
+
+            RegisterPanel(focused);
+            ClearTrackedFocus(focused.panel);
+            current = focused;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 종료된 Panel의 Focus 추적 callback을 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandlePanelDetached(DetachFromPanelEvent eventData)
+        {
+            if (!(eventData.target is VisualElement panelRoot)) return;
+
+            var index = panelRoots.IndexOf(panelRoot);
+
+            if (index < 0) return;
+
+            panelRoots.RemoveAt(index);
+            panelRoot.UnregisterCallback<FocusInEvent>
+            (
+                HandleFocusIn,
+                TrickleDown.TrickleDown
+            );
+            panelRoot.UnregisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
+
+            if (current != null && current.panel == null)
+            {
+                current = null;
+            }
+        }
+
+    #endregion
+
+    #region Unity 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Host 종료 시 추적 중인 Panel callback을 모두 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnDestroy()
+        {
+            for (var i = panelRoots.Count - 1; i >= 0; i--)
+            {
+                var panelRoot = panelRoots[i];
+                panelRoots.RemoveAt(i);
+                panelRoot.UnregisterCallback<FocusInEvent>
+                (
+                    HandleFocusIn,
+                    TrickleDown.TrickleDown
+                );
+                panelRoot.UnregisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
+            }
+
+            current = null;
         }
 
     #endregion

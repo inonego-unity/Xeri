@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUILayoutController.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 화면 크기와 Safe Area 변경을 감지해 명시적으로 연결된 RectTransform 경계를 갱신한다.
@@ -91,6 +91,22 @@ namespace inonego.Xeri.UI.Game
             }
         }
 
+    #endregion
+
+    #region Unity 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 활성화된 첫 Frame의 UI 배치 전에 현재 Safe Area를 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnEnable()
+        {
+            if (isDisposed) return;
+
+            Refresh();
+        }
+
         // ------------------------------------------------------------
         /// <summary>
         /// 실행 중 화면 경계 변경을 감지해 Safe Area를 갱신한다.
@@ -100,7 +116,11 @@ namespace inonego.Xeri.UI.Game
         {
             if (isDisposed) return;
 
-            var size = new Vector2Int(Screen.width, Screen.height);
+            var size = new Vector2Int
+            (
+                Mathf.Max(1, Screen.width),
+                Mathf.Max(1, Screen.height)
+            );
 
             if (size == lastScreenSize && Screen.safeArea == lastSafeArea) return;
 

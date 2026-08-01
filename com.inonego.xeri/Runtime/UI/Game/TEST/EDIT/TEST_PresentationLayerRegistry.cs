@@ -7,6 +7,7 @@
 
 # 테스트 구성
  O: backend Layer Order 적용
+ L: 등록 활성화와 Registry 종료 경계
  X: Order 범위·충돌 거부
  U: Layer 소비자 독립 수명
 ========================================================================= BLOCK_HEADER_END */
@@ -60,6 +61,20 @@ namespace inonego.Xeri.TEST.UI._Game
             // ------------------------------------------------------------
             public int Order { get; private set; }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// backend 비활성화 요청을 받은 횟수.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int DeactivateCount { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// backend 활성 상태를 기록한 뒤 호출할 테스트 callback.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Action<bool> ActiveChanged { get; set; }
+
             private readonly Transform root = null;
 
             // ------------------------------------------------------------
@@ -105,6 +120,13 @@ namespace inonego.Xeri.TEST.UI._Game
             public void SetActive(bool active)
             {
                 IsActive = active;
+
+                if (!active)
+                {
+                    DeactivateCount++;
+                }
+
+                ActiveChanged?.Invoke(active);
             }
         }
 
@@ -228,7 +250,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// UGUI Layer 등록이 독립 Canvas와 Asset Order를 적용한다.
+        /// UGUI Layer 등록이 Prefab Root와 자식 표시 Root를 활성화하고 독립 Canvas Order를 적용한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
@@ -247,12 +269,15 @@ namespace inonego.Xeri.TEST.UI._Game
                 typeof(Canvas),
                 typeof(UGUILayerCanvas)
             );
+            var contentObject = new GameObject("Content Root", typeof(RectTransform));
             layerObject.transform.SetParent(parentObject.transform, false);
+            contentObject.transform.SetParent(layerObject.transform, false);
+            layerObject.SetActive(false);
             ownedObjects.Add(parentObject);
             var canvas = layerObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             var driver = layerObject.GetComponent<UGUILayerCanvas>();
-            SetField(driver, "root", layerObject.GetComponent<RectTransform>());
+            SetField(driver, "root", contentObject.GetComponent<RectTransform>());
             SetField(driver, "canvas", canvas);
             var registry = new PresentationLayerRegistry();
 
@@ -260,7 +285,8 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.IsTrue(canvas.overrideSorting);
             Assert.AreEqual(31, canvas.sortingOrder);
-            Assert.IsTrue(layerObject.activeSelf);
+            Assert.IsTrue(layerObject.activeSelf, "Layer Prefab Root가 활성화돼야 합니다.");
+            Assert.IsTrue(contentObject.activeInHierarchy, "자식 표시 Root가 Hierarchy에서 활성화돼야 합니다.");
 
             handle.Dispose();
             registry.Dispose();
@@ -342,6 +368,116 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
+    #region L-1: 활성화 중 Registry 종료
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> backend 활성화 callback에서 Registry가 종료되면 등록을 공개하지 않고,
+        /// <br/> 이번 backend를 다시 비활성화하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationLayerRegistry_활성화중Dispose_등록거부하고Backend비활성화()
+        {
+            var parentObject = new GameObject("Layer Parent");
+            ownedObjects.Add(parentObject);
+            var root = CreateRoot("Interrupted", parentObject.transform);
+            var registry = new PresentationLayerRegistry();
+            var driver = new TestLayerDriver(root);
+            driver.ActiveChanged = active =>
+            {
+                if (active)
+                {
+                    registry.Dispose();
+                }
+            };
+
+            Assert.Throws<ObjectDisposedException>
+            (
+                () => registry.Register(CreateAsset("Interrupted", 0), driver)
+            );
+
+            Assert.IsTrue(registry.IsDisposed);
+            Assert.IsFalse(driver.IsActive);
+        }
+
+    #endregion
+
+    #region L-2: 비활성화 중 동일 Layer 등록
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> backend 비활성화 callback에서 같은 ID를 다시 등록하지 못하게 하고,
+        /// <br/> 기존 등록만 Terminal 상태로 종료한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationLayerRegistry_비활성화중동일ID등록_기존등록만종료()
+        {
+            var parentObject = new GameObject("Layer Parent");
+            ownedObjects.Add(parentObject);
+            var root = CreateRoot("Shared", parentObject.transform);
+            var registry = new PresentationLayerRegistry();
+            var driver = new TestLayerDriver(root);
+            var asset = CreateAsset("Shared", 0);
+            Exception nestedException = null;
+            var handle = registry.Register(asset, driver);
+            driver.ActiveChanged = active =>
+            {
+                if (active) return;
+
+                nestedException = Assert.Throws<InvalidOperationException>
+                (
+                    () => registry.Register(asset, driver)
+                );
+            };
+
+            handle.Dispose();
+
+            Assert.IsNotNull(nestedException);
+            Assert.IsTrue(handle.IsDisposed);
+            Assert.IsFalse(registry.Contains("Shared"));
+            Assert.IsFalse(driver.IsActive);
+            registry.Dispose();
+        }
+
+    #endregion
+
+    #region L-3: 비활성화 중 Registry 종료
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Layer 비활성화 callback에서 Registry가 종료돼도,
+        /// <br/> 같은 backend의 비활성화를 한 번만 요청하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationLayerRegistry_비활성화중Dispose_backend한번종료()
+        {
+            var parentObject = new GameObject("Layer Parent");
+            ownedObjects.Add(parentObject);
+            var root = CreateRoot("Shared", parentObject.transform);
+            var registry = new PresentationLayerRegistry();
+            var driver = new TestLayerDriver(root);
+            var handle = registry.Register(CreateAsset("Shared", 0), driver);
+            driver.ActiveChanged = active =>
+            {
+                if (!active)
+                {
+                    registry.Dispose();
+                }
+            };
+
+            handle.Dispose();
+
+            Assert.IsTrue(registry.IsDisposed);
+            Assert.IsTrue(handle.IsDisposed);
+            Assert.IsFalse(driver.IsActive);
+            Assert.AreEqual(1, driver.DeactivateCount);
+        }
+
+    #endregion
+
     #region U-1: Layer 소비자 수명
 
         // ------------------------------------------------------------
@@ -357,8 +493,8 @@ namespace inonego.Xeri.TEST.UI._Game
             var root = CreateRoot("Shared", parentObject.transform);
             var registry = new PresentationLayerRegistry();
             var handle = registry.Register(CreateAsset("Shared", 0), new TestLayerDriver(root));
-            var first = handle.AcquireUsage();
-            var second = handle.AcquireUsage();
+            Assert.IsTrue(registry.TryAcquireUsage("Shared", out _, out var first));
+            Assert.IsTrue(registry.TryAcquireUsage("Shared", out _, out var second));
 
             first.Dispose();
 
@@ -395,7 +531,10 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsTrue(handle.IsDisposed);
             Assert.IsFalse(handle.HasConsumers);
             Assert.IsFalse(driver.IsActive);
-            Assert.Throws<ObjectDisposedException>(() => handle.AcquireUsage());
+            Assert.Throws<ObjectDisposedException>
+            (
+                () => registry.TryAcquireUsage("Shared", out _, out _)
+            );
             Assert.DoesNotThrow(handle.Dispose);
         }
 
@@ -457,6 +596,51 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(0, firstRoot.GetSiblingIndex());
 
             firstHandle.Dispose();
+            registry.Dispose();
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> backend 활성화 callback에서 같은 Order를 중첩 등록하지 못하게 하고,
+        /// <br/> 활성화 중인 바깥 등록 하나만 공개하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationLayerRegistry_활성화재진입Order충돌_바깥등록만유지()
+        {
+            var parentObject = new GameObject("Layer Parent");
+            ownedObjects.Add(parentObject);
+            var outerRoot = CreateRoot("Outer", parentObject.transform);
+            var nestedRoot = CreateRoot("Nested", parentObject.transform);
+            var registry = new PresentationLayerRegistry();
+            var outerDriver = new TestLayerDriver(outerRoot);
+            var nestedDriver = new TestLayerDriver(nestedRoot);
+            Exception nestedException = null;
+            outerDriver.ActiveChanged = active =>
+            {
+                if (active)
+                {
+                    nestedException = Assert.Throws<InvalidOperationException>
+                    (
+                        () => registry.Register
+                        (
+                            CreateAsset("Nested", 10),
+                            nestedDriver
+                        )
+                    );
+                }
+            };
+
+            var outerHandle = registry.Register(CreateAsset("Outer", 10), outerDriver);
+
+            Assert.IsNotNull(nestedException);
+            StringAssert.Contains("Order(10)", nestedException.Message);
+            Assert.IsTrue(registry.Contains("Outer"));
+            Assert.IsFalse(registry.Contains("Nested"));
+            Assert.IsTrue(outerDriver.IsActive);
+            Assert.IsFalse(nestedDriver.IsActive);
+
+            outerHandle.Dispose();
             registry.Dispose();
         }
 

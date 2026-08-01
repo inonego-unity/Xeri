@@ -3,10 +3,11 @@
 수정일 : 2026-07-31
 
 # 설명
-UGUI Focus 유효성 경계를 검증한다.
+UGUI Focus 유효성 경계와 Focus Highlight 요청 수명을 검증한다.
 
 # 테스트 구성
  F: 비활성·파괴된 UGUI Selectable 거부
+ H: Focus Highlight 활성화 재진입
 ========================================================================= BLOCK_HEADER_END */
 
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     // ============================================================
     /// <summary>
-    /// UGUI Focus backend의 유효 대상 계약 테스트.
+    /// UGUI Focus와 Focus Highlight의 유효 대상·요청 수명 계약 테스트.
     /// </summary>
     // ============================================================
     public sealed class TEST_InputAndFocus
@@ -36,6 +37,56 @@ namespace inonego.Xeri.TEST.UI._Game
     #endregion
 
     #region 헬퍼
+
+        // ============================================================
+        /// <summary>
+        /// 표시 적용 중 외부 callback을 실행하는 Focus Highlight 테스트 backend.
+        /// </summary>
+        // ============================================================
+        private sealed class TestFocusHighlightDriver : IFocusHighlightDriver
+        {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 테스트 backend는 항상 유효하다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool IsValid => true;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 현재 Highlight 표시 여부.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool IsVisible { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 표시 적용 중 실행할 테스트 callback.
+            /// </summary>
+            // ------------------------------------------------------------
+            public System.Action Showing { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 표시 상태를 적용한 뒤 외부 callback을 실행한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void Show(FocusHighlightParams parameters)
+            {
+                IsVisible = true;
+                Showing?.Invoke();
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Highlight 표시를 종료한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void Hide()
+            {
+                IsVisible = false;
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -138,6 +189,41 @@ namespace inonego.Xeri.TEST.UI._Game
             target.SetActive(true);
             UnityEngine.Object.DestroyImmediate(target);
             Assert.IsFalse(driver.IsValid(target));
+        }
+
+    #endregion
+
+    #region H-1: Focus Highlight 활성화 재진입
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Highlight Root 활성화 callback에서 Controller가 종료되면 요청을 공개하지 않고,
+        /// <br/> Root와 Graphic 표시 상태를 함께 정리하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_FocusHighlightController_Show중Dispose_표시정리와Lease미반환()
+        {
+            var target = new GameObject("Highlight Target", typeof(RectTransform));
+            ownedObjects.Add(target);
+            var driver = new TestFocusHighlightDriver();
+            var controller = new FocusHighlightController();
+            driver.Showing = controller.Dispose;
+            var parameters = new FocusHighlightParams
+            (
+                new[]
+                {
+                    new FocusHighlightTarget(target.GetComponent<RectTransform>()),
+                }
+            );
+
+            Assert.Throws<System.ObjectDisposedException>
+            (
+                () => controller.Show(driver, parameters)
+            );
+
+            Assert.IsFalse(driver.IsVisible);
+            Assert.DoesNotThrow(controller.Dispose);
         }
 
     #endregion

@@ -1,13 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenSession.cs
-수정일 : 2026-07-30
+수정일 : 2026-08-01
 
 # 설명
-한 Screen의 상태, Source, Transition, Layer, 입력과 하위 표시 Handle 수명을 묶는다.
+한 Screen의 공개 상태와 Stack, Hook, Transition 진행 상태를 묶는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
-using System.Collections.Generic;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -57,31 +56,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Screen View와 Presenter를 공급한 Source.
+        /// 준비부터 종료까지 함께 이동하는 Screen 자원 소유자.
         /// </summary>
         // ------------------------------------------------------------
-        internal IScreenSource Source { get; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Source가 조립한 Screen backend 묶음.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal ScreenInstance Instance { get; set; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Screen이 점유한 Presentation Layer 사용 수명.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal IDisposable LayerUsage { get; set; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Screen의 입력 정책 점유 수명.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal ScreenInputSession InputSession { get; set; }
+        internal ScreenSessionResources Resources { get; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -120,24 +98,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Source View와 Presenter가 반환됐는지 여부.
+        /// 현재 OnClosing 훅이 이 Session에서 실행 중인지 여부.
         /// </summary>
         // ------------------------------------------------------------
-        internal bool SourceReleased { get; set; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Presentation Layer 사용 수명이 반환됐는지 여부.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal bool LayerReleased { get; set; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 입력 정책 Session 반환이 요청됐는지 여부.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal bool InputReleased { get; set; }
+        internal bool IsClosingHookRunning { get; set; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -147,7 +111,6 @@ namespace inonego.Xeri.UI.Game
         internal int TransitionGeneration { get; set; }
 
         private readonly ScreenController controller = null;
-        private readonly List<IDisposable> childHandles = new List<IDisposable>();
 
     #endregion
 
@@ -163,13 +126,14 @@ namespace inonego.Xeri.UI.Game
             ScreenController controller,
             ScreenOptions options,
             ScreenOpenParams openParams,
-            IScreenSource source
+            IScreenSource source,
+            Lease layerUsage
         ) : base()
         {
             this.controller = controller ?? throw new ArgumentNullException(nameof(controller));
             Options = options ?? throw new ArgumentNullException(nameof(options));
             OpenParams = openParams;
-            Source = source ?? throw new ArgumentNullException(nameof(source));
+            Resources = new ScreenSessionResources(source, layerUsage);
             State = ScreenState.Opening;
         }
 
@@ -205,36 +169,8 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("종료 중인 Screen에는 하위 Handle을 등록할 수 없습니다.");
             }
 
-            childHandles.Add(handle);
+            Resources.RegisterChild(handle);
             return handle;
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> 하위 표시 Handle을 생성 역순으로 소유 목록에서 먼저 제거한 뒤 한 번 해제한다.
-        /// <br/> 실패한 Handle은 다시 보관하지 않고 나머지 독립 정리를 계속한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        internal List<Exception> ReleaseChildren()
-        {
-            var errors = new List<Exception>();
-
-            for (var i = childHandles.Count - 1; i >= 0; i--)
-            {
-                var handle = childHandles[i];
-                childHandles.RemoveAt(i);
-
-                try
-                {
-                    handle.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
-                }
-            }
-
-            return errors;
         }
 
     #endregion

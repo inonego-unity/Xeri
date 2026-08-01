@@ -72,10 +72,13 @@ App 전체에서 유지할 Host Prefab Root에 다음 Component를 정확히 한
 UGUI Focus Driver는 Host의 같은 `EventSystem`을 사용해야 한다.
 현재 Runtime은 실제 화면 기술과 관계없이 두 Focus Driver 구성을 모두 검증한다.
 
-`InputSystemUIInputModule`에는 사용하는 Input Action Asset과
-Point, Move, Submit, Cancel, Click 계열 Action Reference를 연결한다.
-Runtime은 Input Module의 활성 여부를 검증하지만 개별 Action Reference를
-자동으로 채우지 않는다.
+`InputSystemUIInputModule`에는 Xeri가 제공하는
+`GameUIInputActions.inputactions`와 Point, Move, Submit, Cancel,
+Left Click, Scroll Wheel Action Reference를 연결한다.
+이 Asset은 UI 전용이며 Navigate, Submit, Cancel, Point, Click,
+ScrollWheel Action과 기본 Keyboard·Mouse, Gamepad, Touch, Joystick Binding을 가진다.
+Runtime은 이 Reference가 Settings의 UI Action Map에 속하는지 검증하며,
+비어 있는 Reference를 자동으로 채우지 않는다.
 
 로드된 Scene 전체에는 이 Host의 `GameUIRuntime`과 `EventSystem`만 존재해야 한다.
 일반 Scene에 별도 Runtime이나 EventSystem을 추가하지 않는다.
@@ -88,10 +91,12 @@ Runtime은 Input Module의 활성 여부를 검증하지만 개별 Action Refere
 - `DefaultProfile`: App 수명 Layer Profile
 - `SceneFadeLayerID`: 기본 Profile 안의 Fade Layer ID
 - `DefaultFadeColor`, `DefaultFadeDuration`
-- `UIActionMap`, `GameplayActionMap`
+- `UIActionMap`: Host의 UI 전용 Action Asset에 있는 Map 이름
+- `GameplayActionsAsset`: 프로젝트가 소유하는 Gameplay Input Action Asset
+- `GameplayActionMap`: Gameplay Action Asset에서 UI가 활성 상태를 제어할 Map 이름
 - `ReleaseActionNames`: 화면 종료 뒤 입력 해제를 기다릴 Action 이름
 
-UI와 Gameplay Action Map 이름은 서로 달라야 한다.
+UI와 Gameplay Action Map은 서로 다른 Map이어야 한다.
 Release Action은 UI와 Gameplay Map에서 같은 이름을 사용할 수 있으며,
 현재 눌린 입력이 해제된 뒤 이전 입력·Cursor 정책이 복원된다.
 
@@ -131,6 +136,8 @@ Order는 두 UI 기술이 동일하게 표현할 수 있는 `short` 범위만 �
 ### UGUI Layer Prefab
 
 UGUI Layer Prefab Root에는 `UGUILayerCanvas`를 하나 둔다.
+Layer Prefab Root는 비활성 상태로 작성한다. Runtime이 횟득한 인스턴스를
+검증·등록한 뒤 Layer 상태에 맞게 활성화한다.
 
 - `Root`: View를 배치할 `RectTransform`
 - `Canvas`: 이 Layer의 독립 Canvas
@@ -253,8 +260,9 @@ var options = new ScreenOptions
 );
 ```
 
-`DefaultFocus`는 `ScreenOptions`의 값이 먼저 사용되고,
-없으면 Source가 만든 `IScreenDriver.DefaultFocus`가 사용된다.
+`DefaultFocus`는 유효한 `ScreenOptions`의 값이 먼저 사용되고,
+없거나 유효하지 않으면 Source가 만든 `IScreenDriver.DefaultFocus`를 시도한다.
+두 값 모두 유효하지 않을 때만 Focus Driver의 fallback을 사용한다.
 동적으로 만들어지는 View의 Focus 대상은 Driver에 설정하는 편이 자연스럽다.
 
 ### IScreenSource 계약
@@ -563,12 +571,14 @@ Target은 `IVisibilityTarget`을 구현한다.
 Screen이 활성화되면 Focus는 다음 순서로 선택된다.
 
 1. 해당 Screen의 마지막 유효 Focus
-2. `ScreenOptions.DefaultFocus`
-3. `IScreenDriver.DefaultFocus`
+2. 유효한 `ScreenOptions.DefaultFocus`
+3. 유효한 `IScreenDriver.DefaultFocus`
 4. native Focus Driver의 fallback
 
 Screen이 가려지기 전에 현재 Focus를 기록하고 다시 노출될 때 복원한다.
 UGUI Focus와 UI Toolkit Focus는 동시에 남지 않도록 기술 전환 시 이전 선택을 비운다.
+Runtime에 등록된 UI Toolkit Layer Panel은 기본 Focus가 없어도
+첫 사용자 Focus부터 현재 선택으로 추적된다.
 
 `ScreenOptions`의 Input 항목은 열린 모든 Screen에서 합성된다.
 

@@ -76,14 +76,37 @@ namespace inonego.Xeri.UI.Game
                 Visible = visible,
             };
 
-            target.SetVisible(visible);
-
             if (isNewEntry)
             {
                 entries.Add(target, entry);
             }
 
             entry.Requests.Add(request);
+
+            try
+            {
+                // 외부 callback이 같은 Target 요청을 중첩해도 현재 요청이 먼저 소유 목록에 보이게 한다.
+                target.SetVisible(visible);
+
+                if (isDisposed)
+                {
+                    throw new ObjectDisposedException(nameof(VisibilityController));
+                }
+            }
+            catch (Exception exception)
+            {
+                try
+                {
+                    Release(target, request);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException(exception, cleanupException);
+                }
+
+                throw;
+            }
+
             return new Lease(() => Release(target, request));
         }
 

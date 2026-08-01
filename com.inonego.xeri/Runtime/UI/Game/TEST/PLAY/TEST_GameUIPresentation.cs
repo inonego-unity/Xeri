@@ -1,15 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIPresentation.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 실제 Runtime Panel과 Canvas에서 UGUI·UITK 표시와 mixed Focus의 대표 경로를 검증한다.
 
 # 테스트 구성
  O: UGUI·UITK 공통 Layer Order
- I: Input System 입력 해제 장벽
+ I: Input System Map·장치·해제 장벽
  P: DOTween Presentation Transition
- U: UGUI Layer·Screen·Modal·Fade
+ U: UGUI Layer·Screen·Modal·Fade·Layout
  T: UITK Panel·Focus·Screen·Modal·Fade
  M: UGUI·UITK mixed Focus
 ========================================================================= BLOCK_HEADER_END */
@@ -618,6 +618,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 gameplay.Enable();
                 inputModule.actionsAsset = actions;
                 SetField(settings, "uiActionMap", "UI");
+                SetField(settings, "gameplayActionsAsset", actions);
                 SetField(settings, "gameplayActionMap", "Player");
                 SetField(settings, "releaseActionNames", new[] { "Cancel" });
 
@@ -691,6 +692,230 @@ namespace inonego.Xeri.TEST.UI._Game
             }
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 전체 해제 callback에서 획득한 새 Session을 계속 추적하고,
+        /// <br/> 마지막 해제 뒤 Gameplay Action별 기준 활성 상태를 정확히 복원하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_InputSystemScreenInputDriver_전체해제재진입_Action별기준상태복원()
+        {
+            var baselineCursorVisible = UnityCursor.visible;
+            var baselineCursorLockMode = UnityCursor.lockState;
+            var host = new GameObject("Input Host");
+            var inputModule = host.AddComponent<InputSystemUIInputModule>();
+            var driver = host.AddComponent<InputSystemScreenInputDriver>();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var settings = ScriptableObject.CreateInstance<GameUISettingsAsset>();
+            Keyboard keyboard = null;
+
+            try
+            {
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                var ui = new InputActionMap("UI");
+                ui.AddAction("Cancel", InputActionType.Button)
+                    .AddBinding("<Keyboard>/escape");
+                var gameplay = new InputActionMap("Player");
+                var move = gameplay.AddAction("Move", InputActionType.Value);
+                var attack = gameplay.AddAction("Attack", InputActionType.Button);
+                actions.AddActionMap(ui);
+                actions.AddActionMap(gameplay);
+                move.Enable();
+                inputModule.actionsAsset = actions;
+                SetField(settings, "uiActionMap", "UI");
+                SetField(settings, "gameplayActionsAsset", actions);
+                SetField(settings, "gameplayActionMap", "Player");
+                SetField(settings, "releaseActionNames", new[] { "Cancel" });
+                driver.Initialize(inputModule, settings);
+                var baselineUIEnabled = ui.enabled;
+                var closing = driver.Acquire(new ScreenOptions("Closing", "Screen"));
+                ScreenInputSession nested = null;
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
+                InputSystem.Update();
+                closing.Release
+                (
+                    waitForInputRelease: true,
+                    onReleaseCompleted: () =>
+                    {
+                        nested = driver.Acquire(new ScreenOptions("Nested", "Screen"));
+                    }
+                );
+
+                driver.ForceReleaseAll();
+
+                Assert.IsTrue(closing.IsReleased);
+                Assert.IsNotNull(nested);
+                Assert.IsFalse(nested.IsReleased);
+                Assert.IsFalse(move.enabled);
+                Assert.IsFalse(attack.enabled);
+
+                nested.Release(false);
+
+                Assert.IsTrue(nested.IsReleased);
+                Assert.IsTrue(move.enabled);
+                Assert.IsFalse(attack.enabled);
+                Assert.AreEqual(baselineUIEnabled, ui.enabled);
+            }
+            finally
+            {
+                driver.Dispose();
+
+                if (keyboard != null)
+                {
+                    InputSystem.RemoveDevice(keyboard);
+                }
+
+                UnityCursor.visible = baselineCursorVisible;
+                UnityCursor.lockState = baselineCursorLockMode;
+                UnityEngine.Object.Destroy(host);
+                UnityEngine.Object.Destroy(actions);
+                UnityEngine.Object.Destroy(settings);
+            }
+
+            yield return null;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> UI Map의 일부 Action만 켜져 있어도 Screen 획득 중에는 전체를 활성화하고,
+        /// <br/> 마지막 해제 뒤에는 Action별 기준 상태를 복원한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_InputSystemScreenInputDriver_UIMap부분활성_획득전체활성후개별복원()
+        {
+            var host = new GameObject("Input Host");
+            var inputModule = host.AddComponent<InputSystemUIInputModule>();
+            var driver = host.AddComponent<InputSystemScreenInputDriver>();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var settings = ScriptableObject.CreateInstance<GameUISettingsAsset>();
+
+            try
+            {
+                var ui = new InputActionMap("UI");
+                var cancel = ui.AddAction("Cancel", InputActionType.Button);
+                var submit = ui.AddAction("Submit", InputActionType.Button);
+                var gameplay = new InputActionMap("Player");
+                gameplay.AddAction("Move", InputActionType.Value);
+                actions.AddActionMap(ui);
+                actions.AddActionMap(gameplay);
+                cancel.Enable();
+                inputModule.actionsAsset = actions;
+                SetField(settings, "uiActionMap", "UI");
+                SetField(settings, "gameplayActionsAsset", actions);
+                SetField(settings, "gameplayActionMap", "Player");
+                SetField(settings, "releaseActionNames", Array.Empty<string>());
+                driver.Initialize(inputModule, settings);
+                ui.Disable();
+                cancel.Enable();
+                Assert.IsTrue(cancel.enabled);
+                Assert.IsFalse(submit.enabled);
+
+                var session = driver.Acquire(new ScreenOptions("Menu", "Screen"));
+
+                Assert.IsTrue(cancel.enabled);
+                Assert.IsTrue(submit.enabled);
+
+                session.Release(false);
+
+                Assert.IsTrue(cancel.enabled);
+                Assert.IsFalse(submit.enabled);
+            }
+            finally
+            {
+                driver.Dispose();
+                UnityEngine.Object.Destroy(host);
+                UnityEngine.Object.Destroy(actions);
+                UnityEngine.Object.Destroy(settings);
+            }
+
+            yield return null;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Runtime에 구성되지 않은 전역 Action은 마지막 UI 입력 장치를 변경하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_InputSystemScreenInputDriver_비구성전역Action_마지막장치변경안함()
+        {
+            var host = new GameObject("Input Host");
+            var inputModule = host.AddComponent<InputSystemUIInputModule>();
+            var driver = host.AddComponent<InputSystemScreenInputDriver>();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var externalActions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var settings = ScriptableObject.CreateInstance<GameUISettingsAsset>();
+            Keyboard keyboard = null;
+            Mouse mouse = null;
+
+            try
+            {
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                mouse = InputSystem.AddDevice<Mouse>();
+                var ui = new InputActionMap("UI");
+                ui.AddAction("Submit", InputActionType.Button)
+                    .AddBinding("<Keyboard>/space");
+                var gameplay = new InputActionMap("Player");
+                gameplay.AddAction("Move", InputActionType.Button)
+                    .AddBinding("<Keyboard>/q");
+                actions.AddActionMap(ui);
+                actions.AddActionMap(gameplay);
+                var debug = new InputActionMap("Debug");
+                debug.AddAction("Click", InputActionType.Button)
+                    .AddBinding("<Mouse>/leftButton");
+                externalActions.AddActionMap(debug);
+                inputModule.actionsAsset = actions;
+                SetField(settings, "uiActionMap", "UI");
+                SetField(settings, "gameplayActionsAsset", actions);
+                SetField(settings, "gameplayActionMap", "Player");
+                SetField(settings, "releaseActionNames", Array.Empty<string>());
+                driver.Initialize(inputModule, settings);
+                var session = driver.Acquire(new ScreenOptions("Menu", "Screen"));
+                debug.Enable();
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Space));
+                InputSystem.Update();
+                Assert.AreSame(keyboard, driver.LastInputDevice);
+
+                InputSystem.QueueStateEvent
+                (
+                    mouse,
+                    new MouseState().WithButton
+                    (
+                        UnityEngine.InputSystem.LowLevel.MouseButton.Left
+                    )
+                );
+                InputSystem.Update();
+
+                Assert.AreSame(keyboard, driver.LastInputDevice);
+                session.Release(false);
+            }
+            finally
+            {
+                driver.Dispose();
+
+                if (mouse != null)
+                {
+                    InputSystem.RemoveDevice(mouse);
+                }
+
+                if (keyboard != null)
+                {
+                    InputSystem.RemoveDevice(keyboard);
+                }
+
+                UnityEngine.Object.Destroy(host);
+                UnityEngine.Object.Destroy(actions);
+                UnityEngine.Object.Destroy(externalActions);
+                UnityEngine.Object.Destroy(settings);
+            }
+
+            yield return null;
+        }
+
     #endregion
 
     #region P-1: DOTween Presentation Transition
@@ -745,6 +970,162 @@ namespace inonego.Xeri.TEST.UI._Game
     #endregion
 
     #region U-1: UGUI Runtime
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 비점유 Blocker가 활성화될 때 직렬화 표시 상태를 즉시 비활성으로 맞춘다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_UGUIInteractionBlocker_최초활성_비점유상태동기화()
+        {
+            var host = new GameObject("Interaction Blocker");
+            host.SetActive(false);
+            var root = new GameObject("Blocker Root", typeof(CanvasGroup));
+            root.transform.SetParent(host.transform, false);
+            var canvasGroup = root.GetComponent<CanvasGroup>();
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+            var blocker = host.AddComponent<UGUIInteractionBlocker>();
+            SetField(blocker, "root", root);
+            SetField(blocker, "canvasGroup", canvasGroup);
+
+            try
+            {
+                host.SetActive(true);
+                yield return null;
+
+                Assert.IsFalse(root.activeSelf);
+                Assert.IsFalse(canvasGroup.interactable);
+                Assert.IsFalse(canvasGroup.blocksRaycasts);
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(host);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Highlight 대상이 비활성화되면 dim과 입력 차단을 비우고,
+        /// <br/> Driver 비활성화 시 별도 표시 Root까지 닫는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_UGUIFocusHighlightDriver_대상과Driver비활성_표시입력정리()
+        {
+            var host = new GameObject("Focus Highlight Driver");
+            host.SetActive(false);
+            var root = new GameObject
+            (
+                "Highlight Root",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(UGUIFocusHighlightGraphic)
+            );
+            root.transform.SetParent(host.transform, false);
+            var target = new GameObject("Highlight Target", typeof(RectTransform));
+            target.transform.SetParent(host.transform, false);
+            var graphic = root.GetComponent<UGUIFocusHighlightGraphic>();
+            var driver = host.AddComponent<UGUIFocusHighlightDriver>();
+            SetField(driver, "root", root);
+            SetField(driver, "graphic", graphic);
+
+            try
+            {
+                host.SetActive(true);
+                driver.Show
+                (
+                    new FocusHighlightParams
+                    (
+                        new[]
+                        {
+                            new FocusHighlightTarget
+                            (
+                                target.GetComponent<RectTransform>()
+                            ),
+                        }
+                    )
+                );
+                yield return null;
+
+                Assert.IsTrue(root.activeSelf);
+                Assert.IsTrue(graphic.enabled);
+                Assert.AreEqual(1, graphic.HoleCount);
+                Assert.IsTrue(graphic.raycastTarget);
+
+                target.SetActive(false);
+                yield return null;
+
+                Assert.IsFalse(graphic.enabled);
+                Assert.AreEqual(0, graphic.HoleCount);
+                Assert.IsFalse(graphic.raycastTarget);
+
+                target.SetActive(true);
+                yield return null;
+
+                Assert.IsTrue(graphic.enabled);
+                Assert.AreEqual(1, graphic.HoleCount);
+                Assert.IsTrue(graphic.raycastTarget);
+
+                driver.enabled = false;
+
+                Assert.IsFalse(root.activeSelf);
+                Assert.AreEqual(0, graphic.HoleCount);
+                Assert.IsFalse(graphic.raycastTarget);
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(host);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layout Controller가 활성화 시점에 Safe Area를 즉시 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_UILayoutController_최초활성_SafeArea즉시반영()
+        {
+            var host = new GameObject("Layout Controller");
+            host.SetActive(false);
+            var safeAreaObject = new GameObject("Safe Area", typeof(RectTransform));
+            safeAreaObject.transform.SetParent(host.transform, false);
+            var safeAreaRoot = safeAreaObject.GetComponent<RectTransform>();
+            safeAreaRoot.anchorMin = Vector2.zero;
+            safeAreaRoot.anchorMax = Vector2.zero;
+            safeAreaRoot.offsetMin = Vector2.one;
+            safeAreaRoot.offsetMax = Vector2.one;
+            var controller = host.AddComponent<UGUILayoutController>();
+            SetField(controller, "safeAreaRoot", safeAreaRoot);
+
+            try
+            {
+                host.SetActive(true);
+                yield return null;
+
+                var width = Mathf.Max(1, Screen.width);
+                var height = Mathf.Max(1, Screen.height);
+                var area = Screen.safeArea;
+                Assert.AreEqual
+                (
+                    new Vector2(area.xMin / width, area.yMin / height),
+                    safeAreaRoot.anchorMin
+                );
+                Assert.AreEqual
+                (
+                    new Vector2(area.xMax / width, area.yMax / height),
+                    safeAreaRoot.anchorMax
+                );
+                Assert.AreEqual(Vector2.zero, safeAreaRoot.offsetMin);
+                Assert.AreEqual(Vector2.zero, safeAreaRoot.offsetMax);
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(host);
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -845,6 +1226,75 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #region T-1: UITK Runtime
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 서로 다른 UITK Panel의 사용자 Focus 이동을 추적하고 이전 Panel Focus를 비운다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_UITKFocusDriver_다중Panel사용자Focus_단일현재선택유지()
+        {
+            var driverHost = new GameObject("UITK Focus Driver");
+            var firstHost = new GameObject("First Panel");
+            var secondHost = new GameObject("Second Panel");
+            var firstSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            var secondSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            var firstDocument = firstHost.AddComponent<UIDocument>();
+            var secondDocument = secondHost.AddComponent<UIDocument>();
+            firstDocument.panelSettings = firstSettings;
+            secondDocument.panelSettings = secondSettings;
+            var driver = driverHost.AddComponent<UITKFocusDriver>();
+            var focus = driverHost.AddComponent<GameUIFocusDriver>();
+            SetField(focus, "uitkFocusDriver", driver);
+            var first = new Button { name = "First" };
+            var second = new Button { name = "Second" };
+            firstDocument.rootVisualElement.Add(first);
+            secondDocument.rootVisualElement.Add(second);
+
+            try
+            {
+                yield return null;
+                yield return null;
+
+                focus.RegisterLayer
+                (
+                    new TestUITKLayerDriver(firstDocument.rootVisualElement)
+                );
+                focus.RegisterLayer
+                (
+                    new TestUITKLayerDriver(secondDocument.rootVisualElement)
+                );
+                first.Focus();
+                yield return null;
+                second.Focus();
+                yield return null;
+
+                Assert.AreSame(second, driver.Current);
+                Assert.AreNotSame
+                (
+                    first,
+                    first.panel.focusController.focusedElement
+                );
+
+                driver.Select(null);
+
+                Assert.IsNull(driver.Current);
+                Assert.AreNotSame
+                (
+                    second,
+                    second.panel.focusController.focusedElement
+                );
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(driverHost);
+                UnityEngine.Object.Destroy(firstHost);
+                UnityEngine.Object.Destroy(secondHost);
+                UnityEngine.Object.Destroy(firstSettings);
+                UnityEngine.Object.Destroy(secondSettings);
+            }
+        }
+
         // ------------------------------------------------------------
         /// <summary>
         /// 실제 Panel에서 Focus와 Screen·Modal·Fade VisualElement 상태가 적용된다.
@@ -908,7 +1358,7 @@ namespace inonego.Xeri.TEST.UI._Game
         // ----------------------------------------------------------------------
         /// <summary>
         /// <br/> UGUI와 UITK 대상을 교대로 선택할 때 이전 native Focus를 비우고,
-        /// <br/> 공통 Driver가 현재 기술의 실제 Focus를 반환하는지 검증한다.
+        /// <br/> 사용자가 UITK Focus를 직접 이동해도 공통 Driver가 실제 Element를 반환한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [UnityTest]
@@ -958,6 +1408,15 @@ namespace inonego.Xeri.TEST.UI._Game
                 Assert.AreSame(uguiTarget, eventSystem.currentSelectedGameObject);
                 Assert.AreSame(uguiTarget, focus.Current);
                 Assert.AreNotSame(uitkTarget, uitkFocus.Current);
+
+                uitkTarget.Focus();
+                yield return null;
+
+                Assert.AreSame(uitkTarget, uitkFocus.Current);
+                Assert.AreSame(uitkTarget, focus.Current);
+
+                focus.Select(null);
+                yield return null;
             }
             finally
             {

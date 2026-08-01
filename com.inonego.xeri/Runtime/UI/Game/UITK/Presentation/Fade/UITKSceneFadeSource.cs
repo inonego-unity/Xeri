@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKSceneFadeSource.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 직렬화한 VisualTreeAsset Scene Fade View를 UITK Layer에 Clone하고 반환 소유권을 관리한다.
@@ -156,6 +156,13 @@ namespace inonego.Xeri.UI.Game
             }
 
             layerPanel.Root.Add(container);
+
+            // Panel Attach callback이 Source를 종료했으면 새 View를 종료된 소유 목록에 공개하지 않는다.
+            if (isDisposed)
+            {
+                container.RemoveFromHierarchy();
+                throw new ObjectDisposedException(nameof(UITKSceneFadeSource));
+            }
 
             var driver = new UITKSceneFadeDriver(root, container);
             ownedViews.Add(new OwnedView(driver, container));

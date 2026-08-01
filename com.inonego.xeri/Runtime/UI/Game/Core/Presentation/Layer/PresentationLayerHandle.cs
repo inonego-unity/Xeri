@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationLayerHandle.cs
-수정일 : 2026-07-30
+수정일 : 2026-07-31
 
 # 설명
 Presentation Layer 등록 소유권과 활성 소비자 수명을 연결하는 Handle을 정의한다.
@@ -66,21 +66,6 @@ namespace inonego.Xeri.UI.Game
     #endregion
 
     #region 메서드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Layer를 사용하는 내부 소비자 수명을 시작한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal Lease AcquireUsage()
-        {
-            if (entry == null)
-            {
-                throw new ObjectDisposedException(nameof(PresentationLayerHandle));
-            }
-
-            return entry.AcquireUsage();
-        }
 
         // ------------------------------------------------------------
         /// <summary>

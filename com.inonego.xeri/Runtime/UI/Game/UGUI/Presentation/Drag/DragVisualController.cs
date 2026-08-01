@@ -123,6 +123,21 @@ namespace inonego.Xeri.UI.Game
                 throw new ArgumentNullException(nameof(draggable));
             }
 
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                if
+                (
+                    ReferenceEquals(bindings[i].Draggable, draggable) ||
+                    ReferenceEquals(bindings[i].Target, parameters.Target)
+                )
+                {
+                    throw new InvalidOperationException
+                    (
+                        "같은 DraggableUI 또는 Drag Visual 대상을 중복으로 연결할 수 없습니다."
+                    );
+                }
+            }
+
             var binding = new UGUIDragVisualBinding(this, draggable, parameters);
             bindings.Add(binding);
             return binding;
@@ -162,13 +177,34 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
+            for (var i = 0; i < handles.Count; i++)
+            {
+                if (ReferenceEquals(handles[i].Target, target))
+                {
+                    layerUsage?.Dispose();
+                    throw new InvalidOperationException
+                    (
+                        "같은 Drag Visual 대상을 중복으로 시작할 수 없습니다."
+                    );
+                }
+            }
+
             var handle = new DragVisualHandle(this, target, layerUsage);
+
+            // 계층 callback의 중첩 Begin과 Controller 종료가 같은 대상을 다시 소유하지 않게 먼저 예약한다.
+            handles.Add(handle);
 
             try
             {
                 target.SetParent(dragRoot, true);
+
+                // 부모 변경 callback에서 종료됐으면 복원된 Target을 다시 변경하지 않는다.
+                ThrowIfDisposed();
+
                 target.SetAsLastSibling();
-                handles.Add(handle);
+
+                // 계층 변경 callback에서 종료됐으면 이미 Terminal인 Handle을 호출자에게 공개하지 않는다.
+                ThrowIfDisposed();
                 return handle;
             }
             catch

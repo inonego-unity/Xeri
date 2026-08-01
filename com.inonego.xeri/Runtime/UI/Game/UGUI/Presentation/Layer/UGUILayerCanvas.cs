@@ -39,6 +39,8 @@ namespace inonego.Xeri.UI.Game
         [SerializeField]
         private Canvas canvas = null;
 
+        private int order = 0;
+
     #endregion
 
     #region IPresentationLayerDriver
@@ -107,21 +109,39 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public void SetOrder(int order)
         {
-            canvas.overrideSorting = true;
-            canvas.sortingOrder = order;
+            this.order = order;
+            ApplyOrder();
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Layer Root GameObject의 활성 상태를 적용한다.
+        /// Layer Prefab Root GameObject의 활성 상태를 적용한다.
         /// </summary>
         // ------------------------------------------------------------
         public void SetActive(bool active)
         {
-            if (root != null)
+            gameObject.SetActive(active);
+
+            if (active)
             {
-                root.gameObject.SetActive(active);
+                // 비활성 Canvas가 무시한 정렬 값을 활성화가 끝난 실제 backend에 다시 적용한다.
+                ApplyOrder();
             }
+        }
+
+    #endregion
+
+    #region 내부 처리
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Canvas에 보관한 공통 Layer 순서를 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyOrder()
+        {
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = order;
         }
 
     #endregion

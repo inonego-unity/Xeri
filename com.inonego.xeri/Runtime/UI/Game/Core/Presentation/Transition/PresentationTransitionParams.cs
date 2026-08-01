@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationTransitionParams.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 Presentation Transition Target과 시작·종료 값, 시간 정책을 불변 호출 인자로 묶는다.
@@ -72,7 +72,7 @@ namespace inonego.Xeri.UI.Game
             IPresentationTimeSource timeSource
         ) : this()
         {
-            if (duration < 0.0f)
+            if (float.IsNaN(duration) || float.IsInfinity(duration) || duration < 0.0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(duration));
             }

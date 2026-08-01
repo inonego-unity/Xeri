@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIFocusHighlightDriver.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 실제 RectTransform 대상의 현재 World Corner를 UGUI Focus Graphic의 여러 로컬 구멍으로 갱신한다.
@@ -58,13 +58,22 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
+        /// backend가 비활성화될 때 별도 표시 Root의 dim과 입력 차단도 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnDisable()
+        {
+            Hide();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// backend 파괴 시 남은 표시 상태를 제거한다.
         /// </summary>
         // ------------------------------------------------------------
         private void OnDestroy()
         {
-            activeParams = null;
-            holes.Clear();
+            Hide();
         }
 
     #endregion
@@ -166,7 +175,14 @@ namespace inonego.Xeri.UI.Game
             {
                 var target = activeParams.Targets[i];
 
-                if (target.Target == null) continue;
+                if
+                (
+                    target.Target == null ||
+                    !target.Target.gameObject.activeInHierarchy
+                )
+                {
+                    continue;
+                }
 
                 target.Target.GetWorldCorners(corners);
                 var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
@@ -186,6 +202,15 @@ namespace inonego.Xeri.UI.Game
                 holes.Add(Rect.MinMaxRect(min.x, min.y, max.x, max.y));
             }
 
+            // 유효한 대상이 없으면 dim과 Raycast를 모두 비워 전체 입력 잠금을 만들지 않는다.
+            if (holes.Count == 0)
+            {
+                graphic.ClearHoles();
+                graphic.enabled = false;
+                return;
+            }
+
+            graphic.enabled = true;
             graphic.SetHoles(holes, activeParams.BlocksOutsideInput);
         }
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUISettingsAsset.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 Game UI Runtime의 기본 Profile, Scene Fade와 Input System 공통 설정을 정의한다.
@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -80,6 +81,16 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 프로젝트 Gameplay Action을 소유하는 Input Action Asset.
+        /// </summary>
+        // ------------------------------------------------------------
+        public InputActionAsset GameplayActionsAsset => gameplayActionsAsset;
+
+        [SerializeField]
+        private InputActionAsset gameplayActionsAsset = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// Input System Gameplay Action Map 이름.
         /// </summary>
         // ------------------------------------------------------------
@@ -119,9 +130,14 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("Scene Fade Layer ID가 비어 있습니다.");
             }
 
-            if (defaultFadeDuration < 0.0f)
+            if
+            (
+                float.IsNaN(defaultFadeDuration) ||
+                float.IsInfinity(defaultFadeDuration) ||
+                defaultFadeDuration < 0.0f
+            )
             {
-                throw new InvalidOperationException("Scene Fade 시간은 0 이상이어야 합니다.");
+                throw new InvalidOperationException("Scene Fade 시간은 유한한 0 이상의 값이어야 합니다.");
             }
 
             if (string.IsNullOrWhiteSpace(uiActionMap))
@@ -129,14 +145,14 @@ namespace inonego.Xeri.UI.Game
                 throw new InvalidOperationException("UI Action Map 이름이 비어 있습니다.");
             }
 
+            if (gameplayActionsAsset == null)
+            {
+                throw new InvalidOperationException("Gameplay Input Action Asset이 설정되지 않았습니다.");
+            }
+
             if (string.IsNullOrWhiteSpace(gameplayActionMap))
             {
                 throw new InvalidOperationException("Gameplay Action Map 이름이 비어 있습니다.");
-            }
-
-            if (string.Equals(uiActionMap, gameplayActionMap, StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("UI와 Gameplay Action Map 이름은 서로 달라야 합니다.");
             }
 
             if (releaseActionNames == null || releaseActionNames.Length == 0)

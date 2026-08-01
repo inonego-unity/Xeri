@@ -91,8 +91,6 @@ namespace inonego.Xeri.UI.Game
                 throw new ArgumentNullException(nameof(parameters));
             }
 
-            driver.Show(parameters);
-
             if (!requests.TryGetValue(driver, out var list))
             {
                 list = new List<Request>();
@@ -101,7 +99,42 @@ namespace inonego.Xeri.UI.Game
 
             var request = new Request(parameters);
             list.Add(request);
-            return new Lease(() => Release(driver, request));
+
+            try
+            {
+                // 활성화 callback보다 먼저 요청을 공개해 재진입 종료가 현재 표시를 숨길 수 있게 한다.
+                driver.Show(parameters);
+
+                if (isDisposed)
+                {
+                    throw new ObjectDisposedException(nameof(FocusHighlightController));
+                }
+
+                return new Lease(() => Release(driver, request));
+            }
+            catch (Exception exception)
+            {
+                if (isDisposed)
+                {
+                    throw;
+                }
+
+                try
+                {
+                    Release(driver, request);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new AggregateException
+                    (
+                        "Focus Highlight 표시와 요청 롤백이 모두 실패했습니다.",
+                        exception,
+                        cleanupException
+                    );
+                }
+
+                throw;
+            }
         }
 
         // ------------------------------------------------------------

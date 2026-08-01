@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ScreenController.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 Screen 수명·상태 훅 정리, Focus 복원과 닫기 입력 장벽 계약을 검증한다.
 
 # 테스트 구성
  N: 정상 Open·Close 수명과 Scope 전달
- H: 상태 훅 취소와 재진입 경계
+ H: 상태 훅 취소와 Open 재진입 경계
  D: 중복 정책과 동적 등록 수명
  O: 수락 전 자원 정리와 이전 Focus 복원
  C: Close 입력 장벽과 Focus 복원
@@ -22,6 +22,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 
 using NUnit.Framework;
@@ -248,21 +249,44 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             public object Current => CurrentValue;
             public object CurrentValue { get; set; }
+            public object InvalidTarget { get; set; }
             public object Fallback { get; } = new object();
+            public Action<object> Selected { get; set; }
 
             public bool IsValid(object target)
             {
-                return target != null;
+                return target != null && !ReferenceEquals(target, InvalidTarget);
             }
 
             public void Select(object target)
             {
                 CurrentValue = target;
+                Selected?.Invoke(target);
             }
 
             public object FindFallback()
             {
                 return Fallback;
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// UGUI 선택 callback을 테스트 흐름에 전달한다.
+        /// </summary>
+        // ============================================================
+        private sealed class SelectCallback : MonoBehaviour, ISelectHandler
+        {
+            public Action Selected { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// EventSystem 선택 callback을 전달한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void OnSelect(BaseEventData eventData)
+            {
+                Selected?.Invoke();
             }
         }
 
@@ -272,6 +296,14 @@ namespace inonego.Xeri.TEST.UI._Game
 
             public bool HoldRelease { get; set; }
             public bool FailRelease { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 입력 Session을 소유 목록에 넣은 뒤 반환 전에 호출할 테스트 callback.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Action Acquiring { get; set; }
+
             public ScreenInputSession LastAcquired { get; private set; }
             public int Count => sessions.Count;
 
@@ -279,6 +311,7 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 LastAcquired = new ScreenInputSession(options, Release);
                 sessions.Add(LastAcquired);
+                Acquiring?.Invoke();
                 return LastAcquired;
             }
 
@@ -660,6 +693,62 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
+    #region N-2: Focus 기본값 우선순위
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// ScreenOptions 기본 Focus가 유효하지 않으면 Driver 기본 Focus를 선택한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_화면기본Focus무효_Driver기본Focus선택()
+        {
+            var invalidFocus = new object();
+            var driverFocus = new object();
+            focusDriver.InvalidTarget = invalidFocus;
+            Register
+            (
+                "Focus",
+                new TestScreenSource(driverFocus),
+                defaultFocus: invalidFocus
+            );
+
+            var response = controller.Open("Focus");
+
+            Assert.IsTrue(response.Accepted);
+            Assert.AreSame(driverFocus, focusDriver.Current);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 공개 생성자가 유한하지 않은 Transition 시간을 거부한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenOptions_유한하지않은Transition시간_생성거부()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>
+            (
+                () => new ScreenOptions
+                (
+                    "NaN",
+                    "Screen",
+                    openDuration: float.NaN
+                )
+            );
+            Assert.Throws<ArgumentOutOfRangeException>
+            (
+                () => new ScreenOptions
+                (
+                    "Infinity",
+                    "Screen",
+                    closeDuration: float.PositiveInfinity
+                )
+            );
+        }
+
+    #endregion
+
     #region H-1: 상태 훅 재진입
 
         // ------------------------------------------------------------
@@ -709,9 +798,316 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreSame(other.Session, controller.Top);
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Source 획득 callback의 중첩 Open을 거부하고 바깥 Screen 하나만 공개하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_Source획득재진입_중첩Open거부하고단일Top유지()
+        {
+            var nestedSource = new TestScreenSource(new object());
+            var source = new TestScreenSource(new object());
+            ScreenOpenResponse nestedOpen = default;
+            source.Acquiring = _ => nestedOpen = controller.Open("Nested");
+            Register("Outer", source);
+            Register("Nested", nestedSource);
+
+            var response = controller.Open("Outer");
+
+            Assert.IsTrue(response.Accepted);
+            Assert.AreEqual(ScreenOpenKind.Rejected, nestedOpen.Kind);
+            Assert.AreEqual(1, controller.Count);
+            Assert.AreSame(response.Session, controller.Top);
+            Assert.AreEqual(0, nestedSource.AcquireCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Source 획득 callback에서 종료되면 늦게 반환된 Instance를 한 번 반환하고,
+        /// <br/> 준비 Session과 Layer Usage를 남기지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_Source획득중Shutdown_늦은Instance한번반환()
+        {
+            var source = new TestScreenSource(new object());
+            source.Acquiring = _ => controller.Shutdown();
+            Register("Interrupted Source", source);
+
+            var response = controller.Open("Interrupted Source");
+
+            Assert.AreEqual(ScreenOpenKind.Rejected, response.Kind);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.AreEqual(0, controller.Count);
+            Assert.IsFalse(controller.IsAvailable);
+            Assert.IsFalse(layerHandle.HasConsumers);
+            Assert.AreEqual(0, inputDriver.Count);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 입력 획득 callback에서 종료되면 늦게 반환된 입력 Session을 한 번 반환하고,
+        /// <br/> 이미 획득한 Source와 Layer Usage도 남기지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_입력획득중Shutdown_늦은InputSession한번반환()
+        {
+            var source = new TestScreenSource(new object());
+            inputDriver.Acquiring = () => controller.Shutdown();
+            Register("Interrupted Input", source);
+
+            var response = controller.Open("Interrupted Input");
+
+            Assert.AreEqual(ScreenOpenKind.Rejected, response.Kind);
+            Assert.AreEqual(1, source.AcquireCount);
+            Assert.AreEqual(1, source.ReleaseCount);
+            Assert.IsNotNull(inputDriver.LastAcquired);
+            Assert.IsTrue(inputDriver.LastAcquired.IsReleased);
+            Assert.AreEqual(0, inputDriver.Count);
+            Assert.AreEqual(0, controller.Count);
+            Assert.IsFalse(controller.IsAvailable);
+            Assert.IsFalse(layerHandle.HasConsumers);
+        }
+
     #endregion
 
     #region H-2: Closing 취소
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 열기 완료 Focus callback에서 Screen이 닫히면 Active 완료 훅을 건너뛰고,
+        /// <br/> Closing·Closed 수명만 순서대로 확정한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_열기Focus중Close_OnOpened호출하지않음()
+        {
+            var transitioner = UseManualTransitioner();
+            var handler = new TestStateHandler();
+            var source = new TestScreenSource(new object(), handler);
+            Register("Focus Close", source, openDuration: 1.0f);
+            var response = controller.Open("Focus Close");
+            focusDriver.Selected = _ => response.Session.Close();
+
+            transitioner.CompleteNext();
+
+            Assert.AreEqual(ScreenState.Closing, response.Session.State);
+            CollectionAssert.AreEqual
+            (
+                new[] { "Opening", "Closing" },
+                handler.Calls
+            );
+
+            transitioner.CompleteNext();
+
+            Assert.AreEqual(ScreenState.Closed, response.Session.State);
+            Assert.AreEqual(1, source.ReleaseCount);
+            CollectionAssert.AreEqual
+            (
+                new[] { "Opening", "Closing", "Closed" },
+                handler.Calls
+            );
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 0초 Open의 동기 Focus callback에서도 수락된 Session을 닫을 수 있고,
+        /// <br/> OnOpened 없이 Closing·Closed 수명을 한 번씩 확정한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_0초열기Focus중Close_동기완료에서도허용()
+        {
+            var handler = new TestStateHandler();
+            var source = new TestScreenSource(new object(), handler);
+            Register("Immediate Focus Close", source);
+            bool? closeResult = null;
+            focusDriver.Selected = _ => closeResult = source.LastScope.Session.Close();
+
+            var response = controller.Open("Immediate Focus Close");
+
+            Assert.IsTrue(response.Accepted);
+            Assert.IsTrue(closeResult.HasValue && closeResult.Value);
+            Assert.AreEqual(ScreenState.Closed, response.Session.State);
+            Assert.AreEqual(0, controller.Count);
+            Assert.AreEqual(1, source.ReleaseCount);
+            CollectionAssert.AreEqual
+            (
+                new[] { "Opening", "Closing", "Closed" },
+                handler.Calls
+            );
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Replace Focus callback에서 새 Screen을 열어도 이전 Session을 제거하고,
+        /// <br/> 중첩 Open의 실제 UGUI Focus를 현재 top에 확정한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_ReplaceFocus재진입Open_이전Screen정리와새TopFocus유지()
+        {
+            controller.Clear();
+            var focusHost = new GameObject
+            (
+                "UGUI Focus Host",
+                typeof(EventSystem),
+                typeof(UGUIFocusDriver)
+            );
+            var firstFocus = new GameObject("First Focus");
+            var replaceFocus = new GameObject("Replace Focus", typeof(SelectCallback));
+            var nestedFocus = new GameObject("Nested Focus");
+            ownedObjects.Add(focusHost);
+            ownedObjects.Add(firstFocus);
+            ownedObjects.Add(replaceFocus);
+            ownedObjects.Add(nestedFocus);
+            var eventSystem = focusHost.GetComponent<EventSystem>();
+            var uguiFocus = focusHost.GetComponent<UGUIFocusDriver>();
+            SetField(uguiFocus, "eventSystem", eventSystem);
+            controller = new ScreenController
+            (
+                screenRegistry,
+                layerRegistry,
+                new ImmediateTransitioner(),
+                new FocusController(uguiFocus),
+                inputDriver
+            );
+            controller.Activate();
+            var firstSource = new TestScreenSource(firstFocus);
+            var replaceSource = new TestScreenSource(replaceFocus);
+            var nestedSource = new TestScreenSource(nestedFocus);
+            Register("First", firstSource, firstFocus);
+            Register("Replace", replaceSource, replaceFocus);
+            Register("Nested", nestedSource, nestedFocus);
+            var first = controller.Open("First").Session;
+            ScreenOpenResponse nested = default;
+            var callback = replaceFocus.GetComponent<SelectCallback>();
+            callback.Selected = () =>
+            {
+                callback.Selected = null;
+                nested = controller.Open("Nested");
+            };
+
+            var replaced = controller.Replace("Replace");
+
+            Assert.IsTrue(replaced.Accepted);
+            Assert.IsTrue(nested.Accepted);
+            Assert.AreEqual(ScreenState.Closed, first.State);
+            Assert.AreEqual(ScreenState.Covered, replaced.Session.State);
+            Assert.AreEqual(ScreenState.Active, nested.Session.State);
+            Assert.AreEqual(1, firstSource.ReleaseCount);
+            Assert.AreEqual(2, controller.Count);
+            Assert.AreSame(nestedFocus, eventSystem.currentSelectedGameObject);
+
+            Assert.IsTrue(nested.Session.Close());
+            Assert.AreEqual(ScreenState.Active, replaced.Session.State);
+            Assert.AreSame(replaceFocus, eventSystem.currentSelectedGameObject);
+
+            Assert.IsTrue(replaced.Session.Close());
+            Assert.AreEqual(0, controller.Count);
+            Assert.AreEqual(1, firstSource.ReleaseCount);
+            Assert.AreEqual(1, replaceSource.ReleaseCount);
+            Assert.AreEqual(1, nestedSource.ReleaseCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Replace Focus callback에서 다시 Replace해도 교체 확정 대상을 잃지 않고,
+        /// <br/> 최종 Screen만 Stack과 Focus에 남긴다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_ReplaceFocus재진입Replace_교체연쇄전체정리()
+        {
+            controller.Clear();
+            var focusHost = new GameObject
+            (
+                "UGUI Focus Host",
+                typeof(EventSystem),
+                typeof(UGUIFocusDriver)
+            );
+            var firstFocus = new GameObject("First Focus");
+            var replaceFocus = new GameObject("Replace Focus", typeof(SelectCallback));
+            var finalFocus = new GameObject("Final Focus");
+            ownedObjects.Add(focusHost);
+            ownedObjects.Add(firstFocus);
+            ownedObjects.Add(replaceFocus);
+            ownedObjects.Add(finalFocus);
+            var eventSystem = focusHost.GetComponent<EventSystem>();
+            var uguiFocus = focusHost.GetComponent<UGUIFocusDriver>();
+            SetField(uguiFocus, "eventSystem", eventSystem);
+            controller = new ScreenController
+            (
+                screenRegistry,
+                layerRegistry,
+                new ImmediateTransitioner(),
+                new FocusController(uguiFocus),
+                inputDriver
+            );
+            controller.Activate();
+            var firstSource = new TestScreenSource(firstFocus);
+            var replaceSource = new TestScreenSource(replaceFocus);
+            var finalSource = new TestScreenSource(finalFocus);
+            Register("First", firstSource, firstFocus);
+            Register("Replace", replaceSource, replaceFocus);
+            Register("Final", finalSource, finalFocus);
+            var first = controller.Open("First").Session;
+            ScreenOpenResponse final = default;
+            var callback = replaceFocus.GetComponent<SelectCallback>();
+            callback.Selected = () =>
+            {
+                callback.Selected = null;
+                final = controller.Replace("Final");
+            };
+
+            var replaced = controller.Replace("Replace");
+
+            Assert.IsTrue(replaced.Accepted);
+            Assert.IsTrue(final.Accepted);
+            Assert.AreEqual(ScreenState.Closed, first.State);
+            Assert.AreEqual(ScreenState.Closed, replaced.Session.State);
+            Assert.AreEqual(ScreenState.Active, final.Session.State);
+            Assert.AreEqual(1, controller.Count);
+            Assert.AreSame(finalFocus, eventSystem.currentSelectedGameObject);
+            Assert.AreEqual(1, firstSource.ReleaseCount);
+            Assert.AreEqual(1, replaceSource.ReleaseCount);
+
+            Assert.IsTrue(final.Session.Close());
+            Assert.AreEqual(0, controller.Count);
+            Assert.AreEqual(1, finalSource.ReleaseCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> OnClosing에서 Controller가 종료돼 Session이 강제 정리되면,
+        /// <br/> 바깥 Close가 해당 Session을 다시 Closing으로 되돌리지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ScreenController_OnClosing중Shutdown_단일Closing후종료()
+        {
+            var handler = new TestStateHandler
+            {
+                Closing = _ => controller.Shutdown(),
+            };
+            var source = new TestScreenSource(new object(), handler);
+            Register("Shutdown", source);
+            var session = controller.Open("Shutdown").Session;
+
+            Assert.IsTrue(session.Close());
+
+            Assert.AreEqual(ScreenState.Closed, session.State);
+            Assert.AreEqual(0, controller.Count);
+            Assert.AreEqual(1, source.ReleaseCount);
+            CollectionAssert.AreEqual
+            (
+                new[] { "Opening", "Opened", "Closing", "Closed" },
+                handler.Calls
+            );
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -1222,7 +1618,7 @@ namespace inonego.Xeri.TEST.UI._Game
             var baseSession = controller.Open("Base").Session;
             focusDriver.CurrentValue = baseLast;
             var childSession = controller.Open("Child").Session;
-            var childInput = childSession.InputSession;
+            var childInput = childSession.Resources.InputSession;
             inputDriver.HoldRelease = true;
 
             Assert.IsTrue(controller.Close());
@@ -1292,7 +1688,7 @@ namespace inonego.Xeri.TEST.UI._Game
             Register("Child", childSource);
             var baseSession = controller.Open("Base").Session;
             var childSession = controller.Open("Child").Session;
-            var childInput = childSession.InputSession;
+            var childInput = childSession.Resources.InputSession;
             inputDriver.FailRelease = true;
             LogAssert.Expect
             (
@@ -1400,7 +1796,7 @@ namespace inonego.Xeri.TEST.UI._Game
             Register("Second", secondSource);
 
             var firstSession = controller.Open("First").Session;
-            var firstInput = firstSession.InputSession;
+            var firstInput = firstSession.Resources.InputSession;
             inputDriver.HoldRelease = true;
 
             var response = controller.Replace("Second");

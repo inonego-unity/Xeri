@@ -4,7 +4,7 @@
 
 # 설명
 Modal 표시 순서를 소유하고 Stack 상단만 상호작용 가능하도록 backend 상태를 갱신한다.
-개별 종료는 외부 정리 전에 Stack에서 제거하고, 전체 종료는 Stack을 고정 순회한 뒤 한 번에 비운다.
+개별 종료는 backend 정리 중 Driver 예약을 유지하고, 전체 종료는 Stack을 고정 순회한 뒤 한 번에 비운다.
 실패한 정리를 같은 Handle로 다시 시도하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -31,6 +31,7 @@ namespace inonego.Xeri.UI.Game
 
         private readonly List<ModalHandle> stack = new List<ModalHandle>();
         private bool isDisposed = false;
+        private bool isOpening = false;
 
     #endregion
 
@@ -52,23 +53,64 @@ namespace inonego.Xeri.UI.Game
                 throw new ObjectDisposedException(nameof(ModalController));
             }
 
+            if (isOpening)
+            {
+                throw new InvalidOperationException("다른 Modal Open 명령이 진행 중입니다.");
+            }
+
             if (driver == null)
             {
                 throw new ArgumentNullException(nameof(driver));
             }
 
+            for (var i = 0; i < stack.Count; i++)
+            {
+                if (ReferenceEquals(stack[i].Driver, driver))
+                {
+                    throw new InvalidOperationException("같은 Modal Driver를 중복으로 열 수 없습니다.");
+                }
+            }
+
+            isOpening = true;
+
+            try
+            {
+                return OpenCore(driver, ownedHandles);
+            }
+            finally
+            {
+                isOpening = false;
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 검증된 단일 Modal Open 명령을 Stack top에 적용하고,
+        /// <br/> 성공 시 표시 Handle 소유권을 이전받는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private ModalHandle OpenCore
+        (
+            IModalDriver driver,
+            IDisposable[] ownedHandles
+        )
+        {
             var previous = stack.Count > 0
                 ? stack[stack.Count - 1]
                 : null;
+            var driverSetTopAttempted = false;
 
             try
             {
                 if (previous != null)
                 {
                     previous.Driver.SetTop(false);
+                    ValidateOpenState(previous);
                 }
 
+                driverSetTopAttempted = true;
                 driver.SetTop(true);
+                ValidateOpenState(previous);
 
                 var handle = new ModalHandle(this, driver, ownedHandles);
                 stack.Add(handle);
@@ -78,20 +120,25 @@ namespace inonego.Xeri.UI.Game
             {
                 var errors = new List<Exception> { exception };
 
-                try
-                {
-                    driver.SetTop(false);
-                }
-                catch (Exception cleanupException)
-                {
-                    errors.Add(cleanupException);
-                }
-
-                if (previous != null)
+                if (driverSetTopAttempted)
                 {
                     try
                     {
-                        previous.Driver.SetTop(true);
+                        driver.SetTop(false);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        errors.Add(cleanupException);
+                    }
+                }
+
+                if (!isDisposed && stack.Count > 0)
+                {
+                    var current = stack[stack.Count - 1];
+
+                    try
+                    {
+                        current.Driver.SetTop(true);
                     }
                     catch (Exception cleanupException)
                     {
@@ -105,6 +152,28 @@ namespace inonego.Xeri.UI.Game
                 }
 
                 throw new AggregateException("Modal 표시 시작과 롤백이 실패했습니다.", errors);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Modal backend 콜백 뒤 Controller와 기존 Stack 소유권이 유지되는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ValidateOpenState(ModalHandle previous)
+        {
+            if (isDisposed)
+            {
+                throw new ObjectDisposedException(nameof(ModalController));
+            }
+
+            var current = stack.Count > 0
+                ? stack[stack.Count - 1]
+                : null;
+
+            if (!ReferenceEquals(current, previous))
+            {
+                throw new InvalidOperationException("Modal Open 중 기존 Stack이 변경됐습니다.");
             }
         }
 
@@ -128,12 +197,6 @@ namespace inonego.Xeri.UI.Game
                 ? stack[index - 1]
                 : null;
 
-            // 개별 종료는 대상을 공개 Stack에서 먼저 제거하고, 전체 종료는 순회 완료 뒤 Stack을 한 번에 비운다.
-            if (removeFromStack)
-            {
-                stack.RemoveAt(index);
-            }
-
             handle.MarkStackReleased();
 
             var errors = new List<Exception>();
@@ -154,6 +217,12 @@ namespace inonego.Xeri.UI.Game
             catch (Exception exception)
             {
                 errors.Add(exception);
+            }
+
+            // Driver와 소유 표시 수명 정리가 끝날 때까지 같은 Driver의 재등록을 막는다.
+            if (removeFromStack)
+            {
+                stack.Remove(handle);
             }
 
             // 현재 Modal 정리 결과와 관계없이 남은 Stack top의 상호작용 상태를 복원한다.

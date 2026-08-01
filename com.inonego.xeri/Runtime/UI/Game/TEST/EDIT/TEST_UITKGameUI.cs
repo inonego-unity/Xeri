@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UITKGameUI.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 UITK Layer, Screen, Modal, Fade와 혼합 Profile의 공개 Runtime 경로를 검증한다.
@@ -65,6 +65,27 @@ namespace inonego.Xeri.TEST.UI._Game
             public void SetActive(bool active)
             {
                 Root.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// Content Root 접근 중 동기 callback을 발생시키는 테스트 Layer Root.
+        /// </summary>
+        // ============================================================
+        private sealed class CallbackLayerRoot : VisualElement
+        {
+            public Action AccessingContent { get; set; }
+
+            public override VisualElement contentContainer
+            {
+                get
+                {
+                    var callback = AccessingContent;
+                    AccessingContent = null;
+                    callback?.Invoke();
+                    return base.contentContainer;
+                }
             }
         }
 
@@ -485,6 +506,31 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
+        /// Screen Driver가 생성 시와 이후의 실제 UITK 표시 상태를 읽는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UITKScreenDriver_외부표시변경_실제상태반환()
+        {
+            var parent = new VisualElement();
+            var screen = new VisualElement();
+            screen.style.display = DisplayStyle.None;
+            screen.style.opacity = 0.25f;
+            parent.Add(screen);
+            var driver = new UITKScreenDriver(screen);
+
+            Assert.IsFalse(driver.IsVisible);
+            Assert.AreEqual(0.25f, driver.Visibility);
+
+            screen.style.display = DisplayStyle.Flex;
+            screen.style.opacity = 0.75f;
+
+            Assert.IsTrue(driver.IsVisible);
+            Assert.AreEqual(0.75f, driver.Visibility);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// Screen과 Modal Driver가 UITK 표시·상호작용 값을 직접 적용한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -543,6 +589,34 @@ namespace inonego.Xeri.TEST.UI._Game
             source.Dispose();
             Assert.AreEqual(baselineCount, layerRoot.childCount);
             Assert.IsFalse(second.IsValid);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Layer Add callback이 Source를 종료하면 뒤늦은 View를 공개하지 않고,
+        /// <br/> 이번 획득이 추가한 Container를 즉시 제거한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_UITKSceneFadeSource_Acquire중Dispose_뒤늦은View미공개()
+        {
+            var layerRoot = new CallbackLayerRoot();
+            var layer = new TestLayerDriver(layerRoot);
+            var sourceObject = new GameObject("UITK Scene Fade Source");
+            ownedObjects.Add(sourceObject);
+            var source = sourceObject.AddComponent<UITKSceneFadeSource>();
+            SetField(source, "viewAsset", LoadViewAsset());
+            SetField(source, "rootName", "SceneFade");
+            source.Initialize();
+            var baselineCount = layerRoot.childCount;
+            layerRoot.AccessingContent = source.Dispose;
+
+            Assert.Throws<ObjectDisposedException>
+            (
+                () => source.Acquire(layer)
+            );
+
+            Assert.AreEqual(baselineCount, layerRoot.childCount);
         }
 
         // ------------------------------------------------------------
@@ -661,17 +735,43 @@ namespace inonego.Xeri.TEST.UI._Game
             SetField(fadeSource, "viewAsset", LoadViewAsset());
             SetField(fadeSource, "rootName", "SceneFade");
 
-            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var uiActions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var gameplayActions = ScriptableObject.CreateInstance<InputActionAsset>();
             var ui = new InputActionMap("UI");
-            ui.AddAction("Cancel", InputActionType.Button);
-            ui.AddAction("Submit", InputActionType.Button);
+            var cancel = ui.AddAction("Cancel", InputActionType.Button);
+            var submit = ui.AddAction("Submit", InputActionType.Button);
+            var point = ui.AddAction("Point", InputActionType.PassThrough);
+            var navigate = ui.AddAction("Navigate", InputActionType.PassThrough);
+            var click = ui.AddAction("Click", InputActionType.PassThrough);
+            var scrollWheel = ui.AddAction("ScrollWheel", InputActionType.PassThrough);
             ui.AddAction("Pause", InputActionType.Button);
             var gameplay = new InputActionMap("Player");
             gameplay.AddAction("Move", InputActionType.Value);
-            actions.AddActionMap(ui);
-            actions.AddActionMap(gameplay);
-            inputModule.actionsAsset = actions;
-            ownedObjects.Add(actions);
+            uiActions.AddActionMap(ui);
+            gameplayActions.AddActionMap(gameplay);
+            inputModule.actionsAsset = uiActions;
+            ownedObjects.Add(uiActions);
+            ownedObjects.Add(gameplayActions);
+            var inputReferences = new[]
+            {
+                InputActionReference.Create(point),
+                InputActionReference.Create(navigate),
+                InputActionReference.Create(submit),
+                InputActionReference.Create(cancel),
+                InputActionReference.Create(click),
+                InputActionReference.Create(scrollWheel),
+            };
+            inputModule.point = inputReferences[0];
+            inputModule.move = inputReferences[1];
+            inputModule.submit = inputReferences[2];
+            inputModule.cancel = inputReferences[3];
+            inputModule.leftClick = inputReferences[4];
+            inputModule.scrollWheel = inputReferences[5];
+
+            for (var i = 0; i < inputReferences.Length; i++)
+            {
+                ownedObjects.Add(inputReferences[i]);
+            }
 
             var uitkProvider = new TestProvider(CreateLayerObject);
             var uguiProvider = new TestProvider(CreateUGUILayerObject);
@@ -684,6 +784,7 @@ namespace inonego.Xeri.TEST.UI._Game
             SetField(settings, "defaultProfile", profile);
             SetField(settings, "sceneFadeLayerID", "Fade");
             SetField(settings, "uiActionMap", "UI");
+            SetField(settings, "gameplayActionsAsset", gameplayActions);
             SetField(settings, "gameplayActionMap", "Player");
             SetField
             (

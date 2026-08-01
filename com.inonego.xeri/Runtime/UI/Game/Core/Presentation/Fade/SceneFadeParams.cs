@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SceneFadeParams.cs
-수정일 : 2026-07-29
+수정일 : 2026-07-31
 
 # 설명
 Scene Fade 색상과 Transition 시간을 불변 호출 인자로 정의한다.
@@ -46,7 +46,7 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public SceneFadeParams(Color color, float duration) : this()
         {
-            if (duration < 0.0f)
+            if (float.IsNaN(duration) || float.IsInfinity(duration) || duration < 0.0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(duration));
             }

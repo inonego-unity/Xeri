@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIFocusDriver.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 UGUI와 UI Toolkit Focus Driver를 현재 대상 타입에 따라 하나의 Runtime Focus 계약으로 조립한다.
@@ -32,10 +32,12 @@ namespace inonego.Xeri.UI.Game
         {
             get
             {
-                var current = currentDriver?.Current;
+                // UITK Panel Focus는 EventSystem에 프록시 GameObject를 남기므로 실제 Element를 먼저 확인한다.
+                var current = uitkFocusDriver?.Current;
 
-                if (currentDriver != null && currentDriver.IsValid(current))
+                if (uitkFocusDriver != null && uitkFocusDriver.IsValid(current))
                 {
+                    currentDriver = uitkFocusDriver;
                     return current;
                 }
 
@@ -44,14 +46,6 @@ namespace inonego.Xeri.UI.Game
                 if (uguiFocusDriver != null && uguiFocusDriver.IsValid(current))
                 {
                     currentDriver = uguiFocusDriver;
-                    return current;
-                }
-
-                current = uitkFocusDriver?.Current;
-
-                if (uitkFocusDriver != null && uitkFocusDriver.IsValid(current))
-                {
-                    currentDriver = uitkFocusDriver;
                     return current;
                 }
 
@@ -101,6 +95,23 @@ namespace inonego.Xeri.UI.Game
             if (uitkFocusDriver == null || !uitkFocusDriver.enabled)
             {
                 throw new InvalidOperationException("활성 UITK Focus Driver가 연결되지 않았습니다.");
+            }
+        }
+
+    #endregion
+
+    #region Layer 연결
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UI Toolkit Layer Panel을 사용자 Focus 추적 범위에 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void RegisterLayer(IPresentationLayerDriver driver)
+        {
+            if (driver is IPresentationLayerDriver<VisualElement> uitkLayer)
+            {
+                uitkFocusDriver.RegisterPanel(uitkLayer.Root);
             }
         }
 

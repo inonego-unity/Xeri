@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIDragVisualBinding.cs
-수정일 : 2026-07-30
+수정일 : 2026-08-01
 
 # 설명
 기존 DraggableUI의 Begin·End·Cancel 수명에 UGUI Drag Visual Handle을 연결한다.
@@ -20,6 +20,20 @@ namespace inonego.Xeri.UI.Game
     internal sealed class UGUIDragVisualBinding : IDisposable
     {
     #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이 연결이 구독한 DraggableUI.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal DraggableUI Draggable => draggable;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이 연결이 Drag Layer로 옮길 Visual 대상.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal UnityEngine.RectTransform Target => parameters.Target;
 
         private DragVisualController owner = null;
         private DraggableUI draggable = null;
@@ -63,7 +77,16 @@ namespace inonego.Xeri.UI.Game
         {
             if (owner == null || activeHandle != null) return;
 
-            activeHandle = owner.Begin(parameters);
+            var handle = owner.Begin(parameters);
+
+            // 부모 변경 callback이 Drag이나 Binding을 먼저 종료했으면 뒤늦게 반환된 소유권을 즉시 반환한다.
+            if (owner == null || !sender.IsDragging)
+            {
+                handle.Dispose();
+                return;
+            }
+
+            activeHandle = handle;
 
             // 부모 좌표계가 달라졌으므로 다음 이동 전에 현재 Pointer offset을 새 기준으로 확정한다.
             sender.RebaseDrag();

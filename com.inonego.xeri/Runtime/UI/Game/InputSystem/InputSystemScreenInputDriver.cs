@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : InputSystemScreenInputDriver.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 Screen 입력 정책을 Input System Action Map과 Cursor 상태에 합성하고 입력 해제 장벽을 갱신한다.
@@ -81,7 +81,7 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 가장 최근 수행된 Input Action의 장치.
+        /// 구성된 UI·Gameplay Action Map에서 가장 최근 수행된 Action의 장치.
         /// </summary>
         // ------------------------------------------------------------
         public InputDevice LastInputDevice { get; private set; }
@@ -95,8 +95,9 @@ namespace inonego.Xeri.UI.Game
         private InputActionMap gameplayActionMap = null;
 
         private bool baselineCaptured = false;
-        private bool baselineUIEnabled = false;
         private bool baselineGameplayEnabled = false;
+        private bool[] baselineUIActionsEnabled = null;
+        private bool[] baselineGameplayActionsEnabled = null;
         private bool baselineCursorVisible = false;
         private CursorLockMode baselineCursorLockMode = CursorLockMode.None;
 
@@ -153,15 +154,27 @@ namespace inonego.Xeri.UI.Game
                 throw new ArgumentNullException(nameof(settings));
             }
 
-            var asset = inputModule.actionsAsset;
+            var uiActionsAsset = inputModule.actionsAsset;
 
-            if (asset == null)
+            if (uiActionsAsset == null)
             {
                 throw new InvalidOperationException("InputSystemUIInputModule Actions Asset이 설정되지 않았습니다.");
             }
 
-            uiActionMap = FindMap(asset, settings.UIActionMap, "UI");
-            gameplayActionMap = FindMap(asset, settings.GameplayActionMap, "Gameplay");
+            var gameplayActionsAsset = settings.GameplayActionsAsset;
+
+            if (gameplayActionsAsset == null)
+            {
+                throw new InvalidOperationException("Gameplay Input Action Asset이 설정되지 않았습니다.");
+            }
+
+            uiActionMap = FindMap(uiActionsAsset, settings.UIActionMap, "UI");
+            gameplayActionMap = FindMap
+            (
+                gameplayActionsAsset,
+                settings.GameplayActionMap,
+                "Gameplay"
+            );
 
             if (ReferenceEquals(uiActionMap, gameplayActionMap))
             {
@@ -223,22 +236,39 @@ namespace inonego.Xeri.UI.Game
             {
                 RequestApply();
             }
-            catch
+            catch (Exception exception)
             {
                 ResetApplyStateAfterFailure();
+                var errors = new List<Exception> { exception };
 
                 for (var i = 0; i < sessionsReadyForRelease.Count; i++)
                 {
-                    ReleaseSession
-                    (
-                        sessionsReadyForRelease[i],
-                        invokeCompletionCallback: false,
-                        removeFromSessions: false
-                    );
+                    try
+                    {
+                        ReleaseSession
+                        (
+                            sessionsReadyForRelease[i],
+                            removeFromSessions: false
+                        );
+                    }
+                    catch (Exception releaseException)
+                    {
+                        errors.Add(releaseException);
+                    }
                 }
 
                 sessionsReadyForRelease.Clear();
-                throw;
+
+                if (errors.Count == 1)
+                {
+                    throw;
+                }
+
+                throw new AggregateException
+                (
+                    "입력 정책 적용과 해제 완료 callback이 모두 실패했습니다.",
+                    errors
+                );
             }
 
             List<Exception> releaseErrors = null;
@@ -461,7 +491,7 @@ namespace inonego.Xeri.UI.Game
         // ----------------------------------------------------------------------
         /// <summary>
         /// <br/> Session 상태를 최종 해제하고 필요하면 소유 목록에서 제거한다.
-        /// <br/> 전체 해제에서는 원본 목록을 직접 순회한 뒤 한 번에 비우도록 목록 제거를 생략한다.
+        /// <br/> 전체 해제에서는 먼저 분리한 Session 목록을 순회하므로 소유 목록 제거를 생략한다.
         /// </summary>
         // ----------------------------------------------------------------------
         private void ReleaseSession
@@ -524,6 +554,8 @@ namespace inonego.Xeri.UI.Game
             if (sessions.Count == 0)
             {
                 baselineCaptured = false;
+                baselineUIActionsEnabled = null;
+                baselineGameplayActionsEnabled = null;
             }
         }
 
@@ -535,9 +567,15 @@ namespace inonego.Xeri.UI.Game
         private List<Exception> ReleaseAllSessions()
         {
             var errors = new List<Exception>();
-            var invokeCompletionCallback = true;
+            var releasingSessions = new List<SessionState>(sessions.Count);
 
-            sessionsReadyForRelease.Clear();
+            // 전체 해제 시작 시점의 Session만 분리해 callback에서 획득한 새 Session을 보존한다.
+            for (var i = sessions.Count - 1; i >= 0; i--)
+            {
+                releasingSessions.Add(sessions[i]);
+            }
+
+            sessions.Clear();
             batchDepth = 0;
             applyPending = true;
 
@@ -548,33 +586,24 @@ namespace inonego.Xeri.UI.Game
             catch (Exception exception)
             {
                 errors.Add(exception);
-                invokeCompletionCallback = false;
+                ResetApplyStateAfterFailure();
             }
 
-            try
+            // 입력 적용 성공 여부와 관계없이 분리된 Session은 Terminal 완료를 소유자에게 알린다.
+            for (var i = 0; i < releasingSessions.Count; i++)
             {
-                for (var i = sessions.Count - 1; i >= 0; i--)
+                try
                 {
-                    try
-                    {
-                        ReleaseSession
-                        (
-                            sessions[i],
-                            invokeCompletionCallback,
-                            removeFromSessions: false
-                        );
-                    }
-                    catch (Exception exception)
-                    {
-                        errors.Add(exception);
-                    }
+                    ReleaseSession
+                    (
+                        releasingSessions[i],
+                        removeFromSessions: false
+                    );
                 }
-            }
-            finally
-            {
-                sessions.Clear();
-                baselineCaptured = false;
-                applyPending = false;
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
             }
 
             return errors;
@@ -671,16 +700,86 @@ namespace inonego.Xeri.UI.Game
                 return;
             }
 
-            ApplyState
-            (
-                baselineUIEnabled,
-                baselineGameplayEnabled,
-                baselineCursorVisible,
-                baselineCursorLockMode
-            );
+            // Map 단위 Enable로 원래 꺼져 있던 Action까지 켜지 않도록 개별 상태를 복원한다.
+            RestoreActionStates(uiActionMap, baselineUIActionsEnabled);
+            RestoreActionStates(gameplayActionMap, baselineGameplayActionsEnabled);
+            appliedUIEnabled = AreAllActionsEnabled(uiActionMap);
+            appliedGameplayEnabled = gameplayActionMap.enabled;
+
+            if (baselineCursorVisible != appliedCursorVisible)
+            {
+                Cursor.visible = baselineCursorVisible;
+                appliedCursorVisible = baselineCursorVisible;
+            }
+
+            if (baselineCursorLockMode != appliedCursorLockMode)
+            {
+                Cursor.lockState = baselineCursorLockMode;
+                appliedCursorLockMode = baselineCursorLockMode;
+            }
 
             baselineCaptured = false;
+            baselineUIActionsEnabled = null;
+            baselineGameplayActionsEnabled = null;
             applyPending = false;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Action Map의 현재 Action별 활성 상태를 캡처한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static bool[] CaptureActionStates(InputActionMap map)
+        {
+            var actions = map.actions;
+            var states = new bool[actions.Count];
+
+            for (var i = 0; i < actions.Count; i++)
+            {
+                states[i] = actions[i].enabled;
+            }
+
+            return states;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Action Map의 모든 Action이 활성 상태인지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static bool AreAllActionsEnabled(InputActionMap map)
+        {
+            var actions = map.actions;
+
+            for (var i = 0; i < actions.Count; i++)
+            {
+                if (!actions[i].enabled) return false;
+            }
+
+            return true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 캡처한 Action별 활성 상태를 Action Map에 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void RestoreActionStates
+        (
+            InputActionMap map,
+            bool[] states
+        )
+        {
+            map.Disable();
+            var actions = map.actions;
+
+            for (var i = 0; i < actions.Count; i++)
+            {
+                if (states[i])
+                {
+                    actions[i].Enable();
+                }
+            }
         }
 
         // ------------------------------------------------------------
@@ -704,7 +803,16 @@ namespace inonego.Xeri.UI.Game
 
             if (gameplayEnabled != appliedGameplayEnabled)
             {
-                SetMapEnabled(gameplayActionMap, gameplayEnabled);
+                if (gameplayEnabled)
+                {
+                    // 차단 해제 시 Map 전체가 아니라 Session 직전의 Action별 상태를 복원한다.
+                    RestoreActionStates(gameplayActionMap, baselineGameplayActionsEnabled);
+                }
+                else
+                {
+                    SetMapEnabled(gameplayActionMap, false);
+                }
+
                 appliedGameplayEnabled = gameplayEnabled;
             }
 
@@ -734,10 +842,7 @@ namespace inonego.Xeri.UI.Game
         {
             if (enabled)
             {
-                if (!map.enabled)
-                {
-                    map.Enable();
-                }
+                map.Enable();
             }
             else if (map.enabled)
             {
@@ -752,12 +857,13 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         private void CaptureBaselineState()
         {
-            baselineUIEnabled = uiActionMap.enabled;
             baselineGameplayEnabled = gameplayActionMap.enabled;
+            baselineUIActionsEnabled = CaptureActionStates(uiActionMap);
+            baselineGameplayActionsEnabled = CaptureActionStates(gameplayActionMap);
             baselineCursorVisible = Cursor.visible;
             baselineCursorLockMode = Cursor.lockState;
 
-            appliedUIEnabled = baselineUIEnabled;
+            appliedUIEnabled = AreAllActionsEnabled(uiActionMap);
             appliedGameplayEnabled = baselineGameplayEnabled;
             appliedCursorVisible = baselineCursorVisible;
             appliedCursorLockMode = baselineCursorLockMode;
@@ -878,6 +984,15 @@ namespace inonego.Xeri.UI.Game
                 return;
             }
 
+            if
+            (
+                !ReferenceEquals(action.actionMap, uiActionMap) &&
+                !ReferenceEquals(action.actionMap, gameplayActionMap)
+            )
+            {
+                return;
+            }
+
             var device = action.activeControl?.device;
 
             if (device == null || ReferenceEquals(device, LastInputDevice)) return;
@@ -939,6 +1054,8 @@ namespace inonego.Xeri.UI.Game
             releaseActions.Clear();
             sessions.Clear();
             sessionsReadyForRelease.Clear();
+            baselineUIActionsEnabled = null;
+            baselineGameplayActionsEnabled = null;
             inputModule = null;
             uiActionMap = null;
             gameplayActionMap = null;

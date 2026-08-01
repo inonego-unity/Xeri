@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragVisual.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 기존 DraggableUI와 UGUI Drag Visual의 좌표·Layer Usage·종료 수명 연동을 검증한다.
@@ -35,6 +35,32 @@ namespace inonego.Xeri.TEST.UI._Game
     public sealed class TEST_DragVisual
     {
     #region 헬퍼
+
+        // ============================================================
+        /// <summary>
+        /// Transform 부모 변경 callback을 테스트 흐름에 전달한다.
+        /// </summary>
+        // ============================================================
+        [ExecuteAlways]
+        private sealed class TransformParentChangedRelay : MonoBehaviour
+        {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 부모 변경 직후 호출할 테스트 callback.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Action Changed { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Unity 부모 변경 메시지를 테스트 callback에 전달한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            private void OnTransformParentChanged()
+            {
+                Changed?.Invoke();
+            }
+        }
 
         // ============================================================
         /// <summary>
@@ -189,7 +215,7 @@ namespace inonego.Xeri.TEST.UI._Game
             target.anchorMin = new Vector2(0.2f, 0.3f);
             target.anchorMax = new Vector2(0.7f, 0.8f);
             target.pivot = new Vector2(0.4f, 0.6f);
-            target.anchoredPosition = new Vector2(25.0f, 35.0f);
+            target.anchoredPosition3D = new Vector3(25.0f, 35.0f, 7.0f);
             target.sizeDelta = new Vector2(70.0f, 90.0f);
             target.localRotation = Quaternion.Euler(0.0f, 0.0f, 12.0f);
             target.localScale = new Vector3(1.1f, 0.9f, 1.0f);
@@ -260,10 +286,83 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(new Vector2(0.2f, 0.3f), target.anchorMin);
             Assert.AreEqual(new Vector2(0.7f, 0.8f), target.anchorMax);
             Assert.AreEqual(new Vector2(0.4f, 0.6f), target.pivot);
-            Assert.AreEqual(new Vector2(25.0f, 35.0f), target.anchoredPosition);
+            Assert.AreEqual(new Vector3(25.0f, 35.0f, 7.0f), target.anchoredPosition3D);
             Assert.AreEqual(new Vector2(70.0f, 90.0f), target.sizeDelta);
             Assert.AreEqual(Quaternion.Euler(0.0f, 0.0f, 12.0f), target.localRotation);
             Assert.AreEqual(new Vector3(1.1f, 0.9f, 1.0f), target.localScale);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 수동 Begin이 이미 점유 중인 동일 Target을 거부하고,
+        /// <br/> 실패한 요청의 Layer Usage만 반환해 기존 Drag 상태를 유지한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragVisualController_동일Target중복Begin_기존점유유지()
+        {
+            var parameters = new DragVisualParams(target, "Drag");
+            var handle = controller.Begin(parameters);
+
+            Assert.Throws<InvalidOperationException>(() => controller.Begin(parameters));
+            Assert.AreSame(layerRoot, target.parent);
+            Assert.IsTrue(layerHandle.HasConsumers);
+
+            handle.Dispose();
+
+            Assert.AreSame(originalParent, target.parent);
+            Assert.IsFalse(layerHandle.HasConsumers);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 부모 변경 callback의 중첩 Begin을 거부하고,
+        /// <br/> 바깥 Handle이 같은 Target과 Layer Usage를 계속 소유하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragVisualController_부모변경재진입_바깥Handle점유유지()
+        {
+            var relay = target.gameObject.AddComponent<TransformParentChangedRelay>();
+            var parameters = new DragVisualParams(target, "Drag");
+            Exception nestedException = null;
+            relay.Changed = () => nestedException = Assert.Throws<InvalidOperationException>
+            (
+                () => controller.Begin(parameters)
+            );
+
+            var handle = controller.Begin(parameters);
+            relay.Changed = null;
+
+            Assert.IsNotNull(nestedException);
+            Assert.AreSame(layerRoot, target.parent);
+            Assert.IsTrue(layerHandle.HasConsumers);
+
+            handle.Dispose();
+
+            Assert.AreSame(originalParent, target.parent);
+            Assert.IsFalse(layerHandle.HasConsumers);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 부모 변경 callback에서 Controller가 종료되면 바깥 Begin을 중단하고,
+        /// <br/> 원래 계층과 Layer Usage를 한 번 정리하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragVisualController_부모변경중Dispose_바깥Begin중단과Pose복원()
+        {
+            var relay = target.gameObject.AddComponent<TransformParentChangedRelay>();
+            var parameters = new DragVisualParams(target, "Drag");
+            relay.Changed = () => controller.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() => controller.Begin(parameters));
+            relay.Changed = null;
+
+            Assert.AreSame(originalParent, target.parent);
+            Assert.IsFalse(layerHandle.HasConsumers);
+            Assert.DoesNotThrow(controller.Dispose);
         }
 
         // ------------------------------------------------------------
@@ -286,6 +385,62 @@ namespace inonego.Xeri.TEST.UI._Game
     #endregion
 
     #region B-1: Draggable Begin과 End
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 동일 Draggable의 중복 Binding을 거부해 단일 Visual 소유권을 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_DragVisualController_동일Draggable또는Target중복Bind_기존Binding유지()
+        {
+            var parameters = new DragVisualParams(target, "Drag");
+            binding = controller.Bind(draggable, parameters);
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => controller.Bind(draggable, parameters)
+            );
+
+            var otherObject = new GameObject
+            (
+                "Other Draggable",
+                typeof(RectTransform),
+                typeof(CanvasGroup),
+                typeof(DraggableUI)
+            );
+            ownedObjects.Add(otherObject);
+            var otherDraggable = otherObject.GetComponent<DraggableUI>();
+            otherDraggable.InitializeRuntime();
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => controller.Bind(otherDraggable, parameters)
+            );
+
+            var eventData = CreateEventData(new Vector2(100.0f, 120.0f));
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.pointerDownHandler
+            );
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.beginDragHandler
+            );
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.endDragHandler
+            );
+
+            Assert.AreSame(originalParent, target.parent);
+            Assert.IsFalse(layerHandle.HasConsumers);
+        }
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -337,6 +492,47 @@ namespace inonego.Xeri.TEST.UI._Game
                 target.gameObject,
                 eventData,
                 ExecuteEvents.endDragHandler
+            );
+
+            Assert.IsFalse(draggable.IsDragging);
+            Assert.AreSame(originalParent, target.parent);
+            Assert.IsFalse(layerHandle.HasConsumers);
+            Assert.IsTrue(target.GetComponent<CanvasGroup>().blocksRaycasts);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Drag Root로 옮기는 중 부모 변경 callback이 Drag을 종료해도,
+        /// <br/> 뒤늦게 반환된 Visual Handle과 Layer Usage를 즉시 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_DragVisualBinding_시작중Drag종료_뒤늦은Handle과Usage반환()
+        {
+            binding = controller.Bind
+            (
+                draggable,
+                new DragVisualParams(target, "Drag")
+            );
+            var relay = target.gameObject.AddComponent<TransformParentChangedRelay>();
+            relay.Changed = () =>
+            {
+                relay.Changed = null;
+                draggable.ForceDragEnd();
+            };
+            var eventData = CreateEventData(new Vector2(100.0f, 120.0f));
+
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.pointerDownHandler
+            );
+            ExecuteEvents.Execute
+            (
+                target.gameObject,
+                eventData,
+                ExecuteEvents.beginDragHandler
             );
 
             Assert.IsFalse(draggable.IsDragging);
