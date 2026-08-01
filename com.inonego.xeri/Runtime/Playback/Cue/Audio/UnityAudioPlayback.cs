@@ -1,13 +1,16 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioPlayback.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
-Unity AudioSource로 실행한 단일 Audio Cue의 제어와 수명을 소유한다.
+Pool에서 획득한 Unity AudioSource voice로 실행한 단일 Audio Cue의 제어와 수명을 소유한다.
 
 # 종료 계약
-Released를 외부 Unity Object 정리 전에 확정하고 같은 AudioSource 종료를 다시 실행하지 않는다.
+Released와 Lease 참조 해제를 외부 Unity Object 정리 전에 확정한다.
+반환된 voice는 다른 Playback에 재사용될 수 있으므로 오래된 Playback에서 다시 접근하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
+
+using System;
 
 using UnityEngine;
 
@@ -15,7 +18,7 @@ namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Unity AudioSource 기반 Audio Playback.
+    /// Unity AudioSource voice 기반 Audio Playback.
     /// </summary>
     // ============================================================
     internal sealed class UnityAudioPlayback : IAudioPlayback, IPlaybackClock
@@ -35,6 +38,70 @@ namespace inonego.Xeri.Playback
         /// </summary>
         // ------------------------------------------------------------
         public IPlaybackClock Clock => this;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Playback 하나에 적용되는 개별 볼륨.
+        /// </summary>
+        // ------------------------------------------------------------
+        public float Volume
+        {
+            get => volume;
+            set
+            {
+                if (State == CuePlaybackState.Released) return;
+
+                if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+                {
+                    throw new ArgumentOutOfRangeException
+                    (
+                        nameof(value),
+                        "Volume은 0 이상 1 이하의 유한한 값이어야 합니다."
+                    );
+                }
+
+                volume = value;
+                ApplyVolume();
+            }
+        }
+
+        private float volume = 1.0f;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Playback 하나에 적용되는 재생 Pitch.
+        /// </summary>
+        // ------------------------------------------------------------
+        public float Pitch
+        {
+            get => pitch;
+            set
+            {
+                if (State == CuePlaybackState.Released) return;
+
+                if
+                (
+                    float.IsNaN(value) ||
+                    float.IsInfinity(value) ||
+                    value < -3.0f ||
+                    value > 3.0f
+                )
+                {
+                    throw new ArgumentOutOfRangeException
+                    (
+                        nameof(value),
+                        "Pitch는 -3 이상 3 이하인 유한한 값이어야 합니다."
+                    );
+                }
+
+                pitch = value;
+                sourceLease.Value.pitch = value;
+            }
+        }
+
+        private float pitch = 1.0f;
+
+        private float outputVolume = 1.0f;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -75,7 +142,14 @@ namespace inonego.Xeri.Playback
         /// 현재 Clip 재생 위치.
         /// </summary>
         // ------------------------------------------------------------
-        public float Time => source != null ? source.time : lastTime;
+        public float Time
+        {
+            get
+            {
+                var source = sourceLease?.Value;
+                return source != null ? source.time : lastTime;
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -84,8 +158,8 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public float Duration { get; }
 
-        private GameObject instance = null;
-        private AudioSource source = null;
+        private Lease<AudioSource> sourceLease = null;
+        private Transform emitter = null;
         private float lastTime = 0.0f;
         private bool isPaused = false;
 
@@ -93,16 +167,29 @@ namespace inonego.Xeri.Playback
 
     #region 생성자
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------------------------------------
         /// <summary>
-        /// 재생을 시작한 AudioSource와 소유 GameObject로 Playback을 생성한다.
+        /// <br/> Pool에서 획득한 AudioSource Lease와 초기 제어값으로 Playback을 생성한다.
+        /// <br/> AudioSource.Play 호출 전에 Volume과 Pitch가 실제 voice에 적용된다.
         /// </summary>
-        // ------------------------------------------------------------
-        internal UnityAudioPlayback(GameObject instance, AudioSource source) : base()
+        // ----------------------------------------------------------------------------------------------------
+        internal UnityAudioPlayback
+        (
+            Lease<AudioSource> sourceLease,
+            float volume,
+            float pitch,
+            float outputVolume,
+            Transform emitter = null
+        ) : base()
         {
-            this.instance = instance;
-            this.source = source;
+            var source = sourceLease.Value;
+            this.sourceLease = sourceLease;
+            this.emitter = emitter;
             Duration = source.clip.length;
+
+            Volume = volume;
+            Pitch = pitch;
+            SetOutputVolume(outputVolume);
         }
 
     #endregion
@@ -118,6 +205,7 @@ namespace inonego.Xeri.Playback
         {
             if (State == CuePlaybackState.Released || isPaused) return;
 
+            var source = sourceLease.Value;
             lastTime = source.time;
             source.Pause();
             isPaused = true;
@@ -132,7 +220,7 @@ namespace inonego.Xeri.Playback
         {
             if (State == CuePlaybackState.Released || !isPaused) return;
 
-            source.UnPause();
+            sourceLease.Value.UnPause();
             isPaused = false;
         }
 
@@ -151,7 +239,7 @@ namespace inonego.Xeri.Playback
                 if (State == CuePlaybackState.Draining) return;
 
                 State = CuePlaybackState.Draining;
-                source.loop = false;
+                sourceLease.Value.loop = false;
                 return;
             }
 
@@ -170,14 +258,26 @@ namespace inonego.Xeri.Playback
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// AudioSource의 실제 완료를 관찰하고 생성한 재생 자원을 반환한다.
+        /// AudioSource의 실제 완료와 선택적 emitter 위치를 갱신한다.
         /// </summary>
         // ----------------------------------------------------------------------
         internal void Tick()
         {
             if (State == CuePlaybackState.Released || isPaused) return;
 
-            if (source != null && source.isPlaying)
+            if (!ReferenceEquals(emitter, null))
+            {
+                if (emitter == null)
+                {
+                    Release(hasCompleted: false);
+                    return;
+                }
+
+                sourceLease.Value.transform.position = emitter.position;
+            }
+
+            var source = sourceLease.Value;
+            if (source.isPlaying)
             {
                 lastTime = source.time;
                 return;
@@ -186,37 +286,66 @@ namespace inonego.Xeri.Playback
             Release(hasCompleted: true);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 종료 상태를 먼저 확정하고 소유한 AudioSource GameObject를 정리한다.
+        /// Manager의 Master와 Bus 정책을 합성한 출력 배율을 적용한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
+        internal void SetOutputVolume(float value)
+        {
+            if (State == CuePlaybackState.Released) return;
+
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+            {
+                throw new ArgumentOutOfRangeException
+                (
+                    nameof(value),
+                    "Output Volume은 0 이상 1 이하의 유한한 값이어야 합니다."
+                );
+            }
+
+            outputVolume = value;
+            ApplyVolume();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 개별 볼륨과 Manager 출력 배율을 실제 AudioSource에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyVolume()
+        {
+            sourceLease.Value.volume = volume * outputVolume;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 종료 상태와 Lease 참조 해제를 먼저 확정한 뒤 voice를 Pool에 반환한다.
+        /// <br/> 오래된 Playback은 반환된 AudioSource를 이후 다시 제어하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------------------------------------
         private void Release(bool hasCompleted)
         {
             if (State == CuePlaybackState.Released) return;
 
-            var instance = this.instance;
-            var source = this.source;
+            var sourceLease = this.sourceLease;
+            var source = sourceLease.Value;
 
-            lastTime = hasCompleted || source == null
+            lastTime = hasCompleted
                 ? Duration
                 : source.time;
 
-            // Unity Object 정리 실패 여부와 관계없이 Playback 수명은 Terminal로 확정한다.
+            // voice 반환 전에 Terminal을 확정하여 같은 Playback의 재진입과 후속 제어를 차단한다.
             State = CuePlaybackState.Released;
             isPaused = false;
-            this.instance = null;
-            this.source = null;
+            emitter = null;
+            this.sourceLease = null;
 
-            if (source != null)
-            {
-                source.Stop();
-            }
-
-            if (instance != null)
-            {
-                Object.Destroy(instance);
-            }
+            // Pool 대기 중 외부 Audio Asset을 붙잡지 않도록 참조를 비운 뒤 Lease를 반환한다.
+            source.Stop();
+            source.clip = null;
+            source.outputAudioMixerGroup = null;
+            sourceLease.Dispose();
         }
 
     #endregion

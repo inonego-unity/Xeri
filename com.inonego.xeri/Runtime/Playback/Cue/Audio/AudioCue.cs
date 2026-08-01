@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioCue.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-01
 
 # 설명
 오디오 Cue가 공통으로 사용하는 재생 설정을 정의한다.
 
 # 적용 범위
-시작 시간, 배치, 반복 실행과 Bus 정책은 상위 호출자 또는 후속 Audio System이 소유한다.
+시작 시간과 런타임 배치는 상위 호출자가 소유하며 Cue는 기본 Bus와 재생 설정을 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -23,6 +23,28 @@ namespace inonego.Xeri.Playback
     public abstract class AudioCue : ScriptableObject, IPlaybackCue
     {
     #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Cue가 사용하는 기본 Audio Bus.
+        /// </summary>
+        // ------------------------------------------------------------
+        public AudioBus Bus
+        {
+            get => bus;
+            set
+            {
+                if (!Enum.IsDefined(typeof(AudioBus), value))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), "유효한 Audio Bus가 아닙니다.");
+                }
+
+                bus = value;
+            }
+        }
+
+        [SerializeField]
+        private AudioBus bus = AudioBus.SFX;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -91,6 +113,120 @@ namespace inonego.Xeri.Playback
 
         [SerializeField]
         private bool isLooping = false;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공간 재생에서 사용하는 2D와 3D의 혼합 비율.
+        /// </summary>
+        // ------------------------------------------------------------
+        public float SpatialBlend
+        {
+            get => spatialBlend;
+            set
+            {
+                if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+                {
+                    throw new ArgumentOutOfRangeException
+                    (
+                        nameof(value),
+                        "SpatialBlend는 0 이상 1 이하의 유한한 값이어야 합니다."
+                    );
+                }
+
+                spatialBlend = value;
+            }
+        }
+
+        [SerializeField]
+        [Range(0.0f, 1.0f)]
+        private float spatialBlend = 1.0f;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공간 재생의 거리 감쇠 방식.
+        /// </summary>
+        // ------------------------------------------------------------
+        public AudioRolloffMode RolloffMode
+        {
+            get => rolloffMode;
+            set
+            {
+                if (!Enum.IsDefined(typeof(AudioRolloffMode), value))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), "유효한 Audio Rolloff Mode가 아닙니다.");
+                }
+
+                rolloffMode = value;
+            }
+        }
+
+        [SerializeField]
+        private AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공간 재생에서 최대 음량이 유지되는 거리.
+        /// </summary>
+        // ------------------------------------------------------------
+        public float MinDistance
+        {
+            get => minDistance;
+            set
+            {
+                if
+                (
+                    float.IsNaN(value) ||
+                    float.IsInfinity(value) ||
+                    value <= 0.0f ||
+                    value > maxDistance
+                )
+                {
+                    throw new ArgumentOutOfRangeException
+                    (
+                        nameof(value),
+                        "MinDistance는 0보다 크고 MaxDistance 이하여야 합니다."
+                    );
+                }
+
+                minDistance = value;
+            }
+        }
+
+        [SerializeField]
+        [Min(0.0001f)]
+        private float minDistance = 1.0f;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공간 재생의 거리 감쇠가 적용되는 최대 거리.
+        /// </summary>
+        // ------------------------------------------------------------
+        public float MaxDistance
+        {
+            get => maxDistance;
+            set
+            {
+                if
+                (
+                    float.IsNaN(value) ||
+                    float.IsInfinity(value) ||
+                    value < minDistance
+                )
+                {
+                    throw new ArgumentOutOfRangeException
+                    (
+                        nameof(value),
+                        "MaxDistance는 MinDistance 이상의 유한한 값이어야 합니다."
+                    );
+                }
+
+                maxDistance = value;
+            }
+        }
+
+        [SerializeField]
+        [Min(0.0001f)]
+        private float maxDistance = 500.0f;
 
     #endregion
 
