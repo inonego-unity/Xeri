@@ -27,7 +27,7 @@ UI Core가 소유하지 않는 책임:
 - 새 게임, 저장, 불러오기와 복구 정책
 - 화면별 게임 데이터와 도메인 명령
 - UXML, Prefab, Sprite, Material과 화면별 시각 디자인
-- Camera·World Space Canvas와 Render Texture UI의 정렬
+- Camera·World Space Canvas와 프로젝트 소유 Render Texture UI의 정렬
 
 App Flow는 어떤 Screen을 언제 열고 닫을지 결정한다.
 UI Core는 요청받은 화면의 표시와 대칭 정리만 소유한다.
@@ -48,7 +48,7 @@ Game UI Transition의 기본 구현은 `DOTweenPresentationTransitioner`다.
 
 ### Host Prefab
 
-App 전체에서 유지할 Host Prefab Root에 다음 Component를 정확히 한 벌 둔다.
+패키지의 `GameUIHost` Prefab은 App 전체에서 유지할 다음 Component를 정확히 한 벌 제공한다.
 
 - `GameUIRuntime`
 - `EventSystem`
@@ -59,7 +59,7 @@ App 전체에서 유지할 Host Prefab Root에 다음 Component를 정확히 한
 - `UITKFocusDriver`
 - `UGUISceneFadeSource` 또는 `UITKSceneFadeSource` 중 하나
 
-`GameUIRuntime`에는 다음 참조를 연결한다.
+기본 Host의 `GameUIRuntime`에는 다음 참조가 미리 연결되어 있다.
 
 - Layer Prefab 인스턴스의 부모가 될 `layerRoot`
 - `GameUIFocusDriver`
@@ -82,6 +82,7 @@ Runtime은 이 Reference가 Settings의 UI Action Map에 속하는지 검증하�
 
 로드된 Scene 전체에는 이 Host의 `GameUIRuntime`과 `EventSystem`만 존재해야 한다.
 일반 Scene에 별도 Runtime이나 EventSystem을 추가하지 않는다.
+다른 Fade Source나 Host 구성이 필요한 프로젝트만 기본 Prefab을 복제해 수정한다.
 
 ### Settings
 
@@ -106,7 +107,7 @@ Xeri Bootstrapper를 사용하면
 `Assets > Create > Xeri > Bootstrapper > Game UI Module`에서
 `GameUIBootstrapperModuleAsset`을 생성한다.
 
-Module에는 준비된 Host Prefab과 Settings를 연결한다.
+Module에는 패키지의 기본 Host Prefab과 프로젝트 Settings를 연결한다.
 Bootstrapper가 Host를 생성하고 다음 초기화를 한 번 수행한다.
 
 ```csharp
@@ -135,7 +136,8 @@ Order는 두 UI 기술이 동일하게 표현할 수 있는 `short` 범위만 �
 
 ### UGUI Layer Prefab
 
-UGUI Layer Prefab Root에는 `UGUILayerCanvas`를 하나 둔다.
+패키지의 `GameUIUGUILayer` Prefab은 범용 UGUI Screen Overlay Layer를 제공한다.
+커스텀 UGUI Layer Prefab Root에는 `UGUILayerCanvas`를 하나 둔다.
 Layer Prefab Root는 비활성 상태로 작성한다. Runtime이 횟득한 인스턴스를
 검증·등록한 뒤 Layer 상태에 맞게 활성화한다.
 
@@ -150,15 +152,33 @@ Runtime이 Canvas의 `overrideSorting`과 `sortingOrder`를 Layer Order에 맞�
 
 ### UI Toolkit Layer Prefab
 
-UI Toolkit Layer Prefab Root에는 `UITKLayerPanel`을 하나 둔다.
+패키지의 `GameUIUITKLayer` Prefab은 다음 기본 구성을 제공한다.
 
-- 활성 `UIDocument`
-- `PanelSettings`
-- UXML 안의 Layer Root 이름
+- 같은 GameObject의 활성 `UIDocument`
+- Unity 기본 Runtime Theme을 사용하는 `GameUIPanelSettings`
+- `Use Gamma Compositing`: Linear Color Space에서 USS 색을 gamma 기준으로 합성할지 여부
+
+`UITKLayerPanel`은 같은 GameObject의 `UIDocument`를 자동으로 사용하며,
+기본 Layer Root는 `UIDocument.rootVisualElement`다. 별도 UXML Container를 Layer Root로
+사용하는 커스텀 Prefab만 `Root Name`을 지정한다.
 
 PanelSettings는 기본 Display를 사용하고 Target Texture를 가지면 안 된다.
 Runtime은 Layer마다 PanelSettings 복제본을 만들어 원본 Asset을 변경하지 않고
 `PanelSettings.sortingOrder`와 `UIDocument.sortingOrder`에 공통 Order를 적용한다.
+
+`Use Gamma Compositing`은 기본값이 켜져 있다. Linear Color Space에서는 UI Toolkit
+출력을 Layer 전용 UNORM RenderTexture에 기록하고, 화면용 UI Toolkit 합성 Panel이
+gamma→linear 변환해 표시한다. 합성 Panel도 같은 공통 Order 구간에 있으므로 UGUI와
+UI Toolkit Layer를 섞어도 정렬 계약은 유지된다. Gamma Color Space에서는 별도 합성을
+만들지 않고 UIDocument를 화면에 직접 출력한다.
+
+이 경로는 활성 UI Toolkit Layer마다 화면 크기의 RenderTexture 하나를 사용한다.
+정확한 USS gamma 색보다 메모리와 대역폭이 중요한 Layer는 Prefab에서
+`Use Gamma Compositing`을 끌 수 있다.
+
+USS Transition을 반복해야 하는 개별 `UIDocument`에는 선택적으로 `XeriLoopAnimator`를
+붙인다. 대상 요소는 `xeri-loop` 클래스와 다음 단계 클래스인 `--xeri-next`를 정의하며,
+여러 Property가 동시에 전환될 때만 `--xeri-loop-trigger`로 완료 기준을 지정한다.
 
 ### 혼합 Layer
 
@@ -169,7 +189,7 @@ Runtime은 Layer마다 PanelSettings 복제본을 만들어 원본 Asset을 변�
 UGUI와 UI Toolkit을 같은 표시 구간에 사용하려면 서로 다른 Layer Prefab과
 Layer ID로 구성한다.
 
-Camera·World Space Canvas, 다른 Display와 Render Texture Panel은
+Camera·World Space Canvas, 다른 Display와 프로젝트가 직접 지정한 Render Texture Panel은
 공통 Screen Overlay 정렬 공간에 포함되지 않는다.
 이 UI들은 Game UI Layer Registry 밖에서 해당 렌더링 경로가 직접 관리한다.
 
@@ -664,6 +684,7 @@ Runtime의 정상 종료 순서:
 - Scene Fade Source가 정확히 하나이며 Fade Layer 기술과 맞는가
 - 활성 Profile 전체에서 Layer ID가 중복되지 않는가
 - UGUI·UI Toolkit Layer Order가 공통 정렬 범위에 있는가
+- Linear Color Space의 UITK Layer가 요구하는 gamma 색과 RT 비용을 확인했는가
 - Screen Source가 획득 실패를 원자적으로 정리하는가
 - View callback이 직접 숨기지 않고 `ScreenSession.Close()`를 호출하는가
 - 등록 Handle을 닫기 전에 해당 Screen Session을 닫았는가

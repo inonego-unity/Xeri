@@ -348,7 +348,6 @@ namespace inonego.Xeri.TEST.UI._Game
             document.panelSettings = panelSettings;
             document.visualTreeAsset = LoadViewAsset();
             var driver = gameObject.AddComponent<UITKLayerPanel>();
-            SetField(driver, "document", document);
             SetField(driver, "rootName", "LayerRoot");
             return gameObject;
         }
@@ -428,23 +427,22 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Layer 등록이 원본 Asset을 보존한 독립 Panel Order와 typed Root를 제공한다.
+        /// Layer 등록이 자동 UIDocument Root와 원본 Asset을 보존한 독립 Panel Order를 제공한다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UITKLayerPanel_Register_Order와TypedRoot적용()
+        public void TEST_UITKLayerPanel_Register_자동DocumentRoot와Order적용()
         {
             var gameObject = new GameObject("UITK Layer");
             gameObject.SetActive(false);
             ownedObjects.Add(gameObject);
-            var document = gameObject.AddComponent<UIDocument>();
+            var driver = gameObject.AddComponent<UITKLayerPanel>();
+            var document = gameObject.GetComponent<UIDocument>();
+            Assert.IsNotNull(document);
             var panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             ownedObjects.Add(panelSettings);
             document.panelSettings = panelSettings;
             document.visualTreeAsset = LoadViewAsset();
-            var driver = gameObject.AddComponent<UITKLayerPanel>();
-            SetField(driver, "document", document);
-            SetField(driver, "rootName", "LayerRoot");
             var registry = new PresentationLayerRegistry();
 
             var handle = registry.Register
@@ -458,9 +456,23 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(23, document.panelSettings.sortingOrder);
             Assert.AreEqual(23, document.sortingOrder);
             Assert.IsNotNull(driver.Root);
-            Assert.AreEqual("LayerRoot", driver.Root.name);
+            Assert.AreSame(document.rootVisualElement, driver.Root);
+
+            if (QualitySettings.activeColorSpace == ColorSpace.Linear)
+            {
+                Assert.IsNotNull(document.panelSettings.targetTexture);
+                Assert.IsTrue(document.panelSettings.forceGammaRendering);
+            }
+            else
+            {
+                Assert.IsNull(document.panelSettings.targetTexture);
+            }
 
             handle.Dispose();
+
+            Assert.IsNull(document.panelSettings.targetTexture);
+            Assert.IsFalse(document.panelSettings.forceGammaRendering);
+
             registry.Dispose();
         }
 
@@ -483,7 +495,6 @@ namespace inonego.Xeri.TEST.UI._Game
             document.panelSettings = panelSettings;
             document.visualTreeAsset = LoadViewAsset();
             var driver = gameObject.AddComponent<UITKLayerPanel>();
-            SetField(driver, "document", document);
             SetField(driver, "rootName", "LayerRoot");
             var registry = new PresentationLayerRegistry();
 

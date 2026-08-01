@@ -107,7 +107,7 @@ namespace inonego.Xeri.UI.Game
         public IReadOnlyList<string> ReleaseActionNames => releaseActionNames;
 
         [SerializeField]
-        private string[] releaseActionNames = { "Cancel", "Submit", "Pause" };
+        private string[] releaseActionNames = { "Cancel", "Submit" };
 
     #endregion
 
