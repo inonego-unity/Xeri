@@ -5,6 +5,7 @@
 # 설명
 Rigidbody/Collider를 사용하는 3D 바닥 체커.
 BoxCollider, SphereCollider, CapsuleCollider를 지원하며,
+Overlap은 지면만, Cast는 GroundHit까지 표본에 기록한다.
 GC 할당 방지를 위해 재사용 가능한 콜라이더 배열을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -23,7 +24,7 @@ namespace inonego.Xeri.Game.Controller
     // ============================================================
     [Serializable]
     [RequireComponent(typeof(Rigidbody))]
-    public class GroundChecker3D : GroundChecker<Rigidbody, Collider>, INeedToInit<GameObject>
+    public class GroundChecker3D : GroundChecker<Rigidbody, Collider, GroundCheckSample3D>, INeedToInit<GameObject>
     {
 
     #region 필드
@@ -84,7 +85,7 @@ namespace inonego.Xeri.Game.Controller
         /// Collider를 사용하여 바닥을 감지합니다.
         /// </summary>
         // -------------------------------------------------------------
-        protected override GameObject DetectWithCollider(Collider collider, float deltaTime)
+        protected override GroundCheckSample3D DetectWithCollider(Collider collider, float deltaTime)
         {
             if (collider is BoxCollider boxCollider)
             {
@@ -99,7 +100,7 @@ namespace inonego.Xeri.Game.Controller
                 return DetectWithCapsuleCollider(capsuleCollider, deltaTime);
             }
 
-            return null;
+            return default;
         }
 
         // ------------------------------------------------------------
@@ -108,7 +109,7 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>먼저 OverlapBox로 체크하고, 없으면 BoxCast를 수행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        private GameObject DetectWithBoxCollider(BoxCollider boxCollider, float deltaTime)
+        private GroundCheckSample3D DetectWithBoxCollider(BoxCollider boxCollider, float deltaTime)
         {
             var info = GetBoxColliderDetectionInfo(boxCollider, deltaTime);
 
@@ -131,7 +132,7 @@ namespace inonego.Xeri.Game.Controller
 
             if (overlapCount > 0)
             {
-                return overlappingColliders[0].gameObject;
+                return BuildSample(overlappingColliders[0], null);
             }
 
             // ------------------------------------------------------------
@@ -139,10 +140,10 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             if (Physics.BoxCast(center, size * 0.5f, info.Direction, out RaycastHit hit, orientation, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
             {
-                return hit.collider.gameObject;
+                return CreateSample(hit);
             }
 
-            return null;
+            return default;
         }
 
         // ------------------------------------------------------------
@@ -151,7 +152,7 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>먼저 OverlapSphere로 체크하고, 없으면 SphereCast를 수행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        private GameObject DetectWithSphereCollider(SphereCollider sphereCollider, float deltaTime)
+        private GroundCheckSample3D DetectWithSphereCollider(SphereCollider sphereCollider, float deltaTime)
         {
             var info = GetSphereColliderDetectionInfo(sphereCollider, deltaTime);
 
@@ -169,7 +170,7 @@ namespace inonego.Xeri.Game.Controller
 
             if (overlapCount > 0)
             {
-                return overlappingColliders[0].gameObject;
+                return BuildSample(overlappingColliders[0], null);
             }
 
             // ------------------------------------------------------------
@@ -177,10 +178,10 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             if (Physics.SphereCast(info.Center, info.Radius, info.Direction, out RaycastHit hit, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
             {
-                return hit.collider.gameObject;
+                return CreateSample(hit);
             }
 
-            return null;
+            return default;
         }
 
         // ------------------------------------------------------------------------------
@@ -189,7 +190,7 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>먼저 OverlapSphere로 체크하고, 없으면 SphereCast를 수행합니다.
         /// </summary>
         // ------------------------------------------------------------------------------
-        private GameObject DetectWithCapsuleCollider(CapsuleCollider capsuleCollider, float deltaTime)
+        private GroundCheckSample3D DetectWithCapsuleCollider(CapsuleCollider capsuleCollider, float deltaTime)
         {
             var info = GetCapsuleColliderDetectionInfo(capsuleCollider, deltaTime);
 
@@ -209,19 +210,39 @@ namespace inonego.Xeri.Game.Controller
 
                 if (overlapCount > 0)
                 {
-                    return overlappingColliders[0].gameObject;
+                    return BuildSample(overlappingColliders[0], null);
                 }
 
                 if (Physics.SphereCast(info.Center, info.Radius, info.Direction, out RaycastHit hit, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
                 {
-                    return hit.collider.gameObject;
+                    return CreateSample(hit);
                 }
             }
             // ------------------------------------------------------------
             // 수평 캡슐 — 미구현
             // ------------------------------------------------------------
 
-            return null;
+            return default;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 3D Cast 결과를 공통 바닥 표본으로 변환합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private GroundCheckSample3D CreateSample(RaycastHit hit)
+        {
+            return BuildSample(hit.collider, new GroundHit(hit.distance, hit.point, hit.normal));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 3D 바닥 표본을 생성합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override GroundCheckSample3D CreateSample(Collider groundCollider, Rigidbody groundRigid, GroundHit? hit)
+        {
+            return new GroundCheckSample3D(groundCollider, groundRigid, hit);
         }
 
     #endregion

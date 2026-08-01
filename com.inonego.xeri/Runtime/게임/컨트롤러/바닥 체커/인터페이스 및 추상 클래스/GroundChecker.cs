@@ -4,7 +4,7 @@
 
 # 설명
 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커.
-리지드바디와 콜라이더 타입을 파라미터로 받아 코드 재사용성을 극대화한다.
+리지드바디와 콜라이더 타입을 보존한 GroundCheckSample 생성과 접지 승인 정책을 담당한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -20,9 +20,10 @@ namespace inonego.Xeri.Game.Controller
     /// 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커입니다.
     /// </summary>
     // ============================================================
-    public abstract class GroundChecker<TRigidbody, TCollider> : GroundCheckerBase
+    public abstract class GroundChecker<TRigidbody, TCollider, TSample> : GroundCheckerBase<TRigidbody, TCollider, TSample>
     where TRigidbody : Component
     where TCollider  : Component
+    where TSample : struct, IGroundCheckSample<TRigidbody, TCollider>
     {
 
     #region 필드
@@ -54,15 +55,12 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public TCollider[] Colliders => colliders;
 
-        [SerializeField, ReadOnly]
-        private TRigidbody groundRigid = null;
-
         // ------------------------------------------------------------
         /// <summary>
         /// 현재 밟고 있는 바닥 오브젝트의 리지드바디를 가져옵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public TRigidbody GroundRigid => groundRigid;
+        public TRigidbody GroundRigid => Sample.GroundRigid;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -99,12 +97,12 @@ namespace inonego.Xeri.Game.Controller
 
         public override Vector3 GroundLinearVelocity
         {
-            get => groundRigid != null ? GetLinearVelocity(groundRigid) : Vector3.zero;
+            get => GroundRigid != null ? GetLinearVelocity(GroundRigid) : Vector3.zero;
         }
 
         public override Vector3 GroundAngularVelocity
         {
-            get => groundRigid != null ? GetAngularVelocity(groundRigid) : Vector3.zero;
+            get => GroundRigid != null ? GetAngularVelocity(GroundRigid) : Vector3.zero;
         }
 
     #endregion
@@ -147,11 +145,10 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public virtual void Release()
         {
-            ground      = null;
-            gameObject  = null;
-            rigid       = null;
-            colliders   = null;
-            groundRigid = null;
+            sample     = default;
+            gameObject = null;
+            rigid      = null;
+            colliders  = null;
         }
 
     #endregion
@@ -165,8 +162,8 @@ namespace inonego.Xeri.Game.Controller
         // ----------------------------------------------------------------------
         public override Vector3 GetGroundPointVelocity(Vector3 worldPoint)
         {
-            return groundRigid != null
-                ? GetPointVelocity(groundRigid, worldPoint)
+            return GroundRigid != null
+                ? GetPointVelocity(GroundRigid, worldPoint)
                 : Vector3.zero;
         }
 
@@ -176,35 +173,28 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>최초 접지 시에는 바닥 방향 운동을 요구하고, 검출 중인 지면은 형상이 벗어날 때까지 유지합니다.
         /// </summary>
         // ------------------------------------------------------------------------------------------------------------------------
-        protected override void ProcessGround(GameObject prev, ref GameObject next)
+        protected override void ProcessGround(TSample prev, ref TSample next)
         {
-            groundRigid = null;
-
-            if (next == null)
+            if (!next.HasGround)
             {
                 return;
             }
 
-            // 바닥 오브젝트의 리지드바디를 가져옵니다.
-            // 없는 경우에는 바닥의 속도를 0으로 설정합니다.
-            var nextGroundRigid = next.GetComponentInParent<TRigidbody>();
+            // Rigidbody가 없는 정적 지면은 속도가 없는 바닥으로 처리합니다.
+            var nextGroundRigid = next.GroundRigid;
             var groundVelocity  = nextGroundRigid != null ? GetLinearVelocity(nextGroundRigid) : Vector3.zero;
 
             var (velocity, gravity) = (GetLinearVelocity(rigid), Gravity);
 
             // 최초 접지에만 운동 방향을 적용해 상승 중인 표면을 새 바닥으로 획득하지 않는다.
             // 이미 검출 중인 지면은 지지력이 만든 작은 상승 속도로 접지가 흔들리지 않도록 유지한다.
-            var isHeadingToGround = prev != null || IsHeadingToGround(velocity, groundVelocity, gravity);
+            var isHeadingToGround = prev.HasGround || IsHeadingToGround(velocity, groundVelocity, gravity);
 
             if (!isHeadingToGround)
             {
-                next        = null;
-                groundRigid = null;
-
+                next = default;
                 return;
             }
-
-            groundRigid = nextGroundRigid;
         }
 
         // -------------------------------------------------------------
@@ -212,7 +202,7 @@ namespace inonego.Xeri.Game.Controller
         /// 바닥을 감지합니다.
         /// </summary>
         // -------------------------------------------------------------
-        protected override GameObject Detect(float deltaTime)
+        protected override TSample Detect(float deltaTime)
         {
             if (rigid == null)
             {
@@ -231,13 +221,13 @@ namespace inonego.Xeri.Game.Controller
                 var detected = DetectWithCollider(collider, deltaTime);
 
                 // 바닥이 감지되면 즉시 반환
-                if (detected != null)
+                if (detected.HasGround)
                 {
                     return detected;
                 }
             }
 
-            return null;
+            return default;
         }
 
         // -------------------------------------------------------------
@@ -245,7 +235,31 @@ namespace inonego.Xeri.Game.Controller
         /// 콜라이더를 사용하여 바닥을 감지합니다.
         /// </summary>
         // -------------------------------------------------------------
-        protected abstract GameObject DetectWithCollider(TCollider collider, float deltaTime);
+        protected abstract TSample DetectWithCollider(TCollider collider, float deltaTime);
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 감지한 Collider와 선택적인 표면 정보로 바닥 표본을 생성합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected TSample BuildSample(TCollider groundCollider, GroundHit? hit)
+        {
+            if (groundCollider == null)
+            {
+                return default;
+            }
+
+            var detectedRigid = groundCollider.GetComponentInParent<TRigidbody>();
+
+            return CreateSample(groundCollider, detectedRigid, hit);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 타입이 지정된 바닥 표본을 생성합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected abstract TSample CreateSample(TCollider groundCollider, TRigidbody groundRigid, GroundHit? hit);
 
         // -------------------------------------------------------------
         /// <summary>

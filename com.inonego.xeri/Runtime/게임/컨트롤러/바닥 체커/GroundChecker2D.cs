@@ -5,6 +5,7 @@
 # 설명
 Rigidbody2D/Collider2D를 사용하는 2D 바닥 체커.
 BoxCollider2D, CircleCollider2D, CapsuleCollider2D를 지원한다.
+Cast 시작 중첩은 지면만, 일반 Hit은 GroundHit까지 표본에 기록한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -22,7 +23,7 @@ namespace inonego.Xeri.Game.Controller
     // ============================================================
     [Serializable]
     [RequireComponent(typeof(Rigidbody2D))]
-    public class GroundChecker2D : GroundChecker<Rigidbody2D, Collider2D>, INeedToInit<GameObject>
+    public class GroundChecker2D : GroundChecker<Rigidbody2D, Collider2D, GroundCheckSample2D>, INeedToInit<GameObject>
     {
 
     #region 필드
@@ -80,7 +81,7 @@ namespace inonego.Xeri.Game.Controller
         /// Collider2D를 사용하여 바닥을 감지합니다.
         /// </summary>
         // -------------------------------------------------------------
-        protected override GameObject DetectWithCollider(Collider2D collider, float deltaTime)
+        protected override GroundCheckSample2D DetectWithCollider(Collider2D collider, float deltaTime)
         {
             if (collider is BoxCollider2D boxCollider)
             {
@@ -95,7 +96,7 @@ namespace inonego.Xeri.Game.Controller
                 return DetectWithCapsuleCollider(capsuleCollider, deltaTime);
             }
 
-            return null;
+            return default;
         }
 
         // ------------------------------------------------------------
@@ -104,7 +105,7 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>바닥면에서 시작해서 BoxCast를 수행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        private GameObject DetectWithBoxCollider(BoxCollider2D boxCollider, float deltaTime)
+        private GroundCheckSample2D DetectWithBoxCollider(BoxCollider2D boxCollider, float deltaTime)
         {
             var info = GetBoxColliderDetectionInfo(boxCollider, deltaTime);
 
@@ -113,12 +114,7 @@ namespace inonego.Xeri.Game.Controller
 
             var hit = Physics2D.BoxCast(center, size, info.Angle, info.Direction, info.Depth, Config.Layer);
 
-            if (hit.collider != null)
-            {
-                return hit.collider.gameObject;
-            }
-
-            return null;
+            return CreateSample(hit);
         }
 
         // ------------------------------------------------------------
@@ -127,17 +123,12 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>중심점에서 시작해서 CircleCast를 수행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        private GameObject DetectWithCircleCollider(CircleCollider2D circleCollider, float deltaTime)
+        private GroundCheckSample2D DetectWithCircleCollider(CircleCollider2D circleCollider, float deltaTime)
         {
             var info = GetCircleColliderDetectionInfo(circleCollider, deltaTime);
             var hit  = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, info.Depth, Config.Layer);
 
-            if (hit.collider != null)
-            {
-                return hit.collider.gameObject;
-            }
-
-            return null;
+            return CreateSample(hit);
         }
 
         // ------------------------------------------------------------------------------
@@ -147,7 +138,7 @@ namespace inonego.Xeri.Game.Controller
         /// <br/>Horizontal인 경우 아랫면에서 시작해서 BoxCast를 수행합니다.
         /// </summary>
         // ------------------------------------------------------------------------------
-        private GameObject DetectWithCapsuleCollider(CapsuleCollider2D capsuleCollider, float deltaTime)
+        private GroundCheckSample2D DetectWithCapsuleCollider(CapsuleCollider2D capsuleCollider, float deltaTime)
         {
             var info = GetCapsuleColliderDetectionInfo(capsuleCollider, deltaTime);
 
@@ -171,12 +162,37 @@ namespace inonego.Xeri.Game.Controller
                 hit = Physics2D.BoxCast(center, size, info.Angle, info.Direction, info.Depth, Config.Layer);
             }
 
-            if (hit.collider != null)
+            return CreateSample(hit);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/>2D Cast 결과를 공통 바닥 표본으로 변환합니다.
+        /// <br/>시작 중첩은 지면만 보존하고 엔진이 대체한 표면 정보는 노출하지 않습니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private GroundCheckSample2D CreateSample(RaycastHit2D hit)
+        {
+            if (hit.collider == null)
             {
-                return hit.collider.gameObject;
+                return default;
             }
 
-            return null;
+            GroundHit? groundHit = hit.fraction > 0f
+                ? new GroundHit(hit.distance, hit.point, hit.normal)
+                : null;
+
+            return BuildSample(hit.collider, groundHit);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 2D 바닥 표본을 생성합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override GroundCheckSample2D CreateSample(Collider2D groundCollider, Rigidbody2D groundRigid, GroundHit? hit)
+        {
+            return new GroundCheckSample2D(groundCollider, groundRigid, hit);
         }
 
     #endregion
