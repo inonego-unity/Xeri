@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UITKGameUI.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 UITK Layer, Screen, Modal, Fade와 혼합 Profile의 공개 Runtime 경로를 검증한다.
@@ -431,7 +431,7 @@ namespace inonego.Xeri.TEST.UI._Game
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UITKLayerPanel_Register_자동DocumentRoot와Order적용()
+        public void TEST_UITKLayerPanel_Register_자동DocumentRoot와Order및Baseline적용()
         {
             var gameObject = new GameObject("UITK Layer");
             gameObject.SetActive(false);
@@ -441,6 +441,7 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsNotNull(document);
             var panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             ownedObjects.Add(panelSettings);
+            panelSettings.clearDepthStencil = false;
             document.panelSettings = panelSettings;
             document.visualTreeAsset = LoadViewAsset();
             var registry = new PresentationLayerRegistry();
@@ -457,11 +458,23 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(23, document.sortingOrder);
             Assert.IsNotNull(driver.Root);
             Assert.AreSame(document.rootVisualElement, driver.Root);
+            Assert.IsTrue(driver.Root.ClassListContains("xeri-game-ui"));
+            var baseline = Resources.Load<StyleSheet>
+            (
+                "Xeri/Game/GameUIRuntimeBaseline"
+            );
+            Assert.IsNotNull(baseline);
+            Assert.IsTrue
+            (
+                driver.Root.styleSheets.Contains(baseline)
+            );
 
             if (QualitySettings.activeColorSpace == ColorSpace.Linear)
             {
                 Assert.IsNotNull(document.panelSettings.targetTexture);
                 Assert.IsTrue(document.panelSettings.forceGammaRendering);
+                Assert.IsTrue(document.panelSettings.clearDepthStencil);
+                Assert.GreaterOrEqual(document.panelSettings.targetTexture.depth, 24);
             }
             else
             {
@@ -472,6 +485,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.IsNull(document.panelSettings.targetTexture);
             Assert.IsFalse(document.panelSettings.forceGammaRendering);
+            Assert.IsFalse(document.panelSettings.clearDepthStencil);
 
             registry.Dispose();
         }

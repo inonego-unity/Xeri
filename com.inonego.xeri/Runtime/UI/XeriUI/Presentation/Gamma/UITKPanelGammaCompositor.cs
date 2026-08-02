@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKPanelGammaCompositor.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 UI Toolkit PanelSettings를 offscreen RenderTexture로 렌더링한 뒤 화면용 Panel에서
@@ -30,10 +30,10 @@ namespace inonego.Xeri.UI
 
         // ============================================================
         /// <summary>
-        /// 화면용 Panel에서 offscreen UI를 즉시 합성하는 요소.
+        /// 화면용 Panel에서 offscreen UI를 합성하는 요소.
         /// </summary>
         // ============================================================
-        private sealed class GammaCompositeElement : ImmediateModeElement
+        private sealed class GammaCompositeElement : VisualElement
         {
         #region 필드
 
@@ -42,14 +42,45 @@ namespace inonego.Xeri.UI
             /// 합성할 offscreen UI RenderTexture.
             /// </summary>
             // ------------------------------------------------------------
-            public RenderTexture Texture { get; set; } = null;
+            public RenderTexture Texture
+            {
+                get => texture;
+                set
+                {
+                    texture = value;
+
+                    if (texture == null)
+                    {
+                        style.backgroundImage = new StyleBackground(StyleKeyword.None);
+                    }
+                    else
+                    {
+                        style.backgroundImage = Background.FromRenderTexture(texture);
+                    }
+
+                    MarkDirtyRepaint();
+                }
+            }
+
+            private RenderTexture texture = null;
 
             // ------------------------------------------------------------
             /// <summary>
             /// gamma→linear 합성 Material.
             /// </summary>
             // ------------------------------------------------------------
-            public Material Material { get; set; } = null;
+            public Material Material
+            {
+                get => material;
+                set
+                {
+                    material = value;
+                    style.unityMaterial = material;
+                    MarkDirtyRepaint();
+                }
+            }
+
+            private Material material = null;
 
         #endregion
 
@@ -63,32 +94,11 @@ namespace inonego.Xeri.UI
             public GammaCompositeElement() : base()
             {
                 pickingMode = PickingMode.Ignore;
-                cullingEnabled = false;
                 style.position = Position.Absolute;
                 style.left = 0f;
                 style.top = 0f;
                 style.right = 0f;
                 style.bottom = 0f;
-            }
-
-        #endregion
-
-        #region ImmediateModeElement
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// UI Toolkit의 현재 화면 Render Target에 offscreen UI를 합성한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            protected override void ImmediateRepaint()
-            {
-                if (Texture == null || Material == null) return;
-
-                // UI Toolkit이 출력한 gamma 값을 선형 화면 Target에 premultiplied alpha로 합성한다.
-                Material.SetTexture(BLIT_TEXTURE_ID, Texture);
-                Material.SetVector(BLIT_SCALE_BIAS_ID, new Vector4(1f, -1f, 0f, 1f));
-                Material.SetPass(0);
-                Graphics.DrawProceduralNow(MeshTopology.Triangles, 3);
             }
 
         #endregion
@@ -100,9 +110,7 @@ namespace inonego.Xeri.UI
 
         private const string BLIT_SHADER_NAME = "Hidden/XeriUI/UITKGammaComposite";
         private const float COMPOSITE_ORDER_OFFSET = 0.25f;
-
-        private static readonly int BLIT_TEXTURE_ID = Shader.PropertyToID("_BlitTexture");
-        private static readonly int BLIT_SCALE_BIAS_ID = Shader.PropertyToID("_BlitScaleBias");
+        private const int DEPTH_STENCIL_BITS = 24;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -136,6 +144,7 @@ namespace inonego.Xeri.UI
         private GammaCompositeElement compositeElement = null;
         private Material blitMaterial = null;
         private bool previousForceGammaRendering = false;
+        private bool previousClearDepthStencil = false;
         private bool previousClearColor = false;
         private Color previousColorClearValue = Color.clear;
         private bool isPanelOwner = false;
@@ -185,6 +194,7 @@ namespace inonego.Xeri.UI
             managedPanelSettings = panelSettings;
             previousTargetTexture = panelSettings.targetTexture;
             previousForceGammaRendering = panelSettings.forceGammaRendering;
+            previousClearDepthStencil = panelSettings.clearDepthStencil;
             previousClearColor = panelSettings.clearColor;
             previousColorClearValue = panelSettings.colorClearValue;
             isPanelOwner = true;
@@ -252,6 +262,7 @@ namespace inonego.Xeri.UI
             {
                 managedPanelSettings.targetTexture = previousTargetTexture;
                 managedPanelSettings.forceGammaRendering = previousForceGammaRendering;
+                managedPanelSettings.clearDepthStencil = previousClearDepthStencil;
                 managedPanelSettings.clearColor = previousClearColor;
                 managedPanelSettings.colorClearValue = previousColorClearValue;
             }
@@ -327,7 +338,7 @@ namespace inonego.Xeri.UI
             (
                 width,
                 height,
-                0,
+                DEPTH_STENCIL_BITS,
                 RenderTextureFormat.ARGB32,
                 RenderTextureReadWrite.Linear
             )
@@ -362,6 +373,7 @@ namespace inonego.Xeri.UI
 
             managedPanelSettings.targetTexture = targetTexture;
             managedPanelSettings.forceGammaRendering = true;
+            managedPanelSettings.clearDepthStencil = true;
             managedPanelSettings.clearColor = true;
             managedPanelSettings.colorClearValue = Color.clear;
         }
@@ -371,7 +383,7 @@ namespace inonego.Xeri.UI
         /// 원본 RT를 공통 Screen Overlay 정렬 공간에 다시 그릴 화면용 Panel을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void CreateCompositeOutput(Transform parent)
+        private void CreateCompositeOutput(Transform hostTransform)
         {
             compositePanelSettings = Object.Instantiate(managedPanelSettings);
             compositePanelSettings.name = $"{HostName} Gamma Composite Panel";
@@ -381,7 +393,9 @@ namespace inonego.Xeri.UI
 
             compositeHost = new GameObject($"{HostName} Gamma Composite");
             compositeHost.SetActive(false);
-            compositeHost.transform.SetParent(parent, false);
+
+            // 원본 UIDocument의 자식이 되면 Unity가 같은 Panel의 Child Document로 묶으므로 형제로 둔다.
+            compositeHost.transform.SetParent(hostTransform.parent, false);
             compositeDocument = compositeHost.AddComponent<UIDocument>();
             compositeDocument.panelSettings = compositePanelSettings;
             compositeHost.SetActive(true);
@@ -395,6 +409,7 @@ namespace inonego.Xeri.UI
 
             // 합성 Panel은 시각 출력만 담당하고 원본 Panel의 입력 경로를 가리지 않는다.
             root.pickingMode = PickingMode.Ignore;
+            root.style.flexGrow = 1f;
             compositeElement = new GammaCompositeElement
             {
                 Texture = targetTexture,

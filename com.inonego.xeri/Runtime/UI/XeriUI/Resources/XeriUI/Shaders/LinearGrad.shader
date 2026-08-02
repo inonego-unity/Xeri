@@ -1,3 +1,14 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : LinearGrad.shader
+수정일 : 2026-08-02
+
+# 설명
+UI Toolkit Element의 Layout UV를 기준으로 다중 Stop 선형 Gradient를 렌더링한다.
+
+# 특이사항, 제약사항
+UnityUIE 공통 계약을 사용하며 특정 Scriptable Render Pipeline에 의존하지 않는다.
+========================================================================= BLOCK_HEADER_END */
+
 Shader "XeriUI/LinearGrad"
 {
     Properties
@@ -27,7 +38,6 @@ Shader "XeriUI/LinearGrad"
     {
         Tags
         {
-            "RenderPipeline"     = "UniversalPipeline"
             "RenderType"         = "Transparent"
             "isCustomUITKShader" = "true"
             "Queue"              = "Transparent"
@@ -51,31 +61,7 @@ Shader "XeriUI/LinearGrad"
             #pragma multi_compile_local _ _UIE_FORCE_GAMMA
 
             #pragma multi_compile_local _ _UIE_TEXTURE_SLOT_COUNT_4 _UIE_TEXTURE_SLOT_COUNT_2 _UIE_TEXTURE_SLOT_COUNT_1
-            #pragma multi_compile_local _ _UIE_RENDER_TYPE_SOLID _UIE_RENDER_TYPE_TEXTURE _UIE_RENDER_TYPE_TEXT _UIE_RENDER_TYPE_GRADIENT
-
-            #define UITK_SHADERGRAPH
-            #define _SURFACE_TYPE_TRANSPARENT 1
-            #define ATTRIBUTES_NEED_TEXCOORD0
-            #define ATTRIBUTES_NEED_TEXCOORD1
-            #define ATTRIBUTES_NEED_TEXCOORD2
-            #define ATTRIBUTES_NEED_TEXCOORD3
-            #define ATTRIBUTES_NEED_COLOR
-            #define VARYINGS_NEED_TEXCOORD0
-            #define VARYINGS_NEED_TEXCOORD1
-            #define VARYINGS_NEED_TEXCOORD3
-            #define VARYINGS_NEED_COLOR
-            #define FEATURES_GRAPH_VERTEX
-
-            #define SHADERPASS SHADERPASS_CUSTOM_UI
-
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-            #include "Packages/com.unity.shadergraph/Editor/Generation/Targets/BuiltIn/ShaderLibrary/Shim/UIShim.hlsl"
+            #include "Internal/UnityUIE.cginc"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color0;
@@ -104,13 +90,8 @@ Shader "XeriUI/LinearGrad"
                 float3 positionOS : POSITION;
                 float4 color      : COLOR;
                 float4 uv0        : TEXCOORD0;
-                float4 uv1        : TEXCOORD1;
-                float4 uv2        : TEXCOORD2;
-                float4 uv3        : TEXCOORD3;
-                float4 uv4        : TEXCOORD4;
+                uint4  uv4        : TEXCOORD4;
                 float4 uv5        : TEXCOORD5;
-                float4 uv6        : TEXCOORD6;
-                float4 uv7        : TEXCOORD7;
                 #if UNITY_ANY_INSTANCING_ENABLED
                 uint instanceID   : INSTANCEID_SEMANTIC;
                 #endif
@@ -121,6 +102,7 @@ Shader "XeriUI/LinearGrad"
                 float4 positionCS : SV_POSITION;
                 float4 texCoord0;
                 float4 texCoord1;
+                float4 texCoord2;
                 float4 texCoord3;
                 float4 texCoord4;
                 float4 color;
@@ -134,9 +116,10 @@ Shader "XeriUI/LinearGrad"
                 float4 positionCS : SV_POSITION;
                 float4 texCoord0  : INTERP0;
                 float4 texCoord1  : INTERP1;
-                float4 texCoord3  : INTERP2;
-                float4 texCoord4  : INTERP3;
-                float4 color      : INTERP4;
+                float4 texCoord2  : INTERP2;
+                float4 texCoord3  : INTERP3;
+                float4 texCoord4  : INTERP4;
+                float4 color      : INTERP5;
                 #if UNITY_ANY_INSTANCING_ENABLED
                 uint instanceID   : CUSTOM_INSTANCE_ID;
                 #endif
@@ -144,11 +127,11 @@ Shader "XeriUI/LinearGrad"
 
             PackedVaryings PackVaryings(Varyings input)
             {
-                PackedVaryings output;
-                ZERO_INITIALIZE(PackedVaryings, output);
+                PackedVaryings output = (PackedVaryings)0;
                 output.positionCS     = input.positionCS;
                 output.texCoord0.xyzw = input.texCoord0;
                 output.texCoord1.xyzw = input.texCoord1;
+                output.texCoord2.xyzw = input.texCoord2;
                 output.texCoord3.xyzw = input.texCoord3;
                 output.texCoord4.xyzw = input.texCoord4;
                 output.color.xyzw     = input.color;
@@ -161,30 +144,11 @@ Shader "XeriUI/LinearGrad"
                 output.positionCS = input.positionCS;
                 output.texCoord0  = input.texCoord0.xyzw;
                 output.texCoord1  = input.texCoord1.xyzw;
+                output.texCoord2  = input.texCoord2.xyzw;
                 output.texCoord3  = input.texCoord3.xyzw;
                 output.texCoord4  = input.texCoord4.xyzw;
                 output.color      = input.color.xyzw;
                 return output;
-            }
-
-            struct VertexDescriptionInputs
-            {
-                float4 vertexPosition;
-                float4 vertexColor;
-                float4 uv;
-                float4 xformClipPages;
-                float4 ids;
-                float4 flags;
-                float4 opacityColorPages;
-                float4 settingIndex;
-                float4 circle;
-            };
-
-            struct VertexDescription {};
-
-            VertexDescription VertexDescriptionFunction(VertexDescriptionInputs IN)
-            {
-                return (VertexDescription)0;
             }
 
             struct SurfaceDescriptionInputs
@@ -207,31 +171,30 @@ Shader "XeriUI/LinearGrad"
             #define UNITY_PI 3.14159265358979
             #endif
 
-            #ifndef UNITY_COLORSPACE_GAMMA
-            float4 ToSRGB(float4 c) { return float4(LinearToSRGB(c.rgb), c.a); }
-            #endif
+            float4 ToGradientSpace(float4 color)
+            {
+                #if UIE_COLORSPACE_GAMMA && !defined(UNITY_COLORSPACE_GAMMA)
+                return float4(uie_linear_to_gamma(color.rgb), color.a);
+                #else
+                return color;
+                #endif
+            }
 
             float4 MultiGrad(float t)
             {
                 float tc = saturate(t);
 
                 float4 colors[8];
-                #ifdef UNITY_COLORSPACE_GAMMA
                 colors[0] = _Color0; colors[1] = _Color1;
                 colors[2] = _Color2; colors[3] = _Color3;
                 colors[4] = _Color4; colors[5] = _Color5;
                 colors[6] = _Color6; colors[7] = _Color7;
-                #else
-                colors[0] = ToSRGB(_Color0); colors[1] = ToSRGB(_Color1);
-                colors[2] = ToSRGB(_Color2); colors[3] = ToSRGB(_Color3);
-                colors[4] = ToSRGB(_Color4); colors[5] = ToSRGB(_Color5);
-                colors[6] = ToSRGB(_Color6); colors[7] = ToSRGB(_Color7);
-                #endif
 
                 int count = (int)_ColorCount;
 
                 for (int j = 0; j < count; j++)
                 {
+                    colors[j] = ToGradientSpace(colors[j]);
                     colors[j].rgb *= colors[j].a;
                 }
 
@@ -256,8 +219,16 @@ Shader "XeriUI/LinearGrad"
                 SurfaceDescription surface = (SurfaceDescription)0;
 
                 float rad = _Angle * (UNITY_PI / 180.0);
+                // layoutUV의 Y축은 아래에서 위로 증가하므로 CSS의 화면 기준 각도와 같은 부호를 사용한다.
                 float2 dir = float2(sin(rad), cos(rad));
-                float t_raw = dot(IN.layoutUV - 0.5, dir) + 0.5;
+
+                // CSS 각도는 정규화 UV가 아니라 실제 요소의 화면 비율을 기준으로 계산한다.
+                float width = rcp(max(length(float2(ddx(IN.layoutUV.x), ddy(IN.layoutUV.x))), 1e-5));
+                float height = rcp(max(length(float2(ddx(IN.layoutUV.y), ddy(IN.layoutUV.y))), 1e-5));
+                float2 size = float2(width, height);
+                float2 position = (IN.layoutUV - 0.5) * size;
+                float extent = max(0.5 * dot(abs(dir), size), 1e-4);
+                float t_raw = dot(position, dir) / (2.0 * extent) + 0.5;
                 float t = _Tiling > 1.001 ? frac(t_raw * _Tiling) : saturate(t_raw);
 
                 float4 grad       = MultiGrad(t);
@@ -267,15 +238,9 @@ Shader "XeriUI/LinearGrad"
                 return surface;
             }
 
-            VertexDescriptionInputs BuildVertexDescriptionInputs(Attributes input)
-            {
-                return (VertexDescriptionInputs)0;
-            }
-
             SurfaceDescriptionInputs BuildSurfaceDescriptionInputs(Varyings input)
             {
-                SurfaceDescriptionInputs output;
-                ZERO_INITIALIZE(SurfaceDescriptionInputs, output);
+                SurfaceDescriptionInputs output = (SurfaceDescriptionInputs)0;
                 output.uvClip          = input.texCoord0;
                 output.typeTexSettings = input.texCoord1;
                 output.circle          = input.texCoord4;
@@ -284,11 +249,10 @@ Shader "XeriUI/LinearGrad"
                 return output;
             }
 
-            #include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/UITKPass.hlsl"
+            #include "XeriUIGradientPass.hlsl"
 
             ENDHLSL
         }
     }
-    CustomEditor "UnityEditor.ShaderGraph.GenericShaderGraphMaterialGUI"
     FallBack off
 }

@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKLayerPanel.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 PresentationLayerAsset의 공통 Screen Overlay 순서를 독립 Runtime Panel과 UIDocument에 적용한다.
 Linear Color Space에서는 USS gamma 색을 보존하는 offscreen 합성을 Layer 수명에 맞춰 기본 제공한다.
+Layer Root에 Xeri Runtime Control Baseline을 Theme과 무관하게 자동 적용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -26,6 +27,12 @@ namespace inonego.Xeri.UI.Game
     public sealed class UITKLayerPanel : MonoBehaviour, IPresentationLayerDriver<VisualElement>
     {
     #region 필드
+
+        private const string RootUssClassName = "xeri-game-ui";
+        private const string RuntimeBaselineResourcePath =
+            "Xeri/Game/GameUIRuntimeBaseline";
+
+        private static StyleSheet runtimeBaseline = null;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -151,6 +158,8 @@ namespace inonego.Xeri.UI.Game
                 );
             }
 
+            // Theme 구성과 무관하게 Xeri Control Baseline을 이 Layer에 적용한다.
+            ApplyRuntimeBaseline(root);
             root.style.display = DisplayStyle.Flex;
             ApplyGammaCompositing();
         }
@@ -158,6 +167,40 @@ namespace inonego.Xeri.UI.Game
     #endregion
 
     #region 내부 처리
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer Root 범위에 Xeri Control Baseline을 연결한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void ApplyRuntimeBaseline(VisualElement root)
+        {
+            // Package Resources의 단일 Baseline Asset을 Layer 간 공유한다.
+            if (runtimeBaseline == null)
+            {
+                runtimeBaseline = Resources.Load<StyleSheet>
+                (
+                    RuntimeBaselineResourcePath
+                );
+            }
+
+            if (runtimeBaseline == null)
+            {
+                throw new MissingReferenceException
+                (
+                    $"Game UI Runtime Baseline '{RuntimeBaselineResourcePath}'을 " +
+                    "찾을 수 없습니다."
+                );
+            }
+
+            // 재활성화에서 같은 StyleSheet를 중복 연결하지 않는다.
+            root.AddToClassList(RootUssClassName);
+
+            if (!root.styleSheets.Contains(runtimeBaseline))
+            {
+                root.styleSheets.Add(runtimeBaseline);
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
