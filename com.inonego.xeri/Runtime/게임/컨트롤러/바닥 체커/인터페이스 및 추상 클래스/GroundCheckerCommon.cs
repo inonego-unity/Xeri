@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundCheckerCommon.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 바닥 감지에 사용되는 공통 구조체 모음.
-GroundCheckSample2D/3D(검사 결과), GroundHit(표면 정보), GroundCheckerConfig(설정),
+GroundCheckSample2D/3D(검사 결과), GroundCheckerConfig(설정),
 GroundCheckerCalculation(방향 계산), GroundCheckerDetection(콜라이더별 감지 정보)를 담는다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -16,59 +16,8 @@ namespace inonego.Xeri.Game.Controller
 {
     // ============================================================
     /// <summary>
-    /// 바닥 Cast에서 얻은 표면 정보를 담는 구조체입니다.
-    /// </summary>
-    // ============================================================
-    [Serializable]
-    public readonly struct GroundHit
-    {
-
-    #region 필드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 검사 형상과 지면 사이의 거리입니다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public float Distance { get; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 감지한 지면의 월드 지점입니다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public Vector3 Point { get; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 감지한 지면의 월드 법선입니다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public Vector3 Normal { get; }
-
-    #endregion
-
-    #region 생성자
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 바닥 표면 정보를 생성합니다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public GroundHit(float distance, Vector3 point, Vector3 normal)
-        {
-            Distance = distance;
-            Point    = point;
-            Normal   = normal;
-        }
-
-    #endregion
-
-    }
-
-    // ============================================================
-    /// <summary>
-    /// 바닥 검사 표본의 공통 계약입니다.
+    /// <br/>바닥 검사 표본의 공통 계약입니다.
+    /// <br/>HasGround가 true이면 거리, 지점, 법선이 유효합니다.
     /// </summary>
     // ============================================================
     public interface IGroundCheckSample<TRigidbody, TCollider>
@@ -103,18 +52,32 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public TRigidbody GroundRigid { get; }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/>Cast가 제공한 표면 정보입니다.
-        /// <br/>Overlap으로만 감지한 경우에는 값이 없습니다.
+        /// <br/>검사 형상과 지면 사이의 부호 있는 거리입니다.
+        /// <br/>양수는 분리, 0은 접촉, 음수는 중첩을 나타냅니다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        public GroundHit? Hit { get; }
+        // ------------------------------------------------------------
+        public float Distance { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 감지한 지면의 월드 지점입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Vector3 Point { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 감지한 지면의 월드 법선입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Vector3 Normal { get; }
     }
 
     // ============================================================
     /// <summary>
-    /// 한 번의 2D 바닥 검사에서 승인된 지면과 선택적인 Cast 정보를 담습니다.
+    /// 한 번의 2D 바닥 검사에서 승인된 지면과 표면 정보를 담습니다.
     /// </summary>
     // ============================================================
     [Serializable]
@@ -151,13 +114,27 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public Rigidbody2D GroundRigid { get; }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/>Cast가 제공한 표면 정보입니다.
-        /// <br/>시작 중첩으로만 감지한 경우에는 값이 없습니다.
+        /// <br/>검사 형상과 지면 사이의 부호 있는 거리입니다.
+        /// <br/>양수는 분리, 0은 접촉, 음수는 중첩을 나타냅니다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        public GroundHit? Hit { get; }
+        // ------------------------------------------------------------
+        public float Distance { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 감지한 지면의 월드 지점입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Vector3 Point { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 감지한 지면의 월드 법선입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Vector3 Normal { get; }
 
     #endregion
 
@@ -168,12 +145,21 @@ namespace inonego.Xeri.Game.Controller
         /// 바닥 검사 결과를 생성합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public GroundCheckSample2D(Collider2D groundCollider, Rigidbody2D groundRigid, GroundHit? hit)
+        public GroundCheckSample2D
+        (
+            Collider2D groundCollider,
+            Rigidbody2D groundRigid,
+            float distance,
+            Vector3 point,
+            Vector3 normal
+        )
         {
             Ground         = groundCollider != null ? groundCollider.gameObject : null;
             GroundCollider = groundCollider;
             GroundRigid    = groundRigid;
-            Hit            = hit;
+            Distance       = distance;
+            Point          = point;
+            Normal         = normal;
         }
 
     #endregion
@@ -182,7 +168,7 @@ namespace inonego.Xeri.Game.Controller
 
     // ============================================================
     /// <summary>
-    /// 한 번의 3D 바닥 검사에서 승인된 지면과 선택적인 Cast 정보를 담습니다.
+    /// 한 번의 3D 바닥 검사에서 승인된 지면과 표면 정보를 담습니다.
     /// </summary>
     // ============================================================
     [Serializable]
@@ -219,13 +205,27 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public Rigidbody GroundRigid { get; }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/>Cast가 제공한 표면 정보입니다.
-        /// <br/>Overlap으로만 감지한 경우에는 값이 없습니다.
+        /// <br/>검사 형상과 지면 사이의 부호 있는 거리입니다.
+        /// <br/>양수는 분리, 0은 접촉, 음수는 중첩을 나타냅니다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        public GroundHit? Hit { get; }
+        // ------------------------------------------------------------
+        public float Distance { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 감지한 지면의 월드 지점입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Vector3 Point { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 감지한 지면의 월드 법선입니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Vector3 Normal { get; }
 
     #endregion
 
@@ -236,12 +236,21 @@ namespace inonego.Xeri.Game.Controller
         /// 바닥 검사 결과를 생성합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public GroundCheckSample3D(Collider groundCollider, Rigidbody groundRigid, GroundHit? hit)
+        public GroundCheckSample3D
+        (
+            Collider groundCollider,
+            Rigidbody groundRigid,
+            float distance,
+            Vector3 point,
+            Vector3 normal
+        )
         {
             Ground         = groundCollider != null ? groundCollider.gameObject : null;
             GroundCollider = groundCollider;
             GroundRigid    = groundRigid;
-            Hit            = hit;
+            Distance       = distance;
+            Point          = point;
+            Normal         = normal;
         }
 
     #endregion

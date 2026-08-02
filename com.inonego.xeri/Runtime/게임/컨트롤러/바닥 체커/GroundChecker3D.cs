@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker3D.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 Rigidbody/Collider를 사용하는 3D 바닥 체커.
 BoxCollider, SphereCollider, CapsuleCollider를 지원하며,
-Overlap은 지면만, Cast는 GroundHit까지 표본에 기록한다.
+Overlap과 Cast 모두 부호 있는 거리, 지점, 법선을 표본에 기록한다.
 GC 할당 방지를 위해 재사용 가능한 콜라이더 배열을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -132,7 +132,13 @@ namespace inonego.Xeri.Game.Controller
 
             if (overlapCount > 0)
             {
-                return BuildSample(overlappingColliders[0], null);
+                return CreateOverlapSample
+                (
+                    boxCollider,
+                    overlappingColliders[0],
+                    info.Center,
+                    info.Direction
+                );
             }
 
             // ------------------------------------------------------------
@@ -170,7 +176,13 @@ namespace inonego.Xeri.Game.Controller
 
             if (overlapCount > 0)
             {
-                return BuildSample(overlappingColliders[0], null);
+                return CreateOverlapSample
+                (
+                    sphereCollider,
+                    overlappingColliders[0],
+                    info.Center,
+                    info.Direction
+                );
             }
 
             // ------------------------------------------------------------
@@ -210,7 +222,13 @@ namespace inonego.Xeri.Game.Controller
 
                 if (overlapCount > 0)
                 {
-                    return BuildSample(overlappingColliders[0], null);
+                    return CreateOverlapSample
+                    (
+                        capsuleCollider,
+                        overlappingColliders[0],
+                        info.Center,
+                        info.Direction
+                    );
                 }
 
                 if (Physics.SphereCast(info.Center, info.Radius, info.Direction, out RaycastHit hit, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
@@ -232,17 +250,104 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         private GroundCheckSample3D CreateSample(RaycastHit hit)
         {
-            return BuildSample(hit.collider, new GroundHit(hit.distance, hit.point, hit.normal));
+            return BuildSample
+            (
+                hit.collider,
+                hit.distance,
+                hit.point,
+                hit.normal
+            );
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/>Overlap된 Collider 쌍의 부호 있는 거리, 지점, 법선을 계산합니다.
+        /// <br/>관통이 아닌 접촉 경계는 검사 반대 방향의 외부 지점에서 표면을 복원합니다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private GroundCheckSample3D CreateOverlapSample
+        (
+            Collider sourceCollider,
+            Collider groundCollider,
+            Vector3 detectionCenter,
+            Vector3 detectionDirection
+        )
+        {
+            var sourceTransform = sourceCollider.transform;
+            var groundTransform = groundCollider.transform;
+
+            // 실제 관통은 Collider를 분리하는 방향과 깊이로 부호 있는 표면 정보를 구성합니다.
+            if
+            (
+                Physics.ComputePenetration
+                (
+                    sourceCollider,
+                    sourceTransform.position,
+                    sourceTransform.rotation,
+                    groundCollider,
+                    groundTransform.position,
+                    groundTransform.rotation,
+                    out var normal,
+                    out var penetration
+                )
+            )
+            {
+                var outsidePoint = detectionCenter +
+                                   normal * (penetration + Physics.defaultContactOffset);
+                var point = groundCollider.ClosestPoint(outsidePoint);
+
+                return BuildSample
+                (
+                    groundCollider,
+                    -penetration,
+                    point,
+                    normal
+                );
+            }
+
+            // 수치상 관통하지 않는 접촉 경계에서는 바닥 검사 반대편에서 실제 표면 법선을 구합니다.
+            var direction = detectionDirection.normalized;
+            var outsideContactPoint = detectionCenter -
+                                      direction * Physics.defaultContactOffset;
+            var contactPoint  = groundCollider.ClosestPoint(outsideContactPoint);
+            var contactOffset = outsideContactPoint - contactPoint;
+
+            if (contactOffset.sqrMagnitude <= Mathf.Epsilon)
+            {
+                return default;
+            }
+
+            return BuildSample
+            (
+                groundCollider,
+                0f,
+                contactPoint,
+                contactOffset.normalized
+            );
+        }
+
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 3D 바닥 표본을 생성합니다.
         /// </summary>
-        // ------------------------------------------------------------
-        protected override GroundCheckSample3D CreateSample(Collider groundCollider, Rigidbody groundRigid, GroundHit? hit)
+        // ----------------------------------------------------------------------
+        protected override GroundCheckSample3D CreateSample
+        (
+            Collider groundCollider,
+            Rigidbody groundRigid,
+            float distance,
+            Vector3 point,
+            Vector3 normal
+        )
         {
-            return new GroundCheckSample3D(groundCollider, groundRigid, hit);
+            return new GroundCheckSample3D
+            (
+                groundCollider,
+                groundRigid,
+                distance,
+                point,
+                normal
+            );
         }
 
     #endregion

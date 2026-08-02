@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Jumper.cs
-수정일 : 2026-07-30
+수정일 : 2026-08-02
 
 # 설명
 IJumper 구현체.
 코요테 점프와 점프 버퍼를 Timer로 관리하며,
-IGroundChecker를 주입 받아 착지 전환과 현재 접지에 따라 점프 상태를 관리한다.
+호출자가 전달한 접지 상태 전환에 따라 점프 상태를 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -22,7 +22,7 @@ namespace inonego.Xeri.Game.Controller
     /// </summary>
     // ============================================================
     [Serializable]
-    public class Jumper : IJumper, INeedToInit<IGroundChecker>
+    public class Jumper : IJumper, INeedToInit
     {
 
     #region 필드
@@ -135,11 +135,11 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 바닥 체커입니다.
+        /// 직전 물리 Tick에 전달받은 접지 여부입니다.
         /// </summary>
         // ------------------------------------------------------------
-        [SerializeReference]
-        private IGroundChecker groundChecker = null;
+        [SerializeField, ReadOnly]
+        private bool wasGrounded = false;
 
     #endregion
 
@@ -154,50 +154,32 @@ namespace inonego.Xeri.Game.Controller
 
     #endregion
 
-    #region 생성자
+    #region 초기화
 
         // ------------------------------------------------------------
         /// <summary>
-        /// IGroundChecker를 주입하여 초기화합니다.
+        /// 점프 상태와 타이머를 초기화합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Init(IGroundChecker groundChecker)
+        public void Init()
         {
-            if (groundChecker == null)
-            {
-                throw new ArgumentNullException("바닥 체커가 null입니다.");
-            }
-
-            if (this.groundChecker != null)
-            {
-                this.groundChecker.OnLand -= _OnLand;
-            }
-
-            this.groundChecker = groundChecker;
-            this.groundChecker.OnLand += _OnLand;
-
             coyoteJumpTimer.Stop();
             CancelPending();
             Reset();
+            wasGrounded = false;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 참조를 해제합니다.
+        /// 점프 상태와 타이머를 해제합니다.
         /// </summary>
         // ------------------------------------------------------------
         public void Release()
         {
-            if (groundChecker != null)
-            {
-                groundChecker.OnLand -= _OnLand;
-            }
-
             coyoteJumpTimer.Stop();
             CancelPending();
             Reset();
-
-            groundChecker = null;
+            wasGrounded = false;
         }
 
     #endregion
@@ -221,11 +203,6 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         public bool TryJump()
         {
-            if (groundChecker == null)
-            {
-                throw new NullReferenceException("바닥 체커가 null입니다. Init 메서드를 통해 초기화해주세요.");
-            }
-
             var canJump = IsJumpAllowed &&
                           (coyoteJumpTimer.IsRunning || isJumping);
 
@@ -259,20 +236,19 @@ namespace inonego.Xeri.Game.Controller
         /// 물리 갱신을 진행합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public void FixedTick(float fixedDeltaTime)
+        public void FixedTick(float fixedDeltaTime, bool isGrounded)
         {
-            if (groundChecker == null)
-            {
-                throw new NullReferenceException("바닥 체커가 null입니다. Init 메서드를 통해 초기화해주세요.");
-            }
-
-            // 타이머 업데이트
             coyoteJumpTimer.Tick(fixedDeltaTime);
 
-            bool isTriggered = jumpBufferTimer.IsRunning;
-            bool isGrounded  = groundChecker.IsOnGround;
+            var isTriggered = jumpBufferTimer.IsRunning;
 
-            // 접지 중에는 코요테 시간을 유지하되 점프 상태와 횟수는 실제 OnLand 전환에서만 초기화한다.
+            // 비접지에서 접지로 전환된 Tick에 점프 상태와 횟수를 복원한다.
+            if (!wasGrounded && isGrounded)
+            {
+                Reset();
+            }
+
+            // 접지 중에는 이탈 직후에도 점프할 수 있도록 코요테 시간을 계속 갱신한다.
             if (isGrounded)
             {
                 StartCoyoteJumpTimer();
@@ -283,8 +259,8 @@ namespace inonego.Xeri.Game.Controller
                 TryJump();
             }
 
-            // 타이머 업데이트
             jumpBufferTimer.Tick(fixedDeltaTime);
+            wasGrounded = isGrounded;
         }
 
         // ------------------------------------------------------------
@@ -319,24 +295,6 @@ namespace inonego.Xeri.Game.Controller
         {
             jumpBufferTimer.Stop();
             jumpBufferTimer.Start(JumpBufferDuration);
-        }
-
-    #endregion
-
-    #region 이벤트 핸들러
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 실제 비접지에서 접지로 전환된 경우 점프 상태와 횟수를 초기화한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void _OnLand
-        (
-            object sender,
-            ValueChangeEventArgs<GameObject> e
-        )
-        {
-            Reset();
         }
 
     #endregion

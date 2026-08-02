@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GroundChecker2D.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 GroundChecker2D 시스템의 Play Mode 테스트.
@@ -210,14 +210,13 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
                 Assert.That(firstSample.Ground, Is.SameAs(fixture.Ground));
                 Assert.That(firstSample.GroundCollider, Is.SameAs(fixture.GroundCollider));
                 Assert.That(firstSample.GroundRigid, Is.SameAs(fixture.GroundRigid));
-                Assert.That(firstSample.Hit.HasValue, Is.True);
-
-                var firstHit = firstSample.Hit.Value;
-                Assert.That(firstHit.Distance, Is.EqualTo(0.1f).Within(0.02f));
-                Assert.That(firstHit.Point.y, Is.EqualTo(0f).Within(0.02f));
-                Assert.That(firstHit.Normal.y, Is.GreaterThan(0.9f));
+                Assert.That(firstSample.Distance, Is.EqualTo(0.1f).Within(0.02f));
+                Assert.That(firstSample.Point.y, Is.EqualTo(0f).Within(0.02f));
+                Assert.That(firstSample.Normal.y, Is.GreaterThan(0.9f));
                 Assert.That(landCount, Is.EqualTo(1));
                 Assert.That(leaveCount, Is.Zero);
+
+                var firstDistance = firstSample.Distance;
 
                 // 같은 지면을 유지해도 다음 Tick의 거리 정보가 이전 표본에 머물지 않아야 합니다.
                 fixture.Player.transform.position = new Vector3(0f, 0.55f, 0f);
@@ -225,19 +224,17 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
                 fixture.Checker.Check(Time.fixedDeltaTime);
 
                 var nextSample = fixture.Checker.Sample;
-                Assert.That(nextSample.Hit.HasValue, Is.True);
-                Assert.That(nextSample.Hit.Value.Distance, Is.LessThan(firstHit.Distance));
+                Assert.That(nextSample.Distance, Is.LessThan(firstDistance));
                 Assert.That(landCount, Is.EqualTo(1));
                 Assert.That(leaveCount, Is.Zero);
 
-                // 감지 범위를 벗어나면 이전 Ground와 Hit을 함께 남기지 않아야 합니다.
+                // 감지 범위를 벗어나면 이전 Ground 표본을 남기지 않아야 합니다.
                 fixture.Player.transform.position = new Vector3(0f, 2f, 0f);
                 Physics2D.SyncTransforms();
                 fixture.Checker.Check(Time.fixedDeltaTime);
 
                 var clearedSample = fixture.Checker.Sample;
                 Assert.That(clearedSample.HasGround, Is.False);
-                Assert.That(clearedSample.Hit.HasValue, Is.False);
                 Assert.That(landCount, Is.EqualTo(1));
                 Assert.That(leaveCount, Is.EqualTo(1));
             }
@@ -250,11 +247,11 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 시작부터 중첩된 지면은 감지하되 Cast 표면 정보는 제공하지 않는지 검증합니다.
+        /// 시작부터 중첩된 지면도 부호 있는 거리와 표면 정보를 제공하는지 검증합니다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_GroundChecker2D_시작중첩은_Ground만_기록한다()
+        public void TEST_GroundChecker2D_시작중첩도_표면정보를_기록한다()
         {
             var previousQueriesStartInColliders = Physics2D.queriesStartInColliders;
             var fixture = CreateSampleFixture(0.45f);
@@ -270,7 +267,9 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
                 Assert.That(sample.HasGround, Is.True);
                 Assert.That(sample.GroundCollider, Is.SameAs(fixture.GroundCollider));
                 Assert.That(sample.GroundRigid, Is.SameAs(fixture.GroundRigid));
-                Assert.That(sample.Hit.HasValue, Is.False);
+                Assert.That(sample.Distance, Is.LessThanOrEqualTo(0f));
+                Assert.That(sample.Point.y, Is.EqualTo(0f).Within(0.02f));
+                Assert.That(sample.Normal.y, Is.GreaterThan(0.9f));
             }
             finally
             {

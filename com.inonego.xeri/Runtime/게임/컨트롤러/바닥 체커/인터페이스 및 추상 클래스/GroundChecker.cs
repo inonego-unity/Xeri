@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커.
@@ -180,9 +180,9 @@ namespace inonego.Xeri.Game.Controller
                 return;
             }
 
-            // Rigidbody가 없는 정적 지면은 속도가 없는 바닥으로 처리합니다.
+            // 회전하는 지면에서도 실제 접근 방향을 판정하도록 감지 지점의 속도를 사용합니다.
             var nextGroundRigid = next.GroundRigid;
-            var groundVelocity  = nextGroundRigid != null ? GetLinearVelocity(nextGroundRigid) : Vector3.zero;
+            var groundVelocity = nextGroundRigid != null ? GetPointVelocity(nextGroundRigid, next.Point) : Vector3.zero;
 
             var (velocity, gravity) = (GetLinearVelocity(rigid), Gravity);
 
@@ -239,10 +239,16 @@ namespace inonego.Xeri.Game.Controller
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 감지한 Collider와 선택적인 표면 정보로 바닥 표본을 생성합니다.
+        /// 감지한 Collider와 표면 정보로 바닥 표본을 생성합니다.
         /// </summary>
         // ----------------------------------------------------------------------
-        protected TSample BuildSample(TCollider groundCollider, GroundHit? hit)
+        protected TSample BuildSample
+        (
+            TCollider groundCollider,
+            float distance,
+            Vector3 point,
+            Vector3 normal
+        )
         {
             if (groundCollider == null)
             {
@@ -251,7 +257,14 @@ namespace inonego.Xeri.Game.Controller
 
             var detectedRigid = groundCollider.GetComponentInParent<TRigidbody>();
 
-            return CreateSample(groundCollider, detectedRigid, hit);
+            return CreateSample
+            (
+                groundCollider,
+                detectedRigid,
+                distance,
+                point,
+                normal
+            );
         }
 
         // ----------------------------------------------------------------------
@@ -259,7 +272,14 @@ namespace inonego.Xeri.Game.Controller
         /// 타입이 지정된 바닥 표본을 생성합니다.
         /// </summary>
         // ----------------------------------------------------------------------
-        protected abstract TSample CreateSample(TCollider groundCollider, TRigidbody groundRigid, GroundHit? hit);
+        protected abstract TSample CreateSample
+        (
+            TCollider groundCollider,
+            TRigidbody groundRigid,
+            float distance,
+            Vector3 point,
+            Vector3 normal
+        );
 
         // -------------------------------------------------------------
         /// <summary>
@@ -268,7 +288,10 @@ namespace inonego.Xeri.Game.Controller
         // -------------------------------------------------------------
         protected float GetDepth(Vector3 vector, float deltaTime)
         {
-            var depthByGround = Vector3.Dot(GroundLinearVelocity - Velocity, vector.normalized) * deltaTime;
+            // 회전하는 지면의 접점이 멀어지는 경우까지 한 프레임의 상대 이동량만큼 탐지 깊이를 늘립니다.
+            var groundVelocity = GetGroundPointVelocity(Sample.Point);
+            var depthByGround = Vector3.Dot(groundVelocity - Velocity, vector.normalized) * deltaTime;
+
             return Config.Depth + Mathf.Max(0f, depthByGround);
         }
 

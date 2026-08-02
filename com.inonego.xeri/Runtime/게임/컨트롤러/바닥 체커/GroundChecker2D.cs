@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker2D.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-02
 
 # 설명
 Rigidbody2D/Collider2D를 사용하는 2D 바닥 체커.
 BoxCollider2D, CircleCollider2D, CapsuleCollider2D를 지원한다.
-Cast 시작 중첩은 지면만, 일반 Hit은 GroundHit까지 표본에 기록한다.
+Cast와 시작 중첩 모두 부호 있는 거리, 지점, 법선을 표본에 기록한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -29,6 +29,9 @@ namespace inonego.Xeri.Game.Controller
     #region 필드
 
         public override Vector3 Gravity => Physics2D.gravity;
+
+        // 2D Cast는 전역 Trigger 질의 설정과 관계없이 비-Trigger 지면만 탐지합니다.
+        private readonly RaycastHit2D[] castHits = new RaycastHit2D[1];
 
     #endregion
 
@@ -74,7 +77,7 @@ namespace inonego.Xeri.Game.Controller
         /// 지면 감지에 사용할 수 있는 Collider2D인지 확인합니다.
         /// </summary>
         // ------------------------------------------------------------
-        protected override bool CheckColliderAvailable(Collider2D collider) => collider.enabled;
+        protected override bool CheckColliderAvailable(Collider2D collider) => collider.enabled && !collider.isTrigger;
 
         // -------------------------------------------------------------
         /// <summary>
@@ -112,9 +115,9 @@ namespace inonego.Xeri.Game.Controller
             var center = info.Center - info.Direction * GroundCheckerConfig.Thickness * 0.5f;
             var size   = new Vector3(info.Size.x, GroundCheckerConfig.Thickness, 0);
 
-            var hit = Physics2D.BoxCast(center, size, info.Angle, info.Direction, info.Depth, Config.Layer);
+            var hitCount = Physics2D.BoxCast(center, size, info.Angle, info.Direction, GetContactFilter(), castHits, info.Depth);
 
-            return CreateSample(hit);
+            return hitCount > 0 ? CreateSample(boxCollider, castHits[0]) : default;
         }
 
         // ------------------------------------------------------------
@@ -126,9 +129,9 @@ namespace inonego.Xeri.Game.Controller
         private GroundCheckSample2D DetectWithCircleCollider(CircleCollider2D circleCollider, float deltaTime)
         {
             var info = GetCircleColliderDetectionInfo(circleCollider, deltaTime);
-            var hit  = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, info.Depth, Config.Layer);
+            var hitCount = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, GetContactFilter(), castHits, info.Depth);
 
-            return CreateSample(hit);
+            return hitCount > 0 ? CreateSample(circleCollider, castHits[0]) : default;
         }
 
         // ------------------------------------------------------------------------------
@@ -142,14 +145,14 @@ namespace inonego.Xeri.Game.Controller
         {
             var info = GetCapsuleColliderDetectionInfo(capsuleCollider, deltaTime);
 
-            RaycastHit2D hit;
+            int hitCount;
 
             // ------------------------------------------------------------
             // 수직 캡슐 — CircleCast 사용
             // ------------------------------------------------------------
             if (info.Flag)
             {
-                hit = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, info.Depth, Config.Layer);
+                hitCount = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, GetContactFilter(), castHits, info.Depth);
             }
             // ------------------------------------------------------------
             // 수평 캡슐 — BoxCast 사용
@@ -159,40 +162,94 @@ namespace inonego.Xeri.Game.Controller
                 var center = info.Center - info.Direction * GroundCheckerConfig.Thickness * 0.5f;
                 var size   = new Vector3(info.Size.x, GroundCheckerConfig.Thickness, 0);
 
-                hit = Physics2D.BoxCast(center, size, info.Angle, info.Direction, info.Depth, Config.Layer);
+                hitCount = Physics2D.BoxCast(center, size, info.Angle, info.Direction, GetContactFilter(), castHits, info.Depth);
             }
 
-            return CreateSample(hit);
+            return hitCount > 0 ? CreateSample(capsuleCollider, castHits[0]) : default;
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// <br/>2D Cast 결과를 공통 바닥 표본으로 변환합니다.
-        /// <br/>시작 중첩은 지면만 보존하고 엔진이 대체한 표면 정보는 노출하지 않습니다.
+        /// 현재 Layer 설정으로 비-Trigger 2D 물리 질의 필터를 생성합니다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        private GroundCheckSample2D CreateSample(RaycastHit2D hit)
+        // ------------------------------------------------------------
+        private ContactFilter2D GetContactFilter()
+        {
+            var filter = new ContactFilter2D { useTriggers = false };
+            filter.SetLayerMask(Config.Layer);
+
+            return filter;
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/>2D Cast와 시작 중첩 결과를 완전한 바닥 표본으로 변환합니다.
+        /// <br/>중첩 거리는 음수이며 법선은 지면에서 검사 Collider를 향합니다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private GroundCheckSample2D CreateSample
+        (
+            Collider2D sourceCollider,
+            RaycastHit2D hit
+        )
         {
             if (hit.collider == null)
             {
                 return default;
             }
 
-            GroundHit? groundHit = hit.fraction > 0f
-                ? new GroundHit(hit.distance, hit.point, hit.normal)
-                : null;
+            if (hit.fraction > 0f)
+            {
+                return BuildSample
+                (
+                    hit.collider,
+                    hit.distance,
+                    hit.point,
+                    hit.normal
+                );
+            }
 
-            return BuildSample(hit.collider, groundHit);
+            // Cast 시작 중첩은 RaycastHit2D의 대체 표면값 대신 실제 Collider 간 거리를 사용합니다.
+            var distance = sourceCollider.Distance(hit.collider);
+
+            if (!distance.isValid)
+            {
+                return default;
+            }
+
+            // 중첩 거리는 음수이고 normal은 지면의 pointB에서 검사 형상의 pointA를 향합니다.
+            // 따라서 normal * distance가 검사 형상을 밖으로 꺼내며, 단위 지지 법선은 -normal입니다.
+            return BuildSample
+            (
+                hit.collider,
+                distance.distance,
+                distance.pointB,
+                -distance.normal
+            );
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 2D 바닥 표본을 생성합니다.
         /// </summary>
-        // ------------------------------------------------------------
-        protected override GroundCheckSample2D CreateSample(Collider2D groundCollider, Rigidbody2D groundRigid, GroundHit? hit)
+        // ----------------------------------------------------------------------
+        protected override GroundCheckSample2D CreateSample
+        (
+            Collider2D groundCollider,
+            Rigidbody2D groundRigid,
+            float distance,
+            Vector3 point,
+            Vector3 normal
+        )
         {
-            return new GroundCheckSample2D(groundCollider, groundRigid, hit);
+            return new GroundCheckSample2D
+            (
+                groundCollider,
+                groundRigid,
+                distance,
+                point,
+                normal
+            );
         }
 
     #endregion
