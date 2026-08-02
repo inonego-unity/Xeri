@@ -1,0 +1,17 @@
+{
+    "name": "inonego.Xeri.Samples.GameUIValidation",
+    "rootNamespace": "",
+    "references": [
+        "inonego.Xeri",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

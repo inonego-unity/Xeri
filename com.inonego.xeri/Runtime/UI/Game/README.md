@@ -15,21 +15,31 @@ Layer 순서, Screen Stack, Focus, Input, Transition과 표시 객체의 수명�
 
 ## 목차
 
-1. [전체 사용 흐름](#전체-사용-흐름)
-2. [핵심 구성 요소](#핵심-구성-요소)
-3. [최초 설정](#최초-설정)
-4. [Layer와 Profile 구성](#layer와-profile-구성)
-5. [Screen 하나 만들기](#screen-하나-만들기)
-6. [Screen Stack 사용](#screen-stack-사용)
-7. [상태 훅과 자식 수명](#상태-훅과-자식-수명)
-8. [Fade, Modal과 Overlay](#fade-modal과-overlay)
-9. [Focus와 Input](#focus와-input)
-10. [UGUI 보조 기능](#ugui-보조-기능)
-11. [UI Toolkit 웹 스타일 표현](#ui-toolkit-웹-스타일-표현)
-12. [종료와 소유권](#종료와-소유권)
-13. [AI 작업 절차](#ai-작업-절차)
-14. [문제 확인](#문제-확인)
-15. [소스 탐색표](#소스-탐색표)
+1. [검증 샘플](#검증-샘플)
+2. [전체 사용 흐름](#전체-사용-흐름)
+3. [핵심 구성 요소](#핵심-구성-요소)
+4. [최초 설정](#최초-설정)
+5. [Layer와 Profile 구성](#layer와-profile-구성)
+6. [Screen 하나 만들기](#screen-하나-만들기)
+7. [Screen Stack 사용](#screen-stack-사용)
+8. [상태 훅과 자식 수명](#상태-훅과-자식-수명)
+9. [Fade, Modal과 Overlay](#fade-modal과-overlay)
+10. [Focus와 Input](#focus와-input)
+11. [UGUI 보조 기능](#ugui-보조-기능)
+12. [UI Toolkit 웹 스타일 표현](#ui-toolkit-웹-스타일-표현)
+13. [종료와 소유권](#종료와-소유권)
+14. [AI 작업 절차](#ai-작업-절차)
+15. [문제 확인](#문제-확인)
+16. [소스 탐색표](#소스-탐색표)
+
+## 검증 샘플
+
+Package Manager에서 `Xeri > Samples > Game UI Validation`을 Import하면 Game UI Core의
+공개 경로를 실행하는 독립 Scene을 사용할 수 있다. 샘플은 전용 Settings, Gameplay Input
+Actions, Profile, UXML/USS와 Inter Font를 포함하며 프로젝트 전용 에셋을 참조하지 않는다.
+
+샘플의 `Web~/index.html`은 Unity 화면과 같은 1920×1080 수치를 사용하는 HTML/CSS 시각
+기준본이다. 상세 실행 방법과 비교 범위는 샘플의 `README.md`를 따른다.
 
 ## 전체 사용 흐름
 

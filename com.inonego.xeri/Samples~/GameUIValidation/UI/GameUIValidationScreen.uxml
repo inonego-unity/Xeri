@@ -1,0 +1,180 @@
+<!-- BLOCK_HEADER_BEGIN =====================================================================
+파일명 : GameUIValidationScreen.uxml
+수정일 : 2026-08-02
+
+# 설명
+HTML 디자인 기준의 Xeri Game UI Core 검증 화면 구조를 정의한다.
+
+# 특이사항, 제약사항
+검증용 화면이며 Runtime 소유권과 입력은 GameUIValidationLab이 연결한다.
+======================================================================= BLOCK_HEADER_END -->
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="ScreenRoot" class="validation-screen">
+        <ui:VisualElement class="validation-backdrop" />
+        <ui:VisualElement class="validation-grid validation-grid--vertical" />
+        <ui:VisualElement class="validation-grid validation-grid--horizontal" />
+        <ui:VisualElement class="ambient ambient--left" />
+        <ui:VisualElement class="ambient ambient--right" />
+
+        <ui:VisualElement name="DashboardView" class="dashboard-view">
+            <ui:VisualElement class="rail">
+                <ui:VisualElement class="brand-mark">
+                    <ui:Label text="X" class="brand-mark__letter" />
+                </ui:VisualElement>
+                <ui:Label text="XERI UI" class="rail__brand" />
+                <ui:Label text="VALIDATION LAB" class="rail__eyebrow" />
+
+                <ui:VisualElement class="rail__divider" />
+
+                <ui:Label text="LIVE SYSTEMS" class="rail__section-title" />
+                <ui:VisualElement class="rail-item rail-item--active">
+                    <ui:VisualElement class="rail-item__dot" />
+                    <ui:Label text="Screen Stack" />
+                </ui:VisualElement>
+                <ui:VisualElement class="rail-item">
+                    <ui:VisualElement class="rail-item__dot" />
+                    <ui:Label text="Presentation" />
+                </ui:VisualElement>
+                <ui:VisualElement class="rail-item">
+                    <ui:VisualElement class="rail-item__dot" />
+                    <ui:Label text="Input &amp; Focus" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="rail__spacer" />
+                <ui:VisualElement class="rail__runtime-card">
+                    <ui:VisualElement class="runtime-card__row">
+                        <ui:VisualElement class="runtime-card__pulse" />
+                        <ui:Label text="RUNTIME ONLINE" class="runtime-card__title" />
+                    </ui:VisualElement>
+                    <ui:Label name="GammaState" text="Linear / Gamma composite" class="runtime-card__copy" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="dashboard-content">
+                <ui:VisualElement class="topbar">
+                    <ui:VisualElement>
+                        <ui:Label text="SYSTEM PLAYGROUND" class="eyebrow" />
+                        <ui:Label text="Game UI Core" class="page-title" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="topbar__status">
+                        <ui:VisualElement class="topbar__status-dot" />
+                        <ui:Label name="LifecycleState" text="ACTIVE" class="topbar__status-label" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="hero-card">
+                    <ui:VisualElement class="hero-card__background" />
+                    <ui:VisualElement class="hero-card__glow" />
+                    <ui:VisualElement class="hero-card__content">
+                        <ui:Label text="ONE SCENE. REAL CORE PATHS." class="hero-card__eyebrow" />
+                        <ui:Label text="Shape the interface.&#10;Stress the lifecycle." class="hero-card__title" />
+                        <ui:Label text="A disposable validation surface for stack ownership, presentation layers, focus, input and transitions." class="hero-card__copy" />
+                        <ui:VisualElement class="hero-card__actions">
+                            <ui:Button name="PushButton" text="PUSH DETAIL" class="button button--primary" />
+                            <ui:Button name="ModalButton" text="OPEN MODAL" class="button button--ghost" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hero-card__orb">
+                        <ui:VisualElement class="hero-card__orb-shadow" />
+                        <ui:VisualElement class="hero-card__orb-surface" />
+                        <ui:VisualElement class="hero-card__orb-core" />
+                        <ui:Label text="CORE" class="hero-card__orb-label" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="metric-row">
+                    <ui:VisualElement class="metric-card">
+                        <ui:Label text="STACK DEPTH" class="metric-card__label" />
+                        <ui:Label name="StackCount" text="1" class="metric-card__value" />
+                        <ui:Label name="TopScreen" text="Dashboard" class="metric-card__detail" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="metric-card">
+                        <ui:Label text="MODAL LAYERS" class="metric-card__label" />
+                        <ui:Label name="ModalCount" text="0" class="metric-card__value" />
+                        <ui:Label text="Owned handle stack" class="metric-card__detail" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="metric-card">
+                        <ui:Label text="FADE STATE" class="metric-card__label" />
+                        <ui:Label name="FadeState" text="CLEAR" class="metric-card__value metric-card__value--small" />
+                        <ui:Label text="App default layer" class="metric-card__detail" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="metric-card metric-card--last">
+                        <ui:Label text="LAST INPUT" class="metric-card__label" />
+                        <ui:Label name="InputDevice" text="MOUSE" class="metric-card__value metric-card__value--small" />
+                        <ui:Label text="Keyboard / gamepad / pointer" class="metric-card__detail" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="action-row">
+                    <ui:Button name="FadeButton" class="action-card">
+                        <ui:Label text="01" class="action-card__index" />
+                        <ui:Label text="Cover → Reveal" class="action-card__title" />
+                        <ui:Label text="Run the default SceneFader across the whole frame." class="action-card__copy" />
+                        <ui:Label text="RUN FADE ↗" class="action-card__link" />
+                    </ui:Button>
+                    <ui:Button name="OverlayButton" class="action-card">
+                        <ui:Label text="02" class="action-card__index" />
+                        <ui:Label text="Overlay Toast" class="action-card__title" />
+                        <ui:Label text="Acquire a layer-backed Overlay Handle and release it." class="action-card__copy" />
+                        <ui:Label text="TOGGLE OVERLAY ↗" class="action-card__link" />
+                    </ui:Button>
+                    <ui:Button name="ClearButton" class="action-card action-card--last">
+                        <ui:Label text="03" class="action-card__index" />
+                        <ui:Label text="Clear &amp; Restore" class="action-card__title" />
+                        <ui:Label text="Force-clear the stack, then reopen this dashboard." class="action-card__copy" />
+                        <ui:Label text="TEST CLEANUP ↗" class="action-card__link" />
+                    </ui:Button>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="activity-strip">
+                    <ui:Label text="LATEST" class="activity-strip__label" />
+                    <ui:VisualElement class="activity-strip__divider" />
+                    <ui:Label name="ActivityText" text="Dashboard · Active" class="activity-strip__text" />
+                    <ui:Label text="TAB / D-PAD TO NAVIGATE" class="activity-strip__hint" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="DetailView" class="detail-view">
+            <ui:VisualElement class="detail-view__topbar">
+                <ui:VisualElement class="detail-view__brand-row">
+                    <ui:VisualElement class="detail-view__brand-mark" />
+                    <ui:Label text="XERI UI / STACK INSPECTOR" class="detail-view__brand" />
+                </ui:VisualElement>
+                <ui:Label name="DetailLifecycleState" text="OPENING" class="detail-view__state" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="detail-stage">
+                <ui:VisualElement class="detail-stage__halo xeri-loop" />
+                <ui:VisualElement class="detail-card">
+                    <ui:Label name="DetailIndex" text="SCREEN 02" class="detail-card__index" />
+                    <ui:Label name="DetailTitle" text="Stack detail" class="detail-card__title" />
+                    <ui:Label name="DetailCopy" text="This screen was acquired through IScreenSource and owns its layer usage, input session and transition." class="detail-card__copy" />
+
+                    <ui:VisualElement class="detail-card__telemetry">
+                        <ui:VisualElement class="detail-card__telemetry-item">
+                            <ui:Label text="DEPTH" class="detail-card__telemetry-label" />
+                            <ui:Label name="DetailDepth" text="2" class="detail-card__telemetry-value" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="detail-card__telemetry-item">
+                            <ui:Label text="TOP" class="detail-card__telemetry-label" />
+                            <ui:Label name="DetailTopScreen" text="Detail" class="detail-card__telemetry-value detail-card__telemetry-value--text" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="detail-card__telemetry-item detail-card__telemetry-item--last">
+                            <ui:Label text="MODE" class="detail-card__telemetry-label" />
+                            <ui:Label name="DetailMode" text="PUSH" class="detail-card__telemetry-value detail-card__telemetry-value--text" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="detail-card__actions">
+                        <ui:Button name="PushDeeperButton" text="PUSH ANOTHER" class="button button--primary" />
+                        <ui:Button name="ReplaceButton" text="REPLACE TOP" class="button button--ghost" />
+                        <ui:Button name="BackButton" text="POP SCREEN" class="button button--quiet" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:Label text="Each action uses the current GameUIRuntime — no parallel mock controller." class="detail-view__footnote" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

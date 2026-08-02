@@ -1,0 +1,1074 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : GameUIValidationScreen.uss
+수정일 : 2026-08-02
+
+# 설명
+HTML 디자인 기준으로 Xeri Game UI Core의 Screen, Stack과 Presentation 동작을 시각 검증한다.
+
+# 특이사항, 제약사항
+1920×1080 PanelSettings를 기준으로 하며 Xeri Gradient Material과 Gamma 합성을 사용한다.
+TextCore의 letter-spacing은 font-size 비율이므로 CSS의 px 자간을 등가 백분율로 표현한다.
+브라우저와 다른 TextCore 기준선은 CSS Layout Box를 유지한 채 Label translate로 보정한다.
+========================================================================= BLOCK_HEADER_END */
+:root {
+    --ink-0: rgb(4, 7, 16);
+    --ink-1: rgb(9, 14, 28);
+    --ink-2: rgb(17, 24, 43);
+    --line: rgba(154, 176, 220, 0.16);
+    --line-strong: rgba(154, 190, 255, 0.32);
+    --text: rgb(236, 243, 255);
+    --muted: rgb(133, 151, 184);
+    --cyan: rgb(83, 231, 255);
+    --violet: rgb(153, 108, 255);
+    --lime: rgb(153, 255, 185);
+}
+
+.validation-screen {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1920px;
+    height: 1080px;
+    margin-left: -960px;
+    margin-top: -540px;
+    color: var(--text);
+    font-size: 14px;
+    -unity-font-definition: url("../Fonts/Inter-Regular.ttf");
+    overflow: visible;
+}
+
+.validation-backdrop {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #050713)
+        prop("_Color1" #0a1020)
+        prop("_Color2" #11172c)
+        prop("_ColorCount" 3)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 0.48 0.48)
+        prop("_Stop2" 1 1)
+        prop("_Angle" 132)
+        prop("_Tiling" 1);
+}
+
+.validation-grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    opacity: 0.18;
+    background-color: white;
+}
+
+.validation-grid--vertical {
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" rgba(142, 178, 255, 0.055))
+        prop("_Color1" rgba(142, 178, 255, 0))
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0.015625)
+        prop("_Stop1" 0.015625 1)
+        prop("_Angle" 90)
+        prop("_Tiling" 30);
+}
+
+.validation-grid--horizontal {
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" rgba(142, 178, 255, 0.055))
+        prop("_Color1" rgba(142, 178, 255, 0))
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0.015625)
+        prop("_Stop1" 0.015625 1)
+        prop("_Angle" 0)
+        prop("_Tiling" 16.875);
+}
+
+.ambient {
+    position: absolute;
+    width: 720px;
+    height: 720px;
+    border-radius: 360px;
+    background-color: white;
+}
+
+.ambient--left {
+    left: -320px;
+    top: -300px;
+    opacity: 0.5;
+    -unity-material: resource("XeriUI/Materials/RadialGrad")
+        prop("_Color0" rgba(72, 214, 255, 0.85))
+        prop("_Color1" rgba(95, 80, 255, 0.15))
+        prop("_Color2" rgba(10, 15, 30, 0))
+        prop("_ColorCount" 3)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 0.45 0.45)
+        prop("_Stop2" 1 1)
+        prop("_Center" 0.5 0.5)
+        prop("_Radius" 1 1)
+        prop("_Tiling" 1);
+}
+
+.ambient--right {
+    right: -280px;
+    bottom: -360px;
+    opacity: 0.34;
+    -unity-material: resource("XeriUI/Materials/ConicGrad")
+        prop("_Color0" rgba(152, 95, 255, 0.74))
+        prop("_Color1" rgba(73, 222, 255, 0.62))
+        prop("_Color2" rgba(255, 105, 194, 0.18))
+        prop("_Color3" rgba(152, 95, 255, 0.74))
+        prop("_ColorCount" 4)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 0.35 0.35)
+        prop("_Stop2" 0.7 0.7)
+        prop("_Stop3" 1 1)
+        prop("_Center" 0.5 0.5)
+        prop("_Angle" 18);
+}
+
+.dashboard-view,
+.detail-view {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.dashboard-view {
+    flex-direction: row;
+    padding: 22px;
+}
+
+.rail {
+    width: 232px;
+    flex-shrink: 0;
+    padding: 24px 20px;
+    background-color: rgba(6, 10, 22, 0.78);
+    border-radius: 24px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+}
+
+.brand-mark {
+    width: 46px;
+    height: 46px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #5ce5ff)
+        prop("_Color1" #9b6dff)
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 1 1)
+        prop("_Angle" 138)
+        prop("_Tiling" 1);
+}
+
+.brand-mark__letter {
+    color: rgb(7, 10, 20);
+    font-size: 25px;
+    -unity-font-style: bold;
+}
+
+.rail__brand {
+    margin-top: 15px;
+    font-size: 18px;
+    letter-spacing: 16.6667%;
+    translate: -1px -1px;
+    -unity-font-style: bold;
+}
+
+.rail__eyebrow,
+.eyebrow,
+.hero-card__eyebrow,
+.metric-card__label,
+.activity-strip__label,
+.detail-card__index,
+.detail-card__telemetry-label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 20%;
+    -unity-font-style: bold;
+}
+
+.rail__eyebrow {
+    margin-top: 4px;
+    translate: 0 -2px;
+}
+
+.rail__divider {
+    height: 1px;
+    margin-top: 24px;
+    margin-bottom: 22px;
+    background-color: var(--line);
+}
+
+.rail__section-title {
+    margin-bottom: 10px;
+    color: rgb(96, 116, 151);
+    font-size: 9px;
+    letter-spacing: 20%;
+    translate: 0 -2px;
+}
+
+.rail-item {
+    height: 42px;
+    margin-bottom: 5px;
+    padding-left: 12px;
+    flex-direction: row;
+    align-items: center;
+    color: rgb(119, 138, 172);
+    border-radius: 12px;
+}
+
+.rail-item--active {
+    color: var(--text);
+    background-color: rgba(108, 143, 255, 0.13);
+}
+
+.rail-item__dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 11px;
+    border-radius: 3px;
+    background-color: rgb(89, 224, 255);
+}
+
+.rail__spacer {
+    flex-grow: 1;
+}
+
+.rail__runtime-card {
+    padding: 14px;
+    background-color: rgba(80, 113, 192, 0.09);
+    border-radius: 14px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+}
+
+.runtime-card__row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.runtime-card__pulse {
+    width: 7px;
+    height: 7px;
+    margin-right: 8px;
+    border-radius: 4px;
+    background-color: var(--lime);
+    opacity: 1;
+}
+
+.runtime-card__title {
+    color: var(--lime);
+    font-size: 9px;
+    letter-spacing: 14.4444%;
+    -unity-font-style: bold;
+}
+
+.runtime-card__copy {
+    margin-top: 7px;
+    color: rgb(111, 132, 165);
+    font-size: 10px;
+}
+
+.dashboard-content {
+    flex-grow: 1;
+    min-width: 0;
+    padding-left: 28px;
+    padding-right: 14px;
+    padding-top: 7px;
+    padding-bottom: 4px;
+}
+
+.topbar {
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.page-title {
+    margin-top: 2px;
+    height: 26px;
+    font-size: 26px;
+    translate: 0 -6px;
+    -unity-font-style: bold;
+}
+
+.topbar__status {
+    height: 34px;
+    padding-left: 13px;
+    padding-right: 15px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(14, 23, 42, 0.72);
+    border-radius: 17px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+}
+
+.topbar .eyebrow {
+    translate: 0 -1px;
+}
+
+.topbar__status-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 9px;
+    border-radius: 3px;
+    background-color: var(--cyan);
+}
+
+.topbar__status-label {
+    color: rgb(180, 219, 255);
+    font-size: 9px;
+    letter-spacing: 15.5556%;
+    -unity-font-style: bold;
+}
+
+.hero-card {
+    min-height: 245px;
+    flex-grow: 1;
+    max-height: 330px;
+    flex-direction: row;
+    overflow: hidden;
+    border-radius: 26px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(132, 219, 255, 0.32);
+    border-right-color: rgba(132, 219, 255, 0.32);
+    border-top-color: rgba(132, 219, 255, 0.32);
+    border-bottom-color: rgba(132, 219, 255, 0.32);
+}
+
+.hero-card__background {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 25px;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #10294c)
+        prop("_Color1" #29235f)
+        prop("_Color2" #10213c)
+        prop("_ColorCount" 3)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 0.52 0.52)
+        prop("_Stop2" 1 1)
+        prop("_Angle" 116)
+        prop("_Tiling" 1);
+}
+
+.hero-card__glow {
+    position: absolute;
+    left: -120px;
+    top: -180px;
+    width: 520px;
+    height: 520px;
+    opacity: 0.56;
+    border-radius: 50%;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/RadialGrad")
+        prop("_Color0" rgba(77, 235, 255, 0.72))
+        prop("_Color1" rgba(77, 235, 255, 0))
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 0.75 0.75)
+        prop("_Center" 0.5 0.5)
+        prop("_Radius" 0.5 0.5)
+        prop("_Tiling" 1);
+}
+
+.hero-card__content {
+    position: relative;
+    width: 68%;
+    padding: 34px 38px;
+    justify-content: center;
+}
+
+.hero-card__eyebrow {
+    color: rgb(120, 234, 255);
+}
+
+.hero-card__title {
+    margin-top: 9px;
+    /* USS에 line-height가 없어 CSS 36px × 1.12 × 2줄을 Layout 높이로 표현한다. */
+    height: 80.64px;
+    font-size: 36px;
+    -unity-font-style: bold;
+}
+
+.hero-card__copy {
+    max-width: 600px;
+    margin-top: 12px;
+    /* USS에 line-height가 없어 CSS 13px × 1.45 × 2줄을 Layout 높이로 표현한다. */
+    height: 37.7px;
+    color: rgb(169, 190, 222);
+    font-size: 13px;
+    white-space: normal;
+}
+
+.hero-card__actions,
+.detail-card__actions {
+    flex-direction: row;
+}
+
+.hero-card__actions {
+    margin-top: 23px;
+}
+
+.detail-card__actions {
+    margin-top: 23px;
+}
+
+.hero-card__orb {
+    position: absolute;
+    right: 52px;
+    top: 50%;
+    width: 154px;
+    height: 154px;
+    margin-top: -77px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 77px;
+}
+
+.hero-card__orb-shadow {
+    position: absolute;
+    left: -52px;
+    right: -52px;
+    top: -52px;
+    bottom: -52px;
+    border-radius: 129px;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/RadialGrad")
+        prop("_Color0" rgba(119, 194, 255, 0.22))
+        prop("_Color1" rgba(119, 194, 255, 0))
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0.2)
+        prop("_Stop1" 0.72 1)
+        prop("_Center" 0.5 0.5)
+        prop("_Radius" 0.5 0.5)
+        prop("_Tiling" 1);
+}
+
+.hero-card__orb-surface {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 77px;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/ConicGrad")
+        prop("_Color0" #61e7ff)
+        prop("_Color1" #8c6dff)
+        prop("_Color2" #ff75ce)
+        prop("_Color3" #61e7ff)
+        prop("_ColorCount" 4)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 0.35 0.35)
+        prop("_Stop2" 0.68 0.68)
+        prop("_Stop3" 1 1)
+        prop("_Center" 0.5 0.5)
+        prop("_Angle" 0);
+}
+
+.hero-card__orb-core {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    top: 16px;
+    bottom: 16px;
+    border-radius: 61px;
+    background-color: rgba(235, 245, 255, 0.74);
+}
+
+.hero-card__orb-label {
+    position: relative;
+    color: rgb(10, 13, 27);
+    font-size: 18px;
+    letter-spacing: 16.6667%;
+    -unity-font-style: bold;
+}
+
+.button {
+    min-width: 132px;
+    height: 42px;
+    margin-right: 10px;
+    padding-left: 18px;
+    padding-right: 18px;
+    border-radius: 12px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.3);
+    border-right-color: rgba(255, 255, 255, 0.3);
+    border-top-color: rgba(255, 255, 255, 0.3);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+    color: rgb(211, 225, 248);
+    background-color: rgba(8, 13, 27, 0.42);
+    font-size: 10px;
+    letter-spacing: 11%;
+    -unity-font-style: bold;
+}
+
+.button--primary {
+    color: rgb(5, 12, 23);
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #65eaff)
+        prop("_Color1" #a58aff)
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0)
+        prop("_Stop1" 1 1)
+        prop("_Angle" 104)
+        prop("_Tiling" 1);
+    border-left-color: rgba(255, 255, 255, 0.42);
+    border-right-color: rgba(255, 255, 255, 0.42);
+    border-top-color: rgba(255, 255, 255, 0.42);
+    border-bottom-color: rgba(255, 255, 255, 0.42);
+}
+
+.button--quiet {
+    color: rgb(146, 166, 199);
+    background-color: rgba(8, 13, 27, 0.18);
+}
+
+.metric-row {
+    height: 126px;
+    margin-top: 16px;
+    flex-direction: row;
+}
+
+.metric-card {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    margin-right: 12px;
+    padding: 18px 19px;
+    background-color: rgba(10, 16, 31, 0.72);
+    border-radius: 17px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+}
+
+.metric-card--last {
+    margin-right: 0;
+}
+
+.metric-card__value {
+    margin-top: 8px;
+    height: 31px;
+    font-size: 31px;
+    translate: 0 -4px;
+    -unity-font-style: bold;
+}
+
+.metric-card__value--small {
+    height: 18px;
+    font-size: 18px;
+    margin-top: 14px;
+}
+
+.metric-card__detail {
+    margin-top: 7px;
+    color: rgb(105, 125, 158);
+    font-size: 10px;
+    translate: 0 -2px;
+}
+
+.metric-card__label {
+    translate: 0 -1px;
+}
+
+.action-row {
+    height: 145px;
+    margin-top: 13px;
+    flex-direction: row;
+}
+
+.action-card {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    margin-right: 12px;
+    padding: 17px 19px;
+    align-items: flex-start;
+    background-color: rgba(11, 17, 32, 0.7);
+    border-radius: 17px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+    transition-property: background-color, border-left-color, border-right-color, border-top-color, border-bottom-color;
+    transition-duration: 0.16s;
+}
+
+.action-card--last {
+    margin-right: 0;
+}
+
+.action-card:hover,
+.action-card:focus {
+    background-color: rgba(25, 37, 66, 0.86);
+    border-left-color: var(--line-strong);
+    border-right-color: var(--line-strong);
+    border-top-color: var(--line-strong);
+    border-bottom-color: var(--line-strong);
+}
+
+.action-card__index {
+    color: var(--cyan);
+    font-size: 9px;
+    letter-spacing: 16.6667%;
+}
+
+.action-card__title {
+    margin-top: 7px;
+    font-size: 17px;
+    -unity-font-style: bold;
+}
+
+.action-card__copy {
+    margin-top: 5px;
+    color: rgb(116, 137, 170);
+    font-size: 10px;
+}
+
+.action-card__link {
+    margin-top: auto;
+    color: rgb(164, 216, 255);
+    font-size: 9px;
+    letter-spacing: 12.2222%;
+    -unity-font-style: bold;
+}
+
+.activity-strip {
+    height: 40px;
+    margin-top: 13px;
+    padding-left: 14px;
+    padding-right: 14px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(7, 11, 23, 0.58);
+    border-radius: 12px;
+}
+
+.activity-strip__label {
+    color: var(--cyan);
+}
+
+.activity-strip__divider {
+    width: 1px;
+    height: 15px;
+    margin-left: 12px;
+    margin-right: 12px;
+    background-color: var(--line);
+}
+
+.activity-strip__text {
+    flex-grow: 1;
+    color: rgb(151, 172, 206);
+    font-size: 10px;
+}
+
+.activity-strip__hint {
+    color: rgb(83, 102, 133);
+    font-size: 8px;
+    letter-spacing: 13.75%;
+}
+
+.detail-view {
+    padding: 28px 36px;
+}
+
+.detail-view__topbar {
+    height: 52px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.detail-view__brand-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.detail-view__brand-mark {
+    width: 22px;
+    height: 22px;
+    margin-right: 11px;
+    border-radius: 7px;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #5ce5ff)
+        prop("_Color1" #9b6dff)
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0.3)
+        prop("_Stop1" 0.72 1)
+        prop("_Angle" 135)
+        prop("_Tiling" 1);
+}
+
+.detail-view__brand,
+.detail-view__state {
+    color: rgb(144, 165, 199);
+    font-size: 9px;
+    letter-spacing: 16.6667%;
+    -unity-font-style: bold;
+}
+
+.detail-view__state {
+    color: var(--cyan);
+}
+
+.detail-stage {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-stage__halo {
+    position: absolute;
+    width: 720px;
+    height: 720px;
+    border-radius: 360px;
+    opacity: 0.36;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/RadialGrad")
+        prop("_Color0" rgba(91, 227, 255, 0.62))
+        prop("_Color1" rgba(131, 99, 255, 0.24))
+        prop("_Color2" rgba(9, 13, 27, 0))
+        prop("_ColorCount" 3)
+        prop("_Stop0" 0 0.12)
+        prop("_Stop1" 0.35 0.54)
+        prop("_Stop2" 0.78 1)
+        prop("_Center" 0.5 0.5)
+        prop("_Radius" 0.5 0.5)
+        prop("_Tiling" 1);
+    transition-property: opacity, scale;
+    transition-duration: 2.2s, 2.2s;
+    transition-timing-function: ease-in-out, ease-in-out;
+    --xeri-next: "detail-stage__halo-on";
+    --xeri-loop-trigger: "opacity";
+}
+
+.detail-stage__halo.detail-stage__halo-on {
+    opacity: 0.58;
+    scale: 1.08 1.08;
+    --xeri-next: "detail-stage__halo-off";
+}
+
+.detail-stage__halo.detail-stage__halo-off {
+    opacity: 0.28;
+    scale: 0.94 0.94;
+    --xeri-next: "detail-stage__halo-on";
+}
+
+.detail-card {
+    width: 670px;
+    min-height: 440px;
+    padding: 42px;
+    justify-content: center;
+    background-color: rgba(9, 15, 29, 0.9);
+    border-radius: 28px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(126, 221, 255, 0.35);
+    border-right-color: rgba(165, 119, 255, 0.3);
+    border-top-color: rgba(126, 221, 255, 0.35);
+    border-bottom-color: rgba(165, 119, 255, 0.3);
+}
+
+.detail-card__index {
+    color: var(--cyan);
+}
+
+.detail-card__title {
+    margin-top: 12px;
+    font-size: 42px;
+    -unity-font-style: bold;
+}
+
+.detail-card__copy {
+    margin-top: 13px;
+    max-width: 540px;
+    color: rgb(143, 164, 197);
+    font-size: 13px;
+    white-space: normal;
+}
+
+.detail-card__telemetry {
+    height: 92px;
+    margin-top: 30px;
+    padding-top: 17px;
+    padding-bottom: 17px;
+    flex-direction: row;
+    background-color: rgba(101, 133, 210, 0.08);
+    border-radius: 16px;
+}
+
+.detail-card__telemetry-item {
+    flex-grow: 1;
+    padding-left: 20px;
+    border-right-width: 1px;
+    border-right-color: var(--line);
+}
+
+.detail-card__telemetry-item--last {
+    border-right-width: 0;
+}
+
+.detail-card__telemetry-value {
+    margin-top: 7px;
+    font-size: 21px;
+    -unity-font-style: bold;
+}
+
+.detail-card__telemetry-value--text {
+    font-size: 13px;
+}
+
+.detail-view__footnote {
+    align-self: center;
+    margin-bottom: 5px;
+    color: rgb(77, 96, 128);
+    font-size: 9px;
+    letter-spacing: 8.8889%;
+}
+
+.modal-surface {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(2, 5, 14, 0.76);
+}
+
+.modal-card {
+    width: 460px;
+    min-height: 300px;
+    padding: 32px;
+    color: var(--text);
+    background-color: white;
+    border-radius: 24px;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #172744)
+        prop("_Color1" #271f50)
+        prop("_Color2" #111a2e)
+        prop("_ColorCount" 3)
+        prop("_Stop0" 0 0.32)
+        prop("_Stop1" 0.5 0.72)
+        prop("_Stop2" 0.9 1)
+        prop("_Angle" 126)
+        prop("_Tiling" 1);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(113, 226, 255, 0.4);
+    border-right-color: rgba(174, 126, 255, 0.34);
+    border-top-color: rgba(113, 226, 255, 0.4);
+    border-bottom-color: rgba(174, 126, 255, 0.34);
+}
+
+.modal-card__eyebrow {
+    color: var(--cyan);
+    font-size: 9px;
+    letter-spacing: 20%;
+    -unity-font-style: bold;
+}
+
+.modal-card__title {
+    margin-top: 12px;
+    font-size: 28px;
+    -unity-font-style: bold;
+}
+
+.modal-card__copy {
+    margin-top: 12px;
+    color: rgb(159, 180, 212);
+    font-size: 12px;
+    white-space: normal;
+}
+
+.modal-card__rule {
+    height: 1px;
+    margin-top: 24px;
+    margin-bottom: 22px;
+    background-color: var(--line);
+}
+
+.overlay-toast {
+    position: absolute;
+    right: 30px;
+    bottom: 28px;
+    width: 340px;
+    min-height: 96px;
+    padding: 17px 18px;
+    color: var(--text);
+    flex-direction: row;
+    align-items: center;
+    background-color: white;
+    border-radius: 17px;
+    -unity-material: resource("XeriUI/Materials/LinearGrad")
+        prop("_Color0" #17324b)
+        prop("_Color1" #26224f)
+        prop("_Color2" #10192c)
+        prop("_ColorCount" 3)
+        prop("_Stop0" 0 0.28)
+        prop("_Stop1" 0.48 0.7)
+        prop("_Stop2" 0.9 1)
+        prop("_Angle" 112)
+        prop("_Tiling" 1);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(108, 229, 255, 0.42);
+    border-right-color: rgba(170, 125, 255, 0.36);
+    border-top-color: rgba(108, 229, 255, 0.42);
+    border-bottom-color: rgba(170, 125, 255, 0.36);
+}
+
+.overlay-toast__signal {
+    width: 38px;
+    height: 38px;
+    margin-right: 13px;
+    border-radius: 19px;
+    background-color: white;
+    -unity-material: resource("XeriUI/Materials/RadialGrad")
+        prop("_Color0" #aaffce)
+        prop("_Color1" #53dfff)
+        prop("_ColorCount" 2)
+        prop("_Stop0" 0 0.25)
+        prop("_Stop1" 0.72 1)
+        prop("_Center" 0.5 0.5)
+        prop("_Radius" 0.5 0.5)
+        prop("_Tiling" 1);
+}
+
+.overlay-toast__content {
+    flex-grow: 1;
+}
+
+.overlay-toast__title {
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.overlay-toast__copy {
+    margin-top: 4px;
+    color: rgb(139, 163, 198);
+    font-size: 9px;
+}
+
+.overlay-toast__close {
+    width: 30px;
+    height: 30px;
+    margin-left: 10px;
+    padding: 0;
+    color: rgb(184, 208, 239);
+    background-color: rgba(7, 12, 24, 0.38);
+    border-radius: 15px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: var(--line);
+    border-right-color: var(--line);
+    border-top-color: var(--line);
+    border-bottom-color: var(--line);
+}
+
+.page-title,
+.hero-card__title,
+.metric-card__value,
+.action-card__title,
+.detail-card__title,
+.detail-card__telemetry-value,
+.modal-card__title,
+.overlay-toast__title {
+    -unity-font-definition: url("../Fonts/Inter-Bold.ttf");
+    -unity-font-style: normal;
+}
+
+.runtime-card__title {
+    -unity-font-definition: url("../Fonts/Inter-Bold.ttf");
+    -unity-font-style: normal;
+}
+
+.brand-mark__letter,
+.rail__brand,
+.rail__eyebrow,
+.eyebrow,
+.hero-card__eyebrow,
+.metric-card__label,
+.activity-strip__label,
+.detail-card__index,
+.detail-card__telemetry-label,
+.topbar__status-label,
+.button,
+.action-card__index,
+.action-card__link,
+.detail-view__brand,
+.detail-view__state,
+.modal-card__eyebrow {
+    -unity-font-definition: url("../Fonts/Inter-ExtraBold.ttf");
+    -unity-font-style: normal;
+}
+
+.hero-card__orb-label {
+    -unity-font-definition: url("../Fonts/Inter-Black.ttf");
+    -unity-font-style: normal;
+}

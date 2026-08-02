@@ -1,0 +1,134 @@
+<!-- BLOCK_HEADER_BEGIN =====================================================================
+파일명 : index.html
+수정일 : 2026-08-01
+
+# 설명
+Xeri Game UI Validation 화면의 1920×1080 HTML 구조를 제공한다.
+
+# 특이사항, 제약사항
+Unity 구현과 1:1 시각 비교하기 위한 독립 목업이며 게임 Runtime 코드를 포함하지 않는다.
+======================================================================= BLOCK_HEADER_END -->
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Xeri UI Validation — CSS Reference</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="stage" aria-label="Xeri UI validation CSS reference">
+        <section class="canvas" data-reference-size="1920x1080">
+            <div class="backdrop"></div>
+            <div class="grid"></div>
+            <div class="ambient ambient-left"></div>
+            <div class="ambient ambient-right"></div>
+
+            <div class="dashboard">
+                <aside class="rail">
+                    <div class="brand-mark">X</div>
+                    <div class="rail-brand">XERI UI</div>
+                    <div class="rail-eyebrow">VALIDATION LAB</div>
+                    <div class="rail-divider"></div>
+
+                    <div class="rail-title">LIVE SYSTEMS</div>
+                    <div class="rail-item active"><span></span>Screen Stack</div>
+                    <div class="rail-item"><span></span>Presentation</div>
+                    <div class="rail-item"><span></span>Input &amp; Focus</div>
+
+                    <div class="rail-spacer"></div>
+                    <div class="runtime-card">
+                        <div class="runtime-row"><i></i><strong>RUNTIME ONLINE</strong></div>
+                        <p>Linear / Gamma composite</p>
+                    </div>
+                </aside>
+
+                <section class="content">
+                    <header class="topbar">
+                        <div>
+                            <div class="eyebrow">SYSTEM PLAYGROUND</div>
+                            <h1>Game UI Core</h1>
+                        </div>
+                        <div class="status"><i></i>ACTIVE</div>
+                    </header>
+
+                    <section class="hero">
+                        <div class="hero-glow"></div>
+                        <div class="hero-copy">
+                            <div class="eyebrow cyan">ONE SCENE. REAL CORE PATHS.</div>
+                            <h2>Shape the interface.<br>Stress the lifecycle.</h2>
+                            <p>A disposable validation surface for stack ownership, presentation layers, focus, input and transitions.</p>
+                            <div class="hero-actions">
+                                <button class="button primary">PUSH DETAIL</button>
+                                <button class="button ghost">OPEN MODAL</button>
+                            </div>
+                        </div>
+                        <div class="hero-orb"><span>CORE</span></div>
+                    </section>
+
+                    <section class="metrics">
+                        <article class="metric">
+                            <div class="metric-label">STACK DEPTH</div>
+                            <strong>1</strong>
+                            <small>Dashboard</small>
+                        </article>
+                        <article class="metric">
+                            <div class="metric-label">MODAL LAYERS</div>
+                            <strong>0</strong>
+                            <small>Owned handle stack</small>
+                        </article>
+                        <article class="metric">
+                            <div class="metric-label">FADE STATE</div>
+                            <strong class="word">CLEAR</strong>
+                            <small>App default layer</small>
+                        </article>
+                        <article class="metric">
+                            <div class="metric-label">LAST INPUT</div>
+                            <strong class="word">MOUSE</strong>
+                            <small>Keyboard / gamepad / pointer</small>
+                        </article>
+                    </section>
+
+                    <section class="actions">
+                        <button class="action-card">
+                            <span class="action-index">01</span>
+                            <strong>Cover → Reveal</strong>
+                            <p>Run the default SceneFader across the whole frame.</p>
+                            <span class="action-link">RUN FADE ↗</span>
+                        </button>
+                        <button class="action-card">
+                            <span class="action-index">02</span>
+                            <strong>Overlay Toast</strong>
+                            <p>Acquire a layer-backed Overlay Handle and release it.</p>
+                            <span class="action-link">TOGGLE OVERLAY ↗</span>
+                        </button>
+                        <button class="action-card">
+                            <span class="action-index">03</span>
+                            <strong>Clear &amp; Restore</strong>
+                            <p>Force-clear the stack, then reopen this dashboard.</p>
+                            <span class="action-link">TEST CLEANUP ↗</span>
+                        </button>
+                    </section>
+
+                    <footer class="activity">
+                        <strong>LATEST</strong>
+                        <i></i>
+                        <span>Dashboard · Active</span>
+                        <small>TAB / D-PAD TO NAVIGATE</small>
+                    </footer>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const canvas = document.querySelector('.canvas');
+        const fitReferenceCanvas = () => {
+            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            canvas.style.setProperty('--reference-scale', scale);
+        };
+        window.addEventListener('resize', fitReferenceCanvas);
+        fitReferenceCanvas();
+    </script>
+</body>
+</html>

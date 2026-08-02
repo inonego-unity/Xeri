@@ -1,0 +1,534 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : style.css
+수정일 : 2026-08-01
+
+# 설명
+Xeri Game UI Validation의 공통 시각 수치와 설정을 정의하는 브라우저 기준본이다.
+
+# 특이사항, 제약사항
+1920×1080을 기준으로 하며 USS가 직접 지원하는 공통 값은 이 파일과 동일하게 유지한다.
+JavaScript는 캔버스의 균일 축소에만 사용한다.
+========================================================================= BLOCK_HEADER_END */
+
+@font-face {
+    font-family: "Inter Validation";
+    src: url("../Fonts/Inter-Regular.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: "Inter Validation";
+    src: url("../Fonts/Inter-Bold.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 700;
+}
+
+@font-face {
+    font-family: "Inter Validation";
+    src: url("../Fonts/Inter-ExtraBold.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 800;
+}
+
+@font-face {
+    font-family: "Inter Validation";
+    src: url("../Fonts/Inter-Black.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 900;
+}
+
+:root {
+    color-scheme: dark;
+    --ink-0: #040710;
+    --ink-1: #090e1c;
+    --ink-2: #11182b;
+    --line: rgba(154, 176, 220, 0.16);
+    --line-strong: rgba(154, 190, 255, 0.32);
+    --text: #ecf3ff;
+    --muted: #8597b8;
+    --cyan: #53e7ff;
+    --violet: #996cff;
+    --lime: #99ffb9;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #02040a;
+    font-family: "Inter Validation", sans-serif;
+    color: var(--text);
+}
+
+button {
+    font: inherit;
+}
+
+.stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.canvas {
+    --reference-scale: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform: translate(-50%, -50%) scale(var(--reference-scale));
+    background: var(--ink-0);
+    transform-origin: center;
+}
+
+.backdrop,
+.grid,
+.ambient {
+    position: absolute;
+    pointer-events: none;
+}
+
+.backdrop {
+    inset: 0;
+    background: linear-gradient(132deg, #050713 0%, #0a1020 48%, #11172c 100%);
+}
+
+.grid {
+    inset: 0;
+    opacity: 0.18;
+    background-image:
+        linear-gradient(rgba(142, 178, 255, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(142, 178, 255, 0.055) 1px, transparent 1px);
+    background-size: 64px 64px;
+}
+
+.ambient {
+    width: 720px;
+    height: 720px;
+    border-radius: 50%;
+    filter: saturate(1.08);
+}
+
+.ambient-left {
+    left: -320px;
+    top: -300px;
+    opacity: 0.5;
+    background: radial-gradient(circle at 50% 50%, rgba(72, 214, 255, 0.85) 0%, rgba(95, 80, 255, 0.15) 45%, rgba(10, 15, 30, 0) 100%);
+}
+
+.ambient-right {
+    right: -280px;
+    bottom: -360px;
+    opacity: 0.34;
+    background: conic-gradient(from 18deg, rgba(152, 95, 255, 0.74), rgba(73, 222, 255, 0.62) 35%, rgba(255, 105, 194, 0.18) 70%, rgba(152, 95, 255, 0.74));
+}
+
+.dashboard {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    padding: 22px;
+}
+
+.rail {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 0 0 232px;
+    flex-direction: column;
+    padding: 24px 20px;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background: rgba(6, 10, 22, 0.78);
+    backdrop-filter: blur(18px);
+}
+
+.brand-mark {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 14px;
+    background: linear-gradient(138deg, #5ce5ff, #9b6dff);
+    color: #070a14;
+    font-size: 25px;
+    font-weight: 800;
+}
+
+.rail-brand {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 3px;
+}
+
+.rail-eyebrow,
+.eyebrow,
+.metric-label,
+.activity strong {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.rail-eyebrow {
+    margin-top: 4px;
+}
+
+.rail-divider {
+    height: 1px;
+    margin: 24px 0 22px;
+    background: var(--line);
+}
+
+.rail-title {
+    margin-bottom: 10px;
+    color: #607497;
+    font-size: 9px;
+    letter-spacing: 1.8px;
+}
+
+.rail-item {
+    display: flex;
+    height: 42px;
+    align-items: center;
+    margin-bottom: 5px;
+    padding-left: 12px;
+    border-radius: 12px;
+    color: #778aac;
+    font-size: 14px;
+}
+
+.rail-item.active {
+    color: var(--text);
+    background: rgba(108, 143, 255, 0.13);
+}
+
+.rail-item span {
+    width: 6px;
+    height: 6px;
+    margin-right: 11px;
+    border-radius: 50%;
+    background: #59e0ff;
+}
+
+.rail-spacer {
+    flex: 1;
+}
+
+.runtime-card {
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(80, 113, 192, 0.09);
+}
+
+.runtime-row {
+    display: flex;
+    align-items: center;
+    color: var(--lime);
+    font-size: 9px;
+    letter-spacing: 1.3px;
+}
+
+.runtime-row i {
+    width: 7px;
+    height: 7px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--lime);
+    box-shadow: 0 0 14px rgba(153, 255, 185, 0.8);
+}
+
+.runtime-card p {
+    margin: 7px 0 0;
+    color: #6f84a5;
+    font-size: 10px;
+}
+
+.content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    padding: 7px 14px 4px 28px;
+}
+
+.topbar {
+    display: flex;
+    height: 64px;
+    flex: 0 0 64px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.topbar h1 {
+    margin: 2px 0 0;
+    font-size: 26px;
+    line-height: 1;
+}
+
+.status {
+    display: flex;
+    height: 34px;
+    align-items: center;
+    padding: 0 15px 0 13px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    background: rgba(14, 23, 42, 0.72);
+    color: #b4dbff;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+}
+
+.status i {
+    width: 6px;
+    height: 6px;
+    margin-right: 9px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 12px rgba(83, 231, 255, 0.8);
+}
+
+.hero {
+    position: relative;
+    display: flex;
+    min-height: 245px;
+    max-height: 330px;
+    flex: 1;
+    overflow: hidden;
+    border: 1px solid rgba(132, 219, 255, 0.32);
+    border-radius: 26px;
+    background: linear-gradient(116deg, #10294c 0%, #29235f 52%, #10213c 100%);
+}
+
+.hero-glow {
+    position: absolute;
+    left: -120px;
+    top: -180px;
+    width: 520px;
+    height: 520px;
+    border-radius: 50%;
+    opacity: 0.56;
+    background: radial-gradient(circle, rgba(77, 235, 255, 0.72), rgba(77, 235, 255, 0) 75%);
+}
+
+.hero-copy {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 68%;
+    flex-direction: column;
+    justify-content: center;
+    padding: 34px 38px;
+}
+
+.eyebrow.cyan {
+    color: #78eaff;
+}
+
+.hero h2 {
+    margin: 9px 0 0;
+    font-size: 36px;
+    line-height: 1.12;
+}
+
+.hero-copy > p {
+    max-width: 600px;
+    margin: 12px 0 0;
+    color: #a9bede;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.hero-actions {
+    display: flex;
+    margin-top: 23px;
+}
+
+.button {
+    min-width: 132px;
+    height: 42px;
+    margin-right: 10px;
+    padding: 0 18px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    color: #d3e1f8;
+    background: rgba(8, 13, 27, 0.42);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.1px;
+}
+
+.button.primary {
+    border-color: rgba(255, 255, 255, 0.42);
+    color: #050c17;
+    background: linear-gradient(104deg, #65eaff, #a58aff);
+}
+
+.hero-orb {
+    position: absolute;
+    right: 52px;
+    top: 50%;
+    display: grid;
+    width: 154px;
+    height: 154px;
+    place-items: center;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, #61e7ff, #8c6dff 35%, #ff75ce 68%, #61e7ff);
+    box-shadow: 0 0 60px rgba(119, 194, 255, 0.22);
+}
+
+.hero-orb::after {
+    position: absolute;
+    inset: 16px;
+    border-radius: 50%;
+    background: rgba(235, 245, 255, 0.74);
+    content: "";
+}
+
+.hero-orb span {
+    position: relative;
+    z-index: 1;
+    color: #0a0d1b;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 3px;
+}
+
+.metrics,
+.actions {
+    display: grid;
+    gap: 12px;
+}
+
+.metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: 126px;
+    margin-top: 16px;
+}
+
+.metric {
+    padding: 18px 19px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    background: rgba(10, 16, 31, 0.72);
+}
+
+.metric strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 31px;
+    line-height: 1;
+}
+
+.metric strong.word {
+    margin-top: 14px;
+    font-size: 18px;
+}
+
+.metric small {
+    display: block;
+    margin-top: 7px;
+    color: #697d9e;
+    font-size: 10px;
+}
+
+.actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    height: 145px;
+    margin-top: 13px;
+}
+
+.action-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 17px 19px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    color: var(--text);
+    background: rgba(11, 17, 32, 0.7);
+    text-align: left;
+}
+
+.action-card:hover,
+.action-card:focus-visible {
+    border-color: var(--line-strong);
+    outline: 0;
+    background: rgba(25, 37, 66, 0.86);
+}
+
+.action-index {
+    color: var(--cyan);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+}
+
+.action-card strong {
+    margin-top: 7px;
+    font-size: 17px;
+}
+
+.action-card p {
+    margin: 5px 0 0;
+    color: #7489aa;
+    font-size: 10px;
+}
+
+.action-link {
+    margin-top: auto;
+    color: #a4d8ff;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.1px;
+}
+
+.activity {
+    display: flex;
+    height: 40px;
+    align-items: center;
+    margin-top: 13px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: rgba(7, 11, 23, 0.58);
+}
+
+.activity strong {
+    color: var(--cyan);
+}
+
+.activity i {
+    width: 1px;
+    height: 15px;
+    margin: 0 12px;
+    background: var(--line);
+}
+
+.activity span {
+    flex: 1;
+    color: #97acce;
+    font-size: 10px;
+}
+
+.activity small {
+    color: #536685;
+    font-size: 8px;
+    letter-spacing: 1.1px;
+}
