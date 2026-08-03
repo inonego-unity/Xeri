@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundSuspensionSettings.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 2D/3D Floating Capsule 지면 지지에 공통으로 사용하는 조정값을 정의한다.
@@ -39,6 +39,16 @@ namespace inonego.Xeri.Game.Controller
 
         [Range(0f, 89f)]
         public float MaximumSlopeAngle = 60f;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 최대 지지 경사에서 허용할 최소 지면 법선 정렬도.
+        /// </summary>
+        // ------------------------------------------------------------
+        public float MinimumGroundAlignment => Mathf.Cos
+        (
+            Mathf.Clamp(MaximumSlopeAngle, 0f, 89f) * Mathf.Deg2Rad
+        );
 
         [Min(0f)]
         public float Strength = 400f;

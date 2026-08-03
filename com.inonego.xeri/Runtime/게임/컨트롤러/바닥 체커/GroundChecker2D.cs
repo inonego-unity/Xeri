@@ -1,11 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker2D.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 Rigidbody2D/Collider2D를 사용하는 2D 바닥 체커.
 BoxCollider2D, CircleCollider2D, CapsuleCollider2D를 지원한다.
-Cast와 시작 중첩 모두 부호 있는 거리, 지점, 법선을 표본에 기록한다.
+Cast의 다중 후보에서 바닥 방향 표면을 선택하며,
+시작 중첩도 부호 있는 거리, 지점, 법선을 표본에 기록한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -30,8 +31,10 @@ namespace inonego.Xeri.Game.Controller
 
         public override Vector3 Gravity => Physics2D.gravity;
 
+        private const int HitCapacity = 8;
+
         // 2D Cast는 전역 Trigger 질의 설정과 관계없이 비-Trigger 지면만 탐지합니다.
-        private readonly RaycastHit2D[] castHits = new RaycastHit2D[1];
+        private readonly RaycastHit2D[] castHits = new RaycastHit2D[HitCapacity];
 
     #endregion
 
@@ -49,7 +52,7 @@ namespace inonego.Xeri.Game.Controller
 
     #endregion
 
-    #region 메서드
+    #region Rigidbody 및 Collider 연결
 
         // ------------------------------------------------------------
         /// <summary>
@@ -78,6 +81,10 @@ namespace inonego.Xeri.Game.Controller
         /// </summary>
         // ------------------------------------------------------------
         protected override bool CheckColliderAvailable(Collider2D collider) => collider.enabled && !collider.isTrigger;
+
+    #endregion
+
+    #region Collider 탐지
 
         // -------------------------------------------------------------
         /// <summary>
@@ -117,7 +124,12 @@ namespace inonego.Xeri.Game.Controller
 
             var hitCount = Physics2D.BoxCast(center, size, info.Angle, info.Direction, GetContactFilter(), castHits, info.Depth);
 
-            return hitCount > 0 ? CreateSample(boxCollider, castHits[0]) : default;
+            return SelectSample
+            (
+                boxCollider,
+                hitCount,
+                info.Direction
+            );
         }
 
         // ------------------------------------------------------------
@@ -131,7 +143,12 @@ namespace inonego.Xeri.Game.Controller
             var info = GetCircleColliderDetectionInfo(circleCollider, deltaTime);
             var hitCount = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, GetContactFilter(), castHits, info.Depth);
 
-            return hitCount > 0 ? CreateSample(circleCollider, castHits[0]) : default;
+            return SelectSample
+            (
+                circleCollider,
+                hitCount,
+                info.Direction
+            );
         }
 
         // ------------------------------------------------------------------------------
@@ -165,8 +182,85 @@ namespace inonego.Xeri.Game.Controller
                 hitCount = Physics2D.BoxCast(center, size, info.Angle, info.Direction, GetContactFilter(), castHits, info.Depth);
             }
 
-            return hitCount > 0 ? CreateSample(capsuleCollider, castHits[0]) : default;
+            return SelectSample
+            (
+                capsuleCollider,
+                hitCount,
+                info.Direction
+            );
         }
+
+    #endregion
+
+    #region 후보 선택
+
+        // ------------------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/>시작 중첩과 Cast의 바닥 방향 표면을 같은 기준으로 비교하고,
+        /// <br/>현재 지면과 높이가 비슷한 후보 사이에서는 기존 지면을 유지합니다.
+        /// </summary>
+        // ------------------------------------------------------------------------------------------
+        private GroundCheckSample2D SelectSample
+        (
+            Collider2D sourceCollider,
+            int hitCount,
+            Vector3 detectionDirection
+        )
+        {
+            var selected = default(GroundCheckSample2D);
+
+            // 시작 중첩의 대체 법선 대신 Collider 간 실제 표면을 먼저 비교합니다.
+            for (int i = 0; i < hitCount; i++)
+            {
+                var hit = castHits[i];
+
+                if (hit.fraction > 0f) continue;
+
+                var candidate = CreateSample
+                (
+                    sourceCollider,
+                    hit,
+                    detectionDirection
+                );
+                selected = SelectCandidate
+                (
+                    selected,
+                    candidate,
+                    detectionDirection,
+                    Ground,
+                    Physics2D.defaultContactOffset
+                );
+            }
+
+            // 시작 중첩과 실제 Cast를 하나의 지지 후보 집합으로 평가합니다.
+            for (int i = 0; i < hitCount; i++)
+            {
+                var hit = castHits[i];
+
+                if (hit.fraction <= 0f) continue;
+
+                var candidate = CreateSample
+                (
+                    sourceCollider,
+                    hit,
+                    detectionDirection
+                );
+                selected = SelectCandidate
+                (
+                    selected,
+                    candidate,
+                    detectionDirection,
+                    Ground,
+                    Physics2D.defaultContactOffset
+                );
+            }
+
+            return selected;
+        }
+
+    #endregion
+
+    #region 물리 질의 설정
 
         // ------------------------------------------------------------
         /// <summary>
@@ -181,6 +275,10 @@ namespace inonego.Xeri.Game.Controller
             return filter;
         }
 
+    #endregion
+
+    #region 표본 생성
+
         // --------------------------------------------------------------------------------
         /// <summary>
         /// <br/>2D Cast와 시작 중첩 결과를 완전한 바닥 표본으로 변환합니다.
@@ -190,7 +288,8 @@ namespace inonego.Xeri.Game.Controller
         private GroundCheckSample2D CreateSample
         (
             Collider2D sourceCollider,
-            RaycastHit2D hit
+            RaycastHit2D hit,
+            Vector3 detectionDirection
         )
         {
             if (hit.collider == null)
@@ -217,14 +316,18 @@ namespace inonego.Xeri.Game.Controller
                 return default;
             }
 
-            // 중첩 거리는 음수이고 normal은 지면의 pointB에서 검사 형상의 pointA를 향합니다.
-            // 따라서 normal * distance가 검사 형상을 밖으로 꺼내며, 단위 지지 법선은 -normal입니다.
+            // 중첩 법선은 지면의 pointB에서 검사 형상의 pointA를 향하는 지지 법선의 반대 방향입니다.
+            var normal = -(Vector3)distance.normal;
+
+            if (!TryGetGroundAlignment(normal, detectionDirection, out var alignment)) return default;
+
+            // 법선 방향 관통 깊이를 Cast와 같은 검사 축 기준의 음수 거리로 정규화합니다.
             return BuildSample
             (
                 hit.collider,
-                distance.distance,
+                distance.distance / alignment,
                 distance.pointB,
-                -distance.normal
+                normal
             );
         }
 

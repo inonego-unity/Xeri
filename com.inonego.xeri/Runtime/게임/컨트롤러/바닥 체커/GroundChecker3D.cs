@@ -1,12 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker3D.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 Rigidbody/Collider를 사용하는 3D 바닥 체커.
 BoxCollider, SphereCollider, CapsuleCollider를 지원하며,
-Overlap과 Cast 모두 부호 있는 거리, 지점, 법선을 표본에 기록한다.
-GC 할당 방지를 위해 재사용 가능한 콜라이더 배열을 관리한다.
+Overlap과 Cast의 다중 후보에서 바닥 방향 표면을 선택하고,
+부호 있는 거리, 지점, 법선을 표본에 기록한다.
+GC 할당 방지를 위해 재사용 가능한 결과 배열을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -31,8 +32,11 @@ namespace inonego.Xeri.Game.Controller
 
         public override Vector3 Gravity => Physics.gravity;
 
-        // GC 할당 방지를 위한 재사용 가능한 콜라이더 배열
-        private readonly Collider[] overlappingColliders = new Collider[1];
+        private const int HitCapacity = 8;
+
+        // GC 할당 없이 같은 물리 질의의 후보를 비교하기 위한 재사용 배열입니다.
+        private readonly Collider[] overlapHits = new Collider[HitCapacity];
+        private readonly RaycastHit[] castHits = new RaycastHit[HitCapacity];
 
     #endregion
 
@@ -50,7 +54,7 @@ namespace inonego.Xeri.Game.Controller
 
     #endregion
 
-    #region 메서드
+    #region Rigidbody 및 Collider 연결
 
         // ------------------------------------------------------------
         /// <summary>
@@ -80,6 +84,10 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         protected override bool CheckColliderAvailable(Collider collider) => collider.enabled && !collider.isTrigger;
 
+    #endregion
+
+    #region Collider 탐지
+
         // -------------------------------------------------------------
         /// <summary>
         /// Collider를 사용하여 바닥을 감지합니다.
@@ -106,7 +114,7 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         /// <summary>
         /// <br/>BoxCollider를 사용하여 바닥을 감지합니다.
-        /// <br/>먼저 OverlapBox로 체크하고, 없으면 BoxCast를 수행합니다.
+        /// <br/>OverlapBox와 BoxCast의 지지 후보를 함께 비교합니다.
         /// </summary>
         // ------------------------------------------------------------
         private GroundCheckSample3D DetectWithBoxCollider(BoxCollider boxCollider, float deltaTime)
@@ -117,89 +125,98 @@ namespace inonego.Xeri.Game.Controller
             var size        = new Vector3(info.Size.x, GroundCheckerConfig.Thickness, info.Size.z);
             var orientation = boxCollider.transform.rotation;
 
-            // ------------------------------------------------------------
-            // 먼저 초기 위치에서 OverlapBox 체크
-            // ------------------------------------------------------------
+            // 시작 중첩 후보에서 바닥 방향 표면을 우선 복원합니다.
             int overlapCount = Physics.OverlapBoxNonAlloc
             (
                 center,
                 size * 0.5f,
-                overlappingColliders,
+                overlapHits,
                 orientation,
                 Config.Layer,
                 QueryTriggerInteraction.Ignore
             );
+            var selected = SelectOverlapSample
+            (
+                boxCollider,
+                overlapCount,
+                info.Center,
+                info.Direction
+            );
 
-            if (overlapCount > 0)
-            {
-                return CreateOverlapSample
-                (
-                    boxCollider,
-                    overlappingColliders[0],
-                    info.Center,
-                    info.Direction
-                );
-            }
+            // Overlap과 Cast를 같은 후보 기준으로 비교하도록 아래쪽 표면까지 계속 확인합니다.
+            int castCount = Physics.BoxCastNonAlloc
+            (
+                center,
+                size * 0.5f,
+                info.Direction,
+                castHits,
+                orientation,
+                info.Depth,
+                Config.Layer,
+                QueryTriggerInteraction.Ignore
+            );
 
-            // ------------------------------------------------------------
-            // OverlapBox에서 감지되지 않으면 BoxCast 수행
-            // ------------------------------------------------------------
-            if (Physics.BoxCast(center, size * 0.5f, info.Direction, out RaycastHit hit, orientation, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
-            {
-                return CreateSample(hit);
-            }
-
-            return default;
+            return SelectCastSample
+            (
+                selected,
+                castCount,
+                overlapCount,
+                info.Direction
+            );
         }
 
         // ------------------------------------------------------------
         /// <summary>
         /// <br/>SphereCollider를 사용하여 바닥을 감지합니다.
-        /// <br/>먼저 OverlapSphere로 체크하고, 없으면 SphereCast를 수행합니다.
+        /// <br/>OverlapSphere와 SphereCast의 지지 후보를 함께 비교합니다.
         /// </summary>
         // ------------------------------------------------------------
         private GroundCheckSample3D DetectWithSphereCollider(SphereCollider sphereCollider, float deltaTime)
         {
             var info = GetSphereColliderDetectionInfo(sphereCollider, deltaTime);
 
-            // ------------------------------------------------------------
-            // 먼저 초기 위치에서 OverlapSphere 체크
-            // ------------------------------------------------------------
+            // 시작 중첩 후보에서 바닥 방향 표면을 우선 복원합니다.
             int overlapCount = Physics.OverlapSphereNonAlloc
             (
                 info.Center,
                 info.Radius,
-                overlappingColliders,
+                overlapHits,
+                Config.Layer,
+                QueryTriggerInteraction.Ignore
+            );
+            var selected = SelectOverlapSample
+            (
+                sphereCollider,
+                overlapCount,
+                info.Center,
+                info.Direction
+            );
+
+            // Overlap과 Cast를 같은 후보 기준으로 비교하도록 아래쪽 표면까지 계속 확인합니다.
+            int castCount = Physics.SphereCastNonAlloc
+            (
+                info.Center,
+                info.Radius,
+                info.Direction,
+                castHits,
+                info.Depth,
                 Config.Layer,
                 QueryTriggerInteraction.Ignore
             );
 
-            if (overlapCount > 0)
-            {
-                return CreateOverlapSample
-                (
-                    sphereCollider,
-                    overlappingColliders[0],
-                    info.Center,
-                    info.Direction
-                );
-            }
-
-            // ------------------------------------------------------------
-            // OverlapSphere에서 감지되지 않으면 SphereCast 수행
-            // ------------------------------------------------------------
-            if (Physics.SphereCast(info.Center, info.Radius, info.Direction, out RaycastHit hit, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
-            {
-                return CreateSample(hit);
-            }
-
-            return default;
+            return SelectCastSample
+            (
+                selected,
+                castCount,
+                overlapCount,
+                info.Direction
+            );
         }
 
         // ------------------------------------------------------------------------------
         /// <summary>
         /// <br/>CapsuleCollider를 사용하여 바닥을 감지합니다.
-        /// <br/>먼저 OverlapSphere로 체크하고, 없으면 SphereCast를 수행합니다.
+        /// <br/>수직 캡슐의 OverlapSphere와 SphereCast 지지 후보를 함께 비교합니다.
         /// </summary>
         // ------------------------------------------------------------------------------
         private GroundCheckSample3D DetectWithCapsuleCollider(CapsuleCollider capsuleCollider, float deltaTime)
@@ -215,26 +232,36 @@ namespace inonego.Xeri.Game.Controller
                 (
                     info.Center,
                     info.Radius,
-                    overlappingColliders,
+                    overlapHits,
+                    Config.Layer,
+                    QueryTriggerInteraction.Ignore
+                );
+                var selected = SelectOverlapSample
+                (
+                    capsuleCollider,
+                    overlapCount,
+                    info.Center,
+                    info.Direction
+                );
+
+                int castCount = Physics.SphereCastNonAlloc
+                (
+                    info.Center,
+                    info.Radius,
+                    info.Direction,
+                    castHits,
+                    info.Depth,
                     Config.Layer,
                     QueryTriggerInteraction.Ignore
                 );
 
-                if (overlapCount > 0)
-                {
-                    return CreateOverlapSample
-                    (
-                        capsuleCollider,
-                        overlappingColliders[0],
-                        info.Center,
-                        info.Direction
-                    );
-                }
-
-                if (Physics.SphereCast(info.Center, info.Radius, info.Direction, out RaycastHit hit, info.Depth, Config.Layer, QueryTriggerInteraction.Ignore))
-                {
-                    return CreateSample(hit);
-                }
+                return SelectCastSample
+                (
+                    selected,
+                    castCount,
+                    overlapCount,
+                    info.Direction
+                );
             }
             // ------------------------------------------------------------
             // 수평 캡슐 — 미구현
@@ -242,6 +269,103 @@ namespace inonego.Xeri.Game.Controller
 
             return default;
         }
+
+    #endregion
+
+    #region 후보 선택
+
+        // ------------------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/>시작 중첩 Collider의 실제 표면 정보를 복원하고
+        /// <br/>공통 지지 후보 기준으로 비교합니다.
+        /// </summary>
+        // ------------------------------------------------------------------------------------------
+        private GroundCheckSample3D SelectOverlapSample
+        (
+            Collider sourceCollider,
+            int overlapCount,
+            Vector3 detectionCenter,
+            Vector3 detectionDirection
+        )
+        {
+            var selected = default(GroundCheckSample3D);
+
+            for (int i = 0; i < overlapCount; i++)
+            {
+                var candidate = CreateOverlapSample
+                (
+                    sourceCollider,
+                    overlapHits[i],
+                    detectionCenter,
+                    detectionDirection
+                );
+                selected = SelectCandidate
+                (
+                    selected,
+                    candidate,
+                    detectionDirection,
+                    Ground,
+                    Physics.defaultContactOffset
+                );
+            }
+
+            return selected;
+        }
+
+        // ------------------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/>시작 중첩에서 이미 복원한 Collider의 Cast 결과를 제외하고
+        /// <br/>남은 Cast 결과를 공통 지지 후보 기준으로 비교합니다.
+        /// </summary>
+        // ------------------------------------------------------------------------------------------
+        private GroundCheckSample3D SelectCastSample
+        (
+            in GroundCheckSample3D selectedSample,
+            int castCount,
+            int overlapCount,
+            Vector3 detectionDirection
+        )
+        {
+            var selected = selectedSample;
+
+            for (int i = 0; i < castCount; i++)
+            {
+                var hit = castHits[i];
+
+                if (ContainsOverlap(hit.collider, overlapCount)) continue;
+
+                var candidate = CreateSample(hit);
+                selected = SelectCandidate
+                (
+                    selected,
+                    candidate,
+                    detectionDirection,
+                    Ground,
+                    Physics.defaultContactOffset
+                );
+            }
+
+            return selected;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Collider가 이번 질의의 시작 중첩에 포함됐는지 확인합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool ContainsOverlap(Collider collider, int overlapCount)
+        {
+            for (int i = 0; i < overlapCount; i++)
+            {
+                if (overlapHits[i] == collider) return true;
+            }
+
+            return false;
+        }
+
+    #endregion
+
+    #region 표본 생성
 
         // ------------------------------------------------------------
         /// <summary>
@@ -276,7 +400,7 @@ namespace inonego.Xeri.Game.Controller
             var sourceTransform = sourceCollider.transform;
             var groundTransform = groundCollider.transform;
 
-            // 실제 관통은 Collider를 분리하는 방향과 깊이로 부호 있는 표면 정보를 구성합니다.
+            // 실제 관통은 Collider를 분리하는 방향으로 지지면 자격을 먼저 판정합니다.
             if
             (
                 Physics.ComputePenetration
@@ -292,14 +416,17 @@ namespace inonego.Xeri.Game.Controller
                 )
             )
             {
+                if (!TryGetGroundAlignment(normal, detectionDirection, out var alignment)) return default;
+
                 var outsidePoint = detectionCenter +
                                    normal * (penetration + Physics.defaultContactOffset);
                 var point = groundCollider.ClosestPoint(outsidePoint);
 
+                // 법선 방향 관통 깊이를 Cast와 같은 검사 축 기준의 음수 거리로 정규화합니다.
                 return BuildSample
                 (
                     groundCollider,
-                    -penetration,
+                    -penetration / alignment,
                     point,
                     normal
                 );

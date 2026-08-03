@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GroundChecker3D.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 GroundChecker3D 시스템의 Play Mode 테스트.
@@ -284,6 +284,42 @@ namespace inonego.Xeri.TEST.Game.Controller._GroundChecker
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(fixture.Player);
+                UnityEngine.Object.DestroyImmediate(fixture.Ground);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 옆벽과 시작 중첩된 상태에서도 아래쪽 바닥 후보를 선택하는지 검증합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GroundChecker3D_옆벽_시작중첩이_아래바닥을_가리지않는다()
+        {
+            var fixture = CreateSampleFixture(0.6f);
+            var wall = new GameObject("SampleWall");
+            wall.layer = fixture.Ground.layer;
+            wall.transform.position = new Vector3(0.74f, 0.6f, 0f);
+
+            var wallCollider = wall.AddComponent<BoxCollider>();
+            wallCollider.size = new Vector3(0.5f, 4f, 4f);
+
+            try
+            {
+                Physics.SyncTransforms();
+                fixture.Checker.Check(Time.fixedDeltaTime);
+
+                var sample = fixture.Checker.Sample;
+
+                Assert.That(sample.HasGround, Is.True);
+                Assert.That(sample.Ground, Is.SameAs(fixture.Ground));
+                Assert.That(sample.GroundCollider, Is.SameAs(fixture.GroundCollider));
+                Assert.That(sample.Normal.y, Is.GreaterThan(0.9f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(wall);
                 UnityEngine.Object.DestroyImmediate(fixture.Player);
                 UnityEngine.Object.DestroyImmediate(fixture.Ground);
             }

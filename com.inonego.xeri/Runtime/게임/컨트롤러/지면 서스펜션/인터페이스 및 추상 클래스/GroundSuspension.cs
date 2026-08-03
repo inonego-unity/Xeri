@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundSuspension.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 2D/3D Floating Capsule 지면 지지의 공통 초기화, 표본 계산과 상태 전이를 담당한다.
@@ -55,10 +55,10 @@ namespace inonego.Xeri.Game.Controller
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 검사 Collider와 지면 사이에 유지할 목표 거리.
+        /// 현재 Capsule 형상에 실제 적용된 지면 목표 거리.
         /// </summary>
         // ------------------------------------------------------------
-        protected float TargetDistance { get; set; } = 0f;
+        public float TargetDistance { get; protected set; } = 0f;
 
         private bool isFollowingGround = false;
         private bool isDetached = false;
@@ -162,7 +162,7 @@ namespace inonego.Xeri.Game.Controller
             var normal = groundSample.Normal.normalized;
             var normalUpDot = Vector3.Dot(normal, up);
 
-            // GroundChecker의 접지와 Suspension의 지지 가능 경사는 서로 다른 정책으로 유지한다.
+            // 외부 표본도 같은 지지 경사 계약을 만족해야 Suspension이 추종합니다.
             if (!IsSupportSurface(normalUpDot))
             {
                 isFollowingGround = false;
@@ -240,13 +240,7 @@ namespace inonego.Xeri.Game.Controller
         // ------------------------------------------------------------
         private bool IsSupportSurface(float normalUpDot)
         {
-            var minimumUpDot = Mathf.Cos
-            (
-                Mathf.Clamp(settings.MaximumSlopeAngle, 0f, 89f) *
-                Mathf.Deg2Rad
-            );
-
-            return normalUpDot >= minimumUpDot;
+            return normalUpDot >= settings.MinimumGroundAlignment;
         }
 
         // ------------------------------------------------------------------------------------------

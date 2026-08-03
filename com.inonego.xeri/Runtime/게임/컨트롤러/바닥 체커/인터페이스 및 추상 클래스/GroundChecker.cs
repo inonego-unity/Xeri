@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 2D/3D 공통 로직을 담는 제네릭 추상 바닥 체커.
@@ -153,7 +153,89 @@ namespace inonego.Xeri.Game.Controller
 
     #endregion
 
-    #region 메서드
+    #region 후보 선택
+
+        // ----------------------------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/>Overlap과 Cast 후보에 같은 지면 정렬 기준을 적용해 비교합니다.
+        /// <br/>접촉 오차 안에서는 현재 지면을 유지하고, 명확히 높은 지지면은 즉시 선택합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------------------------------------
+        protected TSample SelectCandidate
+        (
+            in TSample selected,
+            in TSample candidate,
+            Vector3 detectionDirection,
+            GameObject currentGround,
+            float contactTolerance
+        )
+        {
+            if (!TryGetGroundAlignment(candidate.Normal, detectionDirection, out _)) return selected;
+            if (!selected.HasGround) return candidate;
+
+            var groundDirection = -detectionDirection.normalized;
+            var heightDelta = Vector3.Dot
+            (
+                candidate.Point - selected.Point,
+                groundDirection
+            );
+            var tolerance = Mathf.Max(0f, contactTolerance);
+
+            // 실제 지지점 높이가 구분되면 높은 표면을 선택해 계단과 턱 전환을 지연시키지 않습니다.
+            if (heightDelta > tolerance) return candidate;
+            if (heightDelta < -tolerance) return selected;
+
+            // 같은 접촉 범위에서는 기존 지면을 유지해 맞닿은 Collider 사이의 반복 전환을 막습니다.
+            var selectedIsCurrent  = selected.Ground == currentGround;
+            var candidateIsCurrent = candidate.Ground == currentGround;
+
+            if (selectedIsCurrent != candidateIsCurrent)
+            {
+                return candidateIsCurrent ? candidate : selected;
+            }
+
+            var selectedAlignment = Vector3.Dot
+            (
+                selected.Normal.normalized,
+                groundDirection
+            );
+            var candidateAlignment = Vector3.Dot
+            (
+                candidate.Normal.normalized,
+                groundDirection
+            );
+
+            if (candidateAlignment > selectedAlignment) return candidate;
+            if (candidateAlignment < selectedAlignment) return selected;
+
+            return candidate.Distance < selected.Distance ? candidate : selected;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표면 법선이 검사 반대 방향을 향하고 설정된 지면 정렬 기준을 만족하는지 확인합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected bool TryGetGroundAlignment
+        (
+            Vector3 normal,
+            Vector3 detectionDirection,
+            out float alignment
+        )
+        {
+            alignment = Vector3.Dot
+            (
+                normal.normalized,
+                -detectionDirection.normalized
+            );
+
+            return alignment > 0f &&
+                   alignment >= Mathf.Clamp01(Config.MinimumGroundAlignment);
+        }
+
+    #endregion
+
+    #region 지면 처리
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -197,6 +279,10 @@ namespace inonego.Xeri.Game.Controller
             }
         }
 
+    #endregion
+
+    #region 감지
+
         // -------------------------------------------------------------
         /// <summary>
         /// 바닥을 감지합니다.
@@ -236,6 +322,10 @@ namespace inonego.Xeri.Game.Controller
         /// </summary>
         // -------------------------------------------------------------
         protected abstract TSample DetectWithCollider(TCollider collider, float deltaTime);
+
+    #endregion
+
+    #region 표본 생성
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -280,6 +370,10 @@ namespace inonego.Xeri.Game.Controller
             Vector3 point,
             Vector3 normal
         );
+
+    #endregion
+
+    #region 탐지 깊이
 
         // -------------------------------------------------------------
         /// <summary>
