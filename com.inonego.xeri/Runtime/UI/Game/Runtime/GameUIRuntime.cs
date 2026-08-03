@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-03
 
 # 설명
-App 단위 Game UI 서비스, Scene 구성 검증, 혼합 Layer Profile, Focus와 Fade Source의 조립·역순 해제를 소유한다.
+App 단위 Singleton 등록, Main UI Context, 공용 서비스, 혼합 Layer Profile과 Scene Fade의 조립·역순 해제를 소유한다.
 Shutdown은 일반 소유 객체를 한 번씩 정리하고, 사전 조건에서 거부된 Profile과 Layer Registry 소유권만 유지한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -23,7 +23,7 @@ namespace inonego.Xeri.UI.Game
     /// 게임 UI Runtime의 명시적 Composition Root.
     /// </summary>
     // ============================================================
-    public sealed class GameUIRuntime : MonoBehaviour
+    public sealed class GameUIRuntime : MonoSingleton<GameUIRuntime>
     {
     #region 필드
 
@@ -64,24 +64,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 동적 Screen 등록 Registry.
+        /// 일반 Game UI와 전체 Child Context Tree의 Root.
         /// </summary>
         // ------------------------------------------------------------
-        public ScreenRegistry ScreenRegistry { get; private set; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Screen 명령과 Stack 수명 Controller.
-        /// </summary>
-        // ------------------------------------------------------------
-        public ScreenController Screens { get; private set; }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Screen Focus 기록과 복원 Controller.
-        /// </summary>
-        // ------------------------------------------------------------
-        public FocusController Focus { get; private set; }
+        public GameUIContext Main { get; private set; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -99,10 +85,24 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Modal Stack Controller.
+        /// Context가 공유할 Presentation Transition backend.
         /// </summary>
         // ------------------------------------------------------------
-        public ModalController Modals { get; private set; }
+        internal IPresentationTransitioner Transitioner => transitioner;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Context가 공유할 실제 Focus backend.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal IFocusDriver FocusDriver => focusDriver;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Context의 Screen Session이 공유할 Input backend.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal IScreenInputDriver InputDriver => inputDriver;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -156,6 +156,7 @@ namespace inonego.Xeri.UI.Game
         private PresentationLayerRegistry pendingLayerRegistry = null;
         private DOTweenPresentationTransitioner transitioner = null;
         private GameUIProfileHandle defaultProfile = null;
+        private GameUIContext focusedContext = null;
         private bool sceneLoadedSubscribed = false;
 
     #endregion
@@ -228,12 +229,14 @@ namespace inonego.Xeri.UI.Game
         /// 명시적 Shutdown이 누락된 Host 파괴에서 같은 종료 경로를 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
             if (!IsReleased)
             {
                 ShutdownFallback();
             }
+
+            base.OnDestroy();
         }
 
     #endregion
@@ -262,6 +265,19 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
+                // 기본 Slot은 Scope와 무관하게 검사해 중복 Runtime의 조립 부작용을 만들지 않는다.
+                if
+                (
+                    Named.TryGet(DEFAULT_SLOT, out var current) &&
+                    current != null &&
+                    !ReferenceEquals(current, this)
+                )
+                {
+                    throw new InvalidOperationException
+                    (
+                        $"다른 Game UI Runtime '{current.name}'가 기본 Slot을 이미 소유하고 있습니다."
+                    );
+                }
                 ValidateHost(settings);
                 Settings = settings;
 
@@ -270,19 +286,7 @@ namespace inonego.Xeri.UI.Game
                 inputDriver.Initialize(inputModule, settings);
                 focusDriver.Initialize(eventSystem);
                 sceneFadeSource.Initialize();
-                Focus = new FocusController(focusDriver);
-                ScreenRegistry = new ScreenRegistry(LayerRegistry);
-                Screens = new ScreenController
-                (
-                    ScreenRegistry,
-                    LayerRegistry,
-                    transitioner,
-                    Focus,
-                    inputDriver
-                );
-
                 Visibility = new VisibilityController();
-                Modals = new ModalController();
 
                 defaultProfile = AcquireProfileInternal(settings.DefaultProfile);
 
@@ -313,7 +317,16 @@ namespace inonego.Xeri.UI.Game
                     PresentationTimeSource.Unscaled
                 );
 
-                Screens.Activate();
+                Main = new GameUIContext
+                (
+                    this,
+                    null,
+                    LayerRegistry,
+                    transitioner,
+                    focusDriver,
+                    inputDriver
+                );
+                focusedContext = Main;
                 IsInitialized = true;
                 coreReady = true;
                 SubscribeSceneValidation();
@@ -324,6 +337,14 @@ namespace inonego.Xeri.UI.Game
                     DontDestroyOnLoad(gameObject);
                 }
 
+                // 완전히 조립된 Runtime만 Current로 공개하고 완료 구독자도 같은 인스턴스를 조회하게 한다.
+                if (!TryRegister(this))
+                {
+                    throw new InvalidOperationException
+                    (
+                        "다른 Game UI Runtime이 기본 Slot을 이미 소유하고 있습니다."
+                    );
+                }
                 OnInitialized?.Invoke(this);
 
                 // 완료 알림 중 명시적으로 종료된 Runtime을 초기화 성공 상태로 반환하지 않는다.
@@ -877,7 +898,7 @@ namespace inonego.Xeri.UI.Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> Screen, 프로젝트 Composition, Fade, Profile과 공통 서비스를 역순 해제한다.
+        /// <br/> Main Context Tree, 프로젝트 Composition, Fade, Profile과 공통 서비스를 역순 해제한다.
         /// <br/> 논리 소유권은 한 번만 정리하고 Runtime은 오류와 관계없이 Terminal 상태로 끝난다.
         /// <br/> 후속 Shutdown은 상태 변경 전에 거부되어 Runtime 소유권이 남은 Profile과 Layer Registry만 다시 정리한다.
         /// </summary>
@@ -932,11 +953,12 @@ namespace inonego.Xeri.UI.Game
 
             IsInitialized = false;
             IsReleasing = true;
-            var screens = Screens;
+
+            // 종료가 시작된 Runtime을 새 UI 작업에서 조회하지 않도록 public Singleton 경계를 먼저 닫는다.
+            Unregister(this);
+            var main = Main;
             var sceneFader = SceneFader;
-            var modals = Modals;
             var visibility = Visibility;
-            var screenRegistry = ScreenRegistry;
             var input = inputDriver;
             var currentTransitioner = transitioner;
             var layerRegistry = LayerRegistry;
@@ -948,11 +970,11 @@ namespace inonego.Xeri.UI.Game
 
             UnsubscribeSceneValidation();
 
-            if (screens != null)
+            if (main != null)
             {
                 try
                 {
-                    errors.AddRange(screens.Shutdown());
+                    errors.AddRange(main.DisposeFromRuntime());
                 }
                 catch (Exception exception)
                 {
@@ -973,16 +995,14 @@ namespace inonego.Xeri.UI.Game
             }
 
             // 종료 구독자가 살아 있는 Runtime 서비스를 확인한 뒤 public 접근 경계를 닫는다.
-            Screens = null;
+            Main = null;
             SceneFader = null;
-            Modals = null;
             Visibility = null;
-            ScreenRegistry = null;
             defaultProfile = null;
             inputDriver = null;
             transitioner = null;
             LayerRegistry = null;
-            Focus = null;
+            focusedContext = null;
             Settings = null;
             OnInitialized = null;
             OnReleasing = null;
@@ -991,9 +1011,7 @@ namespace inonego.Xeri.UI.Game
             DisposeOwned(sceneFader, errors);
             DisposeOwned(currentSceneFadeSource, errors);
 
-            DisposeOwned(modals, errors);
             DisposeOwned(visibility, errors);
-            DisposeOwned(screenRegistry, errors);
             DisposeOwned(input, errors);
 
             // 시작된 종료는 결과와 관계없이 Callback이 제거하고 사전 조건에서 거부된 소유권만 보존한다.
@@ -1084,6 +1102,134 @@ namespace inonego.Xeri.UI.Game
             if (registry.IsDisposed)
             {
                 pendingLayerRegistry = null;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Child Context를 생성할 수 있는 Runtime 상태인지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void ThrowIfContextCreationUnavailable()
+        {
+            ThrowIfUnavailable();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 Context에 실제 Focus Driver 적용 권한을 넘긴다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void FocusContext(GameUIContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            ThrowIfUnavailable();
+
+            if (ReferenceEquals(focusedContext, context)) return;
+
+            SetFocusedContext(context, selectFallbackWhenEmpty: false);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 Context의 Focus 권한을 가장 가까운 살아 있는 Parent에 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void UnfocusContext(GameUIContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            ThrowIfUnavailable();
+
+            if (!ReferenceEquals(focusedContext, context)) return;
+
+            var fallback = FindFocusableParent(context.Parent);
+            SetFocusedContext(fallback, selectFallbackWhenEmpty: true);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 종료할 Subtree가 현재 Focus를 포함하면 외부 Parent 또는 빈 상태로 권한을 옮긴다.
+        /// <br/> Runtime Shutdown에서는 새 Context나 fallback 대상을 선택하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal void ReleaseContextFocus
+        (
+            GameUIContext context,
+            bool restoreFocus
+        )
+        {
+            if (focusedContext == null || !context.Contains(focusedContext)) return;
+
+            SetFocusedContext
+            (
+                restoreFocus ? FindFocusableParent(context.Parent) : null,
+                selectFallbackWhenEmpty: restoreFocus
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 Context가 현재 실제 Focus Driver 적용 권한을 갖는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool IsFocusedContext(GameUIContext context) => ReferenceEquals(focusedContext, context);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 종료 중이지 않은 가장 가까운 Parent Context를 찾는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static GameUIContext FindFocusableParent(GameUIContext current)
+        {
+            while (current != null)
+            {
+                if (!current.IsDisposing && !current.IsDisposed)
+                {
+                    return current;
+                }
+
+                current = current.Parent;
+            }
+
+            return null;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 이전 Context의 선택을 기록한 뒤 새 Context를 현재 권한자로 먼저 확정하고,
+        /// <br/> 새 Top Screen 선택 또는 Runtime fallback을 실제 Driver에 적용한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void SetFocusedContext
+        (
+            GameUIContext next,
+            bool selectFallbackWhenEmpty
+        )
+        {
+            var previous = focusedContext;
+
+            if (ReferenceEquals(previous, next)) return;
+
+            previous?.SuspendFocus();
+            focusedContext = next;
+
+            if (next != null)
+            {
+                next.ResumeFocus();
+                return;
+            }
+
+            if (selectFallbackWhenEmpty && focusDriver != null)
+            {
+                focusDriver.Select(focusDriver.FindFallback());
             }
         }
 

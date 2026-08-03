@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN ======================================================================================
 파일명 : InstanceRegistry.cs
-수정일 : 2026-05-03
+수정일 : 2026-08-03
 
 # 설명
 "이름표가 붙은 여러 인스턴스 중 지금 어떤 것을 쓸지"를 관리하는 레지스트리.
 - Register("SLOT", instance) 로 이름을 붙여 등록한다.
+- TryRegister("SLOT", instance) 로 기존 소유자를 덮어쓰지 않고 등록을 시도한다.
 - Current 로 지금 활성화된 슬롯의 인스턴스를 가져온다.
 - Scope("SLOT") / using 블록으로 일시적으로 슬롯을 전환하고, 블록 종료 시 자동 복원한다.
 - OpenScope("SLOT") + CloseScope() 는 using 없이 같은 동작을 수동으로 수행한다 (테스트 SetUp/TearDown 용).
@@ -168,7 +169,7 @@ namespace inonego.Xeri
     // ======================================================================
     /// <summary>
     /// <br/> 이름 기반 인스턴스 레지스트리.
-    /// <br/> Register / Current / Named / Scope / OpenScope / CloseScope / Clear API를 제공한다.
+    /// <br/> Register / TryRegister / Current / Named / Scope / OpenScope / CloseScope / Clear API를 제공한다.
     /// </summary>
     // ======================================================================
     public class InstanceRegistry<T> : InstanceRegistry
@@ -294,6 +295,42 @@ namespace inonego.Xeri
         {
             var normalized = Normalize(key);
             instances[normalized] = instance;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> DEFAULT_SLOT 등록을 시도한다.
+        /// <br/> 다른 인스턴스가 점유 중이면 기존 소유자를 유지하고 false를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public bool TryRegister(T instance)
+        {
+            return TryRegister(DEFAULT_SLOT, instance);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 슬롯 등록을 시도한다.
+        /// <br/> 다른 인스턴스가 점유 중이면 기존 소유자를 유지하고 false를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public bool TryRegister(string key, T instance)
+        {
+            var normalized = Normalize(key);
+
+            // 비어 있거나 같은 소유자가 재등록하는 경우에만 슬롯 값을 확정한다.
+            if
+            (
+                instances.TryGetValue(normalized, out var existing) &&
+                existing != null &&
+                !ReferenceEquals(existing, instance)
+            )
+            {
+                return false;
+            }
+
+            instances[normalized] = instance;
+            return true;
         }
 
         // ------------------------------------------------------------

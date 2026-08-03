@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Singleton.cs
-수정일 : 2026-05-03
+수정일 : 2026-08-03
 
 # 설명
 순수 C# 슬롯 싱글톤 기반 클래스.
 T마다 독립된 InstanceRegistry<T>를 static으로 보유하며, 슬롯 로직은 모두 레지스트리에 위임한다.
-Register / Unregister / Scope / OpenScope / CloseScope / Current / Named 정적 API를 제공한다.
+Register / TryRegister / Unregister / Scope / OpenScope / CloseScope / Current / Named 정적 API를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -77,6 +77,28 @@ namespace inonego.Xeri
         public static void Register(string key, T instance)
         {
             registry.Register(key, instance);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> DEFAULT_SLOT 등록을 시도한다.
+        /// <br/> 다른 인스턴스가 점유 중이면 기존 소유자를 유지하고 false를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool TryRegister(T instance)
+        {
+            return registry.TryRegister(instance);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 슬롯 등록을 시도한다.
+        /// <br/> 다른 인스턴스가 점유 중이면 기존 소유자를 유지하고 false를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool TryRegister(string key, T instance)
+        {
+            return registry.TryRegister(key, instance);
         }
 
         // ------------------------------------------------------------

@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MonoSingleton.cs
-수정일 : 2026-05-03
+수정일 : 2026-08-03
 
 # 설명
 Singleton<T>와 구조·API 동일한 MonoBehaviour 슬롯 싱글톤 기반 클래스.
 MonoBehaviour 단일 상속 제약으로 Singleton<T>를 상속할 수 없어 독립 구현한다.
 Register로 수동 등록하며, OnDestroy 시 등록된 모든 슬롯에서 자동 해제된다.
-Register / Unregister / Scope / OpenScope / CloseScope / Current / Named 정적 API를 제공한다.
+Register / TryRegister / Unregister / Scope / OpenScope / CloseScope / Current / Named 정적 API를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -84,6 +84,34 @@ namespace inonego.Xeri
 
         // ----------------------------------------------------------------------
         /// <summary>
+        /// <br/> DEFAULT_SLOT 등록을 시도한다.
+        /// <br/> 살아 있는 다른 인스턴스가 점유 중이면 기존 소유자를 유지하고 false를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool TryRegister(T instance)
+        {
+            return TryRegister(DEFAULT_SLOT, instance);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 슬롯 등록을 시도한다.
+        /// <br/> 살아 있는 다른 인스턴스가 점유 중이면 기존 소유자를 유지하고 false를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool TryRegister(string key, T instance)
+        {
+            // 파괴된 Unity Object는 소유자가 아니므로 남은 fake-null 슬롯을 먼저 비운다.
+            if (Named.TryGet(key, out var existing) && existing == null)
+            {
+                Unregister(key);
+            }
+
+            return registry.TryRegister(key, instance);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
         /// <br/> DEFAULT_SLOT 에 등록을 시도하고, 이미 다른 인스턴스가 점유 중이면
         /// <br/> 호출자의 GameObject 를 파괴한다. 점유 성공 시 true, 양보 시 false.
         /// </summary>
@@ -101,10 +129,8 @@ namespace inonego.Xeri
         // ----------------------------------------------------------------------
         public static bool TryRegisterOrDestroy(string key, T instance)
         {
-            // 살아있는 다른 인스턴스가 슬롯을 이미 차지한 경우 — 호출자가 양보한다.
-            // existing != null 은 Unity fake-null 을 걸러내며, ReferenceEquals 로
-            // 같은 인스턴스가 재등록을 시도하는 경우는 통과시킨다.
-            if (Named.TryGet(key, out var existing) && existing != null && !ReferenceEquals(existing, instance))
+            // 비파괴 점유가 실패한 경우에만 호출자의 GameObject를 정리한다.
+            if (!TryRegister(key, instance))
             {
                 if (Application.isPlaying)
                 {
@@ -118,7 +144,6 @@ namespace inonego.Xeri
                 return false;
             }
 
-            Register(key, instance);
             return true;
         }
 

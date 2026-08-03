@@ -54,7 +54,7 @@ GameUIRuntime 초기화
     ↓
 필요한 GameUIProfileAsset 획득
     ↓
-IScreenSource 작성 및 ScreenRegistry 등록
+IScreenSource 작성 및 Main.ScreenRegistry 등록
     ↓
 ScreenController.Open / Replace / Close / Clear
     ↓
@@ -63,22 +63,24 @@ Screen → 등록 → Profile 순서로 해제
 GameUIRuntime.Shutdown
 ```
 
-가장 중요한 기준은 다음 세 가지다.
+가장 중요한 기준은 다음 네 가지다.
 
-1. `GameUIRuntime`은 Singleton이 아니다. Runtime을 만든 객체가 참조를 보관하고 전달한다.
-2. `Register`, `Acquire`, `Open`이 반환한 Handle과 Session은 명확한 소유자가 종료한다.
-3. View 생성과 Binding은 `IScreenSource.Acquire`, 반환은 같은 Source의 `Release`가 담당한다.
+1. 일반 UI는 Singleton `GameUIRuntime.Current`의 `Main` Context를 사용한다.
+2. 독립 Stack이 필요한 내장 창 같은 범위만 `Main.CreateChild()`로 Child Context를 만든다.
+3. `Register`, `Acquire`, `Open`이 반환한 Handle과 Session은 명확한 소유자가 종료한다.
+4. View 생성과 Binding은 `IScreenSource.Acquire`, 반환은 같은 Source의 `Release`가 담당한다.
 
 ## 핵심 구성 요소
 
 ```text
 GameUIRuntime
-├── LayerRegistry       Layer 등록과 사용 수명
-├── ScreenRegistry      ScreenOptions와 IScreenSource 등록
-├── Screens             Screen Stack
-├── Focus               기본·마지막·대체 Focus
-├── SceneFader          전체 화면 Cover / Reveal
-├── Modals              Modal Stack
+├── Main
+│   ├── ScreenRegistry  ScreenOptions와 IScreenSource 등록
+│   ├── Screens         Screen Stack
+│   ├── Modals          Modal Stack
+│   └── Child Context   선택적인 독립 Stack·Modal·Focus 기록
+├── LayerRegistry       App 기본 Layer 등록과 사용 수명
+├── SceneFader          Runtime 전체 화면 Cover / Reveal
 ├── Visibility          중첩 표시 요청
 └── Settings            현재 Runtime 설정
 ```
@@ -92,6 +94,7 @@ GameUIRuntime
 | `ScreenOptions` | Screen의 Layer, 중복, Focus, Input, Transition 정책 |
 | `IScreenSource` | Screen View 생성·Binding·반환 책임 |
 | `ScreenSession` | 열린 Screen 하나의 상태와 수명 |
+| `GameUIContext` | 독립 Screen Registry, Stack, Modal Stack과 Focus 기록의 소유 단위 |
 
 Xeri는 화면 내용, 데이터 Binding 방식 또는 View 생성 방식을 강제하지 않는다. Prefab,
 Addressables, Pool과 `VisualTreeAsset` 중 무엇을 사용할지는 `IScreenSource`가 결정한다.
@@ -165,10 +168,11 @@ Bootstrapper는 Host를 한 번 만들고 `GameUIRuntime.Initialize(settings)`�
 Bootstrapper를 사용하지 않는 경우 Host Prefab을 한 번 생성하고 Runtime의 `Initialize`를
 직접 호출할 수 있다. Bootstrapper 초기화와 수동 초기화를 함께 사용하지 않는다.
 
-### Runtime 참조 전달
+### Runtime과 Main Context 참조
 
-`GameUIRuntime.Instance`는 없다. Runtime을 생성한 수명 소유자가 참조를 보관하고 Screen
-등록자나 UI 조립 객체에 생성자, 직렬화 참조 또는 명시적 초기화 메서드로 전달한다.
+초기화가 끝난 Runtime은 `GameUIRuntime.Current`로 가져온다. 존재 여부를 먼저 확인해야 하는
+Scene 또는 Sample은 `GameUIRuntime.TryCurrent(out var runtime)`을 사용한다. 일반 Screen과
+Modal은 `runtime.Main`에 등록하고 연다.
 
 Bootstrapper Host에 UI 조립 Component를 붙일 때는 패키지 Prefab을 직접 수정하지 않고
 Prefab Variant를 사용한다. 하나의 조립 Component가 다음 이벤트를 받아 자신이 만든
@@ -366,7 +370,9 @@ return new ScreenInstance(driver, stateHandler);
 Screen이 사용할 Layer Profile을 먼저 획득한다.
 
 ```csharp
-ScreenRegistrationHandle registration = runtime.ScreenRegistry.Register
+GameUIContext context = runtime.Main;
+
+ScreenRegistrationHandle registration = context.ScreenRegistry.Register
 (
     options,
     source
@@ -381,7 +387,7 @@ ScreenRegistrationHandle registration = runtime.ScreenRegistry.Register
 ### Open
 
 ```csharp
-ScreenOpenResponse response = runtime.Screens.Open
+ScreenOpenResponse response = runtime.Main.Screens.Open
 (
     "example.screen",
     new ScreenOpenParams(payload)
@@ -407,10 +413,10 @@ Payload의 수명을 종료하지 않는다.
 ### Stack 명령
 
 ```csharp
-runtime.Screens.Open("example.first");
-runtime.Screens.Replace("example.second");
-runtime.Screens.Close();
-runtime.Screens.Clear();
+runtime.Main.Screens.Open("example.first");
+runtime.Main.Screens.Replace("example.second");
+runtime.Main.Screens.Close();
+runtime.Main.Screens.Clear();
 ```
 
 | 명령 | 동작 |
@@ -495,7 +501,7 @@ Overlay는 Screen Stack과 독립적으로 Layer를 잠시 점유하는 View다.
 ```csharp
 OverlayHandle<ExampleView> overlay = OverlayHandle<ExampleView>.Acquire
 (
-    runtime.LayerRegistry,
+    runtime.Main.LayerRegistry,
     "Overlay",
     source
 );
@@ -518,7 +524,7 @@ Overlay는 `IOverlaySource<TView>`에서 Visual Tree 추가와 제거를 대칭 
 Overlay로 Modal View를 획득했다면 해당 Handle의 소유권을 Modal에 넘긴다.
 
 ```csharp
-ModalHandle modal = runtime.Modals.Open(driver, overlayHandle);
+ModalHandle modal = runtime.Main.Modals.Open(driver, overlayHandle);
 ```
 
 Modal Handle을 해제하면 현재 Modal을 닫고, 이전 Modal을 top으로 복원한 뒤 전달받은 Handle을
@@ -536,7 +542,7 @@ Lease hidden = runtime.Visibility.Set(target, visible: false);
 
 ## Focus와 Input
 
-Screen Stack이 바뀌면 Runtime이 다음 상태를 자동 합성한다.
+Context의 Screen Stack이 바뀌면 Runtime이 다음 상태를 자동 합성한다.
 
 - Options 또는 Driver의 기본 Focus
 - Screen별 마지막 Focus와 fallback
@@ -546,6 +552,26 @@ Screen Stack이 바뀌면 Runtime이 다음 상태를 자동 합성한다.
 - `InputPriority`
 
 Screen Source가 별도 전역 Focus Manager나 Input Map 전환 코드를 만들 필요는 없다.
+
+`Main`과 각 Child Context는 Focus 기록을 따로 보관한다. 실제 Focus Driver를 적용하는 Context는
+한 번에 하나이며 `child.Focus()`로 넘기고 `child.Unfocus()` 또는 `child.Dispose()`로 가장
+가까운 살아 있는 Parent에 돌려준다. Focus 전환은 표시, raycast, input map 또는 Layer 순서를
+바꾸지 않는다.
+
+Child Context는 특수한 독립 UI 범위에만 사용한다.
+
+```csharp
+GameUIContext windowContext = runtime.Main.CreateChild(windowLayerRegistry);
+windowContext.Focus();
+
+// Window가 닫힐 때 Screen과 Modal을 포함한 전체 Child 수명을 종료한다.
+windowContext.Dispose();
+```
+
+Layer Registry를 생략하면 Parent와 같은 표시 공간을 공유한다. 특정 Window Root 안에 UI를
+배치하려면 그 Root를 나타내는 Layer Driver를 별도 `PresentationLayerRegistry`에 등록해
+`CreateChild(windowLayerRegistry)`에 전달한다. Child는 전달받은 Registry를 소유하거나
+해제하지 않는다.
 
 Host의 `InputSystemUIInputModule`에는 Point, Move, Submit, Cancel과 Click Action Reference가
 실제로 연결되어 있어야 한다. Xeri의 `GameUIInputActions.inputactions`를 UI Actions로
@@ -792,11 +818,14 @@ Gamma Compositor와 Loop Animator는 독립 기능이다. 반복이 필요한 �
 
 일반적인 종료 순서는 다음과 같다.
 
-1. `runtime.Screens.Clear()`로 열린 Session과 자식 Handle을 닫는다.
+1. `runtime.Main.Screens.Clear()`로 열린 Session과 자식 Handle을 닫는다.
 2. `ScreenRegistrationHandle`을 해제한다.
 3. Source, Binding과 선택 기능 Controller를 해제한다.
 4. 추가 `GameUIProfileHandle`을 해제한다.
 5. `runtime.Shutdown()`을 호출한다.
+
+Child Context는 생성한 범위가 `Dispose()`한다. Parent를 종료하면 남은 Child가 최신 항목부터
+재귀적으로 정리된다. `Main.Dispose()`는 거부되며 `Main`은 `runtime.Shutdown()`만 종료한다.
 
 일반 `Dispose`, `Release`와 Callback 정리는 attempt-once다. 정리가 시작된 객체를 재시도
 Registry나 복구 상태 머신에 넣지 않는다. 일부 정리가 실패하더라도 소유자가 정의한 독립
@@ -815,7 +844,7 @@ AI가 Xeri Game UI를 사용하는 코드를 만들 때는 아래 순서로 판�
 
 ### 새 UI를 추가하기 전
 
-1. Runtime 참조를 전달할 수명 소유자를 찾는다.
+1. 일반 UI인지 독립 Stack이 필요한 특수 범위인지 판단해 `Main` 또는 Child Context를 고른다.
 2. UI가 사용할 Layer ID와 Profile을 확인한다.
 3. Root가 `RectTransform`인지 `VisualElement`인지 결정한다.
 4. View 획득과 반환을 담당할 Source를 정한다.
@@ -876,6 +905,7 @@ README의 공개 사용법보다 내부 동작 확인이 필요한 경우에만 
 | 관심사 | 경로 |
 |---|---|
 | Runtime 조립 | `Runtime/GameUIRuntime.cs` |
+| Context 조립과 수명 | `Runtime/Context/GameUIContext.cs` |
 | Settings | `GameUISettingsAsset.cs` |
 | Profile | `GameUIProfileAsset.cs`, `Runtime/Profile` |
 | Layer Core | `Core/Presentation/Layer` |

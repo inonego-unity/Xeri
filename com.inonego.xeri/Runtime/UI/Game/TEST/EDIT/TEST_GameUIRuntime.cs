@@ -1,15 +1,16 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIRuntime.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-03
 
 # 설명
 GameUIRuntime의 혼합 Layer Profile, 롤백, Scene 중복 구성과 초기화·종료 실패 정리를 검증한다.
 
 # 테스트 구성
  P: Profile 획득 실패 롤백
- I: OnInitialized 실패 롤백
+ I: Singleton 공개와 OnInitialized 실패 롤백
  R: Runtime 종료 실패와 Terminal 정리
  S: Screen 정리 실패와 Terminal Shutdown
+ M: Main과 Child Context 소유권
  C: Host·Scene 구성 검증
 ========================================================================= BLOCK_HEADER_END */
 
@@ -559,6 +560,17 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 테스트마다 Game UI Runtime Singleton 기본 Slot을 격리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [SetUp]
+        public void SetUp()
+        {
+            GameUIRuntime.Clear();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 테스트에서 만든 Unity Object를 역순 제거한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -574,6 +586,7 @@ namespace inonego.Xeri.TEST.UI._Game
             }
 
             ownedObjects.Clear();
+            GameUIRuntime.Clear();
         }
 
     #endregion
@@ -661,7 +674,35 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region I-1: 초기화 구독자 실패
+    #region I-1: Singleton 공개 수명
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 초기화 완료 Runtime만 Current로 공개하고,
+        /// <br/> Shutdown 시작 뒤에는 같은 Runtime을 더 이상 조회하지 않는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_초기화성공_Current공개와Shutdown해제()
+        {
+            var fixture = CreateRuntimeFixture();
+
+            Assert.IsFalse(GameUIRuntime.TryCurrent(out _));
+
+            fixture.Runtime.Initialize(fixture.Settings);
+
+            Assert.AreSame(fixture.Runtime, GameUIRuntime.Current);
+            Assert.IsTrue(GameUIRuntime.Current.IsInitialized);
+
+            fixture.Runtime.Shutdown();
+
+            Assert.IsFalse(GameUIRuntime.TryCurrent(out _));
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+        }
+
+    #endregion
+
+    #region I-2: 초기화 구독자 실패
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -679,7 +720,9 @@ namespace inonego.Xeri.TEST.UI._Game
 
             fixture.Runtime.OnInitialized += runtime =>
             {
-                runtime.ScreenRegistry.Register
+                Assert.AreSame(runtime, GameUIRuntime.Current);
+                Assert.IsTrue(GameUIRuntime.Current.IsInitialized);
+                runtime.Main.ScreenRegistry.Register
                 (
                     new ScreenOptions
                     (
@@ -690,7 +733,7 @@ namespace inonego.Xeri.TEST.UI._Game
                     ),
                     source
                 );
-                var response = runtime.Screens.Open("Boot");
+                var response = runtime.Main.Screens.Open("Boot");
                 Assert.IsTrue(response.Accepted);
             };
             fixture.Runtime.OnInitialized += _ =>
@@ -716,6 +759,7 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
             Assert.IsTrue(fixture.Runtime.IsReleased);
             Assert.IsFalse(fixture.Runtime.IsInitialized);
+            Assert.IsFalse(GameUIRuntime.TryCurrent(out _));
         }
 
         // ----------------------------------------------------------------------
@@ -737,6 +781,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             Assert.IsTrue(fixture.Runtime.IsReleased);
             Assert.IsFalse(fixture.Runtime.IsInitialized);
+            Assert.IsFalse(GameUIRuntime.TryCurrent(out _));
             Assert.AreEqual(1, fixture.LayerProvider.ReleaseCount);
             Assert.AreEqual(1, fixture.FadeProvider.ReleaseCount);
 
@@ -747,7 +792,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region I-2: 필수 Fade 구성 실패
+    #region I-3: 필수 Fade 구성 실패
 
         // ------------------------------------------------------------
         /// <summary>
@@ -797,7 +842,8 @@ namespace inonego.Xeri.TEST.UI._Game
                 releasingCount++;
                 servicesAvailableToSubscriber =
                     runtime.Visibility != null &&
-                    runtime.Modals != null &&
+                    runtime.Main != null &&
+                    runtime.Main.Modals != null &&
                     runtime.LayerRegistry != null;
             };
             fixture.Runtime.OnReleasing += _ =>
@@ -948,7 +994,7 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 Acquiring = fixture.Runtime.Shutdown,
             };
-            fixture.Runtime.ScreenRegistry.Register
+            fixture.Runtime.Main.ScreenRegistry.Register
             (
                 new ScreenOptions
                 (
@@ -959,7 +1005,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 ),
                 source
             );
-            var screens = fixture.Runtime.Screens;
+            var screens = fixture.Runtime.Main.Screens;
 
             var response = screens.Open("Interrupted");
 
@@ -985,7 +1031,7 @@ namespace inonego.Xeri.TEST.UI._Game
             var fixture = CreateRuntimeFixture();
             fixture.Runtime.Initialize(fixture.Settings);
             var source = new TestScreenSource();
-            fixture.Runtime.ScreenRegistry.Register
+            fixture.Runtime.Main.ScreenRegistry.Register
             (
                 new ScreenOptions
                 (
@@ -996,7 +1042,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 ),
                 source
             );
-            var response = fixture.Runtime.Screens.Open("Cleanup");
+            var response = fixture.Runtime.Main.Screens.Open("Cleanup");
             var child = new ThrowingHandle();
             response.Session.RegisterChild(child);
 
@@ -1022,7 +1068,140 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region C-1: Scene 구성 중복
+    #region M-1: Main과 Child Context 소유권
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Runtime 초기화가 Main의 고정 Controller를 완성하고,
+        /// <br/> 공개 Main Dispose는 상태 변경 전에 거부되는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_Main구성_직접Dispose거부와소유권유지()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.Initialize(fixture.Settings);
+            var main = fixture.Runtime.Main;
+
+            Assert.IsNotNull(main);
+            Assert.AreSame(fixture.Runtime.LayerRegistry, main.LayerRegistry);
+            Assert.IsNotNull(main.ScreenRegistry);
+            Assert.IsNotNull(main.Screens);
+            Assert.IsNotNull(main.Modals);
+            Assert.IsTrue(main.HasFocus);
+
+            Assert.Throws<InvalidOperationException>(main.Dispose);
+
+            Assert.IsFalse(main.IsDisposing);
+            Assert.IsFalse(main.IsDisposed);
+            Assert.AreSame(main, fixture.Runtime.Main);
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
+            Assert.IsTrue(main.IsDisposed);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Child가 같은 표시 공간에서도 독립 Screen Registry와 Focus 권한을 갖고,
+        /// <br/> Parent 종료가 Grandchild까지 정리한 뒤 Main Focus를 복원하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_ChildContext_독립Registry와재귀종료Focus복원()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.Initialize(fixture.Settings);
+            var main = fixture.Runtime.Main;
+            var child = main.CreateChild();
+            var grandchild = child.CreateChild();
+            var mainRegistration = main.ScreenRegistry.Register
+            (
+                new ScreenOptions("Shared ID", "Fade"),
+                new TestScreenSource()
+            );
+            var childRegistration = child.ScreenRegistry.Register
+            (
+                new ScreenOptions("Shared ID", "Fade"),
+                new TestScreenSource()
+            );
+
+            Assert.AreSame(main.LayerRegistry, child.LayerRegistry);
+            Assert.AreNotSame(main.ScreenRegistry, child.ScreenRegistry);
+            Assert.IsFalse(mainRegistration.IsDisposed);
+            Assert.IsFalse(childRegistration.IsDisposed);
+            Assert.IsTrue(main.HasFocus);
+            Assert.IsFalse(child.HasFocus);
+
+            grandchild.Focus();
+
+            Assert.IsFalse(main.HasFocus);
+            Assert.IsFalse(child.HasFocus);
+            Assert.IsTrue(grandchild.HasFocus);
+
+            child.Dispose();
+
+            Assert.IsTrue(child.IsDisposed);
+            Assert.IsTrue(grandchild.IsDisposed);
+            Assert.IsTrue(childRegistration.IsDisposed);
+            Assert.IsFalse(mainRegistration.IsDisposed);
+            Assert.IsTrue(main.HasFocus);
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Runtime Shutdown이 Main 아래 남은 Child Tree를 모두 Terminal 상태로 종료하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_Shutdown_Main과ChildTree전체종료()
+        {
+            var fixture = CreateRuntimeFixture();
+            fixture.Runtime.Initialize(fixture.Settings);
+            var main = fixture.Runtime.Main;
+            var child = main.CreateChild();
+            var grandchild = child.CreateChild();
+
+            Assert.DoesNotThrow(fixture.Runtime.Shutdown);
+
+            Assert.IsTrue(main.IsDisposed);
+            Assert.IsTrue(child.IsDisposed);
+            Assert.IsTrue(grandchild.IsDisposed);
+            Assert.IsTrue(fixture.Runtime.IsReleased);
+        }
+
+    #endregion
+
+    #region C-1: Singleton과 Scene 구성 중복
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 기본 Slot을 이미 소유한 Runtime이 있으면 후속 초기화를 거부하고,
+        /// <br/> 기존 Current와 그 Runtime의 사용 가능 상태를 보존하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_GameUIRuntime_기본Slot중복_기존Current유지()
+        {
+            var currentFixture = CreateRuntimeFixture();
+            currentFixture.Runtime.Initialize(currentFixture.Settings);
+            var duplicateFixture = CreateRuntimeFixture();
+
+            var exception = Assert.Throws<InvalidOperationException>
+            (
+                () => duplicateFixture.Runtime.Initialize(duplicateFixture.Settings)
+            );
+
+            StringAssert.Contains("기본 Slot", exception.Message);
+            Assert.AreSame(currentFixture.Runtime, GameUIRuntime.Current);
+            Assert.IsTrue(currentFixture.Runtime.IsInitialized);
+            Assert.IsFalse(duplicateFixture.Runtime.IsInitialized);
+            Assert.IsTrue(duplicateFixture.Runtime.IsReleased);
+            Assert.AreEqual(0, duplicateFixture.LayerProvider.AcquireCount);
+            Assert.AreEqual(0, duplicateFixture.FadeProvider.AcquireCount);
+
+            Assert.DoesNotThrow(currentFixture.Runtime.Shutdown);
+            Assert.IsFalse(GameUIRuntime.TryCurrent(out _));
+        }
 
         // ------------------------------------------------------------
         /// <summary>

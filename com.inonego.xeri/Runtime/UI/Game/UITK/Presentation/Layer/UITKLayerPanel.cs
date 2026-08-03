@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKLayerPanel.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-04
 
 # 설명
 PresentationLayerAsset의 공통 Screen Overlay 순서를 독립 Runtime Panel과 UIDocument에 적용한다.
@@ -134,6 +134,9 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public void SetActive(bool active)
         {
+            // Play Mode 종료에서는 Unity가 Driver를 먼저 파괴할 수 있으므로 이미 사라진 Layer는 정리 완료로 취급한다.
+            if (this == null) return;
+
             if (!active)
             {
                 // 비활성 Layer는 화면 크기 RT를 계속 소유하지 않도록 합성 자원을 함께 반환한다.

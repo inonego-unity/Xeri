@@ -44,7 +44,7 @@ HTML 디자인 기준의 Xeri Game UI Core 검증 화면 구조를 정의한다.
                 <ui:VisualElement class="rail__runtime-card">
                     <ui:VisualElement class="runtime-card__row">
                         <ui:VisualElement class="runtime-card__pulse" />
-                        <ui:Label text="RUNTIME ONLINE" class="runtime-card__title" />
+                        <ui:Label name="RuntimeMode" text="STANDALONE / FULL VALIDATION" class="runtime-card__title" />
                     </ui:VisualElement>
                     <ui:Label name="GammaState" text="Linear / Gamma composite" class="runtime-card__copy" />
                 </ui:VisualElement>

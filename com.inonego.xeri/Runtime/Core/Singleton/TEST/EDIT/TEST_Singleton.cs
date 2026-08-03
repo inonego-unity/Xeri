@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Singleton.cs
-수정일 : 2026-05-08
+수정일 : 2026-08-03
 
 # 설명
 Singleton<T> 정적 API 래퍼 스모크 테스트.
@@ -8,7 +8,7 @@ Singleton<T> 정적 API 래퍼 스모크 테스트.
 본 파일은 정적 래퍼가 동일 레지스트리에 올바르게 위임되는지만 확인한다.
 
 # 테스트 구성
- E: 정적 API 위임 (Register/Current/TryCurrent/Named/Scope/Clear)
+ E: 정적 API 위임 (Register/TryRegister/Current/TryCurrent/Named/Scope/Clear)
 
 # 특이사항
 Singleton<T> 의 static 레지스트리는 T 별로 영속 상태이다.
@@ -66,10 +66,12 @@ namespace inonego.Xeri.TEST.Core._Singleton
         {
             var main = new SingletonItem("Main");
             var sub  = new SingletonItem("Sub");
+            var contender = new SingletonItem("Contender");
 
             Assert.IsFalse(Singleton<SingletonItem>.TryCurrent(out _), "등록 전에는 false이어야 합니다");
 
-            Singleton<SingletonItem>.Register(main);
+            Assert.IsTrue(Singleton<SingletonItem>.TryRegister(main));
+            Assert.IsFalse(Singleton<SingletonItem>.TryRegister(contender));
             Singleton<SingletonItem>.Register("SUB", sub);
 
             Assert.AreSame(main, Singleton<SingletonItem>.Current);

@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_InstanceRegistry.cs
-수정일 : 2026-05-08
+수정일 : 2026-08-03
 
 # 설명
 InstanceRegistry<T> 핵심 슬롯 로직 테스트.
 
 # 테스트 구성
- E: 기본 기능 (Register/Current/TryCurrent/Named/Unregister/Clear)
+ E: 기본 기능 (Register/TryRegister/Current/TryCurrent/Named/Unregister/Clear)
  S: 슬롯 컨텍스트 (Scope/OpenScope/CloseScope, 중첩/혼용)
  X: 예외 처리 (null 키/미등록 슬롯/CloseScope 초과)
 ========================================================================= BLOCK_HEADER_END */
@@ -61,7 +61,7 @@ namespace inonego.Xeri.TEST.Core._Singleton
 
     #endregion
 
-    #region E-1: Register / Current 기본
+    #region E-1-1: Register / Current 기본
 
         [Test]
         public void TEST_InstanceRegistry_Register_DEFAULT_SLOT_Current_접근()
@@ -71,6 +71,26 @@ namespace inonego.Xeri.TEST.Core._Singleton
             registry.Register(item);
 
             Assert.AreEqual(item, registry.Current);
+        }
+
+    #endregion
+
+    #region E-1-2: TryRegister 비파괴 점유
+
+        [Test]
+        public void TEST_InstanceRegistry_TryRegister_기존소유자유지와동일인스턴스허용()
+        {
+            var owner = new Item("Owner");
+            var contender = new Item("Contender");
+
+            Assert.IsTrue(registry.TryRegister(owner));
+            Assert.IsTrue(registry.TryRegister(owner), "같은 인스턴스의 재등록은 성공해야 합니다");
+            Assert.IsFalse(registry.TryRegister(contender), "다른 인스턴스는 기존 슬롯을 덮어쓰지 않아야 합니다");
+            Assert.AreSame(owner, registry.Current);
+
+            Assert.IsTrue(registry.TryRegister("SUB", contender));
+            Assert.IsFalse(registry.TryRegister("SUB", owner));
+            Assert.AreSame(contender, registry.Named["SUB"]);
         }
 
     #endregion
@@ -349,6 +369,7 @@ namespace inonego.Xeri.TEST.Core._Singleton
             var item = new Item("Main");
 
             Assert.Throws<ArgumentNullException>(() => registry.Register(null, item));
+            Assert.Throws<ArgumentNullException>(() => registry.TryRegister(null, item));
             Assert.Throws<ArgumentNullException>(() => registry.Unregister((string)null));
             Assert.Throws<ArgumentNullException>(() => registry.Scope(null));
             Assert.Throws<ArgumentNullException>(() => { var _ = registry.Named[null]; });

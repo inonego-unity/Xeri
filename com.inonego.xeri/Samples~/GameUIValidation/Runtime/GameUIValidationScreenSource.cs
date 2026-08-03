@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIValidationScreenSource.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-03
 
 # 설명
 검증용 UXML을 실제 UITK Presentation Layer에 생성하고 Xeri Screen Driver와 상태 훅을
@@ -191,6 +191,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         private readonly Label fadeState = null;
         private readonly Label inputDevice = null;
         private readonly Label gammaState = null;
+        private readonly Label runtimeMode = null;
         private readonly Label activityText = null;
         private readonly Label detailIndex = null;
         private readonly Label detailTitle = null;
@@ -247,9 +248,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
 
             layerRoot = typedLayer.Root;
             isDashboard = scope.ScreenID == GameUIValidationLab.DASHBOARD_SCREEN_ID;
-            payload = scope.OpenParams.Payload is GameUIValidationScreenPayload value
-                ? value
-                : new GameUIValidationScreenPayload(1, false);
+            payload = scope.OpenParams.Payload is GameUIValidationScreenPayload value ? value : new GameUIValidationScreenPayload(1, false);
 
             dashboardView = Require<VisualElement>(root, "DashboardView");
             detailView = Require<VisualElement>(root, "DetailView");
@@ -261,6 +260,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
             fadeState = Require<Label>(root, "FadeState");
             inputDevice = Require<Label>(root, "InputDevice");
             gammaState = Require<Label>(root, "GammaState");
+            runtimeMode = Require<Label>(root, "RuntimeMode");
             activityText = Require<Label>(root, "ActivityText");
             detailIndex = Require<Label>(root, "DetailIndex");
             detailTitle = Require<Label>(root, "DetailTitle");
@@ -295,24 +295,19 @@ namespace inonego.Xeri.Samples.GameUIValidation
         // ------------------------------------------------------------
         private void ConfigureView()
         {
-            dashboardView.style.display = isDashboard
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
-            detailView.style.display = isDashboard
-                ? DisplayStyle.None
-                : DisplayStyle.Flex;
+            dashboardView.style.display = isDashboard ? DisplayStyle.Flex : DisplayStyle.None;
+            detailView.style.display = isDashboard ? DisplayStyle.None : DisplayStyle.Flex;
 
             if (isDashboard)
             {
+                fadeButton.SetEnabled(owner.SupportsSceneFade);
                 DefaultFocus = pushButton;
                 return;
             }
 
             var mode = payload.IsReplacement ? "REPLACE" : "PUSH";
             detailIndex.text = $"SCREEN {payload.Depth:00}";
-            detailTitle.text = payload.IsReplacement
-                ? "Top session replaced."
-                : "A new layer of state.";
+            detailTitle.text = payload.IsReplacement ? "Top session replaced." : "A new layer of state.";
             detailCopy.text = payload.IsReplacement
                 ? "The previous top completed its close path while this new session acquired the same registered Screen source."
                 : "This instance owns its view, layer usage, input session and transition until the top is popped or replaced.";
@@ -448,6 +443,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
             fadeState.text = owner.FadeState;
             inputDevice.text = owner.InputDeviceName.ToUpperInvariant();
             gammaState.text = owner.GammaDescription;
+            runtimeMode.text = owner.RuntimeMode;
             activityText.text = owner.LastActivity;
             detailDepth.text = owner.ScreenCount.ToString();
             detailTopScreen.text = GameUIValidationLab.ShortScreenID(owner.TopScreenID).ToUpperInvariant();

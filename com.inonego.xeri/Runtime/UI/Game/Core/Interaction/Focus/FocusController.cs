@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : FocusController.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-03
 
 # 설명
 Screen별 마지막 Focus와 화면·Driver 기본값·대체 선택을 관리한다.
+Context Focus 권한이 있을 때만 실제 Driver 선택을 적용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -39,6 +40,7 @@ namespace inonego.Xeri.UI.Game
         private readonly IFocusDriver driver = null;
         private readonly Dictionary<ScreenSession, Record> records =
             new Dictionary<ScreenSession, Record>();
+        private bool isFocused = true;
 
     #endregion
 
@@ -83,6 +85,9 @@ namespace inonego.Xeri.UI.Game
 
             record.Default = defaultFocus;
             record.DriverDefault = driverDefaultFocus;
+
+            if (!isFocused) return;
+
             var target = Resolve(record);
             driver.Select(target);
         }
@@ -105,7 +110,7 @@ namespace inonego.Xeri.UI.Game
                 records.Add(session, record);
             }
 
-            if (driver.IsValid(driver.Current))
+            if (isFocused && driver.IsValid(driver.Current))
             {
                 record.Last = driver.Current;
             }
@@ -130,6 +135,8 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public void Restore(ScreenSession session)
         {
+            if (!isFocused) return;
+
             if (session == null)
             {
                 driver.Select(driver.FindFallback());
@@ -153,7 +160,42 @@ namespace inonego.Xeri.UI.Game
         public void Clear()
         {
             records.Clear();
+
+            if (!isFocused) return;
+
             driver.Select(driver.FindFallback());
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이 Controller의 기록을 실제 Focus Driver에 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void Focus(ScreenSession session)
+        {
+            if (isFocused) return;
+
+            // 권한을 먼저 확정해 Select callback의 재진입도 현재 Context로 관찰되게 한다.
+            isFocused = true;
+            Restore(session);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Screen 선택을 기록하고 실제 Focus Driver 적용을 중지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void Unfocus(ScreenSession session)
+        {
+            if (!isFocused) return;
+
+            // 다른 Context가 Driver를 사용하기 전에 현재 Screen 선택을 마지막 기록으로 보존한다.
+            if (session != null)
+            {
+                Cover(session);
+            }
+
+            isFocused = false;
         }
 
         // ------------------------------------------------------------

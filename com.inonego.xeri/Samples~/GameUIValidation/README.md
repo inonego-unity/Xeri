@@ -29,13 +29,14 @@ Assets/Samples/Xeri/<version>/Game UI Validation/
 2. Play Mode로 진입한다.
 3. Mouse 또는 Keyboard/Gamepad Navigation과 Submit으로 버튼을 조작한다.
 
-샘플은 `GameUIValidationSettings.asset`과 Xeri 표준 `GameUIHost.prefab`으로 독립 Runtime을
-만들고 Scene이 닫힐 때 자신이 만든 Host 전체를 정리한다. 이 소유권 경계 덕분에
-`Clear & Restore`도 애플리케이션의 Screen Stack을 변경하지 않는다.
+활성 `GameUIRuntime`이 없으면 샘플은 `GameUIValidationSettings.asset`과 Xeri 표준
+`GameUIHost.prefab`으로 독립 Runtime을 만들고 전체 기능을 검증한다. Scene이 닫힐 때 자신이
+만든 Host 전체를 정리한다.
 
-프로젝트의 Game UI Bootstrapper가 자동으로 App Runtime을 생성한다면 검증 Scene을 실행하는
-동안 해당 Bootstrapper Module을 비활성화한다. 이미 활성 Runtime Host가 있으면 샘플은 그
-Runtime이나 Screen을 정리하지 않고 명확한 오류와 함께 시작을 거부한다.
+App Runtime이 이미 있으면 샘플 전용 Layer Registry와 `runtime.Main`의 Child Context를 만들어
+Screen, Modal, Overlay와 Context Focus만 검증한다. 이 공유 모드에서는 App Profile,
+SceneFader, Input Settings와 Runtime Shutdown을 건드리지 않으며 Fade 버튼이 비활성화된다.
+화면 왼쪽 아래 상태 카드가 현재 실행 모드를 표시한다.
 
 ## 검증 경로
 
@@ -63,7 +64,7 @@ GameUIValidation/
 ├── Runtime/   # 샘플 조립 코드와 전용 Assembly
 ├── UI/        # UXML, USS, Layer, Panel Settings와 Profile
 ├── Fonts/     # Unity와 HTML이 함께 사용하는 Inter와 OFL 1.1
-└── Web~/      # HTML/CSS 시각 기준본과 1920×1080 Reference
+└── Web~/      # HTML/CSS 1920×1080 시각 기준본
 ```
 
 `GameUIValidationGameplay.inputactions`는 UI가 Gameplay 입력을 차단하고 복원하는 경로를

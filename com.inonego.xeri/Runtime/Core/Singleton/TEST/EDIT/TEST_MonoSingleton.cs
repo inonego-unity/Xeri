@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN ===================================================================================
 파일명 : TEST_MonoSingleton.cs
-수정일 : 2026-05-08
+수정일 : 2026-08-03
 
 # 설명
 MonoSingleton<T> 정적 API 위임 스모크 테스트.
 슬롯 로직은 InstanceRegistry<T> 가 보유하며 별도 테스트가 존재한다.
 
 # 테스트 구성
- E: 정적 API 위임 (Register/Current/TryCurrent/Named/Scope/Clear)
+ E: 정적 API 위임 (Register/TryRegister/Current/TryCurrent/Named/Scope/Clear)
  R: TryRegisterOrDestroy (슬롯 점유 / 중복 시 자기 파괴)
 
 # 특이사항
@@ -106,10 +106,13 @@ namespace inonego.Xeri.TEST.Core._Singleton
         {
             var main = CreateItem("Main");
             var sub  = CreateItem("Sub");
+            var contender = CreateItem("Contender");
 
             Assert.IsFalse(MonoSingleton<MonoSingletonItem>.TryCurrent(out _), "등록 전에는 false이어야 합니다");
 
-            MonoSingleton<MonoSingletonItem>.Register(main);
+            Assert.IsTrue(MonoSingleton<MonoSingletonItem>.TryRegister(main));
+            Assert.IsFalse(MonoSingleton<MonoSingletonItem>.TryRegister(contender));
+            Assert.IsTrue(contender != null, "비파괴 등록 실패는 호출자의 GameObject를 유지해야 합니다");
             MonoSingleton<MonoSingletonItem>.Register("SUB", sub);
 
             Assert.AreSame(main, MonoSingleton<MonoSingletonItem>.Current);
@@ -130,7 +133,27 @@ namespace inonego.Xeri.TEST.Core._Singleton
 
     #endregion
 
-    #region E-2: Clear 위임
+    #region E-2: TryRegister — 파괴된 소유자 교체
+
+        [Test]
+        public void TEST_MonoSingleton_TryRegister_파괴된소유자_재점유()
+        {
+            var previous = CreateItem("Previous");
+            var previousGo = previous.gameObject;
+            var next = CreateItem("Next");
+
+            Assert.IsTrue(MonoSingleton<MonoSingletonItem>.TryRegister(previous));
+
+            UnityEngine.Object.DestroyImmediate(previousGo);
+            spawned.Remove(previousGo);
+
+            Assert.IsTrue(MonoSingleton<MonoSingletonItem>.TryRegister(next));
+            Assert.AreSame(next, MonoSingleton<MonoSingletonItem>.Current);
+        }
+
+    #endregion
+
+    #region E-3: Clear 위임
 
         [Test]
         public void TEST_MonoSingleton_Clear_모든_슬롯_제거()
