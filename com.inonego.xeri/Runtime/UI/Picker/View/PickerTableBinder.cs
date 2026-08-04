@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerTableBinder.cs
-수정일 : 2026-06-17
+수정일 : 2026-08-05
 
 # 설명
 Picker MultiColumnListView의 column, row, selection, double click, sorting 입력을 관리한다.
@@ -288,6 +288,7 @@ namespace inonego.Xeri.UI.Picker
       private void HandleSelectionChanged(IEnumerable<object> selectedItems)
       {
          var entry = GetFirstEntry(selectedItems);
+
          if (entry != null)
          {
             root.Focus();

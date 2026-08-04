@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <ui:VisualElement name="generic-type-picker" class="generic-type-picker">
+        <ui:Label text="제네릭 타입" class="generic-type-caption" />
+        <ui:Label name="definition-label" class="generic-type-definition" />
+        <ui:VisualElement class="generic-type-arguments-panel">
+            <ui:VisualElement name="arguments" class="generic-type-arguments" />
+        </ui:VisualElement>
+        <ui:VisualElement class="generic-type-result-row">
+            <ui:Label text="결과" class="generic-type-result-caption" />
+            <ui:Label name="result-label" class="generic-type-result" />
+        </ui:VisualElement>
+        <ui:Label name="status-label" class="generic-type-status" />
+        <ui:VisualElement class="generic-type-footer">
+            <ui:Button name="cancel-button" text="취소" class="generic-type-footer-button" />
+            <ui:Button name="select-button" text="선택" class="generic-type-footer-button generic-type-select-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

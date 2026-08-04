@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerManualEditorWindow.cs
-수정일 : 2026-06-17
+수정일 : 2026-08-04
 
 # 설명
 Picker EditorWindow 선택 UI를 직접 조작해 확인하는 수동 Editor 테스트.
@@ -305,7 +305,7 @@ namespace inonego.Xeri.TEST.UI._Picker
       [UnityEngine.TestTools.UnityTest]
       public IEnumerator TEST_PickerManualEditorWindow_선택UI_수동확인()
       {
-         window = PickerWindow.Show
+         window = Picker.Show
          (
             Spec,
             CreateEntries(),
@@ -327,7 +327,7 @@ namespace inonego.Xeri.TEST.UI._Picker
       [UnityEngine.TestTools.UnityTest]
       public IEnumerator TEST_PickerManualEditorWindow_ListPicker_수동확인()
       {
-         window = PickerWindow.ShowList
+         window = Picker.ShowList
          (
             "List 선택 샘플",
             CreateListEntries(),
@@ -349,7 +349,7 @@ namespace inonego.Xeri.TEST.UI._Picker
       [UnityEngine.TestTools.UnityTest]
       public IEnumerator TEST_PickerManualEditorWindow_DictionaryPicker_수동확인()
       {
-         window = PickerWindow.ShowDictionary
+         window = Picker.ShowDictionary
          (
             "Dictionary 선택 샘플",
             CreateDictionaryEntries(),

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerSession.cs
-수정일 : 2026-06-07
+수정일 : 2026-08-04
 
 # 설명
 Picker 실행 단위의 검색, 필터, 정렬, 현재 선택, 페이징 상태를 관리한다.
@@ -235,6 +235,9 @@ namespace inonego.Xeri.UI.Picker
       // ------------------------------------------------------------
       public void SetCurrentEntry(PickerEntry<TEntry, TValue> entry)
       {
+         // ListView가 현재 선택을 다시 반영해도 상태가 같으면 View 갱신을 재진입시키지 않는다.
+         if (ReferenceEquals(CurrentEntry, entry)) return;
+
          CurrentEntry = entry;
          Changed?.Invoke(this, EventArgs.Empty);
       }
@@ -246,8 +249,7 @@ namespace inonego.Xeri.UI.Picker
       // ------------------------------------------------------------
       public void ClearCurrentEntry()
       {
-         CurrentEntry = null;
-         Changed?.Invoke(this, EventArgs.Empty);
+         SetCurrentEntry(null);
       }
 
       // ------------------------------------------------------------

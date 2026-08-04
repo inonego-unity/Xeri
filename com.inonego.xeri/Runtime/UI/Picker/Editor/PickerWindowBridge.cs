@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerWindowBridge.cs
-수정일 : 2026-06-07
+수정일 : 2026-08-04
 
 # 설명
-PickerWindow.Show 인자를 non-generic EditorWindow 생명주기에 연결하기 위한 bridge.
+Picker.Show 인자를 non-generic EditorWindow 생명주기에 연결하기 위한 bridge.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;

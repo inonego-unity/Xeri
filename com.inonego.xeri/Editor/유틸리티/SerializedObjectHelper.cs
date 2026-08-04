@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명: SerializedObjectHelper.cs
-수정일: 2026-05-20
+파일명 : SerializedObjectHelper.cs
+수정일 : 2026-08-04
 
 # 설명
 SerializedObject의 프로퍼티를 IMGUI 또는 UI Toolkit으로 그리기 위한 헬퍼.
-m_Script 필드는 제외하고 표시 가능한 직계 프로퍼티를 순회한다.
+m_Script 필드는 제외하고 표시 가능한 최상위 프로퍼티를 순회한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEditor;

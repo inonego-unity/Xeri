@@ -1,10 +1,11 @@
 # Xeri Picker
 
-Unity UI Toolkit 기반 단일 선택 창입니다.
-호출자는 `PickerSpec<TEntry, TValue>`로 데이터 표시 규칙을 만들고 `PickerWindow.Show(...)`로 선택 UI를 엽니다.
+Unity UI Toolkit 기반 단일 선택 UI입니다.
+호출자는 `PickerSpec<TEntry, TValue>`로 데이터 표시 규칙을 만들고 `Picker.Show(...)`로
+modal window 또는 호출 위치에 연결된 dropdown을 엽니다.
 
 ```text
-원본 데이터 목록 -> PickerSpec -> PickerWindow.Show(...) -> 선택값 TValue
+원본 데이터 목록 -> PickerSpec -> Picker.Show(...) -> 선택값 TValue
 ```
 
 Picker는 다음 책임을 공통으로 처리합니다.
@@ -63,7 +64,7 @@ var spec = PickerSpec<Student, string>
    )
    .Build();
 
-PickerWindow.Show
+Picker.Show
 (
    spec,
    students,
@@ -72,6 +73,28 @@ PickerWindow.Show
    {
       currentStudentID = selectedID;
    },
+   onCanceled: () =>
+   {
+      Debug.Log("선택 없이 닫힘");
+   }
+);
+```
+
+위 호출은 modal window를 엽니다. Inspector field나 toolbar처럼 특정 control에서 선택을
+시작했다면, 같은 `PickerSpec`과 callback에 해당 control의 화면 좌표 `Rect`를 전달합니다.
+이 경우에만 Picker가 해당 위치에 연결된 dropdown으로 표시됩니다.
+
+```csharp
+Picker.Show
+(
+   spec,
+   students,
+   currentValue: currentStudentID,
+   onSelected: selectedID =>
+   {
+      currentStudentID = selectedID;
+   },
+   rect: buttonScreenRect,
    onCanceled: () =>
    {
       Debug.Log("선택 없이 닫힘");
@@ -190,7 +213,7 @@ var spec = ListPicker
    .Spec<string>("문자열 선택")
    .Build();
 
-PickerWindow.Show(spec, entries, currentValue, selected => currentValue = selected);
+Picker.Show(spec, entries, currentValue, selected => currentValue = selected);
 ```
 
 원본 entry와 선택값 타입을 분리할 수도 있습니다.
@@ -227,7 +250,7 @@ var dictionary = new Dictionary<string, int>
    { "GAMMA", 22 },
 };
 
-PickerWindow.ShowDictionary
+Picker.ShowDictionary
 (
    "키 선택",
    dictionary,
@@ -266,7 +289,7 @@ Xeri의 `IFilter<T>` 구현체가 있으면 직접 넘길 수 있습니다.
 선택이 확정된 경우에는 `onSelected`만 호출되고 `onCanceled`는 호출되지 않습니다.
 
 ```csharp
-PickerWindow.Show
+Picker.Show
 (
    spec,
    entries,
@@ -285,7 +308,7 @@ PickerWindow.Show
 `onCanceled`가 필요 없으면 생략할 수 있습니다.
 
 ```csharp
-PickerWindow.Show(spec, entries, currentValue, value => { });
+Picker.Show(spec, entries, currentValue, value => { });
 ```
 
 ## 키보드 조작
@@ -340,7 +363,7 @@ AddressablePicker.Show(...)
 핵심 구조는 유지합니다.
 
 ```text
-데이터 소스 수집 -> PickerSpec 구성 -> PickerWindow.Show(...)
+데이터 소스 수집 -> PickerSpec 구성 -> Picker.Show(...)
 ```
 
 UI 동작, 검색, 필터, 컬럼, 정렬, preview, 취소 처리는 공통 Picker가 담당하고,

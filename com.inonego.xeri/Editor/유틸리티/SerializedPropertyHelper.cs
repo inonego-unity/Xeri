@@ -3,8 +3,8 @@
 수정일 : 2026-04-29
 
 # 설명
-SerializedProperty로부터 실제 객체 인스턴스를 얻는 리플렉션 헬퍼.
-배열/리스트 요소 경로(Array.data[n])도 지원한다.
+SerializedProperty 경로로부터 실제 객체 인스턴스를 얻는다.
+배열/리스트 요소 경로와 UI Toolkit 직계 자식 필드 생성을 지원한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -12,6 +12,9 @@ using System.Collections;
 using System.Reflection;
 
 using UnityEditor;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace inonego.Xeri
 {
@@ -65,6 +68,40 @@ namespace inonego.Xeri
             }
 
             return obj;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표시 가능한 직계 자식 필드를 container에 PropertyField로 추가한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static void AppendVisibleChildren(SerializedProperty property, VisualElement container)
+        {
+            if (property == null || container == null)
+            {
+                return;
+            }
+
+            var depth    = property.depth;
+            var iterator = property.Copy();
+
+            // 현재 property의 drawer를 재호출하지 않고 실제 데이터 자식부터 기본 PropertyField에 위임한다.
+            if (!iterator.NextVisible(enterChildren: true))
+            {
+                return;
+            }
+
+            do
+            {
+                // 다음 sibling으로 넘어가면 현재 property의 자식 범위를 모두 처리한 상태다.
+                if (iterator.depth <= depth)
+                {
+                    break;
+                }
+
+                container.Add(new PropertyField(iterator.Copy()));
+            }
+            while (iterator.NextVisible(enterChildren: false));
         }
 
         // ------------------------------------------------------------

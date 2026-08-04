@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:xeri="inonego.Xeri.Serializable.Editor" editor-extension-mode="True">
+    <ui:VisualElement>
+        <xeri:ManagedReferenceField name="reference-header">
+            <ui:Button name="type-button" class="managed-reference-type" />
+            <ui:Button name="action-button" class="managed-reference-icon-button" text="⋮" tooltip="Managed Reference 작업" />
+        </xeri:ManagedReferenceField>
+        <ui:VisualElement name="content" class="managed-reference-content" />
+    </ui:VisualElement>
+</ui:UXML>

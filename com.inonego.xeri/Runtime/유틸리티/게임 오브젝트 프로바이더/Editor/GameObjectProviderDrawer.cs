@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameObjectProviderDrawer.cs
-수정일 : 2026-05-02
+수정일 : 2026-08-04
 
 # 설명
 IGameObjectProvider 인터페이스 필드용 UI Toolkit PropertyDrawer.
@@ -131,31 +131,9 @@ namespace inonego.Xeri
             }
 
             // Provider의 직계 자식 필드를 PropertyField로 렌더링
-            AppendChildFields(property, fieldsContainer);
+            SerializedPropertyHelper.AppendVisibleChildren(property, fieldsContainer);
 
             fieldsContainer.Bind(property.serializedObject);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// SerializedProperty의 직계 자식 필드를 컨테이너에 PropertyField로 추가한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void AppendChildFields(SerializedProperty property, VisualElement container)
-        {
-            int depth      = property.depth;
-            var iterator   = property.Copy();
-
-            if (!iterator.NextVisible(enterChildren: true)) return;
-
-            do
-            {
-                // 자식 영역을 벗어나면 종료
-                if (iterator.depth <= depth) break;
-
-                container.Add(new PropertyField(iterator.Copy()));
-            }
-            while (iterator.NextVisible(enterChildren: false));
         }
 
     #endregion

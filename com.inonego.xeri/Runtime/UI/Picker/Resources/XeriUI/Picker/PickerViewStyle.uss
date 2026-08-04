@@ -14,6 +14,14 @@
     color: var(--xeri-picker-color-text);
 }
 
+.xeri-picker-host--dropdown .xeri-picker {
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-color: var(--xeri-picker-color-border-light);
+}
+
 /* Preview */
 .xeri-picker__preview {
     height: var(--xeri-picker-preview-height);
@@ -444,4 +452,27 @@
     -unity-text-align: middle-center;
     font-size: var(--xeri-picker-font-xs);
     color: var(--xeri-picker-color-text);
+}
+
+/* Dropdown footer */
+.xeri-picker-host--dropdown .xeri-picker__count-label {
+    min-width: 0;
+    flex-shrink: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.xeri-picker-host--dropdown .xeri-picker__page-controls {
+    flex-shrink: 0;
+}
+
+.xeri-picker-host--dropdown .xeri-picker__page-button {
+    width: 28px;
+    min-width: 28px;
+}
+
+.xeri-picker-host--dropdown .xeri-picker__page-label {
+    width: 38px;
+    min-width: 38px;
 }
