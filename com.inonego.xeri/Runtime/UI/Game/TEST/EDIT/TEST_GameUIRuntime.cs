@@ -479,8 +479,6 @@ namespace inonego.Xeri.TEST.UI._Game
             var layerRootObject = new GameObject("Layer Root", typeof(RectTransform));
             layerRootObject.transform.SetParent(host.transform, false);
             SetField(uguiFocus, "eventSystem", eventSystem);
-            SetField(focus, "uguiFocusDriver", uguiFocus);
-            SetField(focus, "uitkFocusDriver", uitkFocus);
 
             var uiActions = ScriptableObject.CreateInstance<InputActionAsset>();
             var gameplayActions = ScriptableObject.CreateInstance<InputActionAsset>();

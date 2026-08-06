@@ -1,6 +1,6 @@
 <!-- BLOCK_HEADER_BEGIN =====================================================================
 파일명 : GameUIValidationScreen.uxml
-수정일 : 2026-08-02
+수정일 : 2026-08-05
 
 # 설명
 HTML 디자인 기준의 Xeri Game UI Core 검증 화면 구조를 정의한다.
@@ -72,6 +72,7 @@ HTML 디자인 기준의 Xeri Game UI Core 검증 화면 구조를 정의한다.
                         <ui:VisualElement class="hero-card__actions">
                             <ui:Button name="PushButton" text="PUSH DETAIL" class="button button--primary" />
                             <ui:Button name="ModalButton" text="OPEN MODAL" class="button button--ghost" />
+                            <ui:Button name="SpotlightButton" text="SPOTLIGHT" class="button button--quiet" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="hero-card__orb">

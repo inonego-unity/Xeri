@@ -1,9 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SceneFader.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-06
 
 # 설명
 App 기본 Layer의 Fade Overlay를 Cover부터 Reveal 또는 종료까지 소유하는 상태 머신이다.
+
+# 시간 정책
+Scene 전환은 게임 시간 정지와 독립적이어야 하므로 항상 Unscaled 시간으로 재생한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -40,7 +43,6 @@ namespace inonego.Xeri.UI.Game
         private readonly string layerID = "";
         private readonly IOverlaySource<ISceneFadeDriver> source = null;
         private readonly IPresentationTransitioner transitioner = null;
-        private readonly IPresentationTimeSource timeSource = null;
 
         private OverlayHandle<ISceneFadeDriver> overlay = null;
         private bool overlayInitialized = false;
@@ -63,8 +65,7 @@ namespace inonego.Xeri.UI.Game
             PresentationLayerRegistry layerRegistry,
             string layerID,
             IOverlaySource<ISceneFadeDriver> source,
-            IPresentationTransitioner transitioner,
-            IPresentationTimeSource timeSource
+            IPresentationTransitioner transitioner
         ) : base()
         {
             this.layerRegistry = layerRegistry ?? throw new ArgumentNullException(nameof(layerRegistry));
@@ -77,7 +78,6 @@ namespace inonego.Xeri.UI.Game
             this.layerID = layerID;
             this.source = source ?? throw new ArgumentNullException(nameof(source));
             this.transitioner = transitioner ?? throw new ArgumentNullException(nameof(transitioner));
-            this.timeSource = timeSource ?? throw new ArgumentNullException(nameof(timeSource));
         }
 
     #endregion
@@ -268,7 +268,7 @@ namespace inonego.Xeri.UI.Game
                 startValue,
                 endValue,
                 duration,
-                timeSource
+                true
             );
 
             var playReturned = false;

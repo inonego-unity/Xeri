@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SceneFader.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-06
 
 # 설명
 SceneFader의 안정 상태, 완료 정리 실패와 Transition 시작 실패 롤백을 검증한다.
@@ -400,8 +400,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                new ImmediateTransitioner(),
-                PresentationTimeSource.Unscaled
+                new ImmediateTransitioner()
             );
             var coveredCount = 0;
             var revealedCount = 0;
@@ -456,8 +455,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                transitioner,
-                PresentationTimeSource.Unscaled
+                transitioner
             );
             var firstCompletedCount = 0;
             var secondCompletedCount = 0;
@@ -519,8 +517,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                transitioner,
-                PresentationTimeSource.Unscaled
+                transitioner
             );
 
             fader.Cover(new SceneFadeParams(Color.black, 1.0f));
@@ -569,8 +566,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                new ImmediateTransitioner(),
-                PresentationTimeSource.Unscaled
+                new ImmediateTransitioner()
             );
 
             fader.Cover(new SceneFadeParams(Color.black, 0.0f));
@@ -624,8 +620,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                transitioner,
-                PresentationTimeSource.Unscaled
+                transitioner
             );
             var completedCount = 0;
             Exception reportedFailure = null;
@@ -670,8 +665,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                new ThrowingTransitioner(),
-                PresentationTimeSource.Unscaled
+                new ThrowingTransitioner()
             );
             Exception reportedFailure = null;
 
@@ -712,8 +706,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 registry,
                 "Fade",
                 source,
-                new ImmediateTransitioner(),
-                PresentationTimeSource.Unscaled
+                new ImmediateTransitioner()
             );
             source.Driver.FailNextApply = true;
 
@@ -762,7 +755,7 @@ namespace inonego.Xeri.TEST.UI._Game
                     0.0f,
                     1.0f,
                     float.NaN,
-                    PresentationTimeSource.Unscaled
+                    true
                 )
             );
         }

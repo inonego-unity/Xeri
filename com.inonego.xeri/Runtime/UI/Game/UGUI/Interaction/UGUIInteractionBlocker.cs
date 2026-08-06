@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIInteractionBlocker.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-05
 
 # 설명
 중첩 점유 수에 따라 명시적 UGUI Blocker Root와 CanvasGroup raycast 상태를 적용한다.
@@ -17,7 +17,7 @@ namespace inonego.Xeri.UI.Game
     /// UGUI Interaction Blocker 점유 수명을 소유한다.
     /// </summary>
     // ============================================================
-    public sealed class UGUIInteractionBlocker : MonoBehaviour
+    public sealed class UGUIInteractionBlocker : MonoBehaviour, IInteractionBlocker
     {
     #region 필드
 
@@ -31,7 +31,7 @@ namespace inonego.Xeri.UI.Game
 
     #endregion
 
-    #region 메서드
+    #region IInteractionBlocker
 
         // ------------------------------------------------------------
         /// <summary>
@@ -63,6 +63,10 @@ namespace inonego.Xeri.UI.Game
             return new Lease(Release);
         }
 
+    #endregion
+
+    #region 메서드
+
         // ------------------------------------------------------------
         /// <summary>
         /// Interaction Blocker 점유를 한 번 반환한다.
@@ -81,8 +85,16 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         private void ApplyState()
         {
-            var isActive = acquisitionCount > 0;
+            ApplyState(acquisitionCount > 0);
+        }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 활성 상태를 UGUI Root와 CanvasGroup에 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyState(bool isActive)
+        {
             if (root != null)
             {
                 root.SetActive(isActive);
@@ -107,6 +119,16 @@ namespace inonego.Xeri.UI.Game
         private void OnEnable()
         {
             ApplyState();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Component 비활성 중에는 별도 Root에 입력 차단을 남기지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnDisable()
+        {
+            ApplyState(false);
         }
 
     #endregion

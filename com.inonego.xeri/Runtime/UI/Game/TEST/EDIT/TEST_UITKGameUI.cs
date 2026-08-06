@@ -1,11 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UITKGameUI.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-05
 
 # 설명
-UITK Layer, Screen, Modal, Fade와 혼합 Profile의 공개 Runtime 경로를 검증한다.
+UITK Placement, Interaction, Layer, Screen, Modal, Fade와 혼합 Profile의 공개 Runtime 경로를 검증한다.
 
 # 테스트 구성
+ P: backend 공통 Placement와 UITK Interaction
  L: UIDocument Layer와 Order
  D: Screen·Modal·Fade Driver
  C: Screen Close와 Visual Tree 반환
@@ -423,6 +424,93 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
+    #region P-1: Placement와 Interaction
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 같은 Top 정렬이 UGUI Y-up과 UITK Y-down에서 시각적으로 같은 방향을 가리키고,
+        /// <br/> 요소 Pivot을 반영한 clamp가 전체 Rect를 Bounds 안에 유지하는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_PlacementSolver_좌표방향과Pivot_동일정렬과Bounds유지()
+        {
+            var solver = new PlacementSolver();
+            var bounds = new Rect(0.0f, 0.0f, 100.0f, 100.0f);
+            var yUp = solver.Place
+            (
+                bounds,
+                new Vector2(50.0f, 50.0f),
+                new Vector2(20.0f, 10.0f),
+                new PlacementOptions
+                (
+                    PlacementAlignment.Top,
+                    Vector2.zero,
+                    Vector2.zero,
+                    clampToBounds: false,
+                    coordinateSystem: PlacementCoordinateSystem.YUp
+                )
+            );
+            var yDown = solver.Place
+            (
+                bounds,
+                new Vector2(50.0f, 50.0f),
+                new Vector2(20.0f, 10.0f),
+                new PlacementOptions
+                (
+                    PlacementAlignment.Top,
+                    Vector2.zero,
+                    Vector2.zero,
+                    clampToBounds: false,
+                    coordinateSystem: PlacementCoordinateSystem.YDown
+                )
+            );
+            var clamped = solver.Place
+            (
+                bounds,
+                new Vector2(95.0f, 95.0f),
+                new Vector2(20.0f, 10.0f),
+                Vector2.zero,
+                new PlacementOptions
+                (
+                    PlacementAlignment.Center,
+                    Vector2.zero,
+                    Vector2.zero,
+                    coordinateSystem: PlacementCoordinateSystem.YDown
+                )
+            );
+
+            Assert.AreEqual(55.0f, yUp.LocalPosition.y);
+            Assert.AreEqual(45.0f, yDown.LocalPosition.y);
+            Assert.AreEqual(new Vector2(80.0f, 90.0f), clamped.LocalPosition);
+            Assert.IsTrue(clamped.WasClamped);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 중첩 UITK Blocker의 마지막 Lease 해제만 표시와 Picking을 종료하는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_UITKInteractionBlocker_중첩점유_마지막해제만비활성()
+        {
+            var element = new VisualElement();
+            IInteractionBlocker blocker = new UITKInteractionBlocker(element);
+            var first = blocker.Acquire();
+            var second = blocker.Acquire();
+            first.Dispose();
+
+            Assert.AreEqual(DisplayStyle.Flex, element.style.display.value);
+            Assert.AreEqual(PickingMode.Position, element.pickingMode);
+
+            second.Dispose();
+
+            Assert.AreEqual(DisplayStyle.None, element.style.display.value);
+            Assert.AreEqual(PickingMode.Ignore, element.pickingMode);
+        }
+
+    #endregion
+
     #region L-1: UIDocument Layer
 
         // ------------------------------------------------------------
@@ -755,8 +843,6 @@ namespace inonego.Xeri.TEST.UI._Game
             layerRoot.transform.SetParent(host.transform, false);
             ownedObjects.Add(layerRoot);
             SetField(uguiFocus, "eventSystem", eventSystem);
-            SetField(focus, "uguiFocusDriver", uguiFocus);
-            SetField(focus, "uitkFocusDriver", uitkFocus);
             SetField(fadeSource, "viewAsset", LoadViewAsset());
             SetField(fadeSource, "rootName", "SceneFade");
 

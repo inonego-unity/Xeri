@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-08-03
+수정일 : 2026-08-06
 
 # 설명
 App 단위 Singleton 등록, Main UI Context, 공용 서비스, 혼합 Layer Profile과 Scene Fade의 조립·역순 해제를 소유한다.
@@ -284,7 +284,8 @@ namespace inonego.Xeri.UI.Game
                 LayerRegistry = new PresentationLayerRegistry();
                 transitioner = new DOTweenPresentationTransitioner();
                 inputDriver.Initialize(inputModule, settings);
-                focusDriver.Initialize(eventSystem);
+                focusDriver.Initialize();
+                focusDriver.OnFocusLost += HandleFocusLost;
                 sceneFadeSource.Initialize();
                 Visibility = new VisibilityController();
 
@@ -313,8 +314,7 @@ namespace inonego.Xeri.UI.Game
                     LayerRegistry,
                     settings.SceneFadeLayerID,
                     sceneFadeSource,
-                    transitioner,
-                    PresentationTimeSource.Unscaled
+                    transitioner
                 );
 
                 Main = new GameUIContext
@@ -970,6 +970,11 @@ namespace inonego.Xeri.UI.Game
 
             UnsubscribeSceneValidation();
 
+            if (focusDriver != null)
+            {
+                focusDriver.OnFocusLost -= HandleFocusLost;
+            }
+
             if (main != null)
             {
                 try
@@ -1181,6 +1186,20 @@ namespace inonego.Xeri.UI.Game
         /// </summary>
         // ------------------------------------------------------------
         internal bool IsFocusedContext(GameUIContext context) => ReferenceEquals(focusedContext, context);
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 현재 native Focus가 비었을 때 현재 권한 Context의 선택 정책을 다시 적용한다.
+        /// <br/> 종료·초기화 실패 중에는 Runtime이 새 선택을 만들지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void HandleFocusLost()
+        {
+            if (!IsInitialized || IsReleasing || IsReleased) return;
+
+            // Runtime이 권한을 준 단 하나의 Context만 복원해 Child Context 전환을 침범하지 않는다.
+            focusedContext?.RestoreFocus();
+        }
 
         // ------------------------------------------------------------
         /// <summary>

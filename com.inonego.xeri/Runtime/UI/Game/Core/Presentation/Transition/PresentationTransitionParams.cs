@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationTransitionParams.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-06
 
 # 설명
 Presentation Transition Target과 시작·종료 값, 시간 정책을 불변 호출 인자로 묶는다.
@@ -49,10 +49,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 시간 공급 정책.
+        /// Unscaled 시간으로 Transition을 재생할지 여부.
         /// </summary>
         // ------------------------------------------------------------
-        public IPresentationTimeSource TimeSource { get; }
+        public bool UsesUnscaledTime { get; }
 
     #endregion
 
@@ -69,7 +69,7 @@ namespace inonego.Xeri.UI.Game
             float startValue,
             float endValue,
             float duration,
-            IPresentationTimeSource timeSource
+            bool usesUnscaledTime
         ) : this()
         {
             if (float.IsNaN(duration) || float.IsInfinity(duration) || duration < 0.0f)
@@ -81,7 +81,7 @@ namespace inonego.Xeri.UI.Game
             StartValue = startValue;
             EndValue = endValue;
             Duration = duration;
-            TimeSource = timeSource ?? throw new ArgumentNullException(nameof(timeSource));
+            UsesUnscaledTime = usesUnscaledTime;
         }
 
     #endregion

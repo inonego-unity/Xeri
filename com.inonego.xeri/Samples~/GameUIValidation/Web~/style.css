@@ -242,6 +242,12 @@ button {
     letter-spacing: 1.3px;
 }
 
+.runtime-row strong {
+    min-width: 0;
+    flex: 1 1 auto;
+    white-space: normal;
+}
+
 .runtime-row i {
     width: 7px;
     height: 7px;
@@ -378,6 +384,11 @@ button {
     border-color: rgba(255, 255, 255, 0.42);
     color: #050c17;
     background: linear-gradient(104deg, #65eaff, #a58aff);
+}
+
+.button.quiet {
+    color: #92a6c7;
+    background: rgba(8, 13, 27, 0.18);
 }
 
 .hero-orb {

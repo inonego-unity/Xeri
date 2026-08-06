@@ -281,9 +281,13 @@ TextCore의 letter-spacing은 font-size 비율이므로 CSS의 px 자간을 등�
 }
 
 .runtime-card__title {
+    min-width: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
     color: var(--lime);
     font-size: 9px;
     letter-spacing: 14.4444%;
+    white-space: normal;
     -unity-font-style: bold;
 }
 

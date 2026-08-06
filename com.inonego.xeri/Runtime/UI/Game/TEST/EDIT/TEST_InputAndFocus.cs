@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_InputAndFocus.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-05
 
 # 설명
-UGUI Focus 유효성 경계와 Focus Highlight 요청 수명을 검증한다.
+UGUI Focus 유효성 경계와 Spotlight 요청 수명을 검증한다.
 
 # 테스트 구성
  F: 비활성·파괴된 UGUI Selectable 거부
- H: Focus Highlight 활성화 재진입
+ S: Spotlight 활성화 재진입
 ========================================================================= BLOCK_HEADER_END */
 
 using System.Collections.Generic;
@@ -25,7 +25,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
     // ============================================================
     /// <summary>
-    /// UGUI Focus와 Focus Highlight의 유효 대상·요청 수명 계약 테스트.
+    /// UGUI Focus와 Spotlight의 유효 대상·요청 수명 계약 테스트.
     /// </summary>
     // ============================================================
     public sealed class TEST_InputAndFocus
@@ -40,10 +40,10 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ============================================================
         /// <summary>
-        /// 표시 적용 중 외부 callback을 실행하는 Focus Highlight 테스트 backend.
+        /// 표시 적용 중 외부 callback을 실행하는 UGUI Spotlight 테스트 backend.
         /// </summary>
         // ============================================================
-        private sealed class TestFocusHighlightDriver : IFocusHighlightDriver
+        private sealed class TestSpotlightDriver : ISpotlightDriver<UGUISpotlightParams>
         {
             // ------------------------------------------------------------
             /// <summary>
@@ -54,7 +54,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 현재 Highlight 표시 여부.
+            /// 현재 Spotlight 표시 여부.
             /// </summary>
             // ------------------------------------------------------------
             public bool IsVisible { get; private set; }
@@ -71,7 +71,7 @@ namespace inonego.Xeri.TEST.UI._Game
             /// 표시 상태를 적용한 뒤 외부 callback을 실행한다.
             /// </summary>
             // ------------------------------------------------------------
-            public void Show(FocusHighlightParams parameters)
+            public void Show(UGUISpotlightParams parameters)
             {
                 IsVisible = true;
                 Showing?.Invoke();
@@ -79,7 +79,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             // ------------------------------------------------------------
             /// <summary>
-            /// Highlight 표시를 종료한다.
+            /// Spotlight 표시를 종료한다.
             /// </summary>
             // ------------------------------------------------------------
             public void Hide()
@@ -193,37 +193,37 @@ namespace inonego.Xeri.TEST.UI._Game
 
     #endregion
 
-    #region H-1: Focus Highlight 활성화 재진입
+    #region S-1: Spotlight 활성화 재진입
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> Highlight Root 활성화 callback에서 Controller가 종료되면 요청을 공개하지 않고,
+        /// <br/> Spotlight Root 활성화 callback에서 Controller가 종료되면 요청을 공개하지 않고,
         /// <br/> Root와 Graphic 표시 상태를 함께 정리하는지 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_FocusHighlightController_Show중Dispose_표시정리와Lease미반환()
+        public void TEST_UGUISpotlight_Show중Dispose_표시정리와Lease미반환()
         {
-            var target = new GameObject("Highlight Target", typeof(RectTransform));
+            var target = new GameObject("Spotlight Target", typeof(RectTransform));
             ownedObjects.Add(target);
-            var driver = new TestFocusHighlightDriver();
-            var controller = new FocusHighlightController();
-            driver.Showing = controller.Dispose;
-            var parameters = new FocusHighlightParams
+            var driver = new TestSpotlightDriver();
+            var spotlight = new UGUISpotlight();
+            driver.Showing = spotlight.Dispose;
+            var parameters = new UGUISpotlightParams
             (
                 new[]
                 {
-                    new FocusHighlightTarget(target.GetComponent<RectTransform>()),
+                    new UGUISpotlightTarget(target.GetComponent<RectTransform>()),
                 }
             );
 
             Assert.Throws<System.ObjectDisposedException>
             (
-                () => controller.Show(driver, parameters)
+                () => spotlight.Show(driver, parameters)
             );
 
             Assert.IsFalse(driver.IsVisible);
-            Assert.DoesNotThrow(controller.Dispose);
+            Assert.DoesNotThrow(spotlight.Dispose);
         }
 
     #endregion

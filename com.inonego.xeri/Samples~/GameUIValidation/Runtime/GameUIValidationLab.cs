@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIValidationLab.cs
-수정일 : 2026-08-04
+수정일 : 2026-08-05
 
 # 설명
 Xeri Package Sample의 단일 검증 Scene에서 실제 Game UI Runtime과 Context 공개 경로를 조립한다.
@@ -275,6 +275,8 @@ namespace inonego.Xeri.Samples.GameUIValidation
         private GameUIValidationScreenSource screenSource = null;
         private ModalHandle modalHandle = null;
         private OverlayHandle<VisualElement> overlayHandle = null;
+        private UITKSpotlight spotlight = null;
+        private Lease spotlightLease = null;
         private Coroutine clearRoutine = null;
         private Coroutine fadeRoutine = null;
         private bool isComposed = false;
@@ -452,6 +454,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
                 screenTemplate,
                 screenStyle
             );
+            spotlight = new UITKSpotlight();
 
             dashboardRegistration = context.ScreenRegistry.Register
             (
@@ -664,6 +667,10 @@ namespace inonego.Xeri.Samples.GameUIValidation
             var errors = new List<Exception>();
 
             ReleaseOwnedFade(errors);
+            DisposeOwned(spotlightLease, errors);
+            spotlightLease = null;
+            DisposeOwned(spotlight, errors);
+            spotlight = null;
             DisposeOwned(overlayHandle, errors);
             overlayHandle = null;
             DisposeOwned(modalHandle, errors);
@@ -890,7 +897,81 @@ namespace inonego.Xeri.Samples.GameUIValidation
 
     #endregion
 
-    #region Modal과 Fade
+    #region Spotlight, Overlay, Modal과 Fade
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 현재 Screen의 UITK 대상에 Spotlight Lease를 획득하거나 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal void ToggleSpotlight
+        (
+            ScreenSession ownerSession,
+            UITKSpotlightElement driver,
+            VisualElement target
+        )
+        {
+            if
+            (
+                !IsValidationAvailable ||
+                ownerSession == null ||
+                driver == null ||
+                target == null ||
+                spotlight == null
+            )
+            {
+                return;
+            }
+
+            if (spotlightLease != null && !spotlightLease.IsDisposed)
+            {
+                CloseSpotlight();
+                return;
+            }
+
+            var opened = spotlight.Show
+            (
+                driver,
+                new UITKSpotlightParams
+                (
+                    new[]
+                    {
+                        new UITKSpotlightTarget
+                        (
+                            target,
+                            new Vector4(12.0f, 12.0f, 12.0f, 12.0f)
+                        )
+                    }
+                )
+            );
+
+            try
+            {
+                ownerSession.RegisterChild(opened);
+                spotlightLease = opened;
+                RecordActivity("UITK Spotlight acquired · hole input passes through");
+            }
+            catch
+            {
+                opened.Dispose();
+                throw;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 UITK Spotlight Lease를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CloseSpotlight()
+        {
+            if (spotlightLease == null || spotlightLease.IsDisposed) return;
+
+            var current = spotlightLease;
+            spotlightLease = null;
+            current.Dispose();
+            RecordActivity("UITK Spotlight released · dim and picking cleared");
+        }
 
         // ----------------------------------------------------------------------
         /// <summary>

@@ -1,119 +1,98 @@
-# Xeri Game UI 사용 가이드
+# Xeri Game UI 가이드
 
-Xeri Game UI는 UGUI와 UI Toolkit을 같은 Runtime에서 사용하는 게임 UI 기반 라이브러리다.
-Layer 순서, Screen Stack, Focus, Input, Transition과 표시 객체의 수명을 공통 계약으로
-관리한다.
+Xeri Game UI는 UGUI와 UI Toolkit으로 만든 게임 화면을 같은 Runtime에서 운용하기 위한
+라이브러리다. Layer 순서, Screen Stack, Modal, Focus, Input, Transition과 표시 객체의 수명을
+공통 계약으로 관리한다.
 
-이 문서는 처음 사용하는 개발자와 AI가 소스 코드를 먼저 해석하지 않고도 UI를 구성할 수
-있도록 작성한 사용 가이드다. 설명과 예제는 Xeri 라이브러리의 공개 API만 다룬다.
+이 문서는 개발자와 AI가 내부 구현을 먼저 해석하지 않고도 화면을 추가할 수 있도록 작성한
+사용 가이드다. 프로젝트 도메인, 화면 디자인과 데이터 모델은 다루지 않으며 Xeri가 공개한
+계약과 제공 에셋만 설명한다.
 
 - Core Namespace: `inonego.Xeri.UI.Game`
 - Xeri UI Toolkit Namespace: `inonego.Xeri.UI`
-- 지원 UI: UGUI, UI Toolkit, 두 기술을 함께 사용하는 구성
+- 지원 Backend: UGUI, UI Toolkit, 두 Backend의 혼합 구성
 - 기준 Unity: Unity 6 이상
-- Gradient Shader: Unity UI Toolkit 공통 Shader 계약 사용
 
-## 목차
+## 필수 환경
 
-1. [검증 샘플](#검증-샘플)
-2. [전체 사용 흐름](#전체-사용-흐름)
-3. [핵심 구성 요소](#핵심-구성-요소)
-4. [최초 설정](#최초-설정)
-5. [Layer와 Profile 구성](#layer와-profile-구성)
-6. [Screen 하나 만들기](#screen-하나-만들기)
-7. [Screen Stack 사용](#screen-stack-사용)
-8. [상태 훅과 자식 수명](#상태-훅과-자식-수명)
-9. [Fade, Modal과 Overlay](#fade-modal과-overlay)
-10. [Focus와 Input](#focus와-input)
-11. [UGUI 보조 기능](#ugui-보조-기능)
-12. [UI Toolkit 웹 스타일 표현](#ui-toolkit-웹-스타일-표현)
-13. [종료와 소유권](#종료와-소유권)
-14. [AI 작업 절차](#ai-작업-절차)
-15. [문제 확인](#문제-확인)
-16. [소스 탐색표](#소스-탐색표)
+Xeri Package의 `package.json`이 UGUI, Input System과 Addressables를 설치한다. DOTween은
+Package dependency에 포함되지 않으므로 사용하는 프로젝트가 별도로 설치해야 한다.
 
-## 검증 샘플
+`inonego.Xeri` Assembly는 `DOTween.Modules`를 직접 참조하고 `GameUIRuntime`은 항상
+`DOTweenPresentationTransitioner`를 사용한다. 따라서 DOTween은 선택형 Transition Backend가
+아니라 현재 Xeri Runtime의 필수 의존성이다. DOTween과 `DOTween.Modules` Assembly가 준비되지
+않은 프로젝트에서는 Xeri Runtime이 컴파일되지 않는다.
 
-Package Manager에서 `Xeri > Samples > Game UI Validation`을 Import하면 Game UI Core의
-공개 경로를 실행하는 독립 Scene을 사용할 수 있다. 샘플은 전용 Settings, Gameplay Input
-Actions, Profile, UXML/USS와 Inter Font를 포함하며 프로젝트 전용 에셋을 참조하지 않는다.
+## 먼저 실행할 샘플
 
-샘플의 `Web~/index.html`은 Unity 화면과 같은 1920×1080 수치를 사용하는 HTML/CSS 시각
-기준본이다. 상세 실행 방법과 비교 범위는 샘플의 `README.md`를 따른다.
-
-## 전체 사용 흐름
-
-Xeri Game UI를 사용하는 순서는 다음과 같다.
+Package Manager에서 `Xeri > Samples > Game UI Validation`을 Import한다.
 
 ```text
-GameUISettingsAsset 작성
+Assets/Samples/Xeri/<version>/Game UI Validation/GameUIValidation.unity
+```
+
+이 Scene은 실제 공개 API로 Screen Stack, Modal, Overlay, Focus, Transition, Spotlight와
+Gamma Compositor를 조립한다. 화면에 표시되는 Runtime 배지는 실행 환경을 뜻한다.
+
+| 표시 | 의미 | 검증 범위 |
+|---|---|---|
+| `STANDALONE / FULL VALIDATION` | Sample이 Runtime을 직접 생성 | Context 기능과 Scene Fade·Input Settings |
+| `SHARED RUNTIME / CONTEXT VALIDATION` | 기존 Runtime 아래에 Sample Child Context 생성 | Screen·Modal·Overlay·Focus·Spotlight와 Context 수명 |
+
+`Web~/index.html`은 기능 없는 1920×1080 HTML/CSS 시각 기준본이다. Unity 화면과 레이아웃,
+색상, 폰트와 Gradient 수치를 비교할 때 사용한다.
+
+## 전체 구조
+
+일반적인 사용 흐름은 다음과 같다.
+
+```text
+GameUISettingsAsset
     ↓
-GameUIBootstrapperModuleAsset에 Host와 Settings 연결
+GameUIBootstrapperModuleAsset + GameUIHost.prefab
     ↓
-GameUIRuntime 초기화
+GameUIRuntime.Current
     ↓
-필요한 GameUIProfileAsset 획득
+GameUIRuntime.Main
     ↓
-IScreenSource 작성 및 Main.ScreenRegistry 등록
+GameUIProfileAsset 획득
+    ↓
+ScreenOptions + IScreenSource 등록
     ↓
 ScreenController.Open / Replace / Close / Clear
     ↓
-Screen → 등록 → Profile 순서로 해제
-    ↓
-GameUIRuntime.Shutdown
+Session → Registration → Source → Profile 순서로 종료
 ```
 
-가장 중요한 기준은 다음 네 가지다.
-
-1. 일반 UI는 Singleton `GameUIRuntime.Current`의 `Main` Context를 사용한다.
-2. 독립 Stack이 필요한 내장 창 같은 범위만 `Main.CreateChild()`로 Child Context를 만든다.
-3. `Register`, `Acquire`, `Open`이 반환한 Handle과 Session은 명확한 소유자가 종료한다.
-4. View 생성과 Binding은 `IScreenSource.Acquire`, 반환은 같은 Source의 `Release`가 담당한다.
-
-## 핵심 구성 요소
+Runtime과 Context의 책임은 다음과 같이 나뉜다.
 
 ```text
 GameUIRuntime
 ├── Main
-│   ├── ScreenRegistry  ScreenOptions와 IScreenSource 등록
-│   ├── Screens         Screen Stack
-│   ├── Modals          Modal Stack
-│   └── Child Context   선택적인 독립 Stack·Modal·Focus 기록
-├── LayerRegistry       App 기본 Layer 등록과 사용 수명
-├── SceneFader          Runtime 전체 화면 Cover / Reveal
-├── Visibility          중첩 표시 요청
-└── Settings            현재 Runtime 설정
+│   ├── LayerRegistry
+│   ├── ScreenRegistry
+│   ├── Screens
+│   ├── Modals
+│   └── 선택적 Child Context
+├── SceneFader
+├── Visibility
+└── Settings
 ```
 
-| 구성 요소 | 의미 |
+| 구성 요소 | 책임 |
 |---|---|
-| `GameUISettingsAsset` | Runtime의 기본 Profile, Fade와 Input 설정 |
-| `GameUIProfileAsset` | 함께 활성화할 Presentation Layer 묶음 |
-| `PresentationLayerAsset` | Layer의 stable ID와 공통 Order |
-| `IPresentationLayerDriver` | UGUI 또는 UI Toolkit Layer backend |
-| `ScreenOptions` | Screen의 Layer, 중복, Focus, Input, Transition 정책 |
-| `IScreenSource` | Screen View 생성·Binding·반환 책임 |
-| `ScreenSession` | 열린 Screen 하나의 상태와 수명 |
-| `GameUIContext` | 독립 Screen Registry, Stack, Modal Stack과 Focus 기록의 소유 단위 |
+| `GameUIRuntime` | App 범위 UI Runtime과 전역 Scene Fade |
+| `GameUIContext` | 독립 Layer 공간, Screen Registry, Stack, Modal Stack과 Focus 기록 |
+| `PresentationLayerRegistry` | UGUI·UITK 공통 Layer ID, Order와 사용 수명 |
+| `ScreenRegistry` | Screen ID와 `ScreenOptions`, `IScreenSource`의 대응 관계 |
+| `ScreenController` | Context 안의 Screen Stack과 상태 전환 |
+| `ModalController` | Modal 순서와 top 상호작용 상태 |
+| `FocusController` | Context별 기본·마지막·대체 Focus 기록 |
 
-Xeri는 화면 내용, 데이터 Binding 방식 또는 View 생성 방식을 강제하지 않는다. Prefab,
-Addressables, Pool과 `VisualTreeAsset` 중 무엇을 사용할지는 `IScreenSource`가 결정한다.
+대부분의 UI는 `runtime.Main`만 사용한다. 별도 Stack과 Focus 기록이 필요한 내장 창 같은
+독립 표시 범위만 Child Context로 만든다.
 
-## 최초 설정
-
-### 의존성
-
-Game UI Runtime은 다음 Unity Package를 사용한다.
-
-- Addressables
-- Input System
-- UGUI
-- UI Toolkit
-- DOTween Modules
-
-Gradient Material은 특정 Scriptable Render Pipeline의 Shader Library에 의존하지 않는다.
-Unity UI Toolkit의 내부 `UnityUIE` Shader 계약을 사용하므로 패키지 기준 Unity 버전에서
-사용한다.
+## Runtime 설정
 
 ### 제공 에셋
 
@@ -121,28 +100,28 @@ Unity UI Toolkit의 내부 `UnityUIE` Shader 계약을 사용하므로 패키지
 
 | 에셋 | 경로 | 용도 |
 |---|---|---|
-| Runtime Host | `Assets/Host/GameUIHost.prefab` | Runtime, EventSystem, Input, Focus, Fade Source |
+| Runtime Host | `Assets/Host/GameUIHost.prefab` | Runtime, EventSystem, Input, Focus와 Fade Source |
 | UGUI Layer | `Assets/Layer/GameUIUGUILayer.prefab` | Screen Space Overlay UGUI Layer |
 | UI Toolkit Layer | `Assets/Layer/GameUIUITKLayer.prefab` | UIDocument와 선택형 Gamma 합성 |
 | Fade Layer | `Assets/Layer/GameUIFadeLayer.asset` | 기본 Fade Layer ID와 Order |
 | Fade View | `Assets/Fade/GameUIFadeView.prefab` | 기본 UGUI Fade View |
 | Default Profile | `Assets/Profile/GameUIDefaultProfile.asset` | 기본 Fade Layer Profile |
 | Panel Settings | `Assets/UITK/GameUIPanelSettings.asset` | Screen Space Overlay Panel 설정 |
-| Runtime Theme | `Assets/UITK/GameUIRuntimeTheme.tss` | UI Toolkit 기본 Theme |
-| UI Input Actions | `InputSystem/GameUIInputActions.inputactions` | UI 입력 Actions |
-| Gradient Materials | `../XeriUI/Resources/XeriUI/Materials` | Linear, Radial, Conic Material |
+| Runtime Theme | `Assets/UITK/GameUIRuntimeTheme.tss` | UI Toolkit Runtime Theme |
+| UI Input Actions | `InputSystem/GameUIInputActions.inputactions` | Point, Move, Submit, Cancel과 Click |
+| Gradient Materials | `../XeriUI/Resources/XeriUI/Materials` | Linear, Radial과 Conic Gradient |
 
-Default Profile에는 `SystemFade` Layer만 들어 있다. Screen, Modal, Overlay 등 다른 Layer는
-사용 목적에 맞는 Profile을 별도로 만든다.
+기본 Profile은 `SystemFade` Layer만 제공한다. Screen, Modal과 Overlay Layer는 사용하는
+표시 범위에 맞춰 별도 Profile로 만든다.
 
-### GameUISettingsAsset 만들기
+### Settings 만들기
 
-`Assets > Create > Xeri > UI > Game > Settings`에서 생성한다.
+`Assets > Create > Xeri > UI > Game > Settings`에서 `GameUISettingsAsset`을 만든다.
 
-| 필드 | 설정 방법 |
+| 필드 | 계약 |
 |---|---|
 | `DefaultProfile` | Runtime과 함께 유지할 기본 Profile |
-| `SceneFadeLayerID` | Default Profile에 들어 있는 Fade Layer ID |
+| `SceneFadeLayerID` | Default Profile에 포함된 Fade Layer ID |
 | `DefaultFadeColor` | 기본 Fade 색상 |
 | `DefaultFadeDuration` | 0 이상의 기본 Fade 시간 |
 | `UIActionMap` | UI 전용 Action Map 이름 |
@@ -150,115 +129,106 @@ Default Profile에는 `SystemFade` Layer만 들어 있다. Screen, Modal, Overla
 | `GameplayActionMap` | Gameplay Action Map 이름 |
 | `ReleaseActionNames` | Screen 종료 뒤 입력 해제를 기다릴 UI Action 이름 |
 
-`UIActionMap`과 `GameplayActionMap`은 서로 달라야 한다. Xeri가 제공하는
-`GameUIInputActions`는 UI 입력만 포함하며 Gameplay Actions를 대신하지 않는다.
+`UIActionMap`과 `GameplayActionMap`은 서로 달라야 한다. Xeri가 제공하는 Input Actions는
+UI 입력만 포함하며 프로젝트 Gameplay Actions를 대신하지 않는다.
 
 ### Bootstrapper 연결
 
 `Assets > Create > Xeri > Bootstrapper > Game UI Module`에서
-`GameUIBootstrapperModuleAsset`을 생성한다.
+`GameUIBootstrapperModuleAsset`을 만든다.
 
 1. `Host Prefab`에 `Assets/Host/GameUIHost.prefab`을 지정한다.
-2. `Settings`에 앞에서 만든 `GameUISettingsAsset`을 지정한다.
+2. `Settings`에 `GameUISettingsAsset`을 지정한다.
 3. Module을 Xeri `BootstrapperSettings`에 등록한다.
 
-Bootstrapper는 Host를 한 번 만들고 `GameUIRuntime.Initialize(settings)`를 호출한다.
-이 경로를 사용하면 Scene에 별도 `GameUIRuntime`이나 `EventSystem`을 배치하지 않는다.
+Bootstrapper는 Host를 한 번 생성하고 Runtime을 초기화한다. 이 경로를 사용하면 Scene마다
+`GameUIRuntime`이나 `EventSystem`을 배치하지 않는다. 수동 초기화와 Bootstrapper 초기화를
+동시에 사용하지 않는다.
 
-Bootstrapper를 사용하지 않는 경우 Host Prefab을 한 번 생성하고 Runtime의 `Initialize`를
-직접 호출할 수 있다. Bootstrapper 초기화와 수동 초기화를 함께 사용하지 않는다.
+초기화가 끝난 뒤 일반 코드는 다음 진입점을 사용한다.
 
-### Runtime과 Main Context 참조
+```csharp
+GameUIRuntime runtime = GameUIRuntime.Current;
+GameUIContext context = runtime.Main;
+```
 
-초기화가 끝난 Runtime은 `GameUIRuntime.Current`로 가져온다. 존재 여부를 먼저 확인해야 하는
-Scene 또는 Sample은 `GameUIRuntime.TryCurrent(out var runtime)`을 사용한다. 일반 Screen과
-Modal은 `runtime.Main`에 등록하고 연다.
+Runtime 존재 여부가 실행 환경에 따라 달라지는 Sample이나 도구는 `TryCurrent`를 사용한다.
 
-Bootstrapper Host에 UI 조립 Component를 붙일 때는 패키지 Prefab을 직접 수정하지 않고
-Prefab Variant를 사용한다. 하나의 조립 Component가 다음 이벤트를 받아 자신이 만든
-Profile, Source와 등록 Handle을 관리하는 구성이 가장 단순하다.
+```csharp
+if (!GameUIRuntime.TryCurrent(out GameUIRuntime runtime))
+{
+    return;
+}
+```
 
-- `OnInitialized`: 추가 Profile 획득과 Screen 등록
-- `OnReleasing`: 자신이 소유한 항목을 역순으로 해제
+## Layer와 Profile
 
-여러 `OnReleasing` 구독자를 독립 정리 파이프라인처럼 사용하지 않는다. 종료 순서가 필요한
-항목은 하나의 소유자가 명시적으로 관리한다.
+### Layer 정의
 
-## Layer와 Profile 구성
-
-### PresentationLayerAsset
-
-`Assets > Create > Xeri > UI > Game > Presentation Layer`에서 생성한다.
+`Assets > Create > Xeri > UI > Game > Presentation Layer`에서
+`PresentationLayerAsset`을 만든다.
 
 | 필드 | 의미 |
 |---|---|
 | `ID` | Screen과 표시 기능이 조회하는 stable string ID |
-| `Order` | UGUI와 UI Toolkit이 함께 사용하는 Screen Space Overlay 순서 |
+| `Order` | UGUI와 UI Toolkit이 공유하는 Screen Space Overlay 순서 |
 
-동시에 활성화되는 모든 Profile에서 Layer ID와 Order는 각각 고유해야 한다.
-
-### Layer Prefab
+동시에 활성화되는 Layer의 ID와 Order는 각각 고유해야 한다. UGUI와 UI Toolkit은 같은 Order
+공간을 사용하므로 Backend가 다르다는 이유로 같은 Order를 중복하지 않는다.
 
 Layer Prefab Root에는 `IPresentationLayerDriver` 구현이 정확히 하나 있어야 한다.
 
-| Driver | Root | 필수 조건 |
+| Driver | 공개 Root | 필수 조건 |
 |---|---|---|
 | `UGUILayerCanvas` | `RectTransform` | Screen Space Overlay, 기본 Display와 Sorting Layer |
 | `UITKLayerPanel` | `VisualElement` | UIDocument, 기본 Display, Target Texture 미지정 |
 
-UGUI와 UI Toolkit은 같은 Registry와 Order 공간을 사용한다. 한 Scene이나 Profile에서 두
-기술을 함께 사용할 수 있지만, 각 기술은 별도 Layer Prefab과 ID로 구성한다.
+Camera Canvas, World Space Canvas, 다른 Display와 호출자 소유 RenderTexture Panel은 이 공통
+Screen Space Overlay Order 계약 밖에서 호출자가 관리한다.
 
-Camera Canvas, World Space Canvas, 다른 Display와 호출자 소유 RenderTexture Panel은 이
-공통 Screen Space Overlay Order 계약 밖에 둔다.
+`UITKLayerPanel`은 활성화될 때 다음을 자동 처리한다.
 
-`UITKLayerPanel`은 Layer마다 `PanelSettings` Runtime 복제본을 만들고 다음을 자동 처리한다.
-
+- Layer별 `PanelSettings` Runtime 복제
 - `PanelSettings.sortingOrder`와 `UIDocument.sortingOrder`
-- Root에 `xeri-game-ui` Class 추가
-- `GameUIRuntimeBaseline.uss` 연결
+- Layer Root의 `xeri-game-ui` Class
+- `GameUIRuntimeBaseline.uss`
 - 옵션이 켜진 경우 Gamma Compositor 생성과 해제
 
-`Root Name`이 비어 있으면 `UIDocument.rootVisualElement`가 Layer Root다. 값을 지정하면
-그 이름의 하위 `VisualElement`를 Root로 사용한다.
+`Root Name`이 비어 있으면 `UIDocument.rootVisualElement` 전체가 Layer Root다. 이름을 지정하면
+그 이름의 하위 `VisualElement`만 공개 Root가 된다.
 
-### GameUIProfileAsset
+### Profile 획득
 
-`Assets > Create > Xeri > UI > Game > Profile`에서 생성한다. Entry 하나는 다음 두 항목을
-묶는다.
-
-- `PresentationLayerAsset`
-- Layer Prefab을 획득·반환하는 `IGameObjectProvider`
-
-Runtime 기본 Layer는 Default Profile에 넣고, Scene이나 특정 모드에서만 필요한 Layer는
-별도 Profile로 구성한다.
+`Assets > Create > Xeri > UI > Game > Profile`에서 `GameUIProfileAsset`을 만든다. Entry 하나는
+`PresentationLayerAsset`과 Layer Prefab용 `IGameObjectProvider`를 묶는다.
 
 ```csharp
 GameUIProfileHandle profileHandle = runtime.AcquireProfile(profile);
 ```
 
-Profile Handle은 포함된 Layer를 사용하는 Screen, Overlay, Modal과 Drag Visual이 모두
-종료된 뒤 해제한다.
+Scene이나 게임 모드에서 필요한 Profile은 해당 범위의 조립 객체가 소유한다. 포함된 Layer를
+사용하는 Screen, Overlay, Modal과 Drag Visual이 모두 종료된 뒤 Handle을 해제한다.
 
 ```csharp
 profileHandle.Dispose();
 profileHandle = null;
 ```
 
-활성 Layer 소비자가 남아 있으면 `Dispose`는 상태 변경 전에 거부된다. 소비자를 종료한 뒤
-같은 Handle로 다시 호출할 수 있다. 실제 종료가 시작된 이후의 일반 실패는 재시도하지 않는다.
+활성 Layer 소비자가 남아 있으면 종료는 상태 변경 전에 거부되고 소유권이 유지된다. 소비자를
+종료한 뒤 같은 Handle로 다시 요청할 수 있다. 실제 종료가 시작된 뒤의 일반 실패는 재시도하지
+않는다.
 
-## Screen 하나 만들기
+## Screen 구현
 
-Screen 하나는 세 부분으로 구성한다.
+Screen 하나는 세 계약으로 구성한다.
 
 | 계약 | 책임 |
 |---|---|
 | `ScreenOptions` | ID, Layer, 중복, Focus, Input과 Transition 정책 |
-| `IScreenSource` | View 획득, Binding, 대칭 반환 |
+| `IScreenSource` | View 획득, Binding과 대칭 반환 |
 | `ScreenInstance` | `IScreenDriver`와 선택적 `IScreenStateHandler` |
 
-### ScreenOptions 정의
+### Options
 
 ```csharp
 var options = new ScreenOptions
@@ -276,39 +246,36 @@ var options = new ScreenOptions
 );
 ```
 
-`DefaultFocus`를 지정할 수도 있다. Focus 선택 순서는 다음과 같다.
+Focus 후보는 다음 순서로 선택된다.
 
 1. 유효한 `ScreenOptions.DefaultFocus`
 2. 유효한 `IScreenDriver.DefaultFocus`
 3. Focus Driver fallback
 
-동적으로 생성되는 View의 기본 Focus는 Source가 만드는 Driver에 전달하는 편이 자연스럽다.
+동적으로 생성되는 View의 기본 Focus는 Source가 생성한 Driver에 전달한다.
 
-### IScreenSource 구현 규칙
+### Source
 
-`Acquire`는 한 번의 호출에서 다음 작업을 완료한다.
+`IScreenSource.Acquire`는 한 호출 안에서 다음 작업을 끝낸다.
 
 1. `scope.Layer`를 필요한 Root 타입으로 확인한다.
 2. View를 생성하거나 Provider에서 획득한다.
-3. `scope.OpenParams.Payload` 타입을 확인한다.
+3. `scope.OpenParams.Payload`를 필요한 타입으로 확인한다.
 4. Button Callback과 데이터 Binding을 연결한다.
 5. `ScreenInstance`를 반환한다.
 
-중간에 실패하면 이번 호출에서 만든 View와 Binding을 Source가 즉시 정리하고 예외를
-전달한다. 실패한 View를 Source 소유 목록에 남기지 않는다.
+중간에 실패하면 이번 호출에서 만든 View와 Binding을 즉시 정리하고 예외를 전달한다. 실패한
+View를 Source 소유 목록에 남기지 않는다.
 
-`Release`는 반대 순서로 동작한다.
-
-1. Callback과 Binding을 해제한다.
-2. Source 소유 매핑에서 제거한다.
-3. View를 Provider 또는 Visual Tree에 반환한다.
+`Release`는 Callback과 Binding을 해제하고, Source 소유 매핑에서 제거한 뒤 View를 원래
+공급 경로로 반환한다.
 
 ```csharp
 public sealed class ExampleScreenSource : IScreenSource
 {
     public ScreenInstance Acquire(ScreenViewScope scope)
     {
-        // Layer Root 확인 → View 획득 → Payload 검증 → Binding 연결
+        // Layer 확인 → View 획득 → Payload 검증 → Binding 연결
         return new ScreenInstance(driver, stateHandler);
     }
 
@@ -319,39 +286,9 @@ public sealed class ExampleScreenSource : IScreenSource
 }
 ```
 
-위 코드는 책임 경계를 보여주는 골격이다. `driver`, `stateHandler`, View 공급 방식과
-Binding 코드는 해당 UI의 Source가 소유한다.
-
-### UGUI Screen Source
-
-UGUI Source는 Layer를 `RectTransform` Root로 확인한다.
-
-```csharp
-if (!(scope.Layer is IPresentationLayerDriver<RectTransform> layer))
-{
-    throw new InvalidOperationException("RectTransform Layer가 필요합니다.");
-}
-```
-
-View Prefab을 `layer.Root` 아래에 획득하고 View의 `UGUIScreenDriver`를
-`ScreenInstance`에 전달한다. `UGUIScreenDriver`에는 표시 Root, `CanvasGroup`과 선택적
-기본 Focus를 연결한다.
-
-MonoBehaviour 상태 훅이 필요하면 `UGUIScreenStateHandler`를 상속한 Component를 같은
-`ScreenInstance`에 전달한다.
-
-### UI Toolkit Screen Source
-
-UI Toolkit Source는 Layer를 `VisualElement` Root로 확인한다.
-
-```csharp
-if (!(scope.Layer is IPresentationLayerDriver<VisualElement> layer))
-{
-    throw new InvalidOperationException("VisualElement Layer가 필요합니다.");
-}
-```
-
-`VisualTreeAsset`을 Clone하고 `layer.Root`에 추가한 뒤 Callback과 Binding을 연결한다.
+UGUI Source는 `IPresentationLayerDriver<RectTransform>`을 요구하고 View Prefab의
+`UGUIScreenDriver`를 반환한다. UI Toolkit Source는
+`IPresentationLayerDriver<VisualElement>`을 요구하고 `VisualTreeAsset`을 Clone한다.
 
 ```csharp
 var screenRoot = viewAsset.Instantiate();
@@ -362,16 +299,14 @@ var driver = new UITKScreenDriver(screenRoot, defaultFocus);
 return new ScreenInstance(driver, stateHandler);
 ```
 
-`Release`에서는 Callback과 Binding을 먼저 해제하고 `screenRoot.RemoveFromHierarchy()`를
-호출한다. Source는 `ScreenInstance`와 생성한 Root의 대응 관계를 보관해야 한다.
+UI Toolkit Source는 `Release`에서 Callback과 Binding을 먼저 해제한 뒤 생성한 Root에
+`RemoveFromHierarchy()`를 호출한다.
 
-### Screen 등록
+### 등록과 Open
 
-Screen이 사용할 Layer Profile을 먼저 획득한다.
+Screen Layer를 포함한 Profile을 먼저 획득한 뒤 등록한다.
 
 ```csharp
-GameUIContext context = runtime.Main;
-
 ScreenRegistrationHandle registration = context.ScreenRegistry.Register
 (
     options,
@@ -379,15 +314,8 @@ ScreenRegistrationHandle registration = context.ScreenRegistry.Register
 );
 ```
 
-등록 Handle을 해제하면 이후 Open 조회에서 제거된다. 이미 열린 Session은 Source를 계속
-사용하므로 해당 Session을 모두 닫은 뒤 Source와 등록 Handle을 해제한다.
-
-## Screen Stack 사용
-
-### Open
-
 ```csharp
-ScreenOpenResponse response = runtime.Main.Screens.Open
+ScreenOpenResponse response = context.Screens.Open
 (
     "example.screen",
     new ScreenOpenParams(payload)
@@ -399,8 +327,7 @@ if (!response.Accepted)
 }
 ```
 
-`ScreenOpenParams.Payload`는 호출자가 소유한다. Source는 필요한 타입으로 확인해 읽지만
-Payload의 수명을 종료하지 않는다.
+`Payload`는 호출자가 소유한다. Source는 타입을 확인해 읽지만 Payload의 수명을 종료하지 않는다.
 
 | `ScreenOpenKind` | 의미 |
 |---|---|
@@ -413,30 +340,29 @@ Payload의 수명을 종료하지 않는다.
 ### Stack 명령
 
 ```csharp
-runtime.Main.Screens.Open("example.first");
-runtime.Main.Screens.Replace("example.second");
-runtime.Main.Screens.Close();
-runtime.Main.Screens.Clear();
+context.Screens.Open("example.first");
+context.Screens.Replace("example.second");
+context.Screens.Close();
+context.Screens.Clear();
 ```
 
 | 명령 | 동작 |
 |---|---|
-| `Open` | 현재 top을 Covered로 만들고 새 Screen을 top에 추가 |
-| `Replace` | 새 Open이 수락되면 기존 top을 대체 |
-| `Close` | 현재 top을 정상 Transition 경로로 닫음 |
-| `Clear` | 모든 생존 Screen을 최신 항목부터 Transition 없이 종료 |
+| `Open` | 현재 top을 Covered로 만들고 새 Screen 추가 |
+| `Replace` | 새 Open이 수락되면 기존 top 대체 |
+| `Close` | 현재 top을 정상 Transition으로 닫음 |
+| `Clear` | 모든 Screen을 최신 항목부터 Transition 없이 종료 |
 
-View의 닫기 Button은 Stack을 다시 조회하지 않고 자신이 받은 Session을 닫는다.
+View의 닫기 Button은 전역 Stack을 다시 조회하지 않고 자신이 받은 Session을 닫는다.
 
 ```csharp
 scope.Session.Close();
 ```
 
-`ScreenSession.Close()`는 해당 Session이 현재 top일 때만 성공한다.
+### 상태 훅과 자식 수명
 
-## 상태 훅과 자식 수명
-
-선택적 `IScreenStateHandler`는 다음 동기 훅을 제공한다.
+선택적 `IScreenStateHandler`는 동기 훅을 제공한다.
+MonoBehaviour 기반 Screen은 `ScreenStateBehaviour`를 상속해 필요한 훅만 재정의할 수 있다.
 
 | 훅 | 시점 |
 |---|---|
@@ -445,104 +371,124 @@ scope.Session.Close();
 | `OnClosing` | 정상 Close Transition 전, 취소 가능 |
 | `OnClosed` | 자식 Handle과 Close Transition 정리 후 |
 
-```csharp
-public void OnClosing(ScreenStateContext context)
-{
-    if (context.CanCancel && HasUnsavedChanges())
-    {
-        context.Cancel();
-    }
-}
-```
+훅 안에서 다른 `Open`, `Replace`, `Close` 또는 `Clear`를 재진입 호출하지 않는다. 후속 명령은
+훅이 반환된 다음 실행한다.
 
-모든 훅은 동기식이다. 훅 안에서 `Open`, `Replace`, `Close` 또는 `Clear`를 재진입 호출하지
-않는다. 후속 Screen 명령은 훅이 반환된 뒤 실행한다.
-
-Screen과 함께 닫힐 Handle은 Session에 등록한다.
+Screen과 함께 닫을 Handle은 Session에 넘긴다.
 
 ```csharp
-OverlayHandle<ExampleView> overlay = CreateOverlay();
-response.Session.RegisterChild(overlay);
+response.Session.RegisterChild(ownedHandle);
 ```
 
-자식 Handle은 Session 종료 시 등록 역순으로 한 번 해제된다.
+등록된 자식은 Session 종료 시 등록 역순으로 한 번 해제된다.
 
-## Fade, Modal과 Overlay
+## Main과 Child Context
+
+Main Context는 일반적인 App UI의 기본 표시 범위다. Child Context는 다음 조건을 모두 만족할
+때만 만든다.
+
+- Parent와 독립된 Screen Stack 또는 Modal Stack이 필요하다.
+- Parent와 별도의 마지막 Focus 기록이 필요하다.
+- Child 전체를 하나의 수명으로 종료할 소유자가 있다.
+
+```csharp
+GameUIContext windowContext = runtime.Main.CreateChild(windowLayerRegistry);
+windowContext.Focus();
+
+// Window 범위가 끝날 때 Screen, Modal과 하위 Context를 함께 종료한다.
+windowContext.Dispose();
+```
+
+Layer Registry를 생략하면 Parent와 같은 표시 공간을 공유한다. 특정 Window Root 안에 UI를
+배치하려면 해당 Root의 Layer Driver를 별도 `PresentationLayerRegistry`에 등록해 전달한다.
+Context는 전달받은 Registry를 소유하거나 해제하지 않는다.
+
+`Focus()`와 `Unfocus()`는 실제 Focus 적용 Context만 전환한다. Visibility, Raycast, Input Map,
+Layer 순서나 Screen 상태는 변경하지 않는다.
+
+`GameUIFocusDriver`는 같은 Host의 `FocusDriverBehaviour` Component를 수집해 하나의
+Focus 경로로 합친다. UGUI EventSystem과 UI Toolkit Panel 처리는 각 Driver에 남고,
+공통 Driver는 구체 backend이나 대상 타입을 알지 않는다. 현재 Focus가 유효한 대상 없이
+끝나면 Focus 권한을 가진 Context의 마지막·화면 기본·Driver 기본·대체 Focus 순서가
+다시 적용된다.
+
+## 표시 기능
 
 ### Scene Fade
 
-`SceneFader`는 Settings의 Fade Layer와 Fade Source를 사용한다.
+`SceneFader`는 Runtime 전체 화면 전환을 담당한다. Context별 UI Fade나 Window Fade가 아니다.
 
 ```csharp
-var parameters = new SceneFadeParams(Color.black, 0.25f);
+var fade = new SceneFadeParams(Color.black, 0.25f);
 
-runtime.SceneFader.Cover
-(
-    parameters,
-    onCompleted: HandleCovered,
-    onFailed: HandleFadeFailure
-);
-
-runtime.SceneFader.Reveal
-(
-    parameters,
-    onCompleted: HandleRevealed,
-    onFailed: HandleFadeFailure
-);
+runtime.SceneFader.Cover(fade, HandleCovered, HandleFadeFailure);
+runtime.SceneFader.Reveal(fade, HandleRevealed, HandleFadeFailure);
 ```
 
-`Cover`가 완료되면 불투명 Overlay를 유지하고, `Reveal`이 완료되면 Overlay를 반환한다.
-새 요청은 기존 Fade Transition을 취소한다. 실패는 요청 Callback과 `LastFailure`로 확인한다.
+`Cover` 완료 뒤에는 불투명 View를 유지하고 `Reveal` 완료 뒤 반환한다. 새 요청은 기존 Fade를
+취소하며 실패는 요청 Callback과 `LastFailure`로 확인한다.
 
 ### Overlay
 
-Overlay는 Screen Stack과 독립적으로 Layer를 잠시 점유하는 View다.
+Overlay는 Screen Stack과 독립적으로 Layer를 점유하는 임시 View다.
 
 ```csharp
 OverlayHandle<ExampleView> overlay = OverlayHandle<ExampleView>.Acquire
 (
-    runtime.Main.LayerRegistry,
+    context.LayerRegistry,
     "Overlay",
     source
 );
 ```
 
-`IOverlaySource<TView>`가 View의 획득과 반환을 소유한다. Handle은 View와 Layer Usage를 함께
-보관한다. Screen에 종속되면 `ScreenSession.RegisterChild`로 넘기고, 독립 수명이면 획득한
-소유자가 `Dispose`한다.
-
-UGUI Prefab에는 `GameObjectProviderOverlaySource<TView>`를 사용할 수 있다. UI Toolkit
-Overlay는 `IOverlaySource<TView>`에서 Visual Tree 추가와 제거를 대칭 구현한다.
+`IOverlaySource<TView>`가 View의 획득과 반환을 소유한다. Screen에 종속되면 Session의 자식으로
+등록하고, 독립 수명이면 획득한 객체가 직접 해제한다.
 
 ### Modal
 
-`ModalController`는 View를 만들지 않는다. Modal Stack과 top 상호작용 상태만 관리한다.
+`ModalController`는 View를 생성하지 않는다. Modal Stack과 top 상호작용 상태만 관리한다.
 
 - UGUI: `UGUIModalDriver`
 - UI Toolkit: `UITKModalDriver`
 
-Overlay로 Modal View를 획득했다면 해당 Handle의 소유권을 Modal에 넘긴다.
+Overlay로 Modal View를 획득했다면 Handle 소유권을 Modal에 넘길 수 있다.
 
 ```csharp
-ModalHandle modal = runtime.Main.Modals.Open(driver, overlayHandle);
+ModalHandle modal = context.Modals.Open(driver, overlayHandle);
 ```
 
-Modal Handle을 해제하면 현재 Modal을 닫고, 이전 Modal을 top으로 복원한 뒤 전달받은 Handle을
-역순으로 해제한다.
+Modal Handle을 해제하면 현재 항목을 닫고 이전 Modal을 top으로 복원한 뒤 전달받은 Handle을
+해제한다.
 
 ### Visibility
 
-`VisibilityController.Set`은 같은 Target에 대한 중첩 표시 요청을 합성한다.
+`VisibilityController`는 같은 Target에 대한 중첩 요청을 최신 요청 우선으로 합성한다.
 
 ```csharp
 Lease hidden = runtime.Visibility.Set(target, visible: false);
 ```
 
-가장 최근 요청이 실제 상태를 결정한다. 마지막 Lease를 해제하면 최초 상태로 복원한다.
+마지막 Lease를 해제하면 Target의 최초 상태로 복원한다.
+
+### Drag Visual
+
+`DragVisualController`는 Xeri `Drag_Drop`의 `DraggableUI`와 연결한다.
+
+```csharp
+var dragVisuals = new DragVisualController(context.LayerRegistry);
+IDisposable binding = dragVisuals.Bind
+(
+    draggable,
+    new DragVisualParams(target, "Drag")
+);
+```
+
+Drag 중 Target을 지정 Layer로 옮기고 종료 시 부모, sibling과 Transform을 복원한다. Drag 판정과
+Drop 계약은 [Drag_Drop README](../Drag_Drop/README.md)를 따른다.
 
 ## Focus와 Input
 
-Context의 Screen Stack이 바뀌면 Runtime이 다음 상태를 자동 합성한다.
+Screen Stack이 바뀌면 Runtime은 다음 상태를 합성한다.
 
 - Options 또는 Driver의 기본 Focus
 - Screen별 마지막 Focus와 fallback
@@ -551,31 +497,11 @@ Context의 Screen Stack이 바뀌면 Runtime이 다음 상태를 자동 합성�
 - Cursor 표시와 Lock Mode
 - `InputPriority`
 
-Screen Source가 별도 전역 Focus Manager나 Input Map 전환 코드를 만들 필요는 없다.
-
-`Main`과 각 Child Context는 Focus 기록을 따로 보관한다. 실제 Focus Driver를 적용하는 Context는
-한 번에 하나이며 `child.Focus()`로 넘기고 `child.Unfocus()` 또는 `child.Dispose()`로 가장
-가까운 살아 있는 Parent에 돌려준다. Focus 전환은 표시, raycast, input map 또는 Layer 순서를
-바꾸지 않는다.
-
-Child Context는 특수한 독립 UI 범위에만 사용한다.
-
-```csharp
-GameUIContext windowContext = runtime.Main.CreateChild(windowLayerRegistry);
-windowContext.Focus();
-
-// Window가 닫힐 때 Screen과 Modal을 포함한 전체 Child 수명을 종료한다.
-windowContext.Dispose();
-```
-
-Layer Registry를 생략하면 Parent와 같은 표시 공간을 공유한다. 특정 Window Root 안에 UI를
-배치하려면 그 Root를 나타내는 Layer Driver를 별도 `PresentationLayerRegistry`에 등록해
-`CreateChild(windowLayerRegistry)`에 전달한다. Child는 전달받은 Registry를 소유하거나
-해제하지 않는다.
+Screen Source가 별도 전역 Focus Manager나 Input Map 전환 코드를 만들지 않는다.
 
 Host의 `InputSystemUIInputModule`에는 Point, Move, Submit, Cancel과 Click Action Reference가
-실제로 연결되어 있어야 한다. Xeri의 `GameUIInputActions.inputactions`를 UI Actions로
-사용하고, Settings에는 별도의 Gameplay Action Asset과 Map을 지정한다.
+실제로 연결되어 있어야 한다. Xeri의 UI Input Actions와 프로젝트 Gameplay Input Asset은
+별도 에셋으로 유지한다.
 
 마지막 입력 장치 변경은 Runtime에서 구독할 수 있다.
 
@@ -583,55 +509,268 @@ Host의 `InputSystemUIInputModule`에는 Point, Move, Submit, Cancel과 Click Ac
 runtime.OnLastInputDeviceChanged += HandleInputDeviceChanged;
 ```
 
-구독한 소유자는 Runtime 종료 전 같은 Callback을 해제한다.
+구독한 소유자는 Runtime 종료 전에 같은 Callback을 해제한다.
 
-## UGUI 보조 기능
+## 배치와 입력 보조 기능
 
-### Drag Visual
+| 역할 | UGUI | UI Toolkit | 결과 수명 |
+|---|---|---|---|
+| World 위치를 Root 좌표로 변환 | `UGUIWorldProjector` | `UITKWorldProjector` | 값 |
+| Root 안에서 요소 배치 | `PlacementSolver` + `YUp` | `PlacementSolver` + `YDown` | 값 |
+| Safe Area 적용 | `UGUISafeAreaLayout` | `UITKSafeAreaLayout` | Component |
+| dim과 입력 통과 구멍 | `UGUISpotlight` | `UITKSpotlight` | `Lease` |
+| 명시적 Pointer 입력 차단 | `UGUIInteractionBlocker` | `UITKInteractionBlocker` | `Lease` |
 
-`DragVisualController`는 Xeri `Drag_Drop`의 `DraggableUI`와 연결한다.
+이 기능은 Runtime이 자동 생성하지 않는다. 사용하는 Screen, Presenter 또는 조립 객체가 만들고
+반환된 Lease와 Component를 자신의 수명 안에서 종료한다.
+
+### World Projection과 Placement
+
+Projector 결과와 `PlacementSolver`의 Bounds는 같은 UI Root 로컬 좌표여야 한다. UGUI는
+`RectTransform`의 Y-up, UI Toolkit은 `VisualElement`의 Y-down 좌표를 사용한다.
 
 ```csharp
-var controller = new DragVisualController(runtime.LayerRegistry);
-IDisposable binding = controller.Bind
-(
-    draggable,
-    new DragVisualParams(target, "Drag")
-);
+var projector = new UITKWorldProjector();
+ProjectionResult projected = projector.Project(worldPosition, camera, layerRoot);
+
+if (projected.Succeeded && !projected.IsBehindCamera)
+{
+    var solver = new PlacementSolver();
+    PlacementResult placed = solver.Place
+    (
+        layerRoot.contentRect,
+        projected.LocalPosition,
+        element.layout.size,
+        Vector2.zero,
+        new PlacementOptions
+        (
+            PlacementAlignment.Bottom,
+            new Vector2(0.0f, 12.0f),
+            new Vector2(16.0f, 16.0f),
+            coordinateSystem: PlacementCoordinateSystem.YDown
+        )
+    );
+
+    element.style.left = placed.LocalPosition.x;
+    element.style.top = placed.LocalPosition.y;
+}
 ```
 
-Drag 중 Target을 지정 Layer로 옮기고 종료 시 부모, sibling과 Transform을 복원한다.
-Binding과 활성 Drag를 먼저 닫고 Controller를 해제한 뒤 Profile을 해제한다. Drag 판정과
-Drop 계약은 [Drag_Drop README](../Drag_Drop/README.md)를 따른다.
+`left`와 `top`을 적용할 때는 Pivot으로 `Vector2.zero`를 사용한다. UGUI는 Projector가 반환한
+Root 로컬 좌표를 `RectTransform.localPosition`에 적용하고, 요소
+크기 계산에는 실제 `RectTransform.pivot`과 `YUp`을 사용한다. `anchoredPosition`을 사용하려면
+Marker의 고정 Anchor가 부모 Pivot과 일치해야 한다. Solver 호출만 감싸는 Backend별 Popup
+타입은 제공하지 않는다.
 
-### 기타 기능
+### 연속 Tracking
 
-| 기능 | 타입 | 결과 수명 |
-|---|---|---|
-| Safe Area | `UGUILayoutController` | 소유자가 `Dispose` |
-| Popup Placement | `PlacementController` | 계산 값 반환 |
-| World Projection | `ProjectionController` | 계산 값 반환 |
-| Focus Highlight | `FocusHighlightController` | `Lease` |
-| Input Block | `UGUIInteractionBlocker` | `Lease` |
+매 Frame 같은 관계를 갱신해야 할 때는 `TrackingRunner`에 `TrackingBinding<T>`를 등록한다.
+Binding은 다음 세 단계를 하나로 묶는다.
 
-이 기능들은 `GameUIRuntime`이 자동 생성하지 않는다. 필요한 View 또는 UI 조립 객체가
-생성하고 반환된 Handle을 자신의 수명 안에서 해제한다.
+1. `resolve`: 현재 원하는 값을 조회한다. 대상이 없으면 `Available`을 `false`로 반환한다.
+2. `transition`: 이전 실제 적용값에서 새 값으로 이동한다. 즉시 반영이면 생략한다.
+3. `commit`: 값을 실제 대상에 적용하고, 적용된 최종값을 반환한다.
 
-## UI Toolkit 웹 스타일 표현
+등록 결과는 별도 Tracking Handle이 아니라 공통 `Lease`다. Marker, Screen 또는 Presenter를
+소유한 범위가 이 Lease를 보관하고 종료한다. `TrackingRunner`는 필요한 Scene 범위에만 명시적으로
+배치하며 `GameUIRuntime`이 자동 생성하거나 소유하지 않는다.
+
+UGUI World Marker는 Projection, Safe Rect 배치와 보간을 다음처럼 조립한다. 아래 예시는
+Marker가 현재 `screenSession`에 속하며 해당 Screen이 Tracking Lease를 소유한다고 가정한다.
+
+```csharp
+var projector = new UGUIWorldProjector();
+var solver = new PlacementSolver();
+var velocity = Vector2.zero;
+
+var binding = new TrackingBinding<Vector2>
+(
+    resolve: () =>
+    {
+        if (target == null) return (false, default);
+
+        ProjectionResult projected = projector.Project
+        (
+            target.position,
+            camera,
+            layerRoot
+        );
+
+        return
+        (
+            projected.Succeeded && !projected.IsBehindCamera,
+            projected.LocalPosition
+        );
+    },
+    transition: (current, desired, deltaTime) => Vector2.SmoothDamp
+    (
+        current,
+        desired,
+        ref velocity,
+        0.12f,
+        Mathf.Infinity,
+        deltaTime
+    ),
+    commit: position =>
+    {
+        PlacementResult placed = solver.Place
+        (
+            layerRoot.rect,
+            position,
+            marker.rect.size,
+            marker.pivot,
+            new PlacementOptions
+            (
+                PlacementAlignment.Bottom,
+                new Vector2(0.0f, 12.0f),
+                new Vector2(16.0f, 16.0f)
+            )
+        );
+
+        // Clamp 이후에도 외부 SmoothDamp 속도가 화면 밖 방향으로 누적되지 않게 한다.
+        if (placed.WasClamped)
+        {
+            velocity = Vector2.zero;
+        }
+
+        marker.gameObject.SetActive(true);
+        marker.localPosition = new Vector3
+        (
+            placed.LocalPosition.x,
+            placed.LocalPosition.y,
+            marker.localPosition.z
+        );
+        return placed.LocalPosition;
+    },
+    clear: () => marker.gameObject.SetActive(false)
+);
+
+Lease trackingLease = trackingRunner.Track(binding);
+screenSession.RegisterChild(trackingLease);
+```
+
+`commit`이 clamp된 실제 위치를 반환하므로 다음 Frame의 보간도 화면에 표시된 위치에서 이어진다.
+화면 뒤 대상을 숨길지, 가장자리 Indicator로 바꿀지는 `IsBehindCamera`를 해석하는 사용처 정책이다.
+
+UI Toolkit에서도 같은 Binding을 사용하고 Backend 경계만 바꾼다.
+
+```csharp
+var projector = new UITKWorldProjector();
+var solver = new PlacementSolver();
+
+var binding = new TrackingBinding<Vector2>
+(
+    resolve: () =>
+    {
+        if (target == null) return (false, default);
+
+        ProjectionResult projected = projector.Project
+        (
+            target.position,
+            camera,
+            layerRoot
+        );
+
+        return
+        (
+            projected.Succeeded && !projected.IsBehindCamera,
+            projected.LocalPosition
+        );
+    },
+    commit: position =>
+    {
+        PlacementResult placed = solver.Place
+        (
+            layerRoot.contentRect,
+            position,
+            element.layout.size,
+            Vector2.zero,
+            new PlacementOptions
+            (
+                PlacementAlignment.Bottom,
+                new Vector2(0.0f, 12.0f),
+                new Vector2(16.0f, 16.0f),
+                coordinateSystem: PlacementCoordinateSystem.YDown
+            )
+        );
+
+        element.style.display = DisplayStyle.Flex;
+        element.style.left = placed.LocalPosition.x;
+        element.style.top = placed.LocalPosition.y;
+        return placed.LocalPosition;
+    },
+    clear: () => element.style.display = DisplayStyle.None
+);
+
+Lease trackingLease = trackingRunner.Track(binding);
+screenSession.RegisterChild(trackingLease);
+```
+
+일시 정지와 무관하게 UI 전이를 계속하려면 `trackingRunner.UsesUnscaledTime = true`로 설정한다.
+Runner 비활성화는 갱신만 멈추고, Lease 해제 또는 Runner 파괴가 Binding과 마지막 표시 상태를 정리한다.
+`RegisterChild`에 전달한 Lease는 Screen이 정상 종료를 소유한다. Screen보다 먼저 Tracking을
+끝내야 하면 같은 Lease를 직접 `Dispose()`해도 이후 Screen 종료에서는 다시 처리되지 않는다.
+Screen에 속하지 않는 Tracking은 해당 Marker 또는 Presenter가 Lease를 필드로 보관하고 자신의
+종료 시점에 `Dispose()`한다.
+
+### Safe Area
+
+`UGUISafeAreaLayout`은 연결한 `RectTransform` 하나에 적용한다. `UITKSafeAreaLayout`은 같은
+`UIDocument`의 이름 있는 `VisualElement` 하나에 적용한다. 활성화 시 첫 Layout 전에 반영하고
+화면 또는 Panel 크기가 바뀌면 다시 계산한다.
+
+### Spotlight
+
+Spotlight는 Focus 선택 기능이 아니다. 튜토리얼처럼 화면을 dim 처리하고 지정 Target 영역의
+입력만 통과시키는 표시 기능이다.
+
+```csharp
+var spotlight = new UITKSpotlight();
+var spotlightElement = new UITKSpotlightElement();
+layerRoot.Add(spotlightElement);
+
+Lease spotlightLease = spotlight.Show
+(
+    spotlightElement,
+    new UITKSpotlightParams
+    (
+        new[]
+        {
+            new UITKSpotlightTarget
+            (
+                target,
+                new Vector4(8.0f, 8.0f, 8.0f, 8.0f)
+            )
+        }
+    )
+);
+
+screenSession.RegisterChild(spotlightLease);
+```
+
+`UITKSpotlightElement`와 Target은 같은 Panel에 연결한다. 유효한 Target이 모두 숨겨지거나
+분리되면 dim과 Picking을 함께 비워 전체 입력 잠금을 만들지 않는다. UGUI에서는
+`UGUISpotlightDriver`와 `UGUISpotlightParams`를 사용한다.
+
+### Interaction Blocker
+
+`IInteractionBlocker.Acquire()`는 중첩 가능한 Pointer 차단 Lease를 반환한다. 마지막 Lease가
+해제될 때만 Blocker가 숨겨진다. UGUI는 연결한 Root와 `CanvasGroup`, UI Toolkit은 생성자에
+전달한 전용 `VisualElement`만 변경한다. Keyboard·Gamepad Focus, Gameplay Input, Spotlight의
+입력 구멍이나 Modal Stack을 대신하지 않는다.
+
+## UI Toolkit 표현
 
 ### Runtime Baseline
 
-`UITKLayerPanel`은 Layer Root에 `GameUIRuntimeBaseline.uss`를 자동 연결한다. Baseline은
-Label, Button, BaseField 계열과 ProgressBar의 기본 외부 간격을 정규화한다.
-
-TextField 입력부, Slider Tracker, Popup Arrow와 Scroller처럼 기능에 필요한 내부 구조는
-Unity Runtime Theme을 유지한다. 모든 표준 Control을 직접 초기화하는 별도 Reset USS는
-필요하지 않다.
+`UITKLayerPanel`은 Layer Root에 `GameUIRuntimeBaseline.uss`를 자동 연결한다. Label, Button,
+BaseField와 ProgressBar의 기본 외부 간격을 정규화하되 TextField 입력부, Slider Tracker,
+Popup Arrow와 Scroller처럼 동작에 필요한 Unity 내부 구조는 유지한다.
 
 ### Gradient Material
 
-UI Toolkit USS는 VisualElement 배경에서 CSS의 `linear-gradient()`, `radial-gradient()`,
-`conic-gradient()`를 직접 지원하지 않는다. Xeri Material을 필요한 요소에만 지정한다.
+UI Toolkit USS는 CSS의 `linear-gradient()`, `radial-gradient()`와 `conic-gradient()`를 배경
+함수로 제공하지 않는다. Xeri Material을 Gradient가 필요한 요소에만 지정한다.
 
 | 웹 CSS | Xeri Material |
 |---|---|
@@ -655,7 +794,7 @@ UI Toolkit USS는 VisualElement 배경에서 CSS의 `linear-gradient()`, `radial
 
 | Property | 값 |
 |---|---|
-| `_Color0` ~ `_Color7` | 최대 8개 Gradient 색상 |
+| `_Color0` ~ `_Color7` | 최대 8개 색상 |
 | `_ColorCount` | 사용할 색상 수, 2~8 |
 | `_Stop0` ~ `_Stop7` | 각 색상의 시작·종료 위치, 0~1 |
 | `_Angle` | Linear 방향 또는 Conic 시작 각도 |
@@ -666,11 +805,8 @@ UI Toolkit USS는 VisualElement 배경에서 CSS의 `linear-gradient()`, `radial
 Material 출력에는 요소의 `background-color`가 곱해진다. Material 색상을 그대로 표시하려면
 `background-color: white`를 사용한다.
 
-### 여러 Gradient 겹치기
-
-한 `VisualElement`에는 `-unity-material` 하나만 지정한다. CSS의 다중 배경처럼 Linear,
-Radial과 Conic Gradient를 함께 보이게 하려면 Gradient마다 자식 `VisualElement`를 만들고
-같은 영역에 겹친다. UXML에서 뒤에 선언된 요소가 앞 요소 위에 그려진다.
+한 `VisualElement`에는 Material 하나만 지정할 수 있다. CSS 다중 배경처럼 여러 Gradient가
+필요하면 Gradient별 자식 요소를 같은 영역에 겹친다.
 
 ```xml
 <ui:VisualElement class="gradient-card">
@@ -725,23 +861,18 @@ Radial과 Conic Gradient를 함께 보이게 하려면 Gradient마다 자식 `Vi
         prop("_Radius" 0.5 0.5)
         prop("_Tiling" 1);
 }
-
-.gradient-card__content {
-    position: relative;
-}
 ```
 
-부모의 `overflow: hidden`과 `border-radius`는 겹친 모든 자식 Gradient를 같은 둥근 영역으로
-자른다. Gradient 전용 요소는 `picking-mode="Ignore"`로 두고 Button과 입력 요소는 Content
-Layer에 둔다. USS `border-radius`에는 `50%` 같은 백분율을 그대로 사용할 수 있다.
+부모의 `overflow: hidden`과 `border-radius`가 자식 Gradient를 같은 영역으로 자른다. Gradient
+요소는 `picking-mode="Ignore"`로 두고 Button과 입력 요소는 Content Layer에 둔다.
 
 ### Gamma Compositor
 
-Gradient Material은 Gamma Compositor 없이도 표시된다. Gamma 합성은 Linear Color
-Space에서 USS 색상을 웹의 sRGB 결과에 가깝게 보이도록 만드는 Layer 단위 색상 경로다.
+Gradient Material은 Gamma Compositor 없이도 표시된다. Gamma Compositor는 Linear Color
+Space에서 USS 색상을 웹의 sRGB 결과에 가깝게 합성하는 Layer 단위 경로다.
 
-`GameUIUITKLayer.prefab`의 `Use Gamma Compositing`은 기본으로 켜져 있다. Linear Color
-Space에서 Layer가 활성화되면 `UITKLayerPanel`이 다음을 자동 관리한다.
+기본 `GameUIUITKLayer.prefab`은 `Use Gamma Compositing`이 켜져 있다. Linear Color Space에서
+Layer가 활성화되면 다음 경로를 `UITKLayerPanel`이 자동 구성한다.
 
 ```text
 원본 UIDocument
@@ -750,29 +881,17 @@ Space에서 Layer가 활성화되면 `UITKLayerPanel`이 다음을 자동 관리
     → gamma-to-linear 합성
 ```
 
-호출자가 별도 RenderTexture나 합성 UIDocument를 만들 필요는 없다. Runtime은 다음 항목도
-함께 관리하고 Layer 해제 시 기존 `PanelSettings` 값으로 복원한다.
+호출자는 RenderTexture나 합성 UIDocument를 만들지 않는다. Layer가 해제되면 Runtime이
+`PanelSettings`의 Target Texture, Depth/Stencil, Clear와 Gamma 상태를 원래 값으로 복원한다.
+Gamma Color Space에서는 원본 UIDocument를 직접 표시한다.
 
-- RenderTexture Depth/Stencil
-- `PanelSettings.clearDepthStencil`
-- Target Texture
-- `forceGammaRendering`
-- Clear Color
-
-따라서 Gamma 합성을 사용하는 Layer에서도 USS에 `border-radius`와 `overflow: hidden`만
-선언하면 둥근 Stencil Mask가 정상 적용된다.
-
-Gamma Color Space에서는 합성 경로를 만들지 않고 원본 UIDocument를 직접 표시한다. 활성
-Gamma Layer마다 화면 크기의 RenderTexture 하나를 사용하므로, 색상 일치가 필요하지 않은
-Layer만 Prefab Variant에서 `Use Gamma Compositing`을 끈다.
+활성 Gamma Layer마다 화면 크기의 RenderTexture 하나를 사용한다. 웹 색상 일치가 필요하지
+않은 Layer만 Prefab Variant에서 옵션을 끈다.
 
 ### XeriLoopAnimator
 
-`XeriLoopAnimator`는 USS Transition 값을 직접 계산하지 않는다. Transition 완료 시 다음
-USS Class를 적용해 선언된 단계를 반복한다.
-
-반복할 `UIDocument`와 같은 GameObject에 Component를 추가한다. 기본 Layer Prefab에는
-포함되지 않으며, Animator 하나가 문서 아래의 `xeri-loop` 요소를 관리한다.
+`XeriLoopAnimator`는 USS 값을 계산하지 않는다. Transition 완료 Event를 받아 다음 Class를
+적용하는 방식으로 선언된 단계를 반복한다.
 
 ```xml
 <ui:VisualElement class="example-pulse xeri-loop" />
@@ -797,12 +916,8 @@ USS Class를 적용해 선언된 단계를 반복한다.
 }
 ```
 
-여러 Property를 동시에 Transition하면 `--xeri-loop-trigger`로 완료 기준을 지정한다.
-Material Transition의 이름은 `-unity-material`이다. `--xeri-next`가 없거나 완료 Event가
-발생하지 않으면 반복은 멈춘다.
-
-Gamma Compositor와 Loop Animator는 독립 기능이다. 반복이 필요한 문서에만 Animator를
-추가한다.
+반복할 `UIDocument`와 같은 GameObject에 Component를 추가한다. Gamma Compositor와 Loop
+Animator는 독립 기능이며 반복이 필요한 문서에만 Animator를 둔다.
 
 ## 종료와 소유권
 
@@ -813,73 +928,54 @@ Gamma Compositor와 Loop Animator는 독립 기능이다. 반복이 필요한 �
 | `ScreenSession` | View, Layer Usage, Input과 자식 Handle | 정상 Close는 현재 top |
 | `OverlayHandle<TView>` | Overlay View와 Layer Usage | 없음 |
 | `ModalHandle` | Modal Stack 항목과 전달된 Handle | 없음 |
-| `Lease` | Visibility, Highlight 또는 Input Block 요청 | 없음 |
+| `Lease` | Visibility, Spotlight 또는 Input Block 요청 | 없음 |
 | `DragVisualHandle` | Drag 부모와 Transform | 없음 |
+| Child `GameUIContext` | Screen, Modal, Focus와 하위 Context | 소유 범위 종료 |
 
 일반적인 종료 순서는 다음과 같다.
 
-1. `runtime.Main.Screens.Clear()`로 열린 Session과 자식 Handle을 닫는다.
+1. 열린 Screen과 Session 자식을 닫는다.
 2. `ScreenRegistrationHandle`을 해제한다.
-3. Source, Binding과 선택 기능 Controller를 해제한다.
+3. Source, Binding과 선택 기능 객체를 해제한다.
 4. 추가 `GameUIProfileHandle`을 해제한다.
-5. `runtime.Shutdown()`을 호출한다.
-
-Child Context는 생성한 범위가 `Dispose()`한다. Parent를 종료하면 남은 Child가 최신 항목부터
-재귀적으로 정리된다. `Main.Dispose()`는 거부되며 `Main`은 `runtime.Shutdown()`만 종료한다.
+5. App 종료에서만 `runtime.Shutdown()`을 호출한다.
 
 일반 `Dispose`, `Release`와 Callback 정리는 attempt-once다. 정리가 시작된 객체를 재시도
-Registry나 복구 상태 머신에 넣지 않는다. 일부 정리가 실패하더라도 소유자가 정의한 독립
-정리 항목은 끝까지 시도하고 오류를 전달한다.
+Registry나 복구 상태 머신에 넣지 않는다. 상태 변경 전 사전 조건 거부로 소유권이 유지되는
+경우만 일반 종료 실패와 구분한다.
 
-상태 변경 전 사전 조건이 거부되고 소유권이 유지되는 경우는 구분한다. 활성 Layer 소비자가
-남은 `GameUIProfileHandle.Dispose()`가 해당하며, 소비자를 종료한 뒤 같은 Handle로 다시
-요청할 수 있다.
+## 새 UI를 추가하는 체크리스트
 
-Shutdown이 시작된 Runtime은 오류가 발생해도 Terminal 상태로 끝난다. 같은 Runtime을 다시
-초기화하지 않는다.
+AI와 개발자는 새 화면을 만들기 전에 다음을 확정한다.
 
-## AI 작업 절차
+- 일반 UI이면 `runtime.Main`, 실제 독립 Stack이 필요할 때만 Child Context를 사용한다.
+- 화면이 사용할 Layer ID와 해당 Layer를 제공하는 Profile 소유자를 정한다.
+- UGUI `RectTransform`과 UITK `VisualElement` 중 View Root Backend를 정한다.
+- View 획득, Binding과 반환을 하나의 `IScreenSource`가 대칭 소유하게 한다.
+- Screen은 표시·입력 정책만 담고 프로젝트 데이터와 도메인 명령은 Source 밖의 Presenter가 맡는다.
+- Session, 등록 Handle, Profile Handle과 선택 기능 Lease의 저장 위치를 정한다.
+- 정상 종료 순서를 코드 작성 전에 확정한다.
+- 실제 호출 경로가 없는 Manager, Backend enum, Dispose 재시도 관리자나 복구 Registry를 만들지 않는다.
 
-AI가 Xeri Game UI를 사용하는 코드를 만들 때는 아래 순서로 판단한다.
-
-### 새 UI를 추가하기 전
-
-1. 일반 UI인지 독립 Stack이 필요한 특수 범위인지 판단해 `Main` 또는 Child Context를 고른다.
-2. UI가 사용할 Layer ID와 Profile을 확인한다.
-3. Root가 `RectTransform`인지 `VisualElement`인지 결정한다.
-4. View 획득과 반환을 담당할 Source를 정한다.
-5. Session, 등록 Handle과 Profile Handle의 보관 위치를 정한다.
-6. 종료 순서를 코드로 먼저 확정한다.
-
-### 새 Screen 구현 순서
-
-1. 필요한 Layer를 Profile에 구성한다.
-2. `ScreenOptions`을 만든다.
-3. UI 기술에 맞는 `IScreenSource`를 구현한다.
-4. `Acquire` 실패가 이번 호출에서 만든 View와 Binding을 정리하도록 한다.
-5. `Release`가 Binding을 끊고 View를 원래 공급 경로로 반환하도록 한다.
-6. Profile 획득 뒤 `ScreenRegistry.Register`를 호출한다.
-7. 반환된 등록 Handle을 수명 소유자에 보관한다.
-8. 닫기 UI는 `scope.Session.Close()`를 호출한다.
-9. Session → 등록 → Source → Profile 순서로 종료한다.
-
-### 기존 확장점
+기존 공개 확장점은 다음과 같다.
 
 | 필요한 역할 | 사용할 계약 |
 |---|---|
 | 새 Layer Root | `IPresentationLayerDriver<TRoot>` |
-| 새 Screen 표시 backend | `IScreenDriver` |
+| 새 Screen 표시 Backend | `IScreenDriver` |
 | Screen View 획득과 반환 | `IScreenSource` |
 | Screen 상태 관찰 | `IScreenStateHandler` |
-| Focus backend | `IFocusDriver` |
-| Input backend | `IScreenInputDriver` |
-| Transition backend | `IPresentationTransitioner` |
+| Focus Backend | `IFocusDriver` |
+| Input Backend | `IScreenInputDriver` |
+| Transition Backend | `IPresentationTransitioner` |
 | Overlay View | `IOverlaySource<TView>` |
 | Modal 표시 | `IModalDriver` |
 | Visibility 대상 | `IVisibilityTarget` |
+| Spotlight 표시 Backend | `ISpotlightDriver<TParams>` |
+| 중첩 Pointer 차단 | `IInteractionBlocker` |
 
-실제 호출 경로 없이 전역 Manager, Backend enum, Dispose 재시도 관리자, 복구 Registry 또는
-범용 Source를 추가하지 않는다. 먼저 위 공개 계약으로 표현 가능한지 확인한다.
+`IPresentationTransitioner`는 Core Controller를 직접 조립할 때 사용할 수 있는 계약이다.
+기본 `GameUIRuntime`은 구현을 주입받지 않고 `DOTweenPresentationTransitioner`를 사용한다.
 
 ## 문제 확인
 
@@ -887,34 +983,40 @@ AI가 Xeri Game UI를 사용하는 코드를 만들 때는 아래 순서로 판�
 |---|---|
 | Runtime 초기화 실패 | Host 필수 Component → Settings → Default Profile → Fade Layer |
 | UI 입력 없음 | Input Module Action Reference → UI Map → Gameplay Asset와 Map |
-| Layer 등록 실패 | Profile 활성 여부 → ID 중복 → Order 중복 → Driver Validate 결과 |
-| Screen Open 거부 | Screen 등록 → Layer ID → 중복 정책 → 현재 Stack 명령 상태 |
+| Layer 등록 실패 | Profile 활성 → ID 중복 → Order 중복 → Driver Validate |
+| Screen Open 거부 | Screen 등록 → Layer ID → 중복 정책 → Stack 명령 상태 |
 | Focus 없음 | Options Focus → Driver Focus → Focus Driver fallback |
-| UITK Layer 미표시 | UIDocument → PanelSettings → Root Name → Target Texture 미지정 |
+| UITK Layer 미표시 | UIDocument → PanelSettings → Root Name → Target Texture |
+| World UI 위치 반전 | Projector와 Bounds Root → UGUI `YUp` / UITK `YDown` |
+| Spotlight 구멍 위치 오류 | Driver와 Target Panel/Canvas → Target 표시 상태 → Padding |
+| Spotlight가 전체 Pointer 입력 차단 | 유효 Target → Target 표시 상태 → Lease 반환 |
 | Gradient가 어두움 | `background-color: white` → Color Space → Gamma 옵션 |
-| 둥근 `overflow:hidden`에서 자식이 사라짐 | Gamma 옵션 → Runtime RT Depth/Stencil → Console Shader 오류 |
-| Gamma Layer 메모리 증가 | 활성 Gamma Layer 수와 화면 해상도 |
-| Modal이나 Overlay가 남음 | 반환 Handle 소유자와 Session 자식 등록 여부 |
-| Profile Dispose 거부 | 남은 Screen, Overlay, Modal 또는 Drag Layer Usage |
+| 둥근 Clip에서 자식이 사라짐 | Gamma 옵션 → RT Depth/Stencil → Shader Console 오류 |
+| Gamma Layer 메모리 증가 | 활성 Gamma Layer 수 → 화면 해상도 |
+| Modal이나 Overlay 잔존 | Handle 소유자 → Session 자식 등록 |
+| Profile 종료 거부 | Screen, Overlay, Modal 또는 Drag Layer Usage |
 | Loop Animation 정지 | `xeri-loop` → `--xeri-next` → Duration → Trigger Property |
 
-## 소스 탐색표
+## 소스 위치
 
-README의 공개 사용법보다 내부 동작 확인이 필요한 경우에만 아래 경로를 읽는다.
+README의 공개 사용법으로 부족할 때만 내부 소스를 확인한다.
 
 | 관심사 | 경로 |
 |---|---|
 | Runtime 조립 | `Runtime/GameUIRuntime.cs` |
-| Context 조립과 수명 | `Runtime/Context/GameUIContext.cs` |
+| Context와 수명 | `Runtime/Context/GameUIContext.cs` |
 | Settings | `GameUISettingsAsset.cs` |
 | Profile | `GameUIProfileAsset.cs`, `Runtime/Profile` |
 | Layer Core | `Core/Presentation/Layer` |
 | Screen Core | `Core/Screen` |
-| Fade, Modal, Overlay, Visibility | `Core/Presentation` |
+| Modal, Overlay와 Visibility | `Core/Presentation` |
+| Placement와 Projection | `Core/Presentation/Placement` |
+| 범용 Tracking | `Runtime/Tracking` |
+| Spotlight Lease 정책 | `Core/Presentation/Spotlight` |
 | Focus와 Input | `Core/Interaction`, `InputSystem` |
-| UGUI Adapter | `UGUI` |
-| UI Toolkit Adapter | `UITK` |
-| DOTween Adapter | `DOTween` |
+| UGUI Backend | `UGUI` |
+| UI Toolkit Backend | `UITK` |
+| 필수 DOTween Transition 구현 | `DOTween` |
 | Gamma Compositor | `../XeriUI/Presentation/Gamma` |
 | Gradient Material과 Shader | `../XeriUI/Resources/XeriUI` |
 | Loop Animator | `../XeriUI/Animation/Loop` |

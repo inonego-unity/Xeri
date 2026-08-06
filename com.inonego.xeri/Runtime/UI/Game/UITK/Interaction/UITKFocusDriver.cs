@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKFocusDriver.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-06
 
 # 설명
-UI Toolkit Panel의 VisualElement Focus 선택, 유효성 검사와 fallback 조회를 수행한다.
+UI Toolkit Panel의 VisualElement Focus 선택, 유효성 검사와 native Focus 변경 보고를 수행한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System.Collections.Generic;
@@ -18,7 +18,7 @@ namespace inonego.Xeri.UI.Game
     /// UI Toolkit Panel Focus backend.
     /// </summary>
     // ============================================================
-    public sealed class UITKFocusDriver : MonoBehaviour, IFocusDriver
+    public sealed class UITKFocusDriver : FocusDriverBehaviour
     {
     #region 필드
 
@@ -27,7 +27,7 @@ namespace inonego.Xeri.UI.Game
         /// 마지막으로 Focus가 이동한 Panel의 현재 Focus Element.
         /// </summary>
         // ------------------------------------------------------------
-        public object Current
+        public override object Current
         {
             get
             {
@@ -48,6 +48,30 @@ namespace inonego.Xeri.UI.Game
 
     #endregion
 
+    #region FocusDriverBehaviour
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// VisualElement Focus 대상을 다룬다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override bool CanSelect(object target) => target is VisualElement;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UI Toolkit Layer Panel을 사용자 Focus 추적 범위에 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override void HandleLayerRegistered(IPresentationLayerDriver driver)
+        {
+            if (driver is IPresentationLayerDriver<VisualElement> layer)
+            {
+                RegisterPanel(layer.Root);
+            }
+        }
+
+    #endregion
+
     #region IFocusDriver
 
         // ------------------------------------------------------------
@@ -55,7 +79,7 @@ namespace inonego.Xeri.UI.Game
         /// VisualElement가 현재 Panel에서 Focus를 받을 수 있는지 확인한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool IsValid(object target)
+        public override bool IsValid(object target)
         {
             if (!(target is VisualElement element) || element.panel == null)
             {
@@ -75,7 +99,7 @@ namespace inonego.Xeri.UI.Game
         /// 유효한 VisualElement에 Focus를 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Select(object target)
+        public override void Select(object target)
         {
             if (!IsValid(target))
             {
@@ -96,7 +120,7 @@ namespace inonego.Xeri.UI.Game
         /// 직렬화한 fallback Element가 유효하면 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public object FindFallback()
+        public override object FindFallback()
         {
             if (fallbackDocument == null || string.IsNullOrWhiteSpace(fallbackName))
             {
@@ -137,6 +161,11 @@ namespace inonego.Xeri.UI.Game
                 HandleFocusIn,
                 TrickleDown.TrickleDown
             );
+            panelRoot.RegisterCallback<FocusOutEvent>
+            (
+                HandleFocusOut,
+                TrickleDown.TrickleDown
+            );
             panelRoot.RegisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
         }
 
@@ -172,6 +201,22 @@ namespace inonego.Xeri.UI.Game
             RegisterPanel(focused);
             ClearTrackedFocus(focused.panel);
             current = focused;
+            NotifyFocusChanged();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 추적 중인 native Focus가 빠져나가면 공통 Driver에 변경을 보고한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleFocusOut(FocusOutEvent eventData)
+        {
+            if (!(eventData.target is VisualElement focused)) return;
+
+            // 다른 Element의 FocusOut은 현재 Runtime 선택 상태를 바꾸지 않는다.
+            if (!ReferenceEquals(current, focused)) return;
+
+            NotifyFocusChanged();
         }
 
         // ------------------------------------------------------------
@@ -193,11 +238,17 @@ namespace inonego.Xeri.UI.Game
                 HandleFocusIn,
                 TrickleDown.TrickleDown
             );
+            panelRoot.UnregisterCallback<FocusOutEvent>
+            (
+                HandleFocusOut,
+                TrickleDown.TrickleDown
+            );
             panelRoot.UnregisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
 
             if (current != null && current.panel == null)
             {
                 current = null;
+                NotifyFocusChanged();
             }
         }
 
@@ -219,6 +270,11 @@ namespace inonego.Xeri.UI.Game
                 panelRoot.UnregisterCallback<FocusInEvent>
                 (
                     HandleFocusIn,
+                    TrickleDown.TrickleDown
+                );
+                panelRoot.UnregisterCallback<FocusOutEvent>
+                (
+                    HandleFocusOut,
                     TrickleDown.TrickleDown
                 );
                 panelRoot.UnregisterCallback<DetachFromPanelEvent>(HandlePanelDetached);

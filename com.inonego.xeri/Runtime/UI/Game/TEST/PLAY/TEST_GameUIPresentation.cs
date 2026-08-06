@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIPresentation.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-06
 
 # 설명
 실제 Runtime Panel과 Canvas에서 UGUI·UITK 표시와 mixed Focus의 대표 경로를 검증한다.
@@ -10,7 +10,7 @@
  I: Input System Map·장치·해제 장벽
  P: DOTween Presentation Transition
  U: UGUI Layer·Screen·Modal·Fade·Layout
- T: UITK Panel·Focus·Screen·Modal·Fade
+ T: UITK Panel·Focus·Screen·Modal·Fade·Spotlight
  M: UGUI·UITK mixed Focus
 ========================================================================= BLOCK_HEADER_END */
 
@@ -944,7 +944,7 @@ namespace inonego.Xeri.TEST.UI._Game
                         0.0f,
                         1.0f,
                         0.05f,
-                        PresentationTimeSource.Unscaled
+                        true
                     ),
                     () => completed = true,
                     exception => failure = exception
@@ -998,6 +998,18 @@ namespace inonego.Xeri.TEST.UI._Game
                 Assert.IsFalse(root.activeSelf);
                 Assert.IsFalse(canvasGroup.interactable);
                 Assert.IsFalse(canvasGroup.blocksRaycasts);
+
+                var lease = blocker.Acquire();
+                blocker.enabled = false;
+
+                Assert.IsFalse(root.activeSelf);
+                Assert.IsFalse(canvasGroup.blocksRaycasts);
+
+                blocker.enabled = true;
+
+                Assert.IsTrue(root.activeSelf);
+                Assert.IsTrue(canvasGroup.blocksRaycasts);
+                lease.Dispose();
             }
             finally
             {
@@ -1007,27 +1019,27 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> Highlight 대상이 비활성화되면 dim과 입력 차단을 비우고,
+        /// <br/> Spotlight 대상이 비활성화되면 dim과 입력 차단을 비우고,
         /// <br/> Driver 비활성화 시 별도 표시 Root까지 닫는다.
         /// </summary>
         // ----------------------------------------------------------------------
         [UnityTest]
-        public IEnumerator TEST_UGUIFocusHighlightDriver_대상과Driver비활성_표시입력정리()
+        public IEnumerator TEST_UGUISpotlightDriver_대상과Driver비활성_표시입력정리()
         {
-            var host = new GameObject("Focus Highlight Driver");
+            var host = new GameObject("UGUI Spotlight Driver");
             host.SetActive(false);
             var root = new GameObject
             (
-                "Highlight Root",
+                "Spotlight Root",
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
-                typeof(UGUIFocusHighlightGraphic)
+                typeof(UGUISpotlightGraphic)
             );
             root.transform.SetParent(host.transform, false);
-            var target = new GameObject("Highlight Target", typeof(RectTransform));
+            var target = new GameObject("Spotlight Target", typeof(RectTransform));
             target.transform.SetParent(host.transform, false);
-            var graphic = root.GetComponent<UGUIFocusHighlightGraphic>();
-            var driver = host.AddComponent<UGUIFocusHighlightDriver>();
+            var graphic = root.GetComponent<UGUISpotlightGraphic>();
+            var driver = host.AddComponent<UGUISpotlightDriver>();
             SetField(driver, "root", root);
             SetField(driver, "graphic", graphic);
 
@@ -1036,11 +1048,11 @@ namespace inonego.Xeri.TEST.UI._Game
                 host.SetActive(true);
                 driver.Show
                 (
-                    new FocusHighlightParams
+                    new UGUISpotlightParams
                     (
                         new[]
                         {
-                            new FocusHighlightTarget
+                            new UGUISpotlightTarget
                             (
                                 target.GetComponent<RectTransform>()
                             ),
@@ -1086,7 +1098,7 @@ namespace inonego.Xeri.TEST.UI._Game
         /// </summary>
         // ------------------------------------------------------------
         [UnityTest]
-        public IEnumerator TEST_UILayoutController_최초활성_SafeArea즉시반영()
+        public IEnumerator TEST_UGUISafeAreaLayout_최초활성_SafeArea즉시반영()
         {
             var host = new GameObject("Layout Controller");
             host.SetActive(false);
@@ -1097,8 +1109,8 @@ namespace inonego.Xeri.TEST.UI._Game
             safeAreaRoot.anchorMax = Vector2.zero;
             safeAreaRoot.offsetMin = Vector2.one;
             safeAreaRoot.offsetMax = Vector2.one;
-            var controller = host.AddComponent<UGUILayoutController>();
-            SetField(controller, "safeAreaRoot", safeAreaRoot);
+            var layout = host.AddComponent<UGUISafeAreaLayout>();
+            SetField(layout, "safeAreaRoot", safeAreaRoot);
 
             try
             {
@@ -1228,6 +1240,75 @@ namespace inonego.Xeri.TEST.UI._Game
 
         // ----------------------------------------------------------------------
         /// <summary>
+        /// <br/> 실제 Panel의 Spotlight가 대상 구멍에서는 Pointer를 통과시키고 dim 영역만 차단하며,
+        /// <br/> 대상이 숨겨지면 전체 입력 잠금 없이 표시와 Picking을 함께 비우는지 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_UITKSpotlight_구멍통과와대상숨김_입력차단해제()
+        {
+            var host = new GameObject("UITK Spotlight Panel");
+            var panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            var document = host.AddComponent<UIDocument>();
+            document.panelSettings = panelSettings;
+            var container = new VisualElement { name = "Spotlight Layer" };
+            container.style.width = 400.0f;
+            container.style.height = 300.0f;
+            var target = new Button { name = "Spotlight Target" };
+            target.style.position = Position.Absolute;
+            target.style.left = 50.0f;
+            target.style.top = 40.0f;
+            target.style.width = 120.0f;
+            target.style.height = 60.0f;
+            var element = new UITKSpotlightElement();
+            document.rootVisualElement.Add(container);
+            container.Add(target);
+            container.Add(element);
+            var spotlight = new UITKSpotlight();
+            Lease lease = null;
+
+            try
+            {
+                yield return null;
+                yield return null;
+
+                lease = spotlight.Show
+                (
+                    element,
+                    new UITKSpotlightParams
+                    (
+                        new[] { new UITKSpotlightTarget(target) }
+                    )
+                );
+                yield return null;
+
+                var targetCenter = element.WorldToLocal(target.worldBound.center);
+                var dimPoint = new Vector2
+                (
+                    element.localBound.xMax - 5.0f,
+                    element.localBound.yMax - 5.0f
+                );
+                Assert.AreEqual(1, element.HoleCount);
+                Assert.IsFalse(element.ContainsPoint(targetCenter));
+                Assert.IsTrue(element.ContainsPoint(dimPoint));
+
+                target.style.display = DisplayStyle.None;
+                yield return null;
+
+                Assert.AreEqual(0, element.HoleCount);
+                Assert.AreEqual(PickingMode.Ignore, element.pickingMode);
+            }
+            finally
+            {
+                lease?.Dispose();
+                spotlight.Dispose();
+                UnityEngine.Object.Destroy(host);
+                UnityEngine.Object.Destroy(panelSettings);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
         /// 서로 다른 UITK Panel의 사용자 Focus 이동을 추적하고 이전 Panel Focus를 비운다.
         /// </summary>
         // ----------------------------------------------------------------------
@@ -1245,7 +1326,6 @@ namespace inonego.Xeri.TEST.UI._Game
             secondDocument.panelSettings = secondSettings;
             var driver = driverHost.AddComponent<UITKFocusDriver>();
             var focus = driverHost.AddComponent<GameUIFocusDriver>();
-            SetField(focus, "uitkFocusDriver", driver);
             var first = new Button { name = "First" };
             var second = new Button { name = "Second" };
             firstDocument.rootVisualElement.Add(first);
@@ -1373,8 +1453,6 @@ namespace inonego.Xeri.TEST.UI._Game
             var uitkFocus = host.AddComponent<UITKFocusDriver>();
             var focus = host.AddComponent<GameUIFocusDriver>();
             SetField(uguiFocus, "eventSystem", eventSystem);
-            SetField(focus, "uguiFocusDriver", uguiFocus);
-            SetField(focus, "uitkFocusDriver", uitkFocus);
 
             var uguiTarget = new GameObject
             (
@@ -1390,7 +1468,7 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 yield return null;
                 yield return null;
-                focus.Initialize(eventSystem);
+                focus.Initialize();
 
                 focus.Select(uguiTarget);
 
@@ -1443,8 +1521,6 @@ namespace inonego.Xeri.TEST.UI._Game
             var uitkFocus = host.AddComponent<UITKFocusDriver>();
             var focus = host.AddComponent<GameUIFocusDriver>();
             SetField(uguiFocus, "eventSystem", eventSystem);
-            SetField(focus, "uguiFocusDriver", uguiFocus);
-            SetField(focus, "uitkFocusDriver", uitkFocus);
 
             var uguiLayerObject = new GameObject
             (
@@ -1475,7 +1551,7 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 yield return null;
                 yield return null;
-                focus.Initialize(eventSystem);
+                focus.Initialize();
 
                 uguiLayerHandle = layerRegistry.Register(uguiAsset, uguiLayer);
                 uitkLayerHandle = layerRegistry.Register

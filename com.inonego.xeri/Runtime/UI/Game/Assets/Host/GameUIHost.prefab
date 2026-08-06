@@ -126,8 +126,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a6dfab55b59e4764807a9f9d01935fcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: inonego.Xeri::inonego.Xeri.UI.Game.GameUIFocusDriver
-  uguiFocusDriver: {fileID: 5325031898252879958}
-  uitkFocusDriver: {fileID: 2946424791746457531}
 --- !u!114 &5573202438321184368
 MonoBehaviour:
   m_ObjectHideFlags: 0

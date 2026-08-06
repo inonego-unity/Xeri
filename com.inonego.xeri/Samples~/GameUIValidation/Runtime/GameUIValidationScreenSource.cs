@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIValidationScreenSource.cs
-수정일 : 2026-08-03
+수정일 : 2026-08-05
 
 # 설명
 검증용 UXML을 실제 UITK Presentation Layer에 생성하고 Xeri Screen Driver와 상태 훅을
@@ -199,9 +199,11 @@ namespace inonego.Xeri.Samples.GameUIValidation
         private readonly Label detailDepth = null;
         private readonly Label detailTopScreen = null;
         private readonly Label detailMode = null;
+        private readonly UITKSpotlightElement spotlightElement = null;
 
         private readonly Button pushButton = null;
         private readonly Button modalButton = null;
+        private readonly Button spotlightButton = null;
         private readonly Button fadeButton = null;
         private readonly Button overlayButton = null;
         private readonly Button clearButton = null;
@@ -268,9 +270,12 @@ namespace inonego.Xeri.Samples.GameUIValidation
             detailDepth = Require<Label>(root, "DetailDepth");
             detailTopScreen = Require<Label>(root, "DetailTopScreen");
             detailMode = Require<Label>(root, "DetailMode");
+            spotlightElement = new UITKSpotlightElement();
+            root.Add(spotlightElement);
 
             pushButton = Require<Button>(root, "PushButton");
             modalButton = Require<Button>(root, "ModalButton");
+            spotlightButton = Require<Button>(root, "SpotlightButton");
             fadeButton = Require<Button>(root, "FadeButton");
             overlayButton = Require<Button>(root, "OverlayButton");
             clearButton = Require<Button>(root, "ClearButton");
@@ -325,6 +330,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         {
             pushButton.clicked += OnPushClicked;
             modalButton.clicked += OnModalClicked;
+            spotlightButton.clicked += OnSpotlightClicked;
             fadeButton.clicked += OnFadeClicked;
             overlayButton.clicked += OnOverlayClicked;
             clearButton.clicked += OnClearClicked;
@@ -342,6 +348,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         {
             pushButton.clicked -= OnPushClicked;
             modalButton.clicked -= OnModalClicked;
+            spotlightButton.clicked -= OnSpotlightClicked;
             fadeButton.clicked -= OnFadeClicked;
             overlayButton.clicked -= OnOverlayClicked;
             clearButton.clicked -= OnClearClicked;
@@ -372,6 +379,16 @@ namespace inonego.Xeri.Samples.GameUIValidation
         private void OnModalClicked()
         {
             owner.OpenModal(session, layerRoot);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Screen의 실제 UITK 대상 Spotlight를 전환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnSpotlightClicked()
+        {
+            owner.ToggleSpotlight(session, spotlightElement, spotlightButton);
         }
 
         // ------------------------------------------------------------

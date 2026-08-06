@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DOTweenPresentationTransitioner.cs
-수정일 : 2026-07-30
+수정일 : 2026-08-06
 
 # 설명
 Core Presentation Transition 계약을 DOTween float tween과 취소 Handle로 구현한다.
@@ -118,7 +118,7 @@ namespace inonego.Xeri.UI.Game
                 parameters.Duration
             )
             .SetEase(DG.Tweening.Ease.OutCubic)
-            .SetUpdate(parameters.TimeSource.UseUnscaledTime)
+            .SetUpdate(parameters.UsesUnscaledTime)
             .OnComplete
             (
                 () =>

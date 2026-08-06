@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenController.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-06
 
 # 설명
 Screen Open·Close·Replace·Clear 명령과 Stack, 상태 훅, Transition과 대칭 수명을 중재한다.
@@ -599,16 +599,13 @@ namespace inonego.Xeri.UI.Game
         {
             InvalidateTransition(session);
             var generation = ++session.TransitionGeneration;
-            var timeSource = session.Options.UsesUnscaledTime
-                ? PresentationTimeSource.Unscaled
-                : PresentationTimeSource.Scaled;
             var parameters = new PresentationTransitionParams
             (
                 session.Resources.Instance.Driver,
                 0.0f,
                 1.0f,
                 session.Options.OpenDuration,
-                timeSource
+                session.Options.UsesUnscaledTime
             );
 
             var handle = transitioner.Play
@@ -867,16 +864,13 @@ namespace inonego.Xeri.UI.Game
         private void StartClosing(ScreenSession session)
         {
             var generation = ++session.TransitionGeneration;
-            var timeSource = session.Options.UsesUnscaledTime
-                ? PresentationTimeSource.Unscaled
-                : PresentationTimeSource.Scaled;
             var parameters = new PresentationTransitionParams
             (
                 session.Resources.Instance.Driver,
                 session.Resources.Instance.Driver.Visibility,
                 0.0f,
                 session.Options.CloseDuration,
-                timeSource
+                session.Options.UsesUnscaledTime
             );
 
             var handle = transitioner.Play

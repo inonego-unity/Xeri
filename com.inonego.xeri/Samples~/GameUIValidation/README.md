@@ -1,7 +1,7 @@
 # Game UI Validation
 
 Xeri Game UI Core의 공개 경로를 한 Scene에서 실행하는 선택형 Package Sample이다.
-Screen Stack, Modal, Overlay, Scene Fade, Focus, Input, UITK Layer와 Gradient/Gamma 합성을
+Screen Stack, Modal, Overlay, Spotlight, Scene Fade, Focus, Input, UITK Layer와 Gradient/Gamma 합성을
 실제 Handle과 Controller 수명으로 확인한다.
 
 이 샘플 에셋은 Xeri의 공개 API와 Package 내부 에셋만 사용한다. 프로젝트 전용 Settings,
@@ -47,6 +47,7 @@ SceneFader, Input Settings와 Runtime Shutdown을 건드리지 않으며 Fade �
 | `REPLACE TOP` | 현재 top을 같은 등록의 새 Session으로 교체 |
 | `POP SCREEN` | 일반 Close Transition과 이전 Focus 복원 |
 | `OPEN MODAL` | Modal Handle을 현재 Screen의 자식 수명으로 소유 |
+| `SPOTLIGHT` | UITK Spotlight Lease를 현재 Screen의 자식 수명으로 소유하고 대상 구멍 입력을 통과 |
 | `Overlay Toast` | `OverlayHandle`로 Layer Usage와 동적 View를 함께 획득·반환 |
 | `Cover → Reveal` | 기본 `SceneFader`의 Cover와 Reveal 실행 |
 | `Clear & Restore` | Stack을 정리한 뒤 Dashboard를 새로 획득 |
