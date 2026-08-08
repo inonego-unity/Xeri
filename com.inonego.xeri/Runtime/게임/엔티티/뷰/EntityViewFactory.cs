@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityViewFactory.cs
-수정일 : 2026-07-29
+수정일 : 2026-08-08
 
 # 설명
 Entity View GameObject의 획득, 종속 표현 준비, Entity 연결, Spawn 훅과 최종 반환을 담당한다.
@@ -115,7 +115,7 @@ namespace inonego.Xeri.Game
         /// Entity View를 지정한 제거 사유로 회수한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void Release
+        protected internal void Release
         (
             TEntityView view,
             DespawnReason reason
