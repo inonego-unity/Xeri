@@ -29,6 +29,7 @@ namespace inonego.Xeri.TEST._Playback
     // ============================================================
     public class TEST_PlaybackClock
     {
+
     #region S-1: 상태 명령
 
         // ------------------------------------------------------------

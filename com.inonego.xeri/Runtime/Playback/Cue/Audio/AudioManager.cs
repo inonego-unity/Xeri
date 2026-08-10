@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioManager.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-10
 
 # 설명
 Audio Cue의 정면 재생 API와 Master·Bus 출력 정책을 제공한다.
@@ -26,8 +26,12 @@ namespace inonego.Xeri.Playback
     /// </summary>
     // ============================================================
     [RequireComponent(typeof(UnityAudioCuePlayer))]
-    public sealed class AudioManager : MonoSingleton<AudioManager>, ICuePlayer
+    public sealed class AudioManager : MonoSingleton<AudioManager>,
+        ICuePlayer<NoCueBinding>,
+        ICuePlayer<WorldPoseBinding>,
+        ICuePlayer<TransformBinding>
     {
+
     #region 내부 데이터
 
         // ============================================================
@@ -38,6 +42,7 @@ namespace inonego.Xeri.Playback
         [Serializable]
         private sealed class AudioBusSettings
         {
+
         #region 필드
 
             // ------------------------------------------------------------
@@ -90,6 +95,7 @@ namespace inonego.Xeri.Playback
         // ============================================================
         private readonly struct ManagedAudioPlayback
         {
+
         #region 필드
 
             // ------------------------------------------------------------
@@ -175,9 +181,9 @@ namespace inonego.Xeri.Playback
         /// 현재 Unity Player가 지정 Cue를 처리할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool CanPlay(IPlaybackCue cue)
+        private bool CanPlayCue(IPlaybackCue cue)
         {
-            return player != null && player.CanPlay(cue);
+            return player != null && player.SupportsCue(cue);
         }
 
         // ------------------------------------------------------------
@@ -354,12 +360,31 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public void StopAll()
         {
-            for (var i = playbacks.Count - 1; i >= 0; i--)
+            List<Exception> errors = null;
+
+            for (var index = playbacks.Count - 1; index >= 0; index--)
             {
-                playbacks[i].Playback.Dispose();
+                try
+                {
+                    playbacks[index].Playback.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    errors ??= new();
+                    errors.Add(exception);
+                }
             }
 
             playbacks.Clear();
+
+            if (errors != null)
+            {
+                throw new AggregateException
+                (
+                    "전체 Audio Playback 종료 중 하나 이상의 정리가 실패했습니다.",
+                    errors
+                );
+            }
         }
 
         // ------------------------------------------------------------
@@ -370,13 +395,34 @@ namespace inonego.Xeri.Playback
         public void StopAll(AudioBus bus)
         {
             GetBusSettings(bus);
+            List<Exception> errors = null;
 
-            for (var i = playbacks.Count - 1; i >= 0; i--)
+            for (var index = playbacks.Count - 1; index >= 0; index--)
             {
-                if (playbacks[i].Bus != bus) continue;
+                if (playbacks[index].Bus != bus) continue;
 
-                playbacks[i].Playback.Dispose();
-                playbacks.RemoveAt(i);
+                try
+                {
+                    playbacks[index].Playback.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    errors ??= new();
+                    errors.Add(exception);
+                }
+                finally
+                {
+                    playbacks.RemoveAt(index);
+                }
+            }
+
+            if (errors != null)
+            {
+                throw new AggregateException
+                (
+                    $"{bus} Audio Playback 종료 중 하나 이상의 정리가 실패했습니다.",
+                    errors
+                );
             }
         }
 
@@ -472,26 +518,118 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
-    #region ICuePlayer 구현
+    #region Cue Player 구현
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Audio Cue를 No Cue Binding으로 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<NoCueBinding>.CanPlay
+        (
+            IPlaybackCue cue,
+            in NoCueBinding binding
+        )
+        {
+            return CanPlayCue(cue);
+        }
 
         // ------------------------------------------------------------
         /// <summary>
         /// 일반 Cue 경로의 Audio Cue를 동일한 Manager 정책으로 2D 재생한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer.Play(IPlaybackCue cue)
+        ICuePlayback ICuePlayer<NoCueBinding>.Play
+        (
+            IPlaybackCue cue,
+            in NoCueBinding binding
+        )
+        {
+            return Play(RequireAudioCue(cue));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Audio Cue를 고정 World Pose Binding으로 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<WorldPoseBinding>.CanPlay
+        (
+            IPlaybackCue cue,
+            in WorldPoseBinding binding
+        )
+        {
+            return CanPlayCue(cue) && binding.IsValid;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Audio Cue를 Binding의 월드 위치에서 3D로 재생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        ICuePlayback ICuePlayer<WorldPoseBinding>.Play
+        (
+            IPlaybackCue cue,
+            in WorldPoseBinding binding
+        )
+        {
+            if (!binding.IsValid)
+            {
+                throw new ArgumentException
+                (
+                    "World Pose Binding의 위치·회전 값이 유효하지 않습니다.",
+                    nameof(binding)
+                );
+            }
+
+            return Play(RequireAudioCue(cue), binding.Position);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Audio Cue를 Transform Binding으로 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<TransformBinding>.CanPlay
+        (
+            IPlaybackCue cue,
+            in TransformBinding binding
+        )
+        {
+            return CanPlayCue(cue) && binding.IsValid;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Audio Cue를 Binding Transform을 따라가는 3D로 재생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        ICuePlayback ICuePlayer<TransformBinding>.Play
+        (
+            IPlaybackCue cue,
+            in TransformBinding binding
+        )
+        {
+            return Play(RequireAudioCue(cue), binding.Transform);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 범용 Cue 인자를 Audio Cue로 검증해 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static AudioCue RequireAudioCue(IPlaybackCue cue)
         {
             if (cue == null)
             {
                 throw new ArgumentNullException(nameof(cue));
             }
 
-            if (cue is not AudioCue audioCue)
-            {
-                throw new ArgumentException("AudioManager는 AudioCue만 재생할 수 있습니다.", nameof(cue));
-            }
-
-            return Play(audioCue);
+            return cue as AudioCue ?? throw new ArgumentException
+            (
+                "AudioManager는 AudioCue만 재생할 수 있습니다.",
+                nameof(cue)
+            );
         }
 
     #endregion

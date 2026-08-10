@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioCuePlayer.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-10
 
 # 설명
 UnityAudioClipCue를 Pool에서 획득한 AudioSource voice로 실행하고 Playback을 갱신한다.
@@ -25,8 +25,12 @@ namespace inonego.Xeri.Playback
     /// Unity AudioClip Cue Player.
     /// </summary>
     // ============================================================
-    public sealed class UnityAudioCuePlayer : MonoBehaviour, ICuePlayer
+    public sealed class UnityAudioCuePlayer : MonoBehaviour,
+        ICuePlayer<NoCueBinding>,
+        ICuePlayer<WorldPoseBinding>,
+        ICuePlayer<TransformBinding>
     {
+
     #region 필드
 
         [SerializeField]
@@ -45,37 +49,12 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// UnityAudioClipCue를 처리할 수 있는지 반환한다.
+        /// UnityAudioClipCue를 이 backend가 처리할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool CanPlay(IPlaybackCue cue)
+        internal bool SupportsCue(IPlaybackCue cue)
         {
             return cue is UnityAudioClipCue;
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> UnityAudioClipCue를 2D voice로 실행한다.
-        /// <br/> 생성한 Playback이 voice Lease의 반환을 소유한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        public ICuePlayback Play(IPlaybackCue cue)
-        {
-            if (cue == null)
-            {
-                throw new ArgumentNullException(nameof(cue));
-            }
-
-            if (cue is not UnityAudioClipCue audioCue)
-            {
-                throw new ArgumentException
-                (
-                    "UnityAudioCuePlayer는 UnityAudioClipCue만 재생할 수 있습니다.",
-                    nameof(cue)
-                );
-            }
-
-            return Play(audioCue);
         }
 
         // ------------------------------------------------------------
@@ -413,6 +392,103 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
+    #region Cue Player 구현
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Cue를 binding 없이 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<NoCueBinding>.CanPlay(IPlaybackCue cue, in NoCueBinding binding)
+        {
+            return SupportsCue(cue);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Cue를 2D로 실행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        ICuePlayback ICuePlayer<NoCueBinding>.Play(IPlaybackCue cue, in NoCueBinding binding)
+        {
+            return Play(RequireAudioCue(cue));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Cue를 World Pose Binding으로 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<WorldPoseBinding>.CanPlay(IPlaybackCue cue, in WorldPoseBinding binding)
+        {
+            return SupportsCue(cue) && binding.IsValid;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Cue를 Binding의 월드 위치에서 실행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        ICuePlayback ICuePlayer<WorldPoseBinding>.Play(IPlaybackCue cue, in WorldPoseBinding binding)
+        {
+            if (!binding.IsValid)
+            {
+                throw new ArgumentException
+                (
+                    "World Pose Binding의 위치·회전 값이 유효하지 않습니다.",
+                    nameof(binding)
+                );
+            }
+
+            return Play(RequireAudioCue(cue), binding.Position);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Cue를 Transform Binding으로 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<TransformBinding>.CanPlay(IPlaybackCue cue, in TransformBinding binding)
+        {
+            return SupportsCue(cue) && binding.IsValid;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Cue를 Binding Transform을 따라가도록 실행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        ICuePlayback ICuePlayer<TransformBinding>.Play(IPlaybackCue cue, in TransformBinding binding)
+        {
+            if (!binding.IsValid)
+            {
+                throw new ArgumentException("Transform Binding의 대상이 유효하지 않습니다.", nameof(binding));
+            }
+
+            return Play(RequireAudioCue(cue), binding.Transform);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 범용 Cue를 Audio Cue로 검증해 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static AudioCue RequireAudioCue(IPlaybackCue cue)
+        {
+            if (cue == null)
+            {
+                throw new ArgumentNullException(nameof(cue));
+            }
+
+            return cue as AudioCue ?? throw new ArgumentException
+            (
+                "UnityAudioCuePlayer는 AudioCue만 재생할 수 있습니다.",
+                nameof(cue)
+            );
+        }
+
+    #endregion
+
     #region Unity 생명주기
 
         // ------------------------------------------------------------
@@ -449,12 +525,31 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         private void OnDisable()
         {
-            for (var i = playbacks.Count - 1; i >= 0; i--)
+            List<Exception> errors = null;
+
+            for (var index = playbacks.Count - 1; index >= 0; index--)
             {
-                playbacks[i].Dispose();
+                try
+                {
+                    playbacks[index].Dispose();
+                }
+                catch (Exception exception)
+                {
+                    errors ??= new();
+                    errors.Add(exception);
+                }
             }
 
             playbacks.Clear();
+
+            if (errors != null)
+            {
+                throw new AggregateException
+                (
+                    "Audio Player 비활성화 중 하나 이상의 Playback 정리가 실패했습니다.",
+                    errors
+                );
+            }
         }
 
     #endregion

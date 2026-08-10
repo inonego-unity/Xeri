@@ -22,6 +22,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     public abstract class AudioCue : ScriptableObject, IPlaybackCue
     {
+
     #region 필드
 
         // ------------------------------------------------------------

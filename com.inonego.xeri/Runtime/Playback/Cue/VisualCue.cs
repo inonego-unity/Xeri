@@ -1,23 +1,22 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : IPlaybackCue.cs
+파일명 : VisualCue.cs
 수정일 : 2026-08-10
 
 # 설명
-Cue Player가 실행할 재생 정의의 공통 계약을 선언한다.
-
-# 적용 범위
-시작 시점과 실행 순서는 Cue를 배치하는 Sequence나 호출자가 소유한다.
-Cue 타입은 재사용 가능한 재생 설정을 소유하고 실행마다 달라지는 대상·배치는 ICueBinding이 제공한다.
+ParticleSystem, VFX Graph 등 시각 표현 Cue의 공통 authoring 기반을 정의한다.
+구체 렌더링 기술과 Runtime Binding은 하위 Cue와 Player가 소유한다.
 ========================================================================= BLOCK_HEADER_END */
+
+using UnityEngine;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Cue Player가 실행할 재생 정의.
+    /// 시각 표현을 재생하는 Cue의 공통 기반 타입.
     /// </summary>
     // ============================================================
-    public interface IPlaybackCue
+    public abstract class VisualCue : ScriptableObject, IPlaybackCue
     {
     }
 }

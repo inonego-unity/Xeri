@@ -1,39 +1,29 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : UnityAudioClipCue.cs
-수정일 : 2026-07-31
+파일명 : NoCueBinding.cs
+수정일 : 2026-08-10
 
 # 설명
-Unity AudioClip을 재생하는 Audio Cue Asset을 정의한다.
+추가 Runtime Binding이 필요 없는 Cue 실행을 동일한 Generic Player 계약으로 표현한다.
 ========================================================================= BLOCK_HEADER_END */
-
-using UnityEngine;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Unity AudioClip 기반 Audio Cue.
+    /// 별도 Runtime Binding이 없는 Cue 실행 값.
     /// </summary>
     // ============================================================
-    [CreateAssetMenu(menuName = "Xeri/Playback/Unity Audio Clip Cue", fileName = "AudioCue")]
-    public sealed class UnityAudioClipCue : AudioCue
+    public readonly struct NoCueBinding : ICueBinding
     {
-
+        
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 재생할 Unity AudioClip.
+        /// 상태 없는 No Cue Binding의 공용 기본값.
         /// </summary>
         // ------------------------------------------------------------
-        public AudioClip Clip
-        {
-            get => clip;
-            set => clip = value;
-        }
-
-        [SerializeField]
-        private AudioClip clip = null;
+        public static readonly NoCueBinding Default = default;
 
     #endregion
 

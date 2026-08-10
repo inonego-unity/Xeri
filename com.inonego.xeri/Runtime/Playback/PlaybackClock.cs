@@ -35,6 +35,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     public sealed class PlaybackClock : IPlaybackClock
     {
+
     #region 필드
 
         // ------------------------------------------------------------

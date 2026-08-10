@@ -23,6 +23,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     internal sealed class UnityAudioPlayback : IAudioPlayback, IPlaybackClock
     {
+
     #region 필드
 
         // ------------------------------------------------------------

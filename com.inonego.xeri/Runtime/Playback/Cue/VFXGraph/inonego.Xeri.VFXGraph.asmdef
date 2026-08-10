@@ -1,0 +1,25 @@
+{
+    "name": "inonego.Xeri.VFXGraph",
+    "rootNamespace": "",
+    "references": [
+        "inonego.Xeri",
+        "Unity.VisualEffectGraph.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "XERI_HAS_VFX_GRAPH"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.visualeffectgraph",
+            "expression": "",
+            "define": "XERI_HAS_VFX_GRAPH"
+        }
+    ],
+    "noEngineReferences": false
+}

@@ -15,6 +15,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     public interface IAudioPlayback : ICuePlayback
     {
+
     #region 필드
 
         // ------------------------------------------------------------

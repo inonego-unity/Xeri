@@ -26,6 +26,7 @@ namespace inonego.Xeri.Playback
     )]
     public sealed class AudioBootstrapperModuleAsset : BootstrapperModuleAsset
     {
+
     #region 필드
 
         [SerializeField]
