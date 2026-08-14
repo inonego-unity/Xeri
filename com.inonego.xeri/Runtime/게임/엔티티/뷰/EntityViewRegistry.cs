@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityViewRegistry.cs
-수정일 : 2026-07-28
+수정일 : 2026-08-14
 
 # 설명
 Entity Key와 EntityViewBase View의 대응 관계만 관리하는 View 매핑.
@@ -8,6 +8,7 @@ GameObject 생성/회수와 EntitySpawnRegistry 이벤트 연결은 담당하지
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri.Game
@@ -33,6 +34,13 @@ namespace inonego.Xeri.Game
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyDictionary<ulong, TEntityView> Views => views;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 등록된 View 수.
+        /// </summary>
+        // ------------------------------------------------------------
+        public int Count => views.Count;
 
     #endregion
 
@@ -83,7 +91,7 @@ namespace inonego.Xeri.Game
         /// Key에 대응하는 View를 조회한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool TryGet(ulong key, out TEntityView view)
+        public bool TryFind(ulong key, out TEntityView view)
         {
             return views.TryGetValue(key, out view);
         }
