@@ -38,6 +38,13 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         public int Count => keys.Count;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Registry에 등록된 모든 Presentation 인스턴스를 열거한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public IEnumerable<TPresentation> Presentations => keys.Keys;
+
     #endregion
 
     #region 등록
