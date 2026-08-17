@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphPlayback.cs
-수정일 : 2026-08-10
+수정일 : 2026-08-17
 
 # 설명
 Pool에서 실행 중인 Unity VFX Graph Cue의 수명과 Transform 추적을 관리한다.
@@ -41,6 +41,7 @@ namespace inonego.Xeri.Playback
         private UnityVFXGraphCue cue = null;
         private VisualEffect effect = null;
         private Transform emitter = null;
+        private bool isAwaitingInitSimulation = true;
 
     #endregion
 
@@ -125,7 +126,17 @@ namespace inonego.Xeri.Playback
                 );
             }
 
-            if (effect.HasAnySystemAwake()) return;
+            var hasActiveSystem = effect.HasAnySystemAwake();
+
+            // Play 직후 Graph가 실제 활성 상태를 보고할 때까지는 자연 종료를 판정하지 않는다.
+            if (isAwaitingInitSimulation)
+            {
+                if (!hasActiveSystem) return;
+
+                isAwaitingInitSimulation = false;
+            }
+
+            if (hasActiveSystem) return;
 
             Release();
         }
