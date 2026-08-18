@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphPlayback.cs
-수정일 : 2026-08-17
+수정일 : 2026-08-18
 
 # 설명
 Pool에서 실행 중인 Unity VFX Graph Cue의 수명과 Transform 추적을 관리한다.
@@ -32,10 +32,10 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Player 내부에서 초기화·배치에 사용할 현재 VisualEffect.
+        /// Cue Domain이 노출 Property와 추가 World 상태를 연결할 현재 VisualEffect.
         /// </summary>
         // ------------------------------------------------------------
-        internal VisualEffect Effect => effect;
+        public VisualEffect Effect => effect;
 
         private UnityVFXGraphCuePlayer owner = null;
         private UnityVFXGraphCue cue = null;

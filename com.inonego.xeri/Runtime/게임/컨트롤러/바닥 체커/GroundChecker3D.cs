@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker3D.cs
-수정일 : 2026-08-03
+수정일 : 2026-08-18
 
 # 설명
 Rigidbody/Collider를 사용하는 3D 바닥 체커.
 BoxCollider, SphereCollider, CapsuleCollider를 지원하며,
 Overlap과 Cast의 다중 후보에서 바닥 방향 표면을 선택하고,
 부호 있는 거리, 지점, 법선을 표본에 기록한다.
-GC 할당 방지를 위해 재사용 가능한 결과 배열을 관리한다.
+GC 할당 방지를 위해 재사용 가능한 결과 배열을 관리하고 공통 PhysicsQuery3D를 사용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -125,13 +125,13 @@ namespace inonego.Xeri.Game.Controller
             var size        = new Vector3(info.Size.x, GroundCheckerConfig.Thickness, info.Size.z);
             var orientation = boxCollider.transform.rotation;
 
+            var volume = PhysicsVolume3D.CreateBox(center, size, orientation);
+
             // 시작 중첩 후보에서 바닥 방향 표면을 우선 복원합니다.
-            int overlapCount = Physics.OverlapBoxNonAlloc
+            int overlapCount = PhysicsQuery3D.Overlap
             (
-                center,
-                size * 0.5f,
+                volume,
                 overlapHits,
-                orientation,
                 Config.Layer,
                 QueryTriggerInteraction.Ignore
             );
@@ -144,14 +144,12 @@ namespace inonego.Xeri.Game.Controller
             );
 
             // Overlap과 Cast를 같은 후보 기준으로 비교하도록 아래쪽 표면까지 계속 확인합니다.
-            int castCount = Physics.BoxCastNonAlloc
+            int castCount = PhysicsQuery3D.Cast
             (
-                center,
-                size * 0.5f,
+                volume,
                 info.Direction,
-                castHits,
-                orientation,
                 info.Depth,
+                castHits,
                 Config.Layer,
                 QueryTriggerInteraction.Ignore
             );
@@ -175,11 +173,12 @@ namespace inonego.Xeri.Game.Controller
         {
             var info = GetSphereColliderDetectionInfo(sphereCollider, deltaTime);
 
+            var volume = PhysicsVolume3D.CreateSphere(info.Center, info.Radius);
+
             // 시작 중첩 후보에서 바닥 방향 표면을 우선 복원합니다.
-            int overlapCount = Physics.OverlapSphereNonAlloc
+            int overlapCount = PhysicsQuery3D.Overlap
             (
-                info.Center,
-                info.Radius,
+                volume,
                 overlapHits,
                 Config.Layer,
                 QueryTriggerInteraction.Ignore
@@ -193,13 +192,12 @@ namespace inonego.Xeri.Game.Controller
             );
 
             // Overlap과 Cast를 같은 후보 기준으로 비교하도록 아래쪽 표면까지 계속 확인합니다.
-            int castCount = Physics.SphereCastNonAlloc
+            int castCount = PhysicsQuery3D.Cast
             (
-                info.Center,
-                info.Radius,
+                volume,
                 info.Direction,
-                castHits,
                 info.Depth,
+                castHits,
                 Config.Layer,
                 QueryTriggerInteraction.Ignore
             );
@@ -228,10 +226,11 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             if (info.Flag)
             {
-                int overlapCount = Physics.OverlapSphereNonAlloc
+                var volume = PhysicsVolume3D.CreateSphere(info.Center, info.Radius);
+
+                int overlapCount = PhysicsQuery3D.Overlap
                 (
-                    info.Center,
-                    info.Radius,
+                    volume,
                     overlapHits,
                     Config.Layer,
                     QueryTriggerInteraction.Ignore
@@ -244,13 +243,12 @@ namespace inonego.Xeri.Game.Controller
                     info.Direction
                 );
 
-                int castCount = Physics.SphereCastNonAlloc
+                int castCount = PhysicsQuery3D.Cast
                 (
-                    info.Center,
-                    info.Radius,
+                    volume,
                     info.Direction,
-                    castHits,
                     info.Depth,
+                    castHits,
                     Config.Layer,
                     QueryTriggerInteraction.Ignore
                 );

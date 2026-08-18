@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GroundChecker2D.cs
-수정일 : 2026-08-03
+수정일 : 2026-08-18
 
 # 설명
 Rigidbody2D/Collider2D를 사용하는 2D 바닥 체커.
 BoxCollider2D, CircleCollider2D, CapsuleCollider2D를 지원한다.
 Cast의 다중 후보에서 바닥 방향 표면을 선택하며,
-시작 중첩도 부호 있는 거리, 지점, 법선을 표본에 기록한다.
+시작 중첩도 부호 있는 거리, 지점, 법선을 표본에 기록하며 공통 PhysicsQuery2D를 사용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -120,9 +120,17 @@ namespace inonego.Xeri.Game.Controller
             var info = GetBoxColliderDetectionInfo(boxCollider, deltaTime);
 
             var center = info.Center - info.Direction * GroundCheckerConfig.Thickness * 0.5f;
-            var size   = new Vector3(info.Size.x, GroundCheckerConfig.Thickness, 0);
+            var size   = new Vector2(info.Size.x, GroundCheckerConfig.Thickness);
+            var volume = PhysicsVolume2D.CreateBox(center, size, info.Angle);
 
-            var hitCount = Physics2D.BoxCast(center, size, info.Angle, info.Direction, GetContactFilter(), castHits, info.Depth);
+            var hitCount = PhysicsQuery2D.Cast
+            (
+                volume,
+                info.Direction,
+                info.Depth,
+                GetContactFilter(),
+                castHits
+            );
 
             return SelectSample
             (
@@ -141,7 +149,16 @@ namespace inonego.Xeri.Game.Controller
         private GroundCheckSample2D DetectWithCircleCollider(CircleCollider2D circleCollider, float deltaTime)
         {
             var info = GetCircleColliderDetectionInfo(circleCollider, deltaTime);
-            var hitCount = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, GetContactFilter(), castHits, info.Depth);
+            var volume = PhysicsVolume2D.CreateCircle(info.Center, info.Radius);
+
+            var hitCount = PhysicsQuery2D.Cast
+            (
+                volume,
+                info.Direction,
+                info.Depth,
+                GetContactFilter(),
+                castHits
+            );
 
             return SelectSample
             (
@@ -169,7 +186,16 @@ namespace inonego.Xeri.Game.Controller
             // ------------------------------------------------------------
             if (info.Flag)
             {
-                hitCount = Physics2D.CircleCast(info.Center, info.Radius, info.Direction, GetContactFilter(), castHits, info.Depth);
+                var volume = PhysicsVolume2D.CreateCircle(info.Center, info.Radius);
+
+                hitCount = PhysicsQuery2D.Cast
+                (
+                    volume,
+                    info.Direction,
+                    info.Depth,
+                    GetContactFilter(),
+                    castHits
+                );
             }
             // ------------------------------------------------------------
             // 수평 캡슐 — BoxCast 사용
@@ -177,9 +203,17 @@ namespace inonego.Xeri.Game.Controller
             else
             {
                 var center = info.Center - info.Direction * GroundCheckerConfig.Thickness * 0.5f;
-                var size   = new Vector3(info.Size.x, GroundCheckerConfig.Thickness, 0);
+                var size   = new Vector2(info.Size.x, GroundCheckerConfig.Thickness);
+                var volume = PhysicsVolume2D.CreateBox(center, size, info.Angle);
 
-                hitCount = Physics2D.BoxCast(center, size, info.Angle, info.Direction, GetContactFilter(), castHits, info.Depth);
+                hitCount = PhysicsQuery2D.Cast
+                (
+                    volume,
+                    info.Direction,
+                    info.Depth,
+                    GetContactFilter(),
+                    castHits
+                );
             }
 
             return SelectSample
