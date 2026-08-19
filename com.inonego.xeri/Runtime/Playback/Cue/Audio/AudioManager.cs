@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioManager.cs
-수정일 : 2026-08-10
+수정일 : 2026-08-19
 
 # 설명
-Audio Cue의 정면 재생 API와 Master·Bus 출력 정책을 제공한다.
+Audio Cue와 동기 Music Layer Group의 정면 재생 API 및 Master·Bus 출력 정책을 제공한다.
 
 # 적용 범위
-UnityAudioCuePlayer를 통해 2D, 고정 위치 3D와 emitter 추적 3D를 재생한다.
-게임별 BGM 선택, Fade, Adaptive Music과 외부 Audio Backend 정책은 소유하지 않는다.
+UnityAudioCuePlayer를 통해 즉시·DSP 예약 2D, 고정 위치 3D와 emitter 추적 3D를 재생한다.
+게임별 BGM 선택, Layer Weight, Fade, Adaptive Music 정책과 외부 Audio Backend 정책은 소유하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -135,6 +135,8 @@ namespace inonego.Xeri.Playback
 
     #region 필드
 
+        private const double DEFAULT_MUSIC_SCHEDULE_LEAD_TIME = 0.1;
+
         [SerializeField]
         private string slotKey = DEFAULT_SLOT;
 
@@ -174,17 +176,7 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
-    #region 메서드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 Unity Player가 지정 Cue를 처리할 수 있는지 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private bool CanPlayCue(IPlaybackCue cue)
-        {
-            return player != null && player.SupportsCue(cue);
-        }
+    #region Audio 재생
 
         // ------------------------------------------------------------
         /// <summary>
@@ -206,6 +198,23 @@ namespace inonego.Xeri.Playback
 
             playbacks.Add(new ManagedAudioPlayback(playback, bus));
             return playback;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Audio Cue를 지정 Audio DSP 시각에 2D 예약 재생한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public IAudioPlayback PlayScheduled
+        (
+            AudioCue cue,
+            double dspTime,
+            float volumeScale = 1.0f
+        )
+        {
+            ValidatePlay(cue, volumeScale);
+            ValidateScheduledDSPTime(dspTime);
+            return PlayScheduledValidated(cue, dspTime, volumeScale);
         }
 
         // ------------------------------------------------------------
@@ -268,6 +277,170 @@ namespace inonego.Xeri.Playback
             playbacks.Add(new ManagedAudioPlayback(playback, bus));
             return playback;
         }
+
+    #endregion
+
+    #region Music 재생
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Music Layer Group을 공통 미래 DSP 시각에 동기 예약 재생한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public IMusicPlayback Play(MusicLayerGroup group)
+        {
+            ValidateMusicLayerGroup(group);
+
+            // Group 검증이 끝난 뒤 미래 시각을 잡아 모든 Layer가 같은 유효 시작점을 공유하게 한다.
+            var dspTime = AudioSettings.dspTime + DEFAULT_MUSIC_SCHEDULE_LEAD_TIME;
+            return PlayMusicLayerGroupValidated(group, dspTime);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Music Layer Group의 모든 Layer를 지정 DSP 시각에 동기 예약 재생한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public IMusicPlayback PlayScheduled(MusicLayerGroup group, double dspTime)
+        {
+            ValidateMusicLayerGroup(group);
+            ValidateScheduledDSPTime(dspTime);
+            return PlayMusicLayerGroupValidated(group, dspTime);
+        }
+
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 검증 완료된 Music Layer Group을 하나의 DSP 시작점으로 예약하고 Aggregate Handle을 생성한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private IMusicPlayback PlayMusicLayerGroupValidated
+        (
+            MusicLayerGroup group,
+            double dspTime
+        )
+        {
+            var layers = new IAudioPlayback[group.LayerCount];
+
+            try
+            {
+                for (var i = 0; i < layers.Length; i++)
+                {
+                    layers[i] = PlayScheduledValidated
+                    (
+                        group.GetLayer(i).Cue,
+                        dspTime,
+                        1.0f
+                    );
+                }
+
+                return new MusicPlayback(layers);
+            }
+            catch (Exception exception)
+            {
+                CleanupFailedMusicPlayback(layers, exception);
+                throw;
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Music Layer Group의 Cue와 공통 Timeline 계약을 재생 시작 전에 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ValidateMusicLayerGroup(MusicLayerGroup group)
+        {
+            if (group == null)
+            {
+                throw new ArgumentNullException(nameof(group));
+            }
+
+            if (group.LayerCount <= 0)
+            {
+                throw new InvalidOperationException("Music Layer Group에는 하나 이상의 Layer가 필요합니다.");
+            }
+
+            UnityAudioClipCue referenceCue = null;
+
+            for (var i = 0; i < group.LayerCount; i++)
+            {
+                var layer = group.GetLayer(i);
+
+                if (layer == null)
+                {
+                    throw new InvalidOperationException($"Music Layer Group의 Layer {i}가 설정되지 않았습니다.");
+                }
+
+                var audioCue = player.ValidateCue(layer.Cue);
+
+                if (audioCue.Bus != AudioBus.Music)
+                {
+                    throw new InvalidOperationException("Music Layer Group의 모든 Cue는 Music Bus를 사용해야 합니다.");
+                }
+
+                if (referenceCue == null)
+                {
+                    referenceCue = audioCue;
+                    continue;
+                }
+
+                if
+                (
+                    audioCue.Clip.frequency != referenceCue.Clip.frequency ||
+                    audioCue.Clip.samples != referenceCue.Clip.samples ||
+                    audioCue.Pitch != referenceCue.Pitch ||
+                    audioCue.IsLooping != referenceCue.IsLooping
+                )
+                {
+                    throw new InvalidOperationException
+                    (
+                        "Music Layer Group의 모든 Cue는 같은 Sample Timeline, Pitch와 Loop 설정을 가져야 합니다."
+                    );
+                }
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Group 생성 실패 전에 시작한 Layer를 모두 종료하고 정리 실패가 있으면 함께 전달한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static void CleanupFailedMusicPlayback
+        (
+            IAudioPlayback[] layers,
+            Exception originalException
+        )
+        {
+            List<Exception> cleanupErrors = null;
+
+            for (var i = 0; i < layers.Length; i++)
+            {
+                if (layers[i] == null) continue;
+
+                try
+                {
+                    layers[i].Dispose();
+                }
+                catch (Exception exception)
+                {
+                    cleanupErrors ??= new();
+                    cleanupErrors.Add(exception);
+                }
+            }
+
+            if (cleanupErrors == null) return;
+
+            cleanupErrors.Insert(0, originalException);
+            throw new AggregateException
+            (
+                "Music Layer Group 생성 실패 후 하나 이상의 Playback 정리가 추가로 실패했습니다.",
+                cleanupErrors
+            );
+        }
+
+    #endregion
+
+    #region 출력 제어
 
         // ------------------------------------------------------------
         /// <summary>
@@ -353,6 +526,10 @@ namespace inonego.Xeri.Playback
             RefreshOutputs(bus);
         }
 
+    #endregion
+
+    #region Playback 종료
+
         // ------------------------------------------------------------
         /// <summary>
         /// Manager가 추적하는 모든 Audio Playback을 즉시 종료한다.
@@ -426,6 +603,10 @@ namespace inonego.Xeri.Playback
             }
         }
 
+    #endregion
+
+    #region 공통 재생 내부
+
         // ------------------------------------------------------------
         /// <summary>
         /// Audio Cue와 호출별 Volume Scale을 검증한다.
@@ -453,6 +634,58 @@ namespace inonego.Xeri.Playback
                 );
             }
         }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 이미 검증된 Audio Cue를 지정 DSP 시각에 Manager 정책으로 예약 재생한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private IAudioPlayback PlayScheduledValidated
+        (
+            AudioCue cue,
+            double dspTime,
+            float volumeScale
+        )
+        {
+            var bus = cue.Bus;
+            var playback = player.PlayScheduled
+            (
+                cue,
+                dspTime,
+                cue.Volume * volumeScale,
+                GetBusSettings(bus).Output,
+                CalculateOutputVolume(bus)
+            );
+
+            playbacks.Add(new ManagedAudioPlayback(playback, bus));
+            return playback;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 예약 시작 시각이 현재 Audio DSP Time 이후의 유한한 값인지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void ValidateScheduledDSPTime(double dspTime)
+        {
+            if
+            (
+                double.IsNaN(dspTime) ||
+                double.IsInfinity(dspTime) ||
+                dspTime <= AudioSettings.dspTime
+            )
+            {
+                throw new ArgumentOutOfRangeException
+                (
+                    nameof(dspTime),
+                    "DSP Time은 현재 Audio DSP Time보다 큰 유한한 값이어야 합니다."
+                );
+            }
+        }
+
+    #endregion
+
+    #region 출력 계산
 
         // ------------------------------------------------------------
         /// <summary>
@@ -519,6 +752,16 @@ namespace inonego.Xeri.Playback
     #endregion
 
     #region Cue Player 구현
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Unity Player가 지정 Cue를 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool CanPlayCue(IPlaybackCue cue)
+        {
+            return player != null && player.SupportsCue(cue);
+        }
 
         // ------------------------------------------------------------
         /// <summary>

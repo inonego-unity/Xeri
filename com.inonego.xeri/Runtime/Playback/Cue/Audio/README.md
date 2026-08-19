@@ -89,6 +89,42 @@ Playback Volume × Bus Volume × Master Volume
 
 Manager의 `Play`에 전달하는 `volumeScale`은 초기 Playback Volume에 Cue Volume과 함께 반영된다.
 
+## DSP 예약 재생
+
+Audio Cue를 Unity Audio DSP 절대 시간축에 예약할 수 있다.
+
+```csharp
+var startTime = AudioSettings.dspTime + 0.1;
+IAudioPlayback playback = AudioManager.Current.PlayScheduled(cue, startTime);
+```
+
+예약된 Playback은 시작 시각 전에도 유효한 수명을 가지며, 시작 전 `isPlaying == false`를 자연 완료로 처리하지 않는다.
+
+## 동기 Music Layer 재생
+
+같은 Timeline을 공유하는 여러 Music Cue는 `MusicLayerGroup` Asset으로 묶는다.
+
+```text
+MusicLayerGroup
+├── MusicLayer → UnityAudioClipCue
+├── MusicLayer → UnityAudioClipCue
+└── MusicLayer → UnityAudioClipCue
+```
+
+```csharp
+IMusicPlayback music = AudioManager.Current.Play(layerGroup);
+
+music.SetLayerVolume(0, 1.0f);
+music.SetLayerVolume(1, 0.4f);
+music.SetLayerVolume(2, 0.0f);
+```
+
+`AudioManager.Play(MusicLayerGroup)`은 Group 전체를 검증한 뒤 모든 Layer를 같은 미래 DSP 시각에 예약하고 하나의 `IMusicPlayback`을 반환한다. Group의 모든 Cue는 `Music` Bus를 사용하고 동일한 sample frequency, sample count, Pitch와 Loop 설정을 가져야 한다.
+
+`IMusicPlayback`은 Layer별 Volume과 Group 단위 Pause, Resume, Stop만 제공한다. 개별 Layer의 Pause, Seek, Pitch 변경은 노출하지 않아 Layer Timeline을 하나의 재생 단위로 유지한다.
+
+게임별 BGM 선택, Combat·Mood 해석, Layer Weight 계산, Cross Fade 정책은 Consumer가 소유한다.
+
 ## 3D 재생
 
 고정된 월드 위치에서 재생한다. 재생이 시작된 뒤 호출 대상이 움직여도 재생 위치는 이동하지 않는다.
@@ -212,4 +248,4 @@ service.StopAll();
 
 ## 현재 제공 범위
 
-기본 구현은 `UnityAudioClipCue`와 Unity `AudioSource`를 지원한다. BGM 선곡, Cross Fade, Adaptive Music, Dialogue 진행과 FMOD·Wwise 연동은 Consumer 프로젝트의 상위 서비스 또는 선택적 Adapter에서 구성한다.
+기본 구현은 `UnityAudioClipCue`, DSP 예약 재생과 `MusicLayerGroup` 기반 동기 Layer Playback을 Unity `AudioSource` backend로 지원한다. BGM 선곡, Cross Fade, Adaptive Music, Dialogue 진행과 FMOD·Wwise 연동은 Consumer 프로젝트의 상위 서비스 또는 선택적 Adapter에서 구성한다.

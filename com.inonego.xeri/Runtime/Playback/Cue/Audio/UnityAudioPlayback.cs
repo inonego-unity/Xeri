@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioPlayback.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-19
 
 # 설명
-Pool에서 획득한 Unity AudioSource voice로 실행한 단일 Audio Cue의 제어와 수명을 소유한다.
+Pool에서 획득한 Unity AudioSource voice로 실행한 즉시·예약 Audio Cue의 제어와 수명을 소유한다.
 
 # 종료 계약
 Released와 Lease 참조 해제를 외부 Unity Object 정리 전에 확정한다.
@@ -118,8 +118,13 @@ namespace inonego.Xeri.Playback
                     return PlaybackState.Stopped;
                 }
 
-                return isPaused
-                    ? PlaybackState.Paused
+                if (isPaused)
+                {
+                    return PlaybackState.Paused;
+                }
+
+                return IsWaitingForScheduledStart()
+                    ? PlaybackState.Stopped
                     : PlaybackState.Playing;
             }
         }
@@ -161,6 +166,7 @@ namespace inonego.Xeri.Playback
 
         private Lease<AudioSource> sourceLease = null;
         private Transform emitter = null;
+        private readonly double scheduledStartDSPTime = double.NaN;
         private float lastTime = 0.0f;
         private bool isPaused = false;
 
@@ -171,7 +177,7 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------------------------------------
         /// <summary>
         /// <br/> Pool에서 획득한 AudioSource Lease와 초기 제어값으로 Playback을 생성한다.
-        /// <br/> AudioSource.Play 호출 전에 Volume과 Pitch가 실제 voice에 적용된다.
+        /// <br/> 선택적 DSP 시작 시각은 예약 대기 수명과 Clock 상태 판정에 사용한다.
         /// </summary>
         // ----------------------------------------------------------------------------------------------------
         internal UnityAudioPlayback
@@ -180,12 +186,14 @@ namespace inonego.Xeri.Playback
             float volume,
             float pitch,
             float outputVolume,
-            Transform emitter = null
+            Transform emitter = null,
+            double scheduledStartDSPTime = double.NaN
         ) : base()
         {
             var source = sourceLease.Value;
             this.sourceLease = sourceLease;
             this.emitter = emitter;
+            this.scheduledStartDSPTime = scheduledStartDSPTime;
             Duration = source.clip.length;
 
             Volume = volume;
@@ -259,12 +267,15 @@ namespace inonego.Xeri.Playback
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// AudioSource의 실제 완료와 선택적 emitter 위치를 갱신한다.
+        /// AudioSource의 예약 대기, 실제 완료와 선택적 emitter 위치를 갱신한다.
         /// </summary>
         // ----------------------------------------------------------------------
         internal void Tick()
         {
             if (State == CuePlaybackState.Released || isPaused) return;
+
+            // 예약 시각 전의 isPlaying == false는 완료가 아니라 아직 시작되지 않은 정상 상태다.
+            if (IsWaitingForScheduledStart()) return;
 
             if (!ReferenceEquals(emitter, null))
             {
@@ -285,6 +296,17 @@ namespace inonego.Xeri.Playback
             }
 
             Release(hasCompleted: true);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 DSP 시작 시각이 아직 도래하지 않은 예약 대기 상태인지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool IsWaitingForScheduledStart()
+        {
+            return !double.IsNaN(scheduledStartDSPTime) &&
+                   AudioSettings.dspTime < scheduledStartDSPTime;
         }
 
         // ------------------------------------------------------------

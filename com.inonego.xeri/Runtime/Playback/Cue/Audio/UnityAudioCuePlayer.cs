@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioCuePlayer.cs
-수정일 : 2026-08-10
+수정일 : 2026-08-19
 
 # 설명
-UnityAudioClipCue를 Pool에서 획득한 AudioSource voice로 실행하고 Playback을 갱신한다.
+UnityAudioClipCue를 Pool에서 획득한 AudioSource voice로 즉시 또는 DSP 예약 실행하고 Playback을 갱신한다.
 
 # 적용 범위
-2D, 고정 위치 3D와 emitter 추적 3D 배치를 지원한다.
+2D, 고정 위치 3D와 emitter 추적 3D 배치 및 2D 예약 시작을 지원한다.
 Bus 출력 정책은 AudioManager가 계산하고 Player는 전달받은 초기 출력 설정을 voice에 적용한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -55,6 +55,84 @@ namespace inonego.Xeri.Playback
         internal bool SupportsCue(IPlaybackCue cue)
         {
             return cue is UnityAudioClipCue;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 지원 Audio Cue의 Clip과 공통 재생 설정을 검증해 concrete Cue로 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal UnityAudioClipCue ValidateCue(AudioCue cue)
+        {
+            if (cue == null)
+            {
+                throw new ArgumentNullException(nameof(cue));
+            }
+
+            if (cue is not UnityAudioClipCue audioCue)
+            {
+                throw new ArgumentException
+                (
+                    "UnityAudioCuePlayer는 UnityAudioClipCue만 재생할 수 있습니다.",
+                    nameof(cue)
+                );
+            }
+
+            if (audioCue.Clip == null)
+            {
+                throw new InvalidOperationException("Unity Audio Clip Cue에 AudioClip이 설정되지 않았습니다.");
+            }
+
+            ValidateCueSettings(audioCue);
+            return audioCue;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Unity Audio Clip Cue의 볼륨·Pitch·공간 재생 설정을 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static void ValidateCueSettings(UnityAudioClipCue audioCue)
+        {
+            if
+            (
+                float.IsNaN(audioCue.Volume) ||
+                float.IsInfinity(audioCue.Volume) ||
+                audioCue.Volume < 0.0f ||
+                audioCue.Volume > 1.0f
+            )
+            {
+                throw new InvalidOperationException("Unity Audio Clip Cue의 Volume이 유효하지 않습니다.");
+            }
+
+            if
+            (
+                float.IsNaN(audioCue.Pitch) ||
+                float.IsInfinity(audioCue.Pitch) ||
+                audioCue.Pitch < -3.0f ||
+                audioCue.Pitch > 3.0f
+            )
+            {
+                throw new InvalidOperationException("Unity Audio Clip Cue의 Pitch가 유효하지 않습니다.");
+            }
+
+            if
+            (
+                float.IsNaN(audioCue.SpatialBlend) ||
+                float.IsInfinity(audioCue.SpatialBlend) ||
+                audioCue.SpatialBlend < 0.0f ||
+                audioCue.SpatialBlend > 1.0f ||
+                !Enum.IsDefined(typeof(AudioRolloffMode), audioCue.RolloffMode) ||
+                float.IsNaN(audioCue.MinDistance) ||
+                float.IsInfinity(audioCue.MinDistance) ||
+                audioCue.MinDistance <= 0.0f ||
+                float.IsNaN(audioCue.MaxDistance) ||
+                float.IsInfinity(audioCue.MaxDistance) ||
+                audioCue.MaxDistance < audioCue.MinDistance
+            )
+            {
+                throw new InvalidOperationException("Unity Audio Clip Cue의 공간 재생 설정이 유효하지 않습니다.");
+            }
         }
 
         // ------------------------------------------------------------
@@ -141,6 +219,33 @@ namespace inonego.Xeri.Playback
                 output,
                 volume,
                 outputVolume
+            );
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// AudioManager가 계산한 초기 설정으로 Audio Cue를 지정 DSP 시각에 2D 예약 실행한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        internal UnityAudioPlayback PlayScheduled
+        (
+            AudioCue cue,
+            double dspTime,
+            float volume,
+            AudioMixerGroup output,
+            float outputVolume
+        )
+        {
+            return PlayInternal
+            (
+                cue,
+                isSpatial: false,
+                Vector3.zero,
+                emitter: null,
+                output,
+                volume,
+                outputVolume,
+                dspTime
             );
         }
 
@@ -270,7 +375,8 @@ namespace inonego.Xeri.Playback
             Transform emitter,
             AudioMixerGroup output,
             float volume,
-            float outputVolume
+            float outputVolume,
+            double scheduledStartDSPTime = double.NaN
         )
         {
             if (!isActiveAndEnabled)
@@ -283,63 +389,20 @@ namespace inonego.Xeri.Playback
                 throw new InvalidOperationException("UnityAudioCuePlayer의 AudioSource Pool이 초기화되지 않았습니다.");
             }
 
-            if (cue == null)
-            {
-                throw new ArgumentNullException(nameof(cue));
-            }
+            var audioCue = ValidateCue(cue);
 
-            if (cue is not UnityAudioClipCue audioCue)
+            if
+            (
+                !double.IsNaN(scheduledStartDSPTime) &&
+                (double.IsInfinity(scheduledStartDSPTime) ||
+                 scheduledStartDSPTime < 0.0)
+            )
             {
-                throw new ArgumentException
+                throw new ArgumentOutOfRangeException
                 (
-                    "UnityAudioCuePlayer는 UnityAudioClipCue만 재생할 수 있습니다.",
-                    nameof(cue)
+                    nameof(scheduledStartDSPTime),
+                    "Scheduled DSP Time은 0 이상의 유한한 값이어야 합니다."
                 );
-            }
-
-            if (audioCue.Clip == null)
-            {
-                throw new InvalidOperationException("Unity Audio Clip Cue에 AudioClip이 설정되지 않았습니다.");
-            }
-
-            if
-            (
-                float.IsNaN(audioCue.Volume) ||
-                float.IsInfinity(audioCue.Volume) ||
-                audioCue.Volume < 0.0f ||
-                audioCue.Volume > 1.0f
-            )
-            {
-                throw new InvalidOperationException("Unity Audio Clip Cue의 Volume이 유효하지 않습니다.");
-            }
-
-            if
-            (
-                float.IsNaN(audioCue.Pitch) ||
-                float.IsInfinity(audioCue.Pitch) ||
-                audioCue.Pitch < -3.0f ||
-                audioCue.Pitch > 3.0f
-            )
-            {
-                throw new InvalidOperationException("Unity Audio Clip Cue의 Pitch가 유효하지 않습니다.");
-            }
-
-            if
-            (
-                float.IsNaN(audioCue.SpatialBlend) ||
-                float.IsInfinity(audioCue.SpatialBlend) ||
-                audioCue.SpatialBlend < 0.0f ||
-                audioCue.SpatialBlend > 1.0f ||
-                !Enum.IsDefined(typeof(AudioRolloffMode), audioCue.RolloffMode) ||
-                float.IsNaN(audioCue.MinDistance) ||
-                float.IsInfinity(audioCue.MinDistance) ||
-                audioCue.MinDistance <= 0.0f ||
-                float.IsNaN(audioCue.MaxDistance) ||
-                float.IsInfinity(audioCue.MaxDistance) ||
-                audioCue.MaxDistance < audioCue.MinDistance
-            )
-            {
-                throw new InvalidOperationException("Unity Audio Clip Cue의 공간 재생 설정이 유효하지 않습니다.");
             }
 
             var sourceLease = sourcePool.AcquireLease();
@@ -374,11 +437,20 @@ namespace inonego.Xeri.Playback
                     volume,
                     audioCue.Pitch,
                     outputVolume,
-                    emitter
+                    emitter,
+                    scheduledStartDSPTime
                 );
 
                 // 초기 개별·Bus 볼륨까지 설정된 voice만 실제 출력과 외부 Playback으로 공개한다.
-                source.Play();
+                if (double.IsNaN(scheduledStartDSPTime))
+                {
+                    source.Play();
+                }
+                else
+                {
+                    source.PlayScheduled(scheduledStartDSPTime);
+                }
+
                 playbacks.Add(playback);
                 return playback;
             }
