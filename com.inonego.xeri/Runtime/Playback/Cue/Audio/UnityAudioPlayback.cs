@@ -165,7 +165,7 @@ namespace inonego.Xeri.Playback
         public float Duration { get; }
 
         private Lease<AudioSource> sourceLease = null;
-        private Transform emitter = null;
+        private TransformBinding? transformBinding = null;
         private readonly double scheduledStartDSPTime = double.NaN;
         private float lastTime = 0.0f;
         private bool isPaused = false;
@@ -186,13 +186,13 @@ namespace inonego.Xeri.Playback
             float volume,
             float pitch,
             float outputVolume,
-            Transform emitter = null,
+            TransformBinding? transformBinding = null,
             double scheduledStartDSPTime = double.NaN
         ) : base()
         {
             var source = sourceLease.Value;
             this.sourceLease = sourceLease;
-            this.emitter = emitter;
+            this.transformBinding = transformBinding;
             this.scheduledStartDSPTime = scheduledStartDSPTime;
             Duration = source.clip.length;
 
@@ -277,15 +277,17 @@ namespace inonego.Xeri.Playback
             // 예약 시각 전의 isPlaying == false는 완료가 아니라 아직 시작되지 않은 정상 상태다.
             if (IsWaitingForScheduledStart()) return;
 
-            if (!ReferenceEquals(emitter, null))
+            if (transformBinding.HasValue)
             {
-                if (emitter == null)
+                var binding = transformBinding.Value;
+
+                if (!binding.IsValid)
                 {
                     Release(hasCompleted: false);
                     return;
                 }
 
-                sourceLease.Value.transform.position = emitter.position;
+                sourceLease.Value.transform.position = binding.Position;
             }
 
             var source = sourceLease.Value;
@@ -361,7 +363,7 @@ namespace inonego.Xeri.Playback
             // voice 반환 전에 Terminal을 확정하여 같은 Playback의 재진입과 후속 제어를 차단한다.
             State = CuePlaybackState.Released;
             isPaused = false;
-            emitter = null;
+            transformBinding = null;
             this.sourceLease = null;
 
             // Pool 대기 중 외부 Audio Asset을 붙잡지 않도록 참조를 비운 뒤 Lease를 반환한다.

@@ -28,7 +28,7 @@ namespace inonego.Xeri.Playback
     [RequireComponent(typeof(UnityAudioCuePlayer))]
     public sealed class AudioManager : MonoSingleton<AudioManager>,
         ICuePlayer<NoCueBinding>,
-        ICuePlayer<WorldPoseBinding>,
+        ICuePlayer<WorldTransformBinding>,
         ICuePlayer<TransformBinding>
     {
 
@@ -793,13 +793,13 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Audio Cue를 고정 World Pose Binding으로 처리할 수 있는지 반환한다.
+        /// Audio Cue를 고정 World Transform Binding으로 처리할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<WorldPoseBinding>.CanPlay
+        bool ICuePlayer<WorldTransformBinding>.CanPlay
         (
             IPlaybackCue cue,
-            in WorldPoseBinding binding
+            in WorldTransformBinding binding
         )
         {
             return CanPlayCue(cue) && binding.IsValid;
@@ -810,17 +810,17 @@ namespace inonego.Xeri.Playback
         /// Audio Cue를 Binding의 월드 위치에서 3D로 재생한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<WorldPoseBinding>.Play
+        ICuePlayback ICuePlayer<WorldTransformBinding>.Play
         (
             IPlaybackCue cue,
-            in WorldPoseBinding binding
+            in WorldTransformBinding binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "World Pose Binding의 위치·회전 값이 유효하지 않습니다.",
+                    "World Transform Binding의 위치·회전·스케일 값이 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
@@ -853,7 +853,30 @@ namespace inonego.Xeri.Playback
             in TransformBinding binding
         )
         {
-            return Play(RequireAudioCue(cue), binding.Transform);
+            if (!binding.IsValid)
+            {
+                throw new ArgumentException
+                (
+                    "Transform Binding의 대상과 보정값이 유효하지 않습니다.",
+                    nameof(binding)
+                );
+            }
+
+            var audioCue = RequireAudioCue(cue);
+            ValidatePlay(audioCue, 1.0f);
+
+            var bus = audioCue.Bus;
+            var playback = player.Play
+            (
+                audioCue,
+                in binding,
+                audioCue.Volume,
+                GetBusSettings(bus).Output,
+                CalculateOutputVolume(bus)
+            );
+
+            playbacks.Add(new ManagedAudioPlayback(playback, bus));
+            return playback;
         }
 
         // ------------------------------------------------------------

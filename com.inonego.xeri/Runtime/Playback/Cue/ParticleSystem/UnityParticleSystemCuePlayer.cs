@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityParticleSystemCuePlayer.cs
-수정일 : 2026-08-10
+수정일 : 2026-08-19
 
 # 설명
 UnityParticleSystemCue를 Pool에서 획득한 ParticleSystem으로 실행한다.
 
 # 적용 범위
-WorldPoseBinding과 TransformBinding만 지원하며 binding 없는 임의 위치 fallback은 제공하지 않는다.
+WorldTransformBinding과 TransformBinding만 지원하며 binding 없는 임의 위치 fallback은 제공하지 않는다.
 Prefab의 Renderer·Material은 자산 그대로 사용하고 Player가 Render Pipeline 자산을 생성하거나 교체하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -27,7 +27,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     [DisallowMultipleComponent]
     public sealed class UnityParticleSystemCuePlayer : MonoBehaviour,
-        ICuePlayer<WorldPoseBinding>,
+        ICuePlayer<WorldTransformBinding>,
         ICuePlayer<TransformBinding>
     {
 
@@ -49,13 +49,13 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 Cue를 고정 World Pose에서 재생할 수 있는지 반환한다.
+        /// 지정 Cue를 고정 World Transform에서 재생할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<WorldPoseBinding>.CanPlay
+        bool ICuePlayer<WorldTransformBinding>.CanPlay
         (
             IPlaybackCue cue,
-            in WorldPoseBinding binding
+            in WorldTransformBinding binding
         )
         {
             return cue is UnityParticleSystemCue && binding.IsValid;
@@ -63,20 +63,20 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Cue를 지정 World Pose에서 실행한다.
+        /// Cue를 지정 World Transform에서 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<WorldPoseBinding>.Play
+        ICuePlayback ICuePlayer<WorldTransformBinding>.Play
         (
             IPlaybackCue cue,
-            in WorldPoseBinding binding
+            in WorldTransformBinding binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "World Pose Binding의 위치·회전 값이 유효하지 않습니다.",
+                    "World Transform Binding의 위치·회전·스케일 값이 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
@@ -85,7 +85,7 @@ namespace inonego.Xeri.Playback
             var playback = AcquirePlayback
             (
                 particleCue,
-                emitter: null
+                transformBinding: null
             );
 
             try
@@ -95,6 +95,7 @@ namespace inonego.Xeri.Playback
                     binding.Position,
                     binding.Rotation
                 );
+                playback.Particle.transform.localScale = binding.Scale;
                 playback.Particle.Play(withChildren: true);
                 playbacks.Add(playback);
                 return playback;
@@ -144,16 +145,17 @@ namespace inonego.Xeri.Playback
             var playback = AcquirePlayback
             (
                 particleCue,
-                binding.Transform
+                binding
             );
 
             try
             {
                 playback.Particle.transform.SetPositionAndRotation
                 (
-                    binding.Transform.position,
-                    binding.Transform.rotation
+                    binding.Position,
+                    binding.Rotation
                 );
+                playback.Particle.transform.localScale = binding.Scale;
                 playback.Particle.Play(withChildren: true);
                 playbacks.Add(playback);
                 return playback;
@@ -177,7 +179,7 @@ namespace inonego.Xeri.Playback
         private UnityParticleSystemPlayback AcquirePlayback
         (
             UnityParticleSystemCue cue,
-            Transform emitter
+            TransformBinding? transformBinding
         )
         {
             var pool = GetOrCreatePool(cue);
@@ -198,7 +200,7 @@ namespace inonego.Xeri.Playback
                 this,
                 cue,
                 particle,
-                emitter
+                transformBinding
             );
         }
 

@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphCuePlayer.cs
-수정일 : 2026-08-17
+수정일 : 2026-08-19
 
 # 설명
 UnityVFXGraphCue를 Pool에서 획득한 VisualEffect로 실행한다.
 
 # 적용 범위
-WorldPoseBinding과 TransformBinding만 지원하며 binding 없는 임의 위치 fallback은 제공하지 않는다.
+WorldTransformBinding과 TransformBinding만 지원하며 binding 없는 임의 위치 fallback은 제공하지 않는다.
 Prefab 내부 VFX Graph와 Render Pipeline 자산은 변경하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -28,7 +28,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     [DisallowMultipleComponent]
     public sealed class UnityVFXGraphCuePlayer : MonoBehaviour,
-        ICuePlayer<WorldPoseBinding>,
+        ICuePlayer<WorldTransformBinding>,
         ICuePlayer<TransformBinding>
     {
 
@@ -50,13 +50,13 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 Cue를 고정 World Pose에서 재생할 수 있는지 반환한다.
+        /// 지정 Cue를 고정 World Transform에서 재생할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<WorldPoseBinding>.CanPlay
+        bool ICuePlayer<WorldTransformBinding>.CanPlay
         (
             IPlaybackCue cue,
-            in WorldPoseBinding binding
+            in WorldTransformBinding binding
         )
         {
             return cue is UnityVFXGraphCue && binding.IsValid;
@@ -64,26 +64,26 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Cue를 지정 World Pose에서 실행한다.
+        /// Cue를 지정 World Transform에서 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<WorldPoseBinding>.Play
+        ICuePlayback ICuePlayer<WorldTransformBinding>.Play
         (
             IPlaybackCue cue,
-            in WorldPoseBinding binding
+            in WorldTransformBinding binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "World Pose Binding의 위치·회전 값이 유효하지 않습니다.",
+                    "World Transform Binding의 위치·회전·스케일 값이 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
 
             var vfxCue = RequireCue(cue);
-            var playback = AcquirePlayback(vfxCue, emitter: null);
+            var playback = AcquirePlayback(vfxCue, transformBinding: null);
 
             try
             {
@@ -92,6 +92,7 @@ namespace inonego.Xeri.Playback
                     binding.Position,
                     binding.Rotation
                 );
+                playback.Effect.transform.localScale = binding.Scale;
                 playback.Effect.pause = false;
                 playback.Effect.Reinit();
                 // 풀에서 반환된 Graph도 시작 이벤트를 받아 실제 출력 상태로 진입시킨다.
@@ -144,16 +145,17 @@ namespace inonego.Xeri.Playback
             var playback = AcquirePlayback
             (
                 vfxCue,
-                binding.Transform
+                binding
             );
 
             try
             {
                 playback.Effect.transform.SetPositionAndRotation
                 (
-                    binding.Transform.position,
-                    binding.Transform.rotation
+                    binding.Position,
+                    binding.Rotation
                 );
+                playback.Effect.transform.localScale = binding.Scale;
                 playback.Effect.pause = false;
                 playback.Effect.Reinit();
                 // 풀에서 반환된 Graph도 시작 이벤트를 받아 실제 출력 상태로 진입시킨다.
@@ -180,7 +182,7 @@ namespace inonego.Xeri.Playback
         private UnityVFXGraphPlayback AcquirePlayback
         (
             UnityVFXGraphCue cue,
-            Transform emitter
+            TransformBinding? transformBinding
         )
         {
             var pool = GetOrCreatePool(cue);
@@ -194,7 +196,7 @@ namespace inonego.Xeri.Playback
                 this,
                 cue,
                 effect,
-                emitter
+                transformBinding
             );
         }
 

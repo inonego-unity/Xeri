@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityParticleSystemPlayback.cs
-수정일 : 2026-08-10
+수정일 : 2026-08-19
 
 # 설명
 Pool에서 실행 중인 Unity ParticleSystem Cue의 수명과 Transform 추적을 관리한다.
@@ -39,7 +39,7 @@ namespace inonego.Xeri.Playback
         private UnityParticleSystemCuePlayer owner = null;
         private UnityParticleSystemCue cue = null;
         private ParticleSystem particle = null;
-        private Transform emitter = null;
+        private TransformBinding? transformBinding = null;
 
     #endregion
 
@@ -55,13 +55,13 @@ namespace inonego.Xeri.Playback
             UnityParticleSystemCuePlayer owner,
             UnityParticleSystemCue cue,
             ParticleSystem particle,
-            Transform emitter
+            TransformBinding? transformBinding
         )
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.cue = cue ?? throw new ArgumentNullException(nameof(cue));
             this.particle = particle ?? throw new ArgumentNullException(nameof(particle));
-            this.emitter = emitter;
+            this.transformBinding = transformBinding;
         }
 
     #endregion
@@ -113,9 +113,11 @@ namespace inonego.Xeri.Playback
         {
             if (State == CuePlaybackState.Released) return;
 
-            if (!ReferenceEquals(emitter, null))
+            if (transformBinding.HasValue)
             {
-                if (emitter == null)
+                var binding = transformBinding.Value;
+
+                if (!binding.IsValid)
                 {
                     Release();
                     return;
@@ -123,9 +125,10 @@ namespace inonego.Xeri.Playback
 
                 particle.transform.SetPositionAndRotation
                 (
-                    emitter.position,
-                    emitter.rotation
+                    binding.Position,
+                    binding.Rotation
                 );
+                particle.transform.localScale = binding.Scale;
             }
 
             if (particle.IsAlive(withChildren: true)) return;
@@ -150,7 +153,7 @@ namespace inonego.Xeri.Playback
             owner = null;
             cue = null;
             particle = null;
-            emitter = null;
+            transformBinding = null;
 
             releaseOwner?.ReleasePlayback
             (

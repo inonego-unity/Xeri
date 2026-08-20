@@ -27,7 +27,7 @@ namespace inonego.Xeri.Playback
     // ============================================================
     public sealed class UnityAudioCuePlayer : MonoBehaviour,
         ICuePlayer<NoCueBinding>,
-        ICuePlayer<WorldPoseBinding>,
+        ICuePlayer<WorldTransformBinding>,
         ICuePlayer<TransformBinding>
     {
 
@@ -147,7 +147,7 @@ namespace inonego.Xeri.Playback
                 cue,
                 isSpatial: false,
                 Vector3.zero,
-                emitter: null,
+                transformBinding: null,
                 output: null,
                 cue?.Volume ?? 0.0f,
                 outputVolume: 1.0f
@@ -166,7 +166,7 @@ namespace inonego.Xeri.Playback
                 cue,
                 isSpatial: true,
                 position,
-                emitter: null,
+                transformBinding: null,
                 output: null,
                 cue?.Volume ?? 0.0f,
                 outputVolume: 1.0f
@@ -185,12 +185,13 @@ namespace inonego.Xeri.Playback
                 throw new ArgumentNullException(nameof(emitter));
             }
 
+            var binding = new TransformBinding(emitter);
             return PlayInternal
             (
                 cue,
                 isSpatial: true,
-                emitter.position,
-                emitter,
+                binding.Position,
+                binding,
                 output: null,
                 cue?.Volume ?? 0.0f,
                 outputVolume: 1.0f
@@ -215,7 +216,7 @@ namespace inonego.Xeri.Playback
                 cue,
                 isSpatial: false,
                 Vector3.zero,
-                emitter: null,
+                transformBinding: null,
                 output,
                 volume,
                 outputVolume
@@ -241,7 +242,7 @@ namespace inonego.Xeri.Playback
                 cue,
                 isSpatial: false,
                 Vector3.zero,
-                emitter: null,
+                transformBinding: null,
                 output,
                 volume,
                 outputVolume,
@@ -268,7 +269,7 @@ namespace inonego.Xeri.Playback
                 cue,
                 isSpatial: true,
                 position,
-                emitter: null,
+                transformBinding: null,
                 output,
                 volume,
                 outputVolume
@@ -294,12 +295,46 @@ namespace inonego.Xeri.Playback
                 throw new ArgumentNullException(nameof(emitter));
             }
 
+            var binding = new TransformBinding(emitter);
+            return Play
+            (
+                cue,
+                in binding,
+                volume,
+                output,
+                outputVolume
+            );
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// AudioManager가 계산한 초기 설정으로 Audio Cue를 Transform Binding 위치에서 실행한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        internal UnityAudioPlayback Play
+        (
+            AudioCue cue,
+            in TransformBinding binding,
+            float volume,
+            AudioMixerGroup output,
+            float outputVolume
+        )
+        {
+            if (!binding.IsValid)
+            {
+                throw new ArgumentException
+                (
+                    "Transform Binding의 대상과 보정값이 유효하지 않습니다.",
+                    nameof(binding)
+                );
+            }
+
             return PlayInternal
             (
                 cue,
                 isSpatial: true,
-                emitter.position,
-                emitter,
+                binding.Position,
+                binding,
                 output,
                 volume,
                 outputVolume
@@ -372,7 +407,7 @@ namespace inonego.Xeri.Playback
             AudioCue cue,
             bool isSpatial,
             Vector3 position,
-            Transform emitter,
+            TransformBinding? transformBinding,
             AudioMixerGroup output,
             float volume,
             float outputVolume,
@@ -437,7 +472,7 @@ namespace inonego.Xeri.Playback
                     volume,
                     audioCue.Pitch,
                     outputVolume,
-                    emitter,
+                    transformBinding,
                     scheduledStartDSPTime
                 );
 
@@ -488,10 +523,10 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Unity Audio Cue를 World Pose Binding으로 처리할 수 있는지 반환한다.
+        /// Unity Audio Cue를 World Transform Binding으로 처리할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<WorldPoseBinding>.CanPlay(IPlaybackCue cue, in WorldPoseBinding binding)
+        bool ICuePlayer<WorldTransformBinding>.CanPlay(IPlaybackCue cue, in WorldTransformBinding binding)
         {
             return SupportsCue(cue) && binding.IsValid;
         }
@@ -501,13 +536,13 @@ namespace inonego.Xeri.Playback
         /// Unity Audio Cue를 Binding의 월드 위치에서 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<WorldPoseBinding>.Play(IPlaybackCue cue, in WorldPoseBinding binding)
+        ICuePlayback ICuePlayer<WorldTransformBinding>.Play(IPlaybackCue cue, in WorldTransformBinding binding)
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "World Pose Binding의 위치·회전 값이 유효하지 않습니다.",
+                    "World Transform Binding의 위치·회전·스케일 값이 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
@@ -534,10 +569,20 @@ namespace inonego.Xeri.Playback
         {
             if (!binding.IsValid)
             {
-                throw new ArgumentException("Transform Binding의 대상이 유효하지 않습니다.", nameof(binding));
+                throw new ArgumentException("Transform Binding의 대상과 보정값이 유효하지 않습니다.", nameof(binding));
             }
 
-            return Play(RequireAudioCue(cue), binding.Transform);
+            var audioCue = RequireAudioCue(cue);
+            return PlayInternal
+            (
+                audioCue,
+                isSpatial: true,
+                binding.Position,
+                binding,
+                output: null,
+                audioCue.Volume,
+                outputVolume: 1.0f
+            );
         }
 
         // ------------------------------------------------------------

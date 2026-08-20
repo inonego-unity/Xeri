@@ -76,7 +76,7 @@ namespace inonego.Xeri.TEST._Playback
 
         // ----------------------------------------------------------------------------------------------------
         /// <summary>
-        /// <br/> WorldPoseBinding은 지정 Pose에서 재생하고 TransformBinding은 대상 Transform 이동을 추적한다.
+        /// <br/> WorldTransformBinding은 지정 Pose에서 재생하고 TransformBinding은 대상 Transform 이동을 추적한다.
         /// <br/> Pool 복제 과정에서 ParticleSystemRenderer의 authored Material 참조를 Player가 변경하지 않는다.
         /// </summary>
         // ----------------------------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ namespace inonego.Xeri.TEST._Playback
                 prefab.GetComponent<ParticleSystemRenderer>().sharedMaterial = authoredMaterial;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
-                var pose = new WorldPoseBinding
+                var pose = new WorldTransformBinding
                 (
                     new Vector3(1.0f, 2.0f, 3.0f),
                     Quaternion.Euler(10.0f, 20.0f, 30.0f)
@@ -234,11 +234,11 @@ namespace inonego.Xeri.TEST._Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// default WorldPoseBinding의 zero quaternion은 유효한 재생 Pose로 선택하지 않는다.
+        /// default WorldTransformBinding의 zero quaternion은 유효한 재생 Pose로 선택하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UnityParticleSystemCuePlayer_defaultWorldPoseBinding을_거부()
+        public void TEST_UnityParticleSystemCuePlayer_defaultWorldTransformBinding을_거부()
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
@@ -249,7 +249,7 @@ namespace inonego.Xeri.TEST._Playback
                 cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
-                var binding = default(WorldPoseBinding);
+                var binding = default(WorldTransformBinding);
 
                 Assert.Throws<System.InvalidOperationException>
                 (
@@ -270,11 +270,11 @@ namespace inonego.Xeri.TEST._Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Quaternion 제곱합이 overflow하는 WorldPoseBinding은 유효한 Pose로 선택하지 않는다.
+        /// Quaternion 제곱합이 overflow하는 WorldTransformBinding은 유효한 Pose로 선택하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UnityParticleSystemCuePlayer_overflowWorldPoseBinding을_거부()
+        public void TEST_UnityParticleSystemCuePlayer_overflowWorldTransformBinding을_거부()
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
@@ -286,7 +286,7 @@ namespace inonego.Xeri.TEST._Playback
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
                 var rotation = new Quaternion(float.MaxValue, float.MaxValue, 0.0f, 0.0f);
-                var binding = new WorldPoseBinding(Vector3.zero, rotation);
+                var binding = new WorldTransformBinding(Vector3.zero, rotation);
 
                 Assert.Throws<System.InvalidOperationException>
                 (

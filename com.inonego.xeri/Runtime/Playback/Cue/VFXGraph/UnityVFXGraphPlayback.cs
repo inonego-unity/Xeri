@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphPlayback.cs
-수정일 : 2026-08-18
+수정일 : 2026-08-19
 
 # 설명
 Pool에서 실행 중인 Unity VFX Graph Cue의 수명과 Transform 추적을 관리한다.
@@ -40,7 +40,7 @@ namespace inonego.Xeri.Playback
         private UnityVFXGraphCuePlayer owner = null;
         private UnityVFXGraphCue cue = null;
         private VisualEffect effect = null;
-        private Transform emitter = null;
+        private TransformBinding? transformBinding = null;
         private bool isAwaitingInitSimulation = true;
 
     #endregion
@@ -57,13 +57,13 @@ namespace inonego.Xeri.Playback
             UnityVFXGraphCuePlayer owner,
             UnityVFXGraphCue cue,
             VisualEffect effect,
-            Transform emitter
+            TransformBinding? transformBinding
         )
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.cue = cue ?? throw new ArgumentNullException(nameof(cue));
             this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-            this.emitter = emitter;
+            this.transformBinding = transformBinding;
         }
 
     #endregion
@@ -111,9 +111,11 @@ namespace inonego.Xeri.Playback
         {
             if (State == CuePlaybackState.Released) return;
 
-            if (!ReferenceEquals(emitter, null))
+            if (transformBinding.HasValue)
             {
-                if (emitter == null)
+                var binding = transformBinding.Value;
+
+                if (!binding.IsValid)
                 {
                     Release();
                     return;
@@ -121,9 +123,10 @@ namespace inonego.Xeri.Playback
 
                 effect.transform.SetPositionAndRotation
                 (
-                    emitter.position,
-                    emitter.rotation
+                    binding.Position,
+                    binding.Rotation
                 );
+                effect.transform.localScale = binding.Scale;
             }
 
             var hasActiveSystem = effect.HasAnySystemAwake();
@@ -158,7 +161,7 @@ namespace inonego.Xeri.Playback
             owner = null;
             cue = null;
             effect = null;
-            emitter = null;
+            transformBinding = null;
 
             releaseOwner?.ReleasePlayback
             (
