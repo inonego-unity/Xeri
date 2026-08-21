@@ -1,16 +1,17 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphCuePlayer.cs
-수정일 : 2026-08-19
+수정일 : 2026-08-22
 
 # 설명
 UnityVFXGraphCue를 Pool에서 획득한 VisualEffect로 실행한다.
 
-# 적용 범위
-WorldTransformBinding과 TransformBinding만 지원하며 binding 없는 임의 위치 fallback은 제공하지 않는다.
-Prefab 내부 VFX Graph와 Render Pipeline 자산은 변경하지 않는다.
+# 특이사항, 제약사항
+TransformBinding_Fixed, TransformBinding_Tracked과 최초 Play 전 입력 준비가 필요한 VFXGraphBinding을 지원한다.
+Binding 없는 임의 위치 fallback은 제공하지 않고 Prefab 내부 Graph와 Render Pipeline 자산은 변경하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -28,8 +29,9 @@ namespace inonego.Xeri.Playback
     // ============================================================
     [DisallowMultipleComponent]
     public sealed class UnityVFXGraphCuePlayer : MonoBehaviour,
-        ICuePlayer<WorldTransformBinding>,
-        ICuePlayer<TransformBinding>
+        ICuePlayer<TransformBinding_Fixed>,
+        ICuePlayer<TransformBinding_Tracked>,
+        ICuePlayer<VFXGraphBinding>
     {
 
     #region 구성
@@ -53,10 +55,10 @@ namespace inonego.Xeri.Playback
         /// 지정 Cue를 고정 World Transform에서 재생할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<WorldTransformBinding>.CanPlay
+        bool ICuePlayer<TransformBinding_Fixed>.CanPlay
         (
             IPlaybackCue cue,
-            in WorldTransformBinding binding
+            in TransformBinding_Fixed binding
         )
         {
             return cue is UnityVFXGraphCue && binding.IsValid;
@@ -67,44 +69,31 @@ namespace inonego.Xeri.Playback
         /// Cue를 지정 World Transform에서 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<WorldTransformBinding>.Play
+        ICuePlayback ICuePlayer<TransformBinding_Fixed>.Play
         (
             IPlaybackCue cue,
-            in WorldTransformBinding binding
+            in TransformBinding_Fixed binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "World Transform Binding의 위치·회전·스케일 값이 유효하지 않습니다.",
+                    "Fixed Transform Binding의 World TRS가 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
 
-            var vfxCue = RequireCue(cue);
-            var playback = AcquirePlayback(vfxCue, transformBinding: null);
-
-            try
-            {
-                playback.Effect.transform.SetPositionAndRotation
-                (
-                    binding.Position,
-                    binding.Rotation
-                );
-                playback.Effect.transform.localScale = binding.Scale;
-                playback.Effect.pause = false;
-                playback.Effect.Reinit();
-                // 풀에서 반환된 Graph도 시작 이벤트를 받아 실제 출력 상태로 진입시킨다.
-                playback.Effect.Play();
-                playbacks.Add(playback);
-                return playback;
-            }
-            catch
-            {
-                playback.Dispose();
-                throw;
-            }
+            var world = binding.World;
+            return PlayVFX
+            (
+                RequireCue(cue),
+                _TransformBinding: null,
+                world.Position,
+                world.Rotation,
+                world.Scale,
+                prepareVFX: null
+            );
         }
 
         // ------------------------------------------------------------
@@ -112,10 +101,10 @@ namespace inonego.Xeri.Playback
         /// 지정 Cue를 Transform 추적 재생할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<TransformBinding>.CanPlay
+        bool ICuePlayer<TransformBinding_Tracked>.CanPlay
         (
             IPlaybackCue cue,
-            in TransformBinding binding
+            in TransformBinding_Tracked binding
         )
         {
             return cue is UnityVFXGraphCue && binding.IsValid;
@@ -126,46 +115,136 @@ namespace inonego.Xeri.Playback
         /// Cue를 지정 Transform을 따라가도록 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<TransformBinding>.Play
+        ICuePlayback ICuePlayer<TransformBinding_Tracked>.Play
         (
             IPlaybackCue cue,
-            in TransformBinding binding
+            in TransformBinding_Tracked binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "Transform Binding의 대상이 유효하지 않습니다.",
+                    "Tracked Transform Binding의 Target과 Local TRS가 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
 
-            var vfxCue = RequireCue(cue);
-            var playback = AcquirePlayback
+            var world = binding.World;
+            return PlayVFX
             (
-                vfxCue,
-                binding
+                RequireCue(cue),
+                binding,
+                world.Position,
+                world.Rotation,
+                world.Scale,
+                prepareVFX: null
             );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 최초 Play 전 입력 준비가 필요한 VFX Graph Cue를 처리할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool ICuePlayer<VFXGraphBinding>.CanPlay
+        (
+            IPlaybackCue cue,
+            in VFXGraphBinding binding
+        )
+        {
+            return cue is UnityVFXGraphCue && binding.IsValid;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> VFX Graph를 추적 Transform에 배치하고 노출 입력을 준비한 뒤
+        /// <br/> Reinit과 Play를 각각 한 번만 실행한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        ICuePlayback ICuePlayer<VFXGraphBinding>.Play
+        (
+            IPlaybackCue cue,
+            in VFXGraphBinding binding
+        )
+        {
+            if (!binding.IsValid)
+            {
+                throw new ArgumentException
+                (
+                    "VFX Graph Binding의 추적 Transform과 준비 동작이 유효해야 합니다.",
+                    nameof(binding)
+                );
+            }
+
+            var _TransformBinding = binding.Tracking;
+            var world = _TransformBinding.World;
+            return PlayVFX
+            (
+                RequireCue(cue),
+                _TransformBinding,
+                world.Position,
+                world.Rotation,
+                world.Scale,
+                binding.PrepareVFX
+            );
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> VFX Graph Playback을 획득하고 Transform·노출 입력을 모두 준비한 뒤 시작한다.
+        /// <br/> 시작이 실패하면 공개되지 않은 Playback을 같은 호출 경계에서 Pool로 반환한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private ICuePlayback PlayVFX
+        (
+            UnityVFXGraphCue cue,
+            TransformBinding_Tracked? _TransformBinding,
+            Vector3 position,
+            Quaternion rotation,
+            Vector3 scale,
+            Action<VisualEffect> prepareVFX
+        )
+        {
+            var playback = AcquirePlayback(cue, _TransformBinding);
 
             try
             {
                 playback.Effect.transform.SetPositionAndRotation
                 (
-                    binding.Position,
-                    binding.Rotation
+                    position,
+                    rotation
                 );
-                playback.Effect.transform.localScale = binding.Scale;
+                playback.Effect.transform.localScale = scale;
+
+                // 최초 Spawn이 완성된 입력을 읽도록 Graph 초기화 전에 이번 실행 값을 모두 기록한다.
+                prepareVFX?.Invoke(playback.Effect);
                 playback.Effect.pause = false;
                 playback.Effect.Reinit();
-                // 풀에서 반환된 Graph도 시작 이벤트를 받아 실제 출력 상태로 진입시킨다.
+
+                // 준비된 Graph에 시작 이벤트를 한 번만 보내 실제 출력 상태로 진입시킨다.
                 playback.Effect.Play();
                 playbacks.Add(playback);
                 return playback;
             }
-            catch
+            catch (Exception startException)
             {
-                playback.Dispose();
+                try
+                {
+                    // 시작되지 않은 Playback도 획득한 Pool 소유권을 이 호출 경계에서 끝낸다.
+                    playback.Dispose();
+                }
+                catch (Exception releaseException)
+                {
+                    // 반환 실패가 최초 시작 오류를 덮지 않도록 두 실패를 함께 전달한다.
+                    throw new AggregateException
+                    (
+                        "VFX Graph 시작과 실패 Playback 반환이 모두 실패했습니다.",
+                        startException,
+                        releaseException
+                    );
+                }
+
                 throw;
             }
         }
@@ -182,21 +261,18 @@ namespace inonego.Xeri.Playback
         private UnityVFXGraphPlayback AcquirePlayback
         (
             UnityVFXGraphCue cue,
-            TransformBinding? transformBinding
+            TransformBinding_Tracked? _TransformBinding
         )
         {
             var pool = GetOrCreatePool(cue);
             pool.Parent = transform;
-            var effect = pool.Acquire(worldPositionStays: false);
-
-            // 이전 실행은 Reinit에서 초기화하므로 Player가 Graph Asset이나 렌더링 자산을 수정하지 않는다.
-            effect.pause = false;
+            var vfx = pool.Acquire(worldPositionStays: false);
             return new UnityVFXGraphPlayback
             (
                 this,
                 cue,
-                effect,
-                transformBinding
+                vfx,
+                _TransformBinding
             );
         }
 
@@ -245,25 +321,21 @@ namespace inonego.Xeri.Playback
         (
             UnityVFXGraphPlayback playback,
             UnityVFXGraphCue cue,
-            VisualEffect effect
+            VisualEffect vfx
         )
         {
             playbacks.Remove(playback);
 
-            if (effect == null || cue == null) return;
-
-            effect.Stop();
-            effect.pause = false;
-
-            if (pools.TryGetValue(cue, out var pool))
-            {
-                pool.Release
-                (
-                    effect,
-                    pushToReleased: true,
-                    worldPositionStays: false
-                );
-            }
+            // Playback 생성에서 보장된 Cue와 Effect를 같은 Cue Pool에 되돌린다.
+            vfx.Stop();
+            vfx.pause = false;
+            var pool = pools[cue];
+            pool.Release
+            (
+                vfx,
+                pushToReleased: true,
+                worldPositionStays: false
+            );
         }
 
         // ------------------------------------------------------------

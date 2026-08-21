@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityParticleSystemPlayback.cs
-수정일 : 2026-08-19
+수정일 : 2026-08-22
 
 # 설명
 Pool에서 실행 중인 Unity ParticleSystem Cue의 수명과 Transform 추적을 관리한다.
@@ -39,7 +39,7 @@ namespace inonego.Xeri.Playback
         private UnityParticleSystemCuePlayer owner = null;
         private UnityParticleSystemCue cue = null;
         private ParticleSystem particle = null;
-        private TransformBinding? transformBinding = null;
+        private TransformBinding_Tracked? transformBinding = null;
 
     #endregion
 
@@ -55,7 +55,7 @@ namespace inonego.Xeri.Playback
             UnityParticleSystemCuePlayer owner,
             UnityParticleSystemCue cue,
             ParticleSystem particle,
-            TransformBinding? transformBinding
+            TransformBinding_Tracked? transformBinding
         )
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
@@ -123,12 +123,13 @@ namespace inonego.Xeri.Playback
                     return;
                 }
 
+                var world = binding.World;
                 particle.transform.SetPositionAndRotation
                 (
-                    binding.Position,
-                    binding.Rotation
+                    world.Position,
+                    world.Rotation
                 );
-                particle.transform.localScale = binding.Scale;
+                particle.transform.localScale = world.Scale;
             }
 
             if (particle.IsAlive(withChildren: true)) return;

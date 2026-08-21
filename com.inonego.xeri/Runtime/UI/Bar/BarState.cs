@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BarState.cs
-수정일 : 2026-08-15
+수정일 : 2026-08-21
 
 # 설명
 UGUI와 UI Toolkit Bar가 공유하는 방향, Fill 상태 계산, 표시 비율 전이를 정의한다.
@@ -9,6 +9,10 @@ UGUI와 UI Toolkit Bar가 공유하는 방향, Fill 상태 계산, 표시 비율
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 #if DOTWEEN
 using DG.Tweening;
@@ -130,7 +134,7 @@ namespace inonego.Xeri.UI
             var range = highValue - lowValue;
 
             // 유효한 범위가 없으면 Bar를 비운 상태로 고정한다.
-            if (range == 0.0f || float.IsNaN(range) || float.IsInfinity(range))
+            if (range == 0.0f || !range.IsFinite())
             {
                 return 0.0f;
             }
@@ -138,7 +142,7 @@ namespace inonego.Xeri.UI
             var ratio = (value - lowValue) / range;
 
             // 비정상 입력이 화면 레이아웃 값으로 전파되지 않게 경계에서 정리한다.
-            if (float.IsNaN(ratio) || float.IsInfinity(ratio))
+            if (!ratio.IsFinite())
             {
                 return 0.0f;
             }

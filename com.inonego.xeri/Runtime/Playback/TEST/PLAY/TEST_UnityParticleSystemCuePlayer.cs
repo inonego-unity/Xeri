@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UnityParticleSystemCuePlayer.cs
-수정일 : 2026-08-10
+수정일 : 2026-08-22
 
 # 설명
 UnityParticleSystemCuePlayer의 Binding 배치, Transform 추적과 Prefab 렌더링 설정 보존을 검증한다.
@@ -76,7 +76,7 @@ namespace inonego.Xeri.TEST._Playback
 
         // ----------------------------------------------------------------------------------------------------
         /// <summary>
-        /// <br/> WorldTransformBinding은 지정 Pose에서 재생하고 TransformBinding은 대상 Transform 이동을 추적한다.
+        /// <br/> TransformBinding_Fixed은 지정 Pose에서 재생하고 TransformBinding_Tracked은 Target 이동을 추적한다.
         /// <br/> Pool 복제 과정에서 ParticleSystemRenderer의 authored Material 참조를 Player가 변경하지 않는다.
         /// </summary>
         // ----------------------------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ namespace inonego.Xeri.TEST._Playback
                 prefab.GetComponent<ParticleSystemRenderer>().sharedMaterial = authoredMaterial;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
-                var pose = new WorldTransformBinding
+                var pose = new TransformBinding_Fixed
                 (
                     new Vector3(1.0f, 2.0f, 3.0f),
                     Quaternion.Euler(10.0f, 20.0f, 30.0f)
@@ -109,8 +109,8 @@ namespace inonego.Xeri.TEST._Playback
 
                 Assert.IsNotNull(poseParticle);
                 Assert.AreEqual(CuePlaybackState.Playing, posePlayback.State);
-                Assert.AreEqual(pose.Position, poseParticle.transform.position);
-                Assert.Less(Quaternion.Angle(pose.Rotation, poseParticle.transform.rotation), 0.01f);
+                Assert.AreEqual(pose.World.Position, poseParticle.transform.position);
+                Assert.Less(Quaternion.Angle(pose.World.Rotation, poseParticle.transform.rotation), 0.01f);
                 Assert.AreSame
                 (
                     authoredMaterial,
@@ -125,7 +125,7 @@ namespace inonego.Xeri.TEST._Playback
                     new Vector3(4.0f, 5.0f, 6.0f),
                     Quaternion.Euler(0.0f, 45.0f, 0.0f)
                 );
-                var emitterBinding = new TransformBinding(emitter.transform);
+                var emitterBinding = new TransformBinding_Tracked(emitter.transform);
                 var emitterPlayback = service.Play(cue, in emitterBinding);
                 var emitterParticle = FindActiveParticle(root);
 
@@ -194,15 +194,15 @@ namespace inonego.Xeri.TEST._Playback
 
     #endregion
 
-    #region F-2: 유효하지 않은 Transform Binding 거부
+    #region F-2: 유효하지 않은 Tracked Transform Binding 거부
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 대상이 없는 TransformBinding은 지원 가능한 재생 조합으로 선택하지 않는다.
+        /// Target이 없는 TransformBinding_Tracked은 지원 가능한 재생 조합으로 선택하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UnityParticleSystemCuePlayer_대상없는_TransformBinding을_거부()
+        public void TEST_UnityParticleSystemCuePlayer_대상없는_TransformBinding_Tracked을_거부()
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
@@ -213,7 +213,7 @@ namespace inonego.Xeri.TEST._Playback
                 cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
-                var binding = default(TransformBinding);
+                var binding = default(TransformBinding_Tracked);
 
                 Assert.Throws<System.InvalidOperationException>
                 (
@@ -234,11 +234,11 @@ namespace inonego.Xeri.TEST._Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// default WorldTransformBinding의 zero quaternion은 유효한 재생 Pose로 선택하지 않는다.
+        /// default TransformBinding_Fixed의 zero quaternion은 유효한 재생 Pose로 선택하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UnityParticleSystemCuePlayer_defaultWorldTransformBinding을_거부()
+        public void TEST_UnityParticleSystemCuePlayer_defaultTransformBinding_Fixed을_거부()
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
@@ -249,7 +249,7 @@ namespace inonego.Xeri.TEST._Playback
                 cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
-                var binding = default(WorldTransformBinding);
+                var binding = default(TransformBinding_Fixed);
 
                 Assert.Throws<System.InvalidOperationException>
                 (
@@ -270,11 +270,11 @@ namespace inonego.Xeri.TEST._Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Quaternion 제곱합이 overflow하는 WorldTransformBinding은 유효한 Pose로 선택하지 않는다.
+        /// Quaternion 제곱합이 overflow하는 TransformBinding_Fixed은 유효한 Pose로 선택하지 않는다.
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_UnityParticleSystemCuePlayer_overflowWorldTransformBinding을_거부()
+        public void TEST_UnityParticleSystemCuePlayer_overflowTransformBinding_Fixed을_거부()
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
@@ -286,7 +286,7 @@ namespace inonego.Xeri.TEST._Playback
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
                 var rotation = new Quaternion(float.MaxValue, float.MaxValue, 0.0f, 0.0f);
-                var binding = new WorldTransformBinding(Vector3.zero, rotation);
+                var binding = new TransformBinding_Fixed(Vector3.zero, rotation);
 
                 Assert.Throws<System.InvalidOperationException>
                 (

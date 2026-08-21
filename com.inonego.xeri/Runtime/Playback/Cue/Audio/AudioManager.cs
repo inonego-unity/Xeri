@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioManager.cs
-수정일 : 2026-08-19
+수정일 : 2026-08-22
 
 # 설명
 Audio Cue와 동기 Music Layer Group의 정면 재생 API 및 Master·Bus 출력 정책을 제공한다.
@@ -16,6 +16,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri.Playback
@@ -28,8 +31,8 @@ namespace inonego.Xeri.Playback
     [RequireComponent(typeof(UnityAudioCuePlayer))]
     public sealed class AudioManager : MonoSingleton<AudioManager>,
         ICuePlayer<NoCueBinding>,
-        ICuePlayer<WorldTransformBinding>,
-        ICuePlayer<TransformBinding>
+        ICuePlayer<TransformBinding_Fixed>,
+        ICuePlayer<TransformBinding_Tracked>
     {
 
     #region 내부 데이터
@@ -449,7 +452,7 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public void SetMasterVolume(float volume)
         {
-            if (float.IsNaN(volume) || float.IsInfinity(volume) || volume < 0.0f || volume > 1.0f)
+            if (!volume.IsFinite() || volume < 0.0f || volume > 1.0f)
             {
                 throw new ArgumentOutOfRangeException
                 (
@@ -490,7 +493,7 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public void SetBusVolume(AudioBus bus, float volume)
         {
-            if (float.IsNaN(volume) || float.IsInfinity(volume) || volume < 0.0f || volume > 1.0f)
+            if (!volume.IsFinite() || volume < 0.0f || volume > 1.0f)
             {
                 throw new ArgumentOutOfRangeException
                 (
@@ -621,8 +624,7 @@ namespace inonego.Xeri.Playback
 
             if
             (
-                float.IsNaN(volumeScale) ||
-                float.IsInfinity(volumeScale) ||
+                !volumeScale.IsFinite() ||
                 volumeScale < 0.0f ||
                 volumeScale > 1.0f
             )
@@ -670,8 +672,7 @@ namespace inonego.Xeri.Playback
         {
             if
             (
-                double.IsNaN(dspTime) ||
-                double.IsInfinity(dspTime) ||
+                !dspTime.IsFinite() ||
                 dspTime <= AudioSettings.dspTime
             )
             {
@@ -796,10 +797,10 @@ namespace inonego.Xeri.Playback
         /// Audio Cue를 고정 World Transform Binding으로 처리할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<WorldTransformBinding>.CanPlay
+        bool ICuePlayer<TransformBinding_Fixed>.CanPlay
         (
             IPlaybackCue cue,
-            in WorldTransformBinding binding
+            in TransformBinding_Fixed binding
         )
         {
             return CanPlayCue(cue) && binding.IsValid;
@@ -810,33 +811,33 @@ namespace inonego.Xeri.Playback
         /// Audio Cue를 Binding의 월드 위치에서 3D로 재생한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<WorldTransformBinding>.Play
+        ICuePlayback ICuePlayer<TransformBinding_Fixed>.Play
         (
             IPlaybackCue cue,
-            in WorldTransformBinding binding
+            in TransformBinding_Fixed binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "World Transform Binding의 위치·회전·스케일 값이 유효하지 않습니다.",
+                    "Fixed Transform Binding의 World TRS가 유효하지 않습니다.",
                     nameof(binding)
                 );
             }
 
-            return Play(RequireAudioCue(cue), binding.Position);
+            return Play(RequireAudioCue(cue), binding.World.Position);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Audio Cue를 Transform Binding으로 처리할 수 있는지 반환한다.
+        /// Audio Cue를 Tracked Transform Binding으로 처리할 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        bool ICuePlayer<TransformBinding>.CanPlay
+        bool ICuePlayer<TransformBinding_Tracked>.CanPlay
         (
             IPlaybackCue cue,
-            in TransformBinding binding
+            in TransformBinding_Tracked binding
         )
         {
             return CanPlayCue(cue) && binding.IsValid;
@@ -847,17 +848,17 @@ namespace inonego.Xeri.Playback
         /// Audio Cue를 Binding Transform을 따라가는 3D로 재생한다.
         /// </summary>
         // ------------------------------------------------------------
-        ICuePlayback ICuePlayer<TransformBinding>.Play
+        ICuePlayback ICuePlayer<TransformBinding_Tracked>.Play
         (
             IPlaybackCue cue,
-            in TransformBinding binding
+            in TransformBinding_Tracked binding
         )
         {
             if (!binding.IsValid)
             {
                 throw new ArgumentException
                 (
-                    "Transform Binding의 대상과 보정값이 유효하지 않습니다.",
+                    "Tracked Transform Binding의 Target과 Local TRS가 유효하지 않습니다.",
                     nameof(binding)
                 );
             }

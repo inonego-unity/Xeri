@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PhysicsQuery3D.cs
-수정일 : 2026-08-18
+수정일 : 2026-08-21
 
 # 설명
 3D Raycast와 Box·Sphere·Capsule Overlap/Cast의 NonAlloc 호출 조립을 공통화한다.
@@ -10,6 +10,10 @@ Collider와 RaycastHit 결과, LayerMask와 Trigger 정책은 Unity 계약을 �
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Game
 {
@@ -297,12 +301,7 @@ namespace inonego.Xeri.Game
             out Vector3 normalized
         )
         {
-            if
-            (
-                !IsFinite(direction.x) ||
-                !IsFinite(direction.y) ||
-                !IsFinite(direction.z)
-            )
+            if (!direction.IsFinite())
             {
                 throw new ArgumentOutOfRangeException
                 (
@@ -319,16 +318,6 @@ namespace inonego.Xeri.Game
 
             normalized = direction.normalized;
             return true;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 단일 실수가 유한한지 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static bool IsFinite(float value)
-        {
-            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
     #endregion

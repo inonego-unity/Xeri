@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PhysicsVolume3D.cs
-수정일 : 2026-08-18
+수정일 : 2026-08-21
 
 # 설명
 3D Physics Overlap과 Cast가 공유하는 월드 공간 Box·Sphere·Capsule Volume 값을 정의한다.
@@ -10,6 +10,10 @@ Volume은 Query 정책, Layer, Trigger, 결과 Buffer를 소유하지 않는다.
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Game
 {
@@ -255,9 +259,8 @@ namespace inonego.Xeri.Game
         {
             if
             (
-                value <= 0f ||
-                float.IsNaN(value) ||
-                float.IsInfinity(value)
+                !value.IsFinite() ||
+                value <= 0f
             )
             {
                 throw new ArgumentOutOfRangeException

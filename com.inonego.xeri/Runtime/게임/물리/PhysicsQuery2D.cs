@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PhysicsQuery2D.cs
-수정일 : 2026-08-18
+수정일 : 2026-08-21
 
 # 설명
 2D Raycast와 Box·Circle·Capsule Overlap/Cast의 NonAlloc 호출 조립을 공통화한다.
@@ -10,6 +10,10 @@ Collider2D와 RaycastHit2D 결과, ContactFilter2D 정책은 Unity 계약을 그
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Game
 {
@@ -210,7 +214,7 @@ namespace inonego.Xeri.Game
             out Vector2 normalized
         )
         {
-            if (!IsFinite(direction.x) || !IsFinite(direction.y))
+            if (!direction.IsFinite())
             {
                 throw new ArgumentOutOfRangeException
                 (
@@ -227,16 +231,6 @@ namespace inonego.Xeri.Game
 
             normalized = direction.normalized;
             return true;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 단일 실수가 유한한지 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static bool IsFinite(float value)
-        {
-            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
     #endregion

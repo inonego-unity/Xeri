@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenOptions.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-21
 
 # 설명
 Screen 등록 시 재사용할 Layer, 중복, Focus, 입력과 Transition 정책을 정의한다.
@@ -9,6 +9,10 @@ Screen 등록 시 재사용할 Layer, 중복, Focus, 입력과 Transition 정책
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -134,8 +138,7 @@ namespace inonego.Xeri.UI.Game
 
             if
             (
-                float.IsNaN(openDuration) ||
-                float.IsInfinity(openDuration) ||
+                !openDuration.IsFinite() ||
                 openDuration < 0.0f
             )
             {
@@ -144,8 +147,7 @@ namespace inonego.Xeri.UI.Game
 
             if
             (
-                float.IsNaN(closeDuration) ||
-                float.IsInfinity(closeDuration) ||
+                !closeDuration.IsFinite() ||
                 closeDuration < 0.0f
             )
             {

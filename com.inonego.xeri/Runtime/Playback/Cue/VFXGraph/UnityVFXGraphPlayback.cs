@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphPlayback.cs
-수정일 : 2026-08-19
+수정일 : 2026-08-22
 
 # 설명
 Pool에서 실행 중인 Unity VFX Graph Cue의 수명과 Transform 추적을 관리한다.
@@ -35,12 +35,12 @@ namespace inonego.Xeri.Playback
         /// Cue Domain이 노출 Property와 추가 World 상태를 연결할 현재 VisualEffect.
         /// </summary>
         // ------------------------------------------------------------
-        public VisualEffect Effect => effect;
+        public VisualEffect Effect => vfx;
 
         private UnityVFXGraphCuePlayer owner = null;
         private UnityVFXGraphCue cue = null;
-        private VisualEffect effect = null;
-        private TransformBinding? transformBinding = null;
+        private VisualEffect vfx = null;
+        private TransformBinding_Tracked? _TransformBinding = null;
         private bool isAwaitingInitSimulation = true;
 
     #endregion
@@ -56,14 +56,14 @@ namespace inonego.Xeri.Playback
         (
             UnityVFXGraphCuePlayer owner,
             UnityVFXGraphCue cue,
-            VisualEffect effect,
-            TransformBinding? transformBinding
+            VisualEffect vfx,
+            TransformBinding_Tracked? _TransformBinding
         )
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             this.cue = cue ?? throw new ArgumentNullException(nameof(cue));
-            this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-            this.transformBinding = transformBinding;
+            this.vfx = vfx ?? throw new ArgumentNullException(nameof(vfx));
+            this._TransformBinding = _TransformBinding;
         }
 
     #endregion
@@ -85,7 +85,7 @@ namespace inonego.Xeri.Playback
                 if (State == CuePlaybackState.Draining) return;
 
                 State = CuePlaybackState.Draining;
-                effect.Stop();
+                vfx.Stop();
                 return;
             }
 
@@ -111,9 +111,9 @@ namespace inonego.Xeri.Playback
         {
             if (State == CuePlaybackState.Released) return;
 
-            if (transformBinding.HasValue)
+            if (_TransformBinding.HasValue)
             {
-                var binding = transformBinding.Value;
+                var binding = _TransformBinding.Value;
 
                 if (!binding.IsValid)
                 {
@@ -121,15 +121,16 @@ namespace inonego.Xeri.Playback
                     return;
                 }
 
-                effect.transform.SetPositionAndRotation
+                var world = binding.World;
+                vfx.transform.SetPositionAndRotation
                 (
-                    binding.Position,
-                    binding.Rotation
+                    world.Position,
+                    world.Rotation
                 );
-                effect.transform.localScale = binding.Scale;
+                vfx.transform.localScale = world.Scale;
             }
 
-            var hasActiveSystem = effect.HasAnySystemAwake();
+            var hasActiveSystem = vfx.HasAnySystemAwake();
 
             // Play 직후 Graph가 실제 활성 상태를 보고할 때까지는 자연 종료를 판정하지 않는다.
             if (isAwaitingInitSimulation)
@@ -155,19 +156,19 @@ namespace inonego.Xeri.Playback
 
             var releaseOwner = owner;
             var releaseCue = cue;
-            var releaseEffect = effect;
+            var releaseVFX = vfx;
 
             State = CuePlaybackState.Released;
             owner = null;
             cue = null;
-            effect = null;
-            transformBinding = null;
+            vfx = null;
+            _TransformBinding = null;
 
-            releaseOwner?.ReleasePlayback
+            releaseOwner.ReleasePlayback
             (
                 this,
                 releaseCue,
-                releaseEffect
+                releaseVFX
             );
         }
 

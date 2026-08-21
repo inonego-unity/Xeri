@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUISettingsAsset.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-21
 
 # 설명
 Game UI Runtime의 기본 Profile, Scene Fade와 Input System 공통 설정을 정의한다.
@@ -11,6 +11,10 @@ using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.InputSystem;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -132,8 +136,7 @@ namespace inonego.Xeri.UI.Game
 
             if
             (
-                float.IsNaN(defaultFadeDuration) ||
-                float.IsInfinity(defaultFadeDuration) ||
+                !defaultFadeDuration.IsFinite() ||
                 defaultFadeDuration < 0.0f
             )
             {

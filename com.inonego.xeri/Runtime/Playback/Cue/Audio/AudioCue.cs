@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioCue.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-21
 
 # 설명
 오디오 Cue가 공통으로 사용하는 재생 설정을 정의한다.
@@ -12,6 +12,10 @@
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Playback
 {
@@ -57,7 +61,7 @@ namespace inonego.Xeri.Playback
             get => volume;
             set
             {
-                if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+                if (!value.IsFinite() || value < 0.0f || value > 1.0f)
                 {
                     throw new ArgumentOutOfRangeException
                     (
@@ -84,7 +88,7 @@ namespace inonego.Xeri.Playback
             get => pitch;
             set
             {
-                if (float.IsNaN(value) || float.IsInfinity(value) || value < -3.0f || value > 3.0f)
+                if (!value.IsFinite() || value < -3.0f || value > 3.0f)
                 {
                     throw new ArgumentOutOfRangeException
                     (
@@ -125,7 +129,7 @@ namespace inonego.Xeri.Playback
             get => spatialBlend;
             set
             {
-                if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+                if (!value.IsFinite() || value < 0.0f || value > 1.0f)
                 {
                     throw new ArgumentOutOfRangeException
                     (
@@ -176,8 +180,7 @@ namespace inonego.Xeri.Playback
             {
                 if
                 (
-                    float.IsNaN(value) ||
-                    float.IsInfinity(value) ||
+                    !value.IsFinite() ||
                     value <= 0.0f ||
                     value > maxDistance
                 )
@@ -209,8 +212,7 @@ namespace inonego.Xeri.Playback
             {
                 if
                 (
-                    float.IsNaN(value) ||
-                    float.IsInfinity(value) ||
+                    !value.IsFinite() ||
                     value < minDistance
                 )
                 {

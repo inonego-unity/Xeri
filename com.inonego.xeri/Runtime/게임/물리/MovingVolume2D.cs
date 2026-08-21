@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MovingVolume2D.cs
-수정일 : 2026-08-18
+수정일 : 2026-08-21
 
 # 설명
 2D Physics Volume의 위치·속도·수명을 함께 보존하는 중립 이동 상태를 정의한다.
@@ -10,6 +10,10 @@
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Game
 {
@@ -186,11 +190,7 @@ namespace inonego.Xeri.Game
             string parameterName
         )
         {
-            if
-            (
-                !IsFinite(value.x) ||
-                !IsFinite(value.y)
-            )
+            if (!value.IsFinite())
             {
                 throw new ArgumentOutOfRangeException
                 (
@@ -209,9 +209,8 @@ namespace inonego.Xeri.Game
         {
             if
             (
-                deltaTime < 0f ||
-                float.IsNaN(deltaTime) ||
-                float.IsInfinity(deltaTime)
+                !deltaTime.IsFinite() ||
+                deltaTime < 0f
             )
             {
                 throw new ArgumentOutOfRangeException
@@ -243,14 +242,6 @@ namespace inonego.Xeri.Game
                 );
             }
         }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 단일 실수가 유한한지 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static bool IsFinite(float value) =>
-            !float.IsNaN(value) && !float.IsInfinity(value);
 
     #endregion
 

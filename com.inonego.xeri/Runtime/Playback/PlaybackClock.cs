@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PlaybackClock.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-21
 
 # 설명
 외부 delta로 진행하는 재생 상태와 위치, Seek, Speed와 Loop를 관리한다.
@@ -13,6 +13,10 @@ Animation, Cue, Audio와 VFX의 Sampling 및 정리는 Clock을 소유한 Contro
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Playback
 {
@@ -89,7 +93,7 @@ namespace inonego.Xeri.Playback
             get => speed;
             set
             {
-                if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0.0f)
+                if (!value.IsFinite() || value <= 0.0f)
                 {
                     throw new ArgumentOutOfRangeException
                     (
@@ -156,7 +160,7 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------
         public void SetDuration(float duration)
         {
-            if (float.IsNaN(duration) || float.IsInfinity(duration) || duration < 0.0f)
+            if (!duration.IsFinite() || duration < 0.0f)
             {
                 throw new ArgumentOutOfRangeException
                 (
@@ -229,7 +233,7 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public void SetTime(float time)
         {
-            if (float.IsNaN(time) || float.IsInfinity(time))
+            if (!time.IsFinite())
             {
                 throw new ArgumentOutOfRangeException(nameof(time), "Time은 유한한 값이어야 합니다.");
             }
@@ -319,7 +323,7 @@ namespace inonego.Xeri.Playback
         public void Tick(float deltaTime)
         {
             if (state != PlaybackState.Playing) return;
-            if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime <= 0.0f) return;
+            if (!deltaTime.IsFinite() || deltaTime <= 0.0f) return;
 
             // 유한한 float 입력끼리의 곱셈이 overflow하지 않도록 중간 위치를 double로 계산한다.
             var previousState = state;

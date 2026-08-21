@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioPlayback.cs
-수정일 : 2026-08-19
+수정일 : 2026-08-22
 
 # 설명
 Pool에서 획득한 Unity AudioSource voice로 실행한 즉시·예약 Audio Cue의 제어와 수명을 소유한다.
@@ -13,6 +13,10 @@ Released와 Lease 참조 해제를 외부 Unity Object 정리 전에 확정한�
 using System;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.Playback
 {
@@ -52,7 +56,7 @@ namespace inonego.Xeri.Playback
             {
                 if (State == CuePlaybackState.Released) return;
 
-                if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+                if (!value.IsFinite() || value < 0.0f || value > 1.0f)
                 {
                     throw new ArgumentOutOfRangeException
                     (
@@ -82,8 +86,7 @@ namespace inonego.Xeri.Playback
 
                 if
                 (
-                    float.IsNaN(value) ||
-                    float.IsInfinity(value) ||
+                    !value.IsFinite() ||
                     value < -3.0f ||
                     value > 3.0f
                 )
@@ -165,7 +168,7 @@ namespace inonego.Xeri.Playback
         public float Duration { get; }
 
         private Lease<AudioSource> sourceLease = null;
-        private TransformBinding? transformBinding = null;
+        private TransformBinding_Tracked? transformBinding = null;
         private readonly double scheduledStartDSPTime = double.NaN;
         private float lastTime = 0.0f;
         private bool isPaused = false;
@@ -186,7 +189,7 @@ namespace inonego.Xeri.Playback
             float volume,
             float pitch,
             float outputVolume,
-            TransformBinding? transformBinding = null,
+            TransformBinding_Tracked? transformBinding = null,
             double scheduledStartDSPTime = double.NaN
         ) : base()
         {
@@ -287,7 +290,7 @@ namespace inonego.Xeri.Playback
                     return;
                 }
 
-                sourceLease.Value.transform.position = binding.Position;
+                sourceLease.Value.transform.position = binding.World.Position;
             }
 
             var source = sourceLease.Value;
@@ -320,7 +323,7 @@ namespace inonego.Xeri.Playback
         {
             if (State == CuePlaybackState.Released) return;
 
-            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0.0f || value > 1.0f)
+            if (!value.IsFinite() || value < 0.0f || value > 1.0f)
             {
                 throw new ArgumentOutOfRangeException
                 (
