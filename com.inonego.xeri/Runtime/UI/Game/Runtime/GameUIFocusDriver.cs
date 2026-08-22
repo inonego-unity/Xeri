@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIFocusDriver.cs
-수정일 : 2026-08-06
+수정일 : 2026-08-22
 
 # 설명
 같은 Host의 Focus Driver Component를 하나의 Runtime Focus 계약으로 조립한다.
@@ -49,10 +49,10 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 native Focus가 유효한 대상 없이 끝났을 때 발생한다.
+        /// backend Focus 이동이 안정화된 뒤 유효한 현재 대상 또는 null을 전달한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal event Action OnFocusLost = null;
+        internal event Action<object> OnFocusChanged = null;
 
     #endregion
 
@@ -244,9 +244,17 @@ namespace inonego.Xeri.UI.Game
             focusLossEvaluationRequested = false;
 
             // 명시적으로 Focus를 비운 Context는 native 복구 대상이 아니다.
-            if (currentDriver == null || currentDriver.IsValid(currentDriver.Current)) return;
+            if (currentDriver == null) return;
 
-            OnFocusLost?.Invoke();
+            var current = currentDriver.Current;
+
+            if (currentDriver.IsValid(current))
+            {
+                OnFocusChanged?.Invoke(current);
+                return;
+            }
+
+            OnFocusChanged?.Invoke(null);
         }
 
     #endregion
@@ -261,12 +269,15 @@ namespace inonego.Xeri.UI.Game
         // ----------------------------------------------------------------------
         private void HandleFocusChanged(FocusDriverBehaviour driver)
         {
-            if (driver.IsValid(driver.Current))
+            var current = driver.Current;
+
+            if (driver.IsValid(current))
             {
                 // 실제 Focus를 얻은 Driver가 권한을 소유하며 다른 native 선택은 남기지 않는다.
                 currentDriver = driver;
                 focusLossEvaluationRequested = false;
                 ClearDrivers(driver);
+                OnFocusChanged?.Invoke(current);
                 return;
             }
 
@@ -321,7 +332,7 @@ namespace inonego.Xeri.UI.Game
             drivers = Array.Empty<FocusDriverBehaviour>();
             currentDriver = null;
             focusLossEvaluationRequested = false;
-            OnFocusLost = null;
+            OnFocusChanged = null;
         }
 
     #endregion

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKScreenDriver.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-22
 
 # 설명
 UI Toolkit Screen Root의 표시, 상호작용, Focus와 Transition 값을 Core Screen 계약에 연결한다.
@@ -75,6 +75,23 @@ namespace inonego.Xeri.UI.Game
     #endregion
 
     #region IScreenDriver
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 VisualElement가 Screen Root subtree에 속하는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool ContainsFocus(object target)
+        {
+            if (!(target is VisualElement element)) return false;
+
+            for (var current = element; current != null; current = current.parent)
+            {
+                if (ReferenceEquals(current, root)) return true;
+            }
+
+            return false;
+        }
 
         // ------------------------------------------------------------
         /// <summary>

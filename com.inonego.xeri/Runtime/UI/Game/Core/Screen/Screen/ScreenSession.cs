@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenSession.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-22
 
 # 설명
 한 Screen의 공개 상태와 Stack, Hook, Transition 진행 상태를 묶는다.
@@ -140,6 +140,16 @@ namespace inonego.Xeri.UI.Game
     #endregion
 
     #region 메서드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 Focus 대상이 현재 Screen 인스턴스의 표시 범위에 속하는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool ContainsFocus(object target)
+        {
+            return Resources.Instance != null && Resources.Instance.Driver.ContainsFocus(target);
+        }
 
         // ------------------------------------------------------------
         /// <summary>

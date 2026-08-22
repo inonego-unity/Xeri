@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenController.cs
-수정일 : 2026-08-06
+수정일 : 2026-08-22
 
 # 설명
 Screen Open·Close·Replace·Clear 명령과 Stack, 상태 훅, Transition과 대칭 수명을 중재한다.
@@ -340,7 +340,7 @@ namespace inonego.Xeri.UI.Game
                 // 외부 Source와 훅이 EventSystem 선택을 바꾸기 전에 이전 화면의 실제 선택을 기록한다.
                 if (previous != null)
                 {
-                    focusController.Cover(previous);
+                    focusController.CaptureCurrent(previous);
 
                     if (IsOpenInterrupted(session))
                     {

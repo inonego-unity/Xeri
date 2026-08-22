@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-08-06
+수정일 : 2026-08-22
 
 # 설명
 App 단위 Singleton 등록, Main UI Context, 공용 서비스, 혼합 Layer Profile과 Scene Fade의 조립·역순 해제를 소유한다.
@@ -285,7 +285,7 @@ namespace inonego.Xeri.UI.Game
                 transitioner = new DOTweenPresentationTransitioner();
                 inputDriver.Initialize(inputModule, settings);
                 focusDriver.Initialize();
-                focusDriver.OnFocusLost += HandleFocusLost;
+                focusDriver.OnFocusChanged += HandleFocusChanged;
                 sceneFadeSource.Initialize();
                 Visibility = new VisibilityController();
 
@@ -972,7 +972,7 @@ namespace inonego.Xeri.UI.Game
 
             if (focusDriver != null)
             {
-                focusDriver.OnFocusLost -= HandleFocusLost;
+                focusDriver.OnFocusChanged -= HandleFocusChanged;
             }
 
             if (main != null)
@@ -1189,16 +1189,25 @@ namespace inonego.Xeri.UI.Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 현재 native Focus가 비었을 때 현재 권한 Context의 선택 정책을 다시 적용한다.
-        /// <br/> 종료·초기화 실패 중에는 Runtime이 새 선택을 만들지 않는다.
+        /// <br/> 안정화된 native Focus가 있으면 현재 Context Top Screen의 마지막 선택으로 기록하고,
+        /// <br/> Focus가 실제로 비었을 때만 기존 복원 정책을 적용한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        private void HandleFocusLost()
+        private void HandleFocusChanged(object current)
         {
             if (!IsInitialized || IsReleasing || IsReleased) return;
 
-            // Runtime이 권한을 준 단 하나의 Context만 복원해 Child Context 전환을 침범하지 않는다.
-            focusedContext?.RestoreFocus();
+            var context = focusedContext;
+
+            if (context == null) return;
+
+            if (focusDriver.IsValid(current))
+            {
+                context.RecordFocus(current);
+                return;
+            }
+
+            context.RestoreFocus();
         }
 
         // ------------------------------------------------------------

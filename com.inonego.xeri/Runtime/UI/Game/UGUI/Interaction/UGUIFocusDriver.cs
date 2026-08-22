@@ -1,10 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIFocusDriver.cs
-수정일 : 2026-08-06
+수정일 : 2026-08-22
 
 # 설명
 명시적으로 연결한 EventSystem으로 Screen Focus 선택, 유효성 검사와 native 선택 변경 보고를 수행한다.
 ========================================================================= BLOCK_HEADER_END */
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -26,8 +30,16 @@ namespace inonego.Xeri.UI.Game
         /// 현재 EventSystem 선택 GameObject.
         /// </summary>
         // ------------------------------------------------------------
-        public override object Current =>
-            eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        public override object Current
+        {
+            get
+            {
+                if (eventSystem == null) return null;
+
+                var selected = eventSystem.currentSelectedGameObject;
+                return Owns(selected) ? selected : null;
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -42,6 +54,7 @@ namespace inonego.Xeri.UI.Game
         [SerializeField]
         private GameObject fallback = null;
 
+        private readonly List<RectTransform> layerRoots = new List<RectTransform>();
         private GameObject observedSelection = null;
         private bool observedSelectionValid = false;
 
@@ -55,6 +68,24 @@ namespace inonego.Xeri.UI.Game
         /// </summary>
         // ------------------------------------------------------------
         public override bool CanSelect(object target) => target is GameObject;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UGUI Presentation Layer Root를 Focus 소유 범위로 등록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override void HandleLayerRegistered(IPresentationLayerDriver driver)
+        {
+            if (!(driver is IPresentationLayerDriver<RectTransform> layer) || layer.Root == null)
+            {
+                return;
+            }
+
+            if (!layerRoots.Contains(layer.Root))
+            {
+                layerRoots.Add(layer.Root);
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -96,6 +127,8 @@ namespace inonego.Xeri.UI.Game
                 return false;
             }
 
+            if (!Owns(gameObject)) return false;
+
             var selectable = gameObject.GetComponent<Selectable>();
             return selectable == null ||
                 (selectable.isActiveAndEnabled && selectable.IsInteractable());
@@ -111,7 +144,18 @@ namespace inonego.Xeri.UI.Game
             // EventSystem은 선택 callback 안의 중첩 선택을 거부하므로 바깥 선택이 끝난 뒤 다시 요청하게 둔다.
             if (eventSystem == null || eventSystem.alreadySelecting) return;
 
-            eventSystem.SetSelectedGameObject(IsValid(target) ? (GameObject)target : null);
+            if (IsValid(target))
+            {
+                eventSystem.SetSelectedGameObject((GameObject)target);
+                return;
+            }
+
+            var current = eventSystem.currentSelectedGameObject;
+
+            if (Owns(current))
+            {
+                eventSystem.SetSelectedGameObject(null);
+            }
         }
 
         // ------------------------------------------------------------
@@ -122,6 +166,36 @@ namespace inonego.Xeri.UI.Game
         public override object FindFallback()
         {
             return IsValid(fallback) ? fallback : null;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// GameObject가 등록된 UGUI Presentation Layer hierarchy에 속하는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool Owns(GameObject gameObject)
+        {
+            if (gameObject == null) return false;
+
+            var transform = gameObject.transform;
+
+            for (var i = layerRoots.Count - 1; i >= 0; i--)
+            {
+                var root = layerRoots[i];
+
+                if (root == null)
+                {
+                    layerRoots.RemoveAt(i);
+                    continue;
+                }
+
+                if (transform == root || transform.IsChildOf(root))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
     #endregion
@@ -135,9 +209,7 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         private void OnEnable()
         {
-            observedSelection = eventSystem != null
-                ? eventSystem.currentSelectedGameObject
-                : null;
+            observedSelection = Current as GameObject;
             observedSelectionValid = IsValid(observedSelection);
         }
 
@@ -149,9 +221,7 @@ namespace inonego.Xeri.UI.Game
         // ----------------------------------------------------------------------
         private void LateUpdate()
         {
-            var selection = eventSystem != null
-                ? eventSystem.currentSelectedGameObject
-                : null;
+            var selection = Current as GameObject;
             var selectionValid = IsValid(selection);
 
             if

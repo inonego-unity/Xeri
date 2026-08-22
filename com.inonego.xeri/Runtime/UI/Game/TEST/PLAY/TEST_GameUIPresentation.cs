@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIPresentation.cs
-수정일 : 2026-08-06
+수정일 : 2026-08-22
 
 # 설명
 실제 Runtime Panel과 Canvas에서 UGUI·UITK 표시와 mixed Focus의 대표 경로를 검증한다.
@@ -1454,13 +1454,24 @@ namespace inonego.Xeri.TEST.UI._Game
             var focus = host.AddComponent<GameUIFocusDriver>();
             SetField(uguiFocus, "eventSystem", eventSystem);
 
+            var uguiLayerObject = new GameObject
+            (
+                "UGUI Layer",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(UGUILayerCanvas)
+            );
+            uguiLayerObject.transform.SetParent(host.transform, false);
+            var uguiLayer = uguiLayerObject.GetComponent<UGUILayerCanvas>();
+            SetField(uguiLayer, "root", uguiLayerObject.GetComponent<RectTransform>());
+            SetField(uguiLayer, "canvas", uguiLayerObject.GetComponent<Canvas>());
             var uguiTarget = new GameObject
             (
                 "UGUI Focus",
                 typeof(RectTransform),
                 typeof(UnityEngine.UI.Button)
             );
-            uguiTarget.transform.SetParent(host.transform, false);
+            uguiTarget.transform.SetParent(uguiLayerObject.transform, false);
             var uitkTarget = new Button { name = "UITK Focus" };
             document.rootVisualElement.Add(uitkTarget);
 
@@ -1469,6 +1480,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 yield return null;
                 yield return null;
                 focus.Initialize();
+                focus.RegisterLayer(uguiLayer);
 
                 focus.Select(uguiTarget);
 
@@ -1553,12 +1565,11 @@ namespace inonego.Xeri.TEST.UI._Game
                 yield return null;
                 focus.Initialize();
 
+                var uitkLayer = new TestUITKLayerDriver(document.rootVisualElement);
                 uguiLayerHandle = layerRegistry.Register(uguiAsset, uguiLayer);
-                uitkLayerHandle = layerRegistry.Register
-                (
-                    uitkAsset,
-                    new TestUITKLayerDriver(document.rootVisualElement)
-                );
+                uitkLayerHandle = layerRegistry.Register(uitkAsset, uitkLayer);
+                focus.RegisterLayer(uguiLayer);
+                focus.RegisterLayer(uitkLayer);
                 var uguiSource = new TestUGUIScreenSource();
                 var uitkSource = new TestUITKScreenSource();
                 uguiRegistration = screenRegistry.Register

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIScreenDriver.cs
-수정일 : 2026-07-29
+수정일 : 2026-08-22
 
 # 설명
 UGUI Screen Root, CanvasGroup 표시·상호작용과 기본 Focus를 Core Screen 계약에 연결한다.
@@ -59,6 +59,21 @@ namespace inonego.Xeri.UI.Game
     #endregion
 
     #region IScreenDriver
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 GameObject가 Screen Root hierarchy에 속하는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool ContainsFocus(object target)
+        {
+            if (!(target is GameObject gameObject) || gameObject == null || root == null)
+            {
+                return false;
+            }
+
+            return gameObject == root || gameObject.transform.IsChildOf(root.transform);
+        }
 
         // ------------------------------------------------------------
         /// <summary>

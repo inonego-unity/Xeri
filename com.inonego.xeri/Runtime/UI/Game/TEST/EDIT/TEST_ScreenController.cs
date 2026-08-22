@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ScreenController.cs
-수정일 : 2026-08-01
+수정일 : 2026-08-22
 
 # 설명
 Screen 수명·상태 훅 정리, Focus 복원과 닫기 입력 장벽 계약을 검증한다.
@@ -379,6 +379,11 @@ namespace inonego.Xeri.TEST.UI._Game
             public TestScreenDriver(object defaultFocus) : base()
             {
                 DefaultFocus = defaultFocus;
+            }
+
+            public bool ContainsFocus(object target)
+            {
+                return target != null;
             }
 
             public void Apply(float value)

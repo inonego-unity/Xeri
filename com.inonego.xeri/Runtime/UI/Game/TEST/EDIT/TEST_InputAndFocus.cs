@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_InputAndFocus.cs
-수정일 : 2026-08-05
+수정일 : 2026-08-22
 
 # 설명
-UGUI Focus 유효성 경계와 Spotlight 요청 수명을 검증한다.
+UGUI Focus 소유권·유효성 경계와 Spotlight 요청 수명을 검증한다.
 
 # 테스트 구성
- F: 비활성·파괴된 UGUI Selectable 거부
+ F: UGUI Layer 소유권과 비활성·파괴된 Selectable 거부
  S: Spotlight 활성화 재진입
 ========================================================================= BLOCK_HEADER_END */
 
@@ -170,10 +170,24 @@ namespace inonego.Xeri.TEST.UI._Game
             var driverObject = new GameObject("Focus Driver");
             ownedObjects.Add(driverObject);
             var driver = driverObject.AddComponent<UGUIFocusDriver>();
+            var layerObject = new GameObject
+            (
+                "UGUI Layer",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(UGUILayerCanvas)
+            );
+            ownedObjects.Add(layerObject);
+            var layer = layerObject.GetComponent<UGUILayerCanvas>();
+            SetField(layer, "root", layerObject.GetComponent<RectTransform>());
+            SetField(layer, "canvas", layerObject.GetComponent<Canvas>());
             var target = CreateSelectable("Target");
             var fallback = CreateSelectable("Fallback");
+            target.transform.SetParent(layerObject.transform, false);
+            fallback.transform.SetParent(layerObject.transform, false);
             SetField(driver, "eventSystem", eventSystem);
             SetField(driver, "fallback", fallback);
+            driver.RegisterLayer(layer);
 
             Assert.IsTrue(driver.IsValid(target));
             target.GetComponent<Button>().enabled = false;
@@ -189,6 +203,44 @@ namespace inonego.Xeri.TEST.UI._Game
             target.SetActive(true);
             UnityEngine.Object.DestroyImmediate(target);
             Assert.IsFalse(driver.IsValid(target));
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 등록 UGUI Layer 밖의 EventSystem 선택은 UGUI Focus 소유권으로 취급하거나 지우지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_UGUIFocusDriver_비소유EventSystem선택_SelectNull로보존()
+        {
+            var eventSystemObject = new GameObject("EventSystem");
+            ownedObjects.Add(eventSystemObject);
+            var eventSystem = eventSystemObject.AddComponent<EventSystem>();
+            var driverObject = new GameObject("Focus Driver");
+            ownedObjects.Add(driverObject);
+            var driver = driverObject.AddComponent<UGUIFocusDriver>();
+            var layerObject = new GameObject("UGUI Layer", typeof(RectTransform), typeof(UGUILayerCanvas));
+            ownedObjects.Add(layerObject);
+            var layer = layerObject.GetComponent<UGUILayerCanvas>();
+            SetField(layer, "root", layerObject.GetComponent<RectTransform>());
+            var owned = CreateSelectable("Owned");
+            var external = new GameObject("External EventSystem Selection");
+            ownedObjects.Add(external);
+            owned.transform.SetParent(layerObject.transform, false);
+            SetField(driver, "eventSystem", eventSystem);
+            driver.RegisterLayer(layer);
+
+            eventSystem.SetSelectedGameObject(external);
+
+            Assert.IsFalse(driver.IsValid(external));
+            Assert.IsNull(driver.Current);
+            driver.Select(null);
+            Assert.AreSame(external, eventSystem.currentSelectedGameObject);
+
+            driver.Select(owned);
+            Assert.AreSame(owned, eventSystem.currentSelectedGameObject);
+            driver.Select(null);
+            Assert.IsNull(eventSystem.currentSelectedGameObject);
         }
 
     #endregion

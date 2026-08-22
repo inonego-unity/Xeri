@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKFocusDriver.cs
-수정일 : 2026-08-06
+수정일 : 2026-08-22
 
 # 설명
 UI Toolkit Panel의 VisualElement Focus 선택, 유효성 검사와 native Focus 변경 보고를 수행한다.
@@ -31,9 +31,10 @@ namespace inonego.Xeri.UI.Game
         {
             get
             {
-                if (current == null || current.panel == null) return null;
+                if (currentPanelRoot == null || currentPanelRoot.panel == null) return null;
 
-                return current.focusController?.focusedElement as VisualElement;
+                var focused = currentPanelRoot.panel.focusController?.focusedElement as VisualElement;
+                return ResolveFocusTarget(focused);
             }
         }
 
@@ -44,7 +45,10 @@ namespace inonego.Xeri.UI.Game
         private string fallbackName = "";
 
         private readonly List<VisualElement> panelRoots = new List<VisualElement>();
-        private VisualElement current = null;
+        private VisualElement currentPanelRoot = null;
+        private VisualElement pendingPanelRoot = null;
+        private VisualElement reportedCurrent = null;
+        private bool focusEvaluationRequested = false;
 
     #endregion
 
@@ -104,15 +108,20 @@ namespace inonego.Xeri.UI.Game
             if (!IsValid(target))
             {
                 ClearTrackedFocus(null);
-                current = null;
+                currentPanelRoot = null;
+                pendingPanelRoot = null;
+                reportedCurrent = null;
+                focusEvaluationRequested = false;
                 return;
             }
 
             var element = (VisualElement)target;
             RegisterPanel(element);
+            var panelRoot = element.panel.visualTree;
             ClearTrackedFocus(element.panel);
-            current = element;
-            current.Focus();
+            currentPanelRoot = panelRoot;
+            element.Focus();
+            RequestFocusEvaluation(panelRoot);
         }
 
         // ------------------------------------------------------------
@@ -191,31 +200,97 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 사용자 입력으로 이동한 실제 Panel Focus를 현재 대상으로 기록한다.
+        /// native focusedElement를 다시 선택 가능한 가장 가까운 logical Focus 대상으로 정규화한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void HandleFocusIn(FocusInEvent eventData)
+        private VisualElement ResolveFocusTarget(VisualElement focused)
         {
-            if (!(eventData.target is VisualElement focused) || focused.panel == null) return;
+            for (var current = focused; current != null; current = current.parent)
+            {
+                if (IsValid(current)) return current;
+            }
 
-            RegisterPanel(focused);
-            ClearTrackedFocus(focused.panel);
-            current = focused;
-            NotifyFocusChanged();
+            return null;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 추적 중인 native Focus가 빠져나가면 공통 Driver에 변경을 보고한다.
+        /// Focus dispatch가 끝난 뒤 Panel의 최종 focusedElement를 평가하도록 요청한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RequestFocusEvaluation(VisualElement panelRoot)
+        {
+            if (panelRoot == null) return;
+
+            pendingPanelRoot = panelRoot;
+            focusEvaluationRequested = true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// FocusIn dispatch 중의 stale focusedElement를 읽지 않고 Panel 평가만 예약한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleFocusIn(FocusInEvent eventData)
+        {
+            RequestFocusEvaluation(eventData.currentTarget as VisualElement);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// FocusOut도 dispatch 종료 후 같은 안정화 경로에서 최종 상태를 판정한다.
         /// </summary>
         // ------------------------------------------------------------
         private void HandleFocusOut(FocusOutEvent eventData)
         {
-            if (!(eventData.target is VisualElement focused)) return;
+            RequestFocusEvaluation(eventData.currentTarget as VisualElement);
+        }
 
-            // 다른 Element의 FocusOut은 현재 Runtime 선택 상태를 바꾸지 않는다.
-            if (!ReferenceEquals(current, focused)) return;
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 예약한 Panel의 안정화된 Focus를 현재 대상으로 확정하고 변경을 한 번 보고한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void EvaluateFocus()
+        {
+            focusEvaluationRequested = false;
+            var candidateRoot = pendingPanelRoot;
+            pendingPanelRoot = null;
 
+            if (candidateRoot != null && candidateRoot.panel != null)
+            {
+                var focused = candidateRoot.panel.focusController?.focusedElement as VisualElement;
+                var candidate = ResolveFocusTarget(focused);
+
+                if (candidate != null)
+                {
+                    currentPanelRoot = candidateRoot;
+                    ClearTrackedFocus(candidateRoot.panel);
+                    PublishCurrentIfChanged(candidate);
+                    return;
+                }
+            }
+
+            var current = Current as VisualElement;
+
+            if (IsValid(current)) return;
+
+            currentPanelRoot = candidateRoot != null && candidateRoot.panel != null
+                ? candidateRoot
+                : currentPanelRoot;
+            PublishCurrentIfChanged(null);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 동일 Focus의 중복 보고 없이 안정화된 현재 대상만 공통 Driver에 전달한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void PublishCurrentIfChanged(VisualElement current)
+        {
+            if (ReferenceEquals(reportedCurrent, current)) return;
+
+            reportedCurrent = current;
             NotifyFocusChanged();
         }
 
@@ -245,16 +320,35 @@ namespace inonego.Xeri.UI.Game
             );
             panelRoot.UnregisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
 
-            if (current != null && current.panel == null)
+            if (ReferenceEquals(pendingPanelRoot, panelRoot))
             {
-                current = null;
-                NotifyFocusChanged();
+                pendingPanelRoot = null;
+                focusEvaluationRequested = false;
+            }
+
+            if (ReferenceEquals(currentPanelRoot, panelRoot))
+            {
+                currentPanelRoot = null;
+                PublishCurrentIfChanged(null);
             }
         }
 
     #endregion
 
     #region Unity 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UI Toolkit Focus dispatch가 끝난 Frame 후반에 안정화된 Panel Focus를 확정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void LateUpdate()
+        {
+            if (focusEvaluationRequested)
+            {
+                EvaluateFocus();
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -280,7 +374,10 @@ namespace inonego.Xeri.UI.Game
                 panelRoot.UnregisterCallback<DetachFromPanelEvent>(HandlePanelDetached);
             }
 
-            current = null;
+            currentPanelRoot = null;
+            pendingPanelRoot = null;
+            reportedCurrent = null;
+            focusEvaluationRequested = false;
         }
 
     #endregion

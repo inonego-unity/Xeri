@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : FocusController.cs
-수정일 : 2026-08-03
+수정일 : 2026-08-22
 
 # 설명
 Screen별 마지막 Focus와 화면·Driver 기본값·대체 선택을 관리한다.
@@ -94,14 +94,20 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Screen이 가려지기 전에 현재 선택을 마지막 Focus로 기록한다.
+        /// 현재 Screen 소유 범위의 유효한 사용자 Focus를 마지막 선택으로 기록한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Cover(ScreenSession session)
+        internal void RecordCurrentFocus(ScreenSession session, object target)
         {
-            if (session == null)
+            if
+            (
+                !isFocused ||
+                session == null ||
+                !driver.IsValid(target) ||
+                !session.ContainsFocus(target)
+            )
             {
-                throw new ArgumentNullException(nameof(session));
+                return;
             }
 
             if (!records.TryGetValue(session, out var record))
@@ -110,10 +116,17 @@ namespace inonego.Xeri.UI.Game
                 records.Add(session, record);
             }
 
-            if (isFocused && driver.IsValid(driver.Current))
-            {
-                record.Last = driver.Current;
-            }
+            record.Last = target;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen 전환 직전 실제 backend의 현재 Focus를 마지막 선택으로 보존한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void CaptureCurrent(ScreenSession session)
+        {
+            RecordCurrentFocus(session, driver.Current);
         }
 
         // ------------------------------------------------------------
@@ -189,12 +202,8 @@ namespace inonego.Xeri.UI.Game
         {
             if (!isFocused) return;
 
-            // 다른 Context가 Driver를 사용하기 전에 현재 Screen 선택을 마지막 기록으로 보존한다.
-            if (session != null)
-            {
-                Cover(session);
-            }
-
+            // 다른 Context가 Driver를 사용하기 전에 현재 Screen 소유 Focus를 마지막 기록으로 보존한다.
+            CaptureCurrent(session);
             isFocused = false;
         }
 

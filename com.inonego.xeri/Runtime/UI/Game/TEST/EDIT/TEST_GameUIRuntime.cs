@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_GameUIRuntime.cs
-수정일 : 2026-08-03
+수정일 : 2026-08-22
 
 # 설명
 GameUIRuntime의 혼합 Layer Profile, 롤백, Scene 중복 구성과 초기화·종료 실패 정리를 검증한다.
@@ -235,6 +235,16 @@ namespace inonego.Xeri.TEST.UI._Game
             /// </summary>
             // ------------------------------------------------------------
             public object DefaultFocus => null;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 테스트 Screen은 유효한 임의 Focus 대상을 자신의 범위로 취급한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool ContainsFocus(object target)
+            {
+                return target != null;
+            }
 
             // ------------------------------------------------------------
             /// <summary>

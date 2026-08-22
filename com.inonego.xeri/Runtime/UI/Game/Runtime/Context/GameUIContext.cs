@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIContext.cs
-수정일 : 2026-08-04
+수정일 : 2026-08-22
 
 # 설명
 독립된 Screen Registry, Screen Stack, Modal Stack과 Focus 기록을 소유한다.
@@ -216,6 +216,18 @@ namespace inonego.Xeri.UI.Game
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 현재 Top Screen 소유 범위의 안정화된 native Focus를 마지막 선택으로 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void RecordFocus(object target)
+        {
+            if (IsDisposing || IsDisposed || !HasFocus) return;
+
+            focusController.RecordCurrentFocus(Screens.Top, target);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 현재 Focus 권한을 가진 Context의 Screen 선택 정책을 다시 적용한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -223,7 +235,7 @@ namespace inonego.Xeri.UI.Game
         {
             if (IsDisposing || IsDisposed || !HasFocus) return;
 
-            // native backend가 비운 선택은 마지막·기본·fallback 순서의 기존 정책으로만 복원한다.
+            // 안정화 뒤에도 native 선택이 없을 때만 마지막·기본·fallback 순서로 복원한다.
             focusController.Restore(Screens.Top);
         }
 
