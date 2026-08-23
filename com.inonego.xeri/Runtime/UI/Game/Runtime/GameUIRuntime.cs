@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-08-22
+수정일 : 2026-08-23
 
 # 설명
-App 단위 Singleton 등록, Main UI Context, 공용 서비스, 혼합 Layer Profile과 Scene Fade의 조립·역순 해제를 소유한다.
+App 단위 Singleton 등록, Main UI Context, 공용 서비스, 혼합 Layer Profile, Render Pipeline Adapter와 Scene Fade의 조립·역순 해제를 소유한다.
 Shutdown은 일반 소유 객체를 한 번씩 정리하고, 사전 조건에서 거부된 Profile과 Layer Registry 소유권만 유지한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -155,6 +155,7 @@ namespace inonego.Xeri.UI.Game
 
         private PresentationLayerRegistry pendingLayerRegistry = null;
         private DOTweenPresentationTransitioner transitioner = null;
+        private IDisposable renderPipelineAdapter = null;
         private GameUIProfileHandle defaultProfile = null;
         private GameUIContext focusedContext = null;
         private bool sceneLoadedSubscribed = false;
@@ -251,6 +252,21 @@ namespace inonego.Xeri.UI.Game
         // ----------------------------------------------------------------------
         public void Initialize(GameUISettingsAsset settings)
         {
+            Initialize(settings, null);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Bootstrapper가 획득한 Render Pipeline Adapter의 소유권을 넘겨받아 Runtime을 초기화한다.
+        /// <br/> 초기화 실패를 포함해 Runtime 종료 경로가 Adapter를 한 번 해제한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal void Initialize
+        (
+            GameUISettingsAsset settings,
+            IDisposable renderPipelineAdapter
+        )
+        {
             if (IsInitialized)
             {
                 throw new InvalidOperationException("Game UI Runtime이 이미 초기화됐습니다.");
@@ -262,6 +278,9 @@ namespace inonego.Xeri.UI.Game
             }
 
             var coreReady = false;
+
+            // 수명 사전 조건을 통과한 시점부터 Adapter를 Runtime rollback 경로의 소유 리소스로 편입한다.
+            this.renderPipelineAdapter = renderPipelineAdapter;
 
             try
             {
@@ -961,6 +980,7 @@ namespace inonego.Xeri.UI.Game
             var visibility = Visibility;
             var input = inputDriver;
             var currentTransitioner = transitioner;
+            var currentRenderPipelineAdapter = renderPipelineAdapter;
             var layerRegistry = LayerRegistry;
             var currentSceneFadeSource = sceneFadeSource;
             var releasingSubscribers =
@@ -1006,6 +1026,7 @@ namespace inonego.Xeri.UI.Game
             defaultProfile = null;
             inputDriver = null;
             transitioner = null;
+            renderPipelineAdapter = null;
             LayerRegistry = null;
             focusedContext = null;
             Settings = null;
@@ -1022,6 +1043,8 @@ namespace inonego.Xeri.UI.Game
             // 시작된 종료는 결과와 관계없이 Callback이 제거하고 사전 조건에서 거부된 소유권만 보존한다.
             ReleaseProfileHandles(errors);
 
+            // Layer 출력이 모두 종료된 뒤 Render Pipeline Adapter가 전역 Pass와 임시 리소스를 반환한다.
+            DisposeOwned(currentRenderPipelineAdapter, errors);
             DisposeOwned(currentTransitioner, errors);
             pendingLayerRegistry = layerRegistry;
             DisposePendingLayerRegistry(errors);

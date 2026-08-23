@@ -1,16 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIBootstrapperModuleAsset.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-24
 
 # 설명
-기존 Xeri Bootstrapper에서 App 단위 Game UI Host Prefab을 직접 생성하고 초기화한다.
+Xeri Bootstrapper에서 현재 Render Pipeline 출력 Adapter와 App 단위 Game UI Host를 조립하고 초기화한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 
-using inonego.Xeri.Bootstrapper;
-
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Bootstrapper;
 
 namespace inonego.Xeri.UI.Game
 {
@@ -36,7 +38,7 @@ namespace inonego.Xeri.UI.Game
 
     #endregion
 
-    #region BootstrapperModuleAsset
+    #region Game UI 초기화
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -70,8 +72,11 @@ namespace inonego.Xeri.UI.Game
                     );
                 }
 
-                // 실제 인스턴스 구성과 Settings 계약은 Runtime 초기화 경계에서 한 번 검증한다.
-                runtime.Initialize(settings);
+                // 기존 Xeri Bootstrapper 단계에서 현재 Render Pipeline 출력 Adapter를 자동 획득한다.
+                var renderPipelineAdapter = GameUIRenderPipelineAdapterRegistry.Acquire();
+
+                // Runtime이 Adapter 소유권을 넘겨받아 초기화 실패와 정상 종료에서 같은 경로로 정리한다.
+                runtime.Initialize(settings, renderPipelineAdapter);
             }
             catch
             {

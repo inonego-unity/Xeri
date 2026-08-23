@@ -1,17 +1,19 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKPanelGammaCompositor.cs
-수정일 : 2026-08-02
+수정일 : 2026-08-23
 
 # 설명
-UI Toolkit PanelSettings를 offscreen RenderTexture로 렌더링한 뒤 화면용 Panel에서
+UI Toolkit PanelSettings를 FP16 offscreen RenderTexture로 렌더링한 뒤 화면용 Panel에서
 gamma→linear 합성하는 Panel 단위 컴포지터다.
 
 # 특이사항
 한 PanelSettings는 동시에 한 인스턴스만 점유할 수 있다.
+Gamma UI의 Premultiplied Color/Alpha는 합성 전까지 R16G16B16A16_SFloat 정밀도로 보존한다.
 화면용 합성 Panel은 원본 Panel보다 작은 Order Offset만큼 위에 배치해 UGUI와의 공통 Layer 순서를 유지한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.UIElements;
 
 using Object = UnityEngine.Object;
@@ -111,6 +113,7 @@ namespace inonego.Xeri.UI
         private const string BLIT_SHADER_NAME = "Hidden/XeriUI/UITKGammaComposite";
         private const float COMPOSITE_ORDER_OFFSET = 0.25f;
         private const int DEPTH_STENCIL_BITS = 24;
+        private const GraphicsFormat COLOR_FORMAT = GraphicsFormat.R16G16B16A16_SFloat;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -333,14 +336,13 @@ namespace inonego.Xeri.UI
 
             ReleaseRenderTexture();
 
-            // UNORM Linear RT는 forceGammaRendering이 기록한 USS gamma 값을 변환 없이 보존한다.
+            // FP16 Linear RT는 forceGammaRendering이 기록한 USS gamma 값과 Premultiplied Alpha를 합성 전까지 보존한다.
             targetTexture = new RenderTexture
             (
                 width,
                 height,
                 DEPTH_STENCIL_BITS,
-                RenderTextureFormat.ARGB32,
-                RenderTextureReadWrite.Linear
+                COLOR_FORMAT
             )
             {
                 name = $"{HostName}_ManagedGammaPanelRT",
