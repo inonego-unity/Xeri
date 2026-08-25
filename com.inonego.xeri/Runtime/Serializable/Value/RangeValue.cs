@@ -4,7 +4,7 @@
 
 # 설명
 값을 [Min, Max] 범위로 제한해 관리하는 클래스.
-Range(MinMax<T>)가 변경되면 현재값을 즉시 재조정한다.
+Range(Range<T>)가 변경되면 현재값을 즉시 재조정한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -29,8 +29,8 @@ namespace inonego.Xeri.Serializable
 
     #region 필드
 
-        IReadOnlyValue<MinMax<T>> IReadOnlyRangeValue<T>.Range => range;
-        IValue<MinMax<T>>         IRangeValue<T>        .Range => range;
+        IReadOnlyValue<Range<T>> IReadOnlyRangeValue<T>.Range => range;
+        IValue<Range<T>>         IRangeValue<T>        .Range => range;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -38,8 +38,8 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         [SerializeField]
-        protected Value<MinMax<T>> range = new();
-        public Value<MinMax<T>> Range => range;
+        protected Value<Range<T>> range = new();
+        public Value<Range<T>> Range => range;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -66,7 +66,7 @@ namespace inonego.Xeri.Serializable
         /// 초기 값과 범위를 지정해 초기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public RangeValue(T @base, MinMax<T> range)
+        public RangeValue(T @base, Range<T> range)
         {
             this.range.Base = range;
 
@@ -85,7 +85,7 @@ namespace inonego.Xeri.Serializable
         /// 범위가 변경될 때 현재값을 재조정한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void OnRangeChange(object sender, ValueChangeEventArgs<MinMax<T>> e)
+        private void OnRangeChange(object sender, ValueChangeEventArgs<Range<T>> e)
         {
             Base = Base;
         }
@@ -110,7 +110,7 @@ namespace inonego.Xeri.Serializable
         /// Undo 복원 후 backing field가 이미 복원된 상태에서 이벤트를 트리거할 때 사용한다.
         /// </summary>
         // -----------------------------------------------------------------------
-        public void InvokeOnRangeChange(MinMax<T> previousRange)
+        public void InvokeOnRangeChange(Range<T> previousRange)
         {
             Range.InvokeOnBaseChange(previousRange);
         }

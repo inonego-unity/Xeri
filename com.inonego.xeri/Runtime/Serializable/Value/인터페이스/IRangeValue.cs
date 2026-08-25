@@ -28,7 +28,7 @@ namespace inonego.Xeri.Serializable
         /// 값을 제한하는 범위(읽기 전용).
         /// </summary>
         // ------------------------------------------------------------
-        IReadOnlyValue<MinMax<T>> Range { get; }
+        IReadOnlyValue<Range<T>> Range { get; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -58,6 +58,6 @@ namespace inonego.Xeri.Serializable
         /// 값을 제한하는 범위.
         /// </summary>
         // ------------------------------------------------------------
-        new IValue<MinMax<T>> Range { get; }
+        new IValue<Range<T>> Range { get; }
     }
 }

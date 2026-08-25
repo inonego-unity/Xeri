@@ -51,7 +51,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
         private class RangeValueWrapper : ScriptableObject
         {
-            [SerializeField] public RangeValue<int> value = new(5, new MinMax<int>(0, 10));
+            [SerializeField] public RangeValue<int> value = new(5, new Range<int>(0, 10));
         }
 
         private class MValueWrapper : ScriptableObject
@@ -185,17 +185,17 @@ namespace inonego.Xeri.TEST.Serializable._Value
             var so       = new SerializedObject(wrapper);
             var instance = wrapper.value;
 
-            ValueChangeEventArgs<MinMax<int>> fired = default;
+            ValueChangeEventArgs<Range<int>> fired = default;
             instance.Range.OnBaseChange += (_, e) => fired = e;
 
-            var newRange = new MinMax<int>(2, 8);
+            var newRange = new Range<int>(2, 8);
             Undo.RecordObject(wrapper, "Set Range");
             instance.Range.Set(newRange, invokeEvent: true);
             EditorUtility.SetDirty(wrapper);
             so.Update();
 
-            Assert.AreEqual(new MinMax<int>(0, 10), fired.Previous);
-            Assert.AreEqual(new MinMax<int>(2, 8),  fired.Current);
+            Assert.AreEqual(new Range<int>(0, 10), fired.Previous);
+            Assert.AreEqual(new Range<int>(2, 8),  fired.Current);
 
             UnityEngine.Object.DestroyImmediate(wrapper);
         }
@@ -268,7 +268,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
             var minValue = 10;
             var maxValue = 5;
             if (minValue <= maxValue)
-                instance.Range.Set(new MinMax<int>(minValue, maxValue), invokeEvent: true);
+                instance.Range.Set(new Range<int>(minValue, maxValue), invokeEvent: true);
 
             Assert.IsFalse(fired);
 

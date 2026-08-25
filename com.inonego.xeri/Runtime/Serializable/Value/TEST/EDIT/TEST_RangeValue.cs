@@ -163,8 +163,8 @@ namespace inonego.Xeri.TEST.Serializable._Value
             ValueChangeEventArgs<int> valueChangeEventArgs = default;
 
             bool rangeChangeFired = false;
-            Value<MinMax<int>> rangeChangeSender = null;
-            ValueChangeEventArgs<MinMax<int>> rangeChangeArgs = default;
+            Value<Range<int>> rangeChangeSender = null;
+            ValueChangeEventArgs<Range<int>> rangeChangeArgs = default;
 
             void Reset()
             {
@@ -186,7 +186,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
             rangeValue.Range.OnBaseChange += (sender, e) =>
             {
                 rangeChangeFired = true;
-                rangeChangeSender = sender as Value<MinMax<int>>;
+                rangeChangeSender = sender as Value<Range<int>>;
                 rangeChangeArgs = e;
             };
 
@@ -240,14 +240,14 @@ namespace inonego.Xeri.TEST.Serializable._Value
         [Test]
         public void TEST_RangeValue_InvokeOnRangeChange_강제_발화()
         {
-            var rv = new RangeValue<int>(5, new MinMax<int>(0, 10));
-            ValueChangeEventArgs<MinMax<int>> fired = default;
+            var rv = new RangeValue<int>(5, new Range<int>(0, 10));
+            ValueChangeEventArgs<Range<int>> fired = default;
             rv.Range.OnBaseChange += (_, e) => fired = e;
 
-            rv.InvokeOnRangeChange(previousRange: new MinMax<int>(0, 20));
+            rv.InvokeOnRangeChange(previousRange: new Range<int>(0, 20));
 
-            Assert.AreEqual(new MinMax<int>(0, 20), fired.Previous);
-            Assert.AreEqual(new MinMax<int>(0, 10), fired.Current);
+            Assert.AreEqual(new Range<int>(0, 20), fired.Previous);
+            Assert.AreEqual(new Range<int>(0, 10), fired.Current);
         }
 
     #endregion

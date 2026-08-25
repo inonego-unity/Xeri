@@ -89,8 +89,8 @@ namespace inonego.Xeri
             field.label = fieldLabel;
             field.AddToClassList("xeri-range-sub-field");
             field.AddToClassList("xeri-set-field");
-            MinMaxDrawer.ApplyDragLabelStyle(field.labelElement);
-            MinMaxDrawer.ApplyFieldStyle(field);
+            RangeDrawer.ApplyDragLabelStyle(field.labelElement);
+            RangeDrawer.ApplyFieldStyle(field);
             field.SetValueWithoutNotify(initialValue);
             return field;
         }
@@ -118,7 +118,7 @@ namespace inonego.Xeri
         {
             var root           = new VisualElement();
             var lastKnownBase  = instance.Base;
-            var lastKnownRange = new MinMax<T>(instance.Min, instance.Max);
+            var lastKnownRange = new Range<T>(instance.Min, instance.Max);
             var isEditingRange = false;
 
             ValueDrawerHelper.ApplyStylesheet(root);
@@ -192,7 +192,7 @@ namespace inonego.Xeri
                     return;
                 }
 
-                var newRange = new MinMax<T>(minValue, maxValue);
+                var newRange = new Range<T>(minValue, maxValue);
                 Undo.RecordObject(target, "Set Range");
                 instance.Range.Set(newRange, invokeEvent: true);
                 lastKnownRange = newRange;
@@ -249,7 +249,7 @@ namespace inonego.Xeri
                 var restoredMax = readProp(maxProp);
                 if (Comparer<T>.Default.Compare(restoredMin, restoredMax) > 0) return;
 
-                var restoredRange = new MinMax<T>(restoredMin, restoredMax);
+                var restoredRange = new Range<T>(restoredMin, restoredMax);
 
                 if (!lastKnownRange.Equals(restoredRange))
                 {

@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : MinMaxDrawer.cs
+파일명 : RangeDrawer.cs
 수정일 : 2026-05-03
 
 # 설명
-MinMax<T> 전용 PropertyDrawer.
+Range<T> 전용 PropertyDrawer.
 Inspector에서 [Label | Min field | Max field] 단일 행 레이아웃을 렌더링한다.
 int·float 타입에 한해 Min > Max가 되면 자동으로 클램프해 불변 조건을 유지한다.
 int·float 타입은 레이블 드래그로 값 조정이 가능하다.
@@ -28,11 +28,11 @@ namespace inonego.Xeri
 
     // ============================================================
     /// <summary>
-    /// MinMax&lt;T&gt; 전용 PropertyDrawer.
+    /// Range&lt;T&gt; 전용 PropertyDrawer.
     /// </summary>
     // ============================================================
-    [CustomPropertyDrawer(typeof(MinMax<>))]
-    public class MinMaxDrawer : PropertyDrawer
+    [CustomPropertyDrawer(typeof(Range<>))]
+    public class RangeDrawer : PropertyDrawer
     {
         // ------------------------------------------------------------
         /// <summary>
