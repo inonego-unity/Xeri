@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명: Bootstrapper.cs
-수정일: 2026-05-20
+파일명 : Bootstrapper.cs
+수정일 : 2026-08-25
 
 # 설명
 플레이 시작 시 BootStrapper 설정에 따라 부트 씬을 로드하고 모듈을 초기화한 뒤 시작 씬으로 이동한다.
+Editor에서는 BootStrapper 씬과 충돌하는 Play Mode 시작 씬 오버라이드를 해제한다.
 모듈은 BootstrapperModuleAsset 에셋 목록을 순서대로 실행한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -31,6 +32,65 @@ namespace inonego.Xeri.Bootstrapper
 
         private static int initSceneIndex = -1;
         private static string initScenePath = null;
+
+    #endif
+
+    #endregion
+
+    #region 에디터 플레이 진입
+
+    #if UNITY_EDITOR
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Editor 로드 시 Play Mode 진입 상태 감시를 등록한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [InitializeOnLoadMethod]
+        private static void InitializeEditorPlayMode()
+        {
+            // 이미 남아 있는 충돌 상태를 즉시 정리하고 중복 구독 없이 감시를 유지한다.
+            ClearBootstrapperPlayModeStartScene();
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Play Mode 진입 직전에 BootStrapper와 충돌하는 시작 씬 오버라이드를 정리한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state != PlayModeStateChange.ExitingEditMode) return;
+
+            // Unity가 Play 시작 씬을 교체하기 전에 충돌하는 Editor 오버라이드를 제거한다.
+            ClearBootstrapperPlayModeStartScene();
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 설정된 BootStrapper 씬과 동일한 Play Mode 시작 씬 오버라이드를 해제한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static void ClearBootstrapperPlayModeStartScene()
+        {
+            var playModeStartScene = EditorSceneManager.playModeStartScene;
+            if (playModeStartScene == null) return;
+
+            var settings = BootstrapperSettings.Instance;
+            if (settings == null || !settings.BootstrapperSceneIndex.HasValue) return;
+
+            var scenes = EditorBuildSettings.scenes;
+            int bootstrapperSceneIndex = settings.BootstrapperSceneIndex.Value;
+            if (bootstrapperSceneIndex < 0 || bootstrapperSceneIndex >= scenes.Length) return;
+
+            string playModeStartScenePath = AssetDatabase.GetAssetPath(playModeStartScene);
+            string bootstrapperScenePath = scenes[bootstrapperSceneIndex].path;
+            if (playModeStartScenePath != bootstrapperScenePath) return;
+
+            EditorSceneManager.playModeStartScene = null;
+        }
 
     #endif
 
