@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUIBar.cs
-수정일 : 2026-08-15
+수정일 : 2026-08-26
 
 # 설명
 값 범위를 Background, Change, Foreground Image 계층으로 표시하는 UGUI Bar 컴포넌트.
@@ -119,7 +119,11 @@ namespace inonego.Xeri.UI
         }
 
         [SerializeField]
+    #if DOTWEEN
+        private TweenCurve changeCurve = new TweenCurve(0.35f, 0.08f, DG.Tweening.Ease.OutQuad);
+    #else
         private TweenCurve changeCurve = new TweenCurve();
+    #endif
 
         // ------------------------------------------------------------
         /// <summary>

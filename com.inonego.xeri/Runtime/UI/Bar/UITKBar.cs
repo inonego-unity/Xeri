@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKBar.cs
-수정일 : 2026-08-15
+수정일 : 2026-08-26
 
 # 설명
 ProgressBar와 같은 값 범위 API를 제공하고 3계층 Fill을 직접 소유하는 UI Toolkit Bar.
@@ -131,7 +131,11 @@ namespace inonego.Xeri.UI
             set => changeCurve = value;
         }
 
+    #if DOTWEEN
+        private TweenCurve changeCurve = new TweenCurve(0.35f, 0.08f, DG.Tweening.Ease.OutQuad);
+    #else
         private TweenCurve changeCurve = new TweenCurve();
+    #endif
 
         // ------------------------------------------------------------
         /// <summary>

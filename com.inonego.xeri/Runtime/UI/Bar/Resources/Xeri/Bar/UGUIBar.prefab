@@ -131,9 +131,9 @@ MonoBehaviour:
   value: 1
   direction: 0
   changeCurve:
-    Duration: 0
-    Delay: 0
-    Ease: 0
+    Duration: 0.35
+    Delay: 0.08
+    Ease: 6
   backgroundImage: {fileID: 2829183170978332578}
   changeImage: {fileID: 13152976210519648}
   foregroundImage: {fileID: 9203891076858479676}
