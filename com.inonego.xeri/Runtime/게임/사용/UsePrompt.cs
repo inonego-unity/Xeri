@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : InteractionPrompt.cs
-수정일 : 2026-08-04
+파일명 : UsePrompt.cs
+수정일 : 2026-08-24
 
 # 설명
-현재 선택된 InteractionOffer를 UI가 표시할 수 있도록 전달하는 최소 Prompt 데이터.
+현재 선택된 UseOffer를 UI가 표시할 수 있도록 전달하는 최소 Prompt 데이터.
 
 # 제약사항
 문자열 현지화, 아이콘 Key, Hold 진행도와 UI 구현은 상위 프로젝트가 확장한다.
@@ -16,16 +16,16 @@ namespace inonego.Xeri
     /// 현재 선택된 Offer의 표시 정보를 담는 Prompt.
     /// </summary>
     // ============================================================
-    public readonly struct InteractionPrompt
+    public readonly struct UsePrompt
     {
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Prompt를 제공한 상호작용 Offer.
+        /// Prompt를 제공한 Use Offer.
         /// </summary>
         // ------------------------------------------------------------
-        public InteractionOffer Offer { get; }
+        public UseOffer Offer { get; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -43,7 +43,7 @@ namespace inonego.Xeri
         /// Offer의 현재 표시 텍스트로 Prompt를 만든다.
         /// </summary>
         // ------------------------------------------------------------
-        public InteractionPrompt(InteractionOffer offer)
+        public UsePrompt(UseOffer offer)
         {
             Offer = offer;
             Text = offer != null ? offer.PromptText : string.Empty;

@@ -1,24 +1,28 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GenerationSeed.cs
-수정일 : 2026-08-04
+수정일 : 2026-08-24
 
 # 설명
-Root Seed에서 안정 Generation Identity별 Subtree Seed를 결정적으로 파생한다.
+Root Seed에서 안정 문자열 Key별 독립 Seed를 결정적으로 파생한다.
 
 # 제약사항
-난수 분포 선택이나 도메인 배치 규칙은 소유하지 않는다.
+Recipe·Slot·Pass 같은 생성 구조와 재시도 정책을 강제하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Text;
+
+using UnityEngine;
 
 namespace inonego.Xeri.Generation
 {
     // ============================================================
     /// <summary>
-    /// 생성 결과를 결정적으로 파생하기 위한 64비트 Seed다.
+    /// 생성 결과를 결정적으로 파생하기 위한 64비트 Seed.
     /// </summary>
     // ============================================================
-    public readonly struct GenerationSeed
+    [Serializable]
+    public struct GenerationSeed : IEquatable<GenerationSeed>
     {
     #region 내부 데이터
 
@@ -31,12 +35,13 @@ namespace inonego.Xeri.Generation
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Seed의 원본 64비트 값이다.
+        /// Seed의 원본 64비트 값.
         /// </summary>
         // ------------------------------------------------------------
         public ulong Value => value;
 
-        private readonly ulong value;
+        [SerializeField]
+        private ulong value;
 
     #endregion
 
@@ -58,22 +63,26 @@ namespace inonego.Xeri.Generation
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 안정 Recipe·Slot·Pass 조합에 대응하는 독립 Subtree Seed를 만든다.
+        /// 현재 Seed에서 안정 문자열 Key에 대응하는 독립 Seed를 파생한다.
         /// </summary>
         // ------------------------------------------------------------
-        public GenerationSeed Derive(GenerationIdentity identity)
+        public GenerationSeed Derive(string stableKey)
         {
-            if (!identity.IsDefined)
+            if (string.IsNullOrWhiteSpace(stableKey))
             {
-                throw new System.ArgumentException("Seed 파생에는 정의된 Generation Identity가 필요합니다.", nameof(identity));
+                throw new ArgumentException("Seed 파생 Key를 비워 둘 수 없습니다.", nameof(stableKey));
             }
 
             var hash = HashUInt64(FnvOffsetBasis, value);
+            var bytes = Encoding.UTF8.GetBytes(stableKey);
+            hash = HashUInt64(hash, (ulong)bytes.Length);
 
-            // 각 Key 앞에 길이를 포함해 서로 다른 Key 묶음이 같은 바이트열이 되지 않게 한다.
-            hash = HashKey(hash, identity.RecipeKey);
-            hash = HashKey(hash, identity.Slot.Key);
-            hash = HashKey(hash, identity.PassKey);
+            foreach (var item in bytes)
+            {
+                hash ^= item;
+                hash *= FnvPrime;
+            }
+
             return new GenerationSeed(hash);
         }
 
@@ -87,36 +96,34 @@ namespace inonego.Xeri.Generation
             return new GenerationRandom(this);
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 Subtree Seed에서 지정 재시도 전용 Seed를 결정적으로 파생한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public GenerationSeed DeriveAttempt(int attemptIndex)
+        public bool Equals(GenerationSeed other)
         {
-            if (attemptIndex < 0)
-            {
-                throw new System.ArgumentOutOfRangeException(nameof(attemptIndex));
-            }
-
-            if (attemptIndex == 0)
-            {
-                return this;
-            }
-
-            var hash = HashUInt64(FnvOffsetBasis, value);
-            hash = HashUInt64(hash, (ulong)attemptIndex);
-            return new GenerationSeed(hash);
+            return value == other.value;
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 진단에 사용할 Seed의 16진수 문자열을 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
+        public override bool Equals(object obj)
+        {
+            return obj is GenerationSeed other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return value.GetHashCode();
+        }
+
         public override string ToString()
         {
             return value.ToString("X16");
+        }
+
+        public static bool operator ==(GenerationSeed left, GenerationSeed right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(GenerationSeed left, GenerationSeed right)
+        {
+            return !left.Equals(right);
         }
 
         // ------------------------------------------------------------
@@ -131,25 +138,6 @@ namespace inonego.Xeri.Generation
                 hash ^= (byte)input;
                 hash *= FnvPrime;
                 input >>= 8;
-            }
-
-            return hash;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 안정 Key를 길이와 UTF-8 바이트 순서로 FNV-1a 입력에 추가한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static ulong HashKey(ulong hash, GenerationKey key)
-        {
-            var bytes = Encoding.UTF8.GetBytes(key.Value);
-            hash = HashUInt64(hash, (ulong)bytes.Length);
-
-            foreach (var value in bytes)
-            {
-                hash ^= value;
-                hash *= FnvPrime;
             }
 
             return hash;

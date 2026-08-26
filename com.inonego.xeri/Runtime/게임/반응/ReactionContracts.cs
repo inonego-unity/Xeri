@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ReactionContracts.cs
-수정일 : 2026-08-04
+수정일 : 2026-08-27
 
 # 설명
-직접 Scene 참조 기반 ReactionBinding이 사용하는 Signal Source, Action Target과 실행 Context 계약.
+ReactionBinding이 사용하는 Signal Source, Action Target과 실행 Context 계약.
 
 # 제약사항
 동적 주소 해석, Registry, 비동기 실행 상태와 Sequence는 이 계약에 포함하지 않는다.
@@ -77,7 +77,7 @@ namespace inonego.Xeri
 
     // ============================================================
     /// <summary>
-    /// ReactionBinding이 실행을 요청할 도메인 효과 대상.
+    /// ReactionBinding이 실행을 요청할 효과 대상.
     /// </summary>
     // ============================================================
     public interface IActionTarget
@@ -86,10 +86,10 @@ namespace inonego.Xeri
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 전달받은 Context에 따라 효과 실행을 시도한다.
+        /// 전달받은 Context와 함께 효과를 실행한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool TryExecute(ReactionContext context);
+        public void Execute(ReactionContext context);
 
     #endregion
     }

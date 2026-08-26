@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ZoneLink.cs
-수정일 : 2026-08-05
+수정일 : 2026-08-24
 
 # 설명
-두 Zone 사이의 이동 관계와 원인별 통행 제한을 관리한다.
+두 Zone ID 사이의 연결 방향과 원인별 runtime 통행 제한을 관리하는 직렬화 가능한 모델.
 
 # 제약사항
-제한 원인의 의미와 해제 조건은 이 Link가 아니라 외부 도메인 또는 Binding이 소유한다.
+특정 Actor의 현재 Zone, Unity Collider, 제한 원인의 지속 상태를 소유하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -14,19 +14,82 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+using inonego.Xeri;
+
 namespace inonego.Xeri.Game
 {
     // ============================================================
     /// <summary>
-    /// Zone Link에 추가한 하나의 통행 제한을 소유하고 해제한다.
+    /// 두 Zone node 사이의 topology 연결과 runtime passability를 표현한다.
     /// </summary>
     // ============================================================
-    public sealed class ZoneLinkBlockLease : IDisposable
+    [Serializable]
+    public sealed class ZoneLink
     {
     #region 필드
 
-        private ZoneLink link = null;
-        private readonly int blockID;
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Link의 0번 끝점 Zone ID.
+        /// </summary>
+        // ------------------------------------------------------------
+        public string Zone0ID => zone0ID;
+
+        [SerializeField]
+        private string zone0ID = "";
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Link의 1번 끝점 Zone ID.
+        /// </summary>
+        // ------------------------------------------------------------
+        public string Zone1ID => zone1ID;
+
+        [SerializeField]
+        private string zone1ID = "";
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Zone 1에서 Zone 0 방향 이동도 허용할지 나타낸다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsBidirectional => isBidirectional;
+
+        [SerializeField]
+        private bool isBidirectional = true;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 runtime 제한 원인이 해제되어 현재 통과 가능한지 나타낸다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsPassable => Blocks.Count == 0;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Link를 막고 있는 독립 원인의 수.
+        /// </summary>
+        // ------------------------------------------------------------
+        public int BlockCount => Blocks.Count;
+
+        private Dictionary<int, string> Blocks => blocks ??= new Dictionary<int, string>();
+
+        [NonSerialized]
+        private Dictionary<int, string> blocks = null;
+
+        [NonSerialized]
+        private int nextBlockID = 1;
+
+    #endregion
+
+    #region 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// runtime 통행 가능 상태가 변경된 뒤 호출된다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event Action<ZoneLink> OnPassabilityChanged = null;
 
     #endregion
 
@@ -34,204 +97,120 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 특정 Link가 소유한 통행 제한 Lease를 만든다.
+        /// Serializer용 기본 생성자.
         /// </summary>
         // ------------------------------------------------------------
-        internal ZoneLinkBlockLease(ZoneLink link, int blockID)
+        public ZoneLink() { }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 두 Zone ID와 방향 정책으로 Link를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ZoneLink(string zone0ID, string zone1ID, bool isBidirectional = true)
         {
-            this.link = link;
-            this.blockID = blockID;
+            if (string.IsNullOrWhiteSpace(zone0ID))
+            {
+                throw new ArgumentException("Zone Link의 0번 끝점 ID를 비워 둘 수 없습니다.", nameof(zone0ID));
+            }
+
+            if (string.IsNullOrWhiteSpace(zone1ID))
+            {
+                throw new ArgumentException("Zone Link의 1번 끝점 ID를 비워 둘 수 없습니다.", nameof(zone1ID));
+            }
+
+            if (string.Equals(zone0ID, zone1ID, StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Zone Link의 양 끝점은 서로 달라야 합니다.");
+            }
+
+            this.zone0ID = zone0ID;
+            this.zone1ID = zone1ID;
+            this.isBidirectional = isBidirectional;
         }
 
     #endregion
 
     #region 메서드
-
         // ------------------------------------------------------------
         /// <summary>
-        /// 이 Lease가 추가한 통행 제한만 해제한다.
+        /// source Zone ID에서 이 Link를 통해 이동할 목적지 Zone ID를 찾는다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Dispose()
+        public bool TryGetDestinationID(string sourceZoneID, out string destinationZoneID)
         {
-            if (link == null)
+            if (string.Equals(sourceZoneID, zone0ID, StringComparison.Ordinal))
             {
-                return;
+                destinationZoneID = zone1ID;
+                return !string.IsNullOrWhiteSpace(destinationZoneID);
             }
 
-            // Lease 소유자만 자신의 제한을 해제하도록 Link와의 연결을 즉시 끊는다.
-            var ownedLink = link;
-            link = null;
-            ownedLink.ReleaseBlock(blockID);
-        }
-
-    #endregion
-    }
-
-    // ============================================================
-    /// <summary>
-    /// 두 Zone 사이의 실제 이동 관계와 통행 가능 상태를 제공한다.
-    /// </summary>
-    // ============================================================
-    public sealed class ZoneLink : MonoBehaviour
-    {
-    #region 필드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Link의 한쪽 끝 Zone이다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [SerializeField]
-        private Zone zone0 = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Link의 반대쪽 끝 Zone이다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [SerializeField]
-        private Zone zone1 = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Link의 0번 Zone 끝점이다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal Zone Zone0 => zone0;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Link의 1번 Zone 끝점이다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal Zone Zone1 => zone1;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Zone 1에서 Zone 0 방향 이동을 허용할지 나타낸다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [SerializeField]
-        private bool isBidirectional = true;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 모든 원인이 해제되어 이 Link를 통과할 수 있는지 나타낸다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public bool IsPassable => blocks.Count == 0;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 이 Link를 막고 있는 원인의 수다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public int BlockCount => blocks.Count;
-
-        private readonly Dictionary<int, string> blocks = new();
-        private int nextBlockID = 1;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 통행 가능 상태가 변경된 뒤 호출된다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public event Action<ZoneLink> OnPassabilityChanged = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Zone Graph가 이 Link를 통한 Zone 이동을 확정한 뒤 호출된다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public event Action<ZoneLink, Zone, Zone> OnTraversed = null;
-
-    #endregion
-
-    #region 메서드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 Zone에서 이 Link를 통해 이동할 목적지 Zone을 찾는다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public bool TryGetDestination(Zone source, out Zone destination)
-        {
-            if (source == zone0)
+            if (isBidirectional && string.Equals(sourceZoneID, zone1ID, StringComparison.Ordinal))
             {
-                destination = zone1;
-                return destination != null;
+                destinationZoneID = zone0ID;
+                return !string.IsNullOrWhiteSpace(destinationZoneID);
             }
 
-            if (isBidirectional && source == zone1)
-            {
-                destination = zone0;
-                return destination != null;
-            }
-
-            destination = null;
+            destinationZoneID = null;
             return false;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Zone Graph가 이 Link의 양 끝점이 서로 다른 Zone으로 설정됐는지 확인한다.
+        /// 직렬화된 양 끝점이 유효하고 서로 다른지 확인한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal bool HasDistinctEndpoints()
+        public bool HasDistinctEndpoints()
         {
-            return zone0 != null && zone1 != null && zone0 != zone1;
+            return !string.IsNullOrWhiteSpace(zone0ID)
+                && !string.IsNullOrWhiteSpace(zone1ID)
+                && !string.Equals(zone0ID, zone1ID, StringComparison.Ordinal);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Zone Graph가 확정한 이 Link의 이동 사실을 외부 구독자에게 전달한다.
+        /// 통행을 막는 새 runtime 원인을 추가하고 해당 원인 전용 Lease를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void NotifyTraversed(Zone source, Zone destination)
-        {
-            OnTraversed?.Invoke(this, source, destination);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 통행을 막는 새 원인을 추가하고 해당 원인 전용 Lease를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public ZoneLinkBlockLease AcquireBlock(string cause)
+        public Lease AcquireBlock(string cause)
         {
             if (string.IsNullOrWhiteSpace(cause))
             {
                 throw new ArgumentException("통행 제한 원인을 비워 둘 수 없습니다.", nameof(cause));
             }
 
+            if (nextBlockID <= 0)
+            {
+                nextBlockID = 1;
+            }
+
             var wasPassable = IsPassable;
             var blockID = nextBlockID++;
 
-            // 같은 원인 이름도 별도 Lease로 유지해 서로의 제한을 해제하지 못하게 한다.
-            blocks.Add(blockID, cause);
+            // 같은 이름의 원인도 서로 다른 Lease로 유지해 각 소유자가 자신의 제한만 해제하게 한다.
+            Blocks.Add(blockID, cause);
 
             if (wasPassable)
             {
                 OnPassabilityChanged?.Invoke(this);
             }
 
-            return new ZoneLinkBlockLease(this, blockID);
+            return new Lease(() => ReleaseBlock(blockID));
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정한 Lease가 소유한 통행 제한을 제거한다.
+        /// 하나의 Lease가 소유한 runtime 통행 제한만 제거한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void ReleaseBlock(int blockID)
+        private void ReleaseBlock(int blockID)
         {
-            if (!blocks.Remove(blockID) || !IsPassable)
+            if (!Blocks.Remove(blockID) || !IsPassable)
             {
                 return;
             }
 
-            // 마지막 제한이 해제된 순간만 외부에 통행 가능 전환을 알린다.
+            // 마지막 제한이 해제된 순간만 passability 전환을 알린다.
             OnPassabilityChanged?.Invoke(this);
         }
 

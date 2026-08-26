@@ -1,13 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ReactionBinding.cs
-수정일 : 2026-08-04
+수정일 : 2026-08-27
 
 # 설명
-같은 Scene·Prefab Scope의 Signal Source, 선택적 ICond Guard, Action Target을 직접 연결하는 Component.
+같은 Scene·Prefab Scope의 Signal Source, 선택적 ICond Guard와 직렬화 Action Target을 연결한다.
 
 # 제약사항
 1차 정책은 IgnoreWhileRunning만 지원하며 EndpointAddress, Registry, Sequence와 비동기 취소 상태를 소유하지 않는다.
-Inspector 작성은 전용 Editor가 계약을 검증하고, 런타임 변경은 Configure를 통해서만 구독을 다시 연결한다.
+Action Target은 SerializeReference로 소유하고 Xeri picker를 통해 authoring하며 런타임 변경은 Configure로 연결한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -16,6 +16,8 @@ using UnityEngine;
 
 namespace inonego.Xeri
 {
+    using Serializable;
+
     // ============================================================
     /// <summary>
     /// Signal 발생을 선택적 Guard 판정 뒤 Action Target 실행으로 연결하는 Component.
@@ -31,8 +33,8 @@ namespace inonego.Xeri
         [SerializeField]
         private MonoBehaviour guard = null;
 
-        [SerializeField]
-        private MonoBehaviour target = null;
+        [SerializeReference, SerializeReferencePicker]
+        private IActionTarget target = null;
 
         private ISignalSource boundSource = null;
         private ICond<ReactionContext> boundGuard = null;
@@ -73,7 +75,12 @@ namespace inonego.Xeri
         /// <br/> 기존 구독을 해제한 뒤 유효성이 확인된 새 Endpoint만 다시 구독한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void Configure(MonoBehaviour source, MonoBehaviour guard, MonoBehaviour target)
+        public void Configure
+        (
+            MonoBehaviour source,
+            MonoBehaviour guard,
+            IActionTarget target
+        )
         {
             // 유효하지 않은 입력은 기존 연결까지 끊지 않도록 먼저 계약을 검증한다.
             if (!(source is ISignalSource))
@@ -86,9 +93,9 @@ namespace inonego.Xeri
                 throw new ArgumentException("ReactionBinding Guard는 ICond<ReactionContext>를 구현한 MonoBehaviour여야 합니다.", nameof(guard));
             }
 
-            if (!(target is IActionTarget))
+            if (target == null)
             {
-                throw new ArgumentException("ReactionBinding Target은 IActionTarget을 구현한 MonoBehaviour여야 합니다.", nameof(target));
+                throw new ArgumentNullException(nameof(target));
             }
 
             // 이전 Source에서 먼저 해제해 교체 중에는 오래된 Signal이 Target을 실행하지 않게 한다.
@@ -107,24 +114,18 @@ namespace inonego.Xeri
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Inspector 직접 참조를 최소 Reaction 계약으로 해석하고 유효한 경우에만 구독한다.
+        /// Authoring Endpoint를 최소 Reaction 계약으로 해석하고 유효한 경우에만 구독한다.
         /// </summary>
         // ------------------------------------------------------------
         private void Bind()
         {
             boundSource = source as ISignalSource;
             boundGuard = guard as ICond<ReactionContext>;
-            boundTarget = target as IActionTarget;
+            boundTarget = target;
 
             if (boundSource == null)
             {
                 Debug.LogError("ReactionBinding Source는 ISignalSource를 구현한 MonoBehaviour여야 합니다.", this);
-                return;
-            }
-
-            if (target != null && boundTarget == null)
-            {
-                Debug.LogError("ReactionBinding Target은 IActionTarget을 구현한 MonoBehaviour여야 합니다.", this);
                 return;
             }
 
@@ -183,11 +184,8 @@ namespace inonego.Xeri
 
             try
             {
-                // Target이 false를 반환하면 도메인이 실행 요청을 거부한 것이므로 조용히 성공으로 취급하지 않는다.
-                if (!boundTarget.TryExecute(context))
-                {
-                    Debug.LogWarning("ReactionBinding Action Target이 실행 요청을 거부했습니다.", this);
-                }
+                // Action Target이 Reaction Context를 해석해 실제 효과를 실행하도록 위임한다.
+                boundTarget.Execute(context);
             }
             catch (Exception exception)
             {

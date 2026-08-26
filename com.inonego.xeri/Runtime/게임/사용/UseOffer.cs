@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : InteractionOffer.cs
-수정일 : 2026-08-04
+파일명 : UseOffer.cs
+수정일 : 2026-08-27
 
 # 설명
-도메인 객체에 선택적으로 부착되어 Prompt, 우선순위와 Used Signal을 제공하는 상호작용 Offer.
+도메인 객체에 선택적으로 부착되어 Prompt, 우선순위, 공간 Anchor와 Used Signal을 제공하는 Use Offer.
 
 # 제약사항
 Door·NPC 등 도메인 API를 직접 호출하지 않으며 실제 효과는 ReactionBinding과 Action Target이 담당한다.
@@ -17,10 +17,10 @@ namespace inonego.Xeri
 {
     // ============================================================
     /// <summary>
-    /// 직접 상호작용 후보 하나를 표현하는 Signal Source Component.
+    /// 직접 Use 후보 하나를 표현하는 Signal Source Component.
     /// </summary>
     // ============================================================
-    public sealed class InteractionOffer : MonoBehaviour, ISignalSource
+    public sealed class UseOffer : MonoBehaviour, ISignalSource
     {
     #region 필드
 
@@ -54,6 +54,16 @@ namespace inonego.Xeri
         [SerializeField]
         private bool isAvailable = true;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 거리·시선·Prompt가 공유할 World 기준점. 비어 있으면 이 Offer Transform을 사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Transform Anchor => anchor != null ? anchor : transform;
+
+        [SerializeField]
+        private Transform anchor = null;
+
     #endregion
 
     #region 이벤트
@@ -70,7 +80,7 @@ namespace inonego.Xeri
         /// 사용 가능 여부가 바뀌어 Controller 후보 선택을 다시 계산해야 할 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event Action<InteractionOffer> OnAvailabilityChange = null;
+        public event Action<UseOffer> OnAvailabilityChange = null;
 
     #endregion
 

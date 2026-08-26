@@ -1,22 +1,24 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GenerationValidation.cs
-수정일 : 2026-08-04
+수정일 : 2026-08-24
 
 # 설명
-생성 Manifest 검증 결과와 원인별 진단 정보를 순수 데이터로 표현한다.
+생성 결과의 검증 진단과 Validator 최소 계약을 제공한다.
 
 # 제약사항
-검증 규칙과 재시도·대체 정책은 각 도메인 Validator가 정의한다.
+Manifest, Pipeline, Retry, Backtrack, Runtime 인스턴스화 정책을 강제하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 using System.Collections.Generic;
 
+using UnityEngine;
+
 namespace inonego.Xeri.Generation
 {
     // ============================================================
     /// <summary>
-    /// 생성 검증 진단이 생성 자체를 막는지 나타낸다.
+    /// 생성 검증 진단이 결과 사용을 막는지 나타낸다.
     /// </summary>
     // ============================================================
     public enum GenerationIssueSeverity
@@ -31,36 +33,39 @@ namespace inonego.Xeri.Generation
     /// </summary>
     // ============================================================
     [Serializable]
-    public readonly struct GenerationValidationIssue
+    public struct GenerationValidationIssue
     {
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 도메인 Validator가 부여한 안정 진단 Code다.
+        /// 도메인 Validator가 부여한 안정 진단 Code.
         /// </summary>
         // ------------------------------------------------------------
-        public GenerationKey Code => code;
+        public string Code => code;
 
-        private readonly GenerationKey code;
+        [SerializeField]
+        private string code;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 이 진단이 인스턴스화를 막는지 나타낸다.
+        /// 이 진단이 결과 사용을 막는지 나타낸다.
         /// </summary>
         // ------------------------------------------------------------
         public GenerationIssueSeverity Severity => severity;
 
-        private readonly GenerationIssueSeverity severity;
+        [SerializeField]
+        private GenerationIssueSeverity severity;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 제작자 또는 로그에 표시할 진단 설명이다.
+        /// 제작자 또는 로그에 표시할 진단 설명.
         /// </summary>
         // ------------------------------------------------------------
         public string Message => message;
 
-        private readonly string message;
+        [SerializeField]
+        private string message;
 
     #endregion
 
@@ -73,14 +78,14 @@ namespace inonego.Xeri.Generation
         // ------------------------------------------------------------
         public GenerationValidationIssue
         (
-            GenerationKey code,
+            string code,
             GenerationIssueSeverity severity,
             string message
         )
         {
-            if (!code.IsDefined)
+            if (string.IsNullOrWhiteSpace(code))
             {
-                throw new ArgumentException("Generation Validation Issue에는 Code가 필요합니다.", nameof(code));
+                throw new ArgumentException("Generation Validation Issue의 Code를 비워 둘 수 없습니다.", nameof(code));
             }
 
             if (string.IsNullOrWhiteSpace(message))
@@ -98,30 +103,46 @@ namespace inonego.Xeri.Generation
 
     // ============================================================
     /// <summary>
-    /// 하나의 Manifest 검증 결과와 모든 진단 목록을 보관한다.
+    /// 하나의 생성 결과에 대한 Warning/Error 전체 목록을 보관한다.
     /// </summary>
     // ============================================================
-    public readonly struct GenerationValidationResult
+    [Serializable]
+    public struct GenerationValidationResult
     {
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Error 진단이 없어 Manifest를 인스턴스화할 수 있는지 나타낸다.
+        /// Error 진단이 없어 결과를 사용할 수 있는지 나타낸다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool IsValid => isValid;
+        public bool IsValid
+        {
+            get
+            {
+                var current = Issues;
 
-        private readonly bool isValid;
+                for (var index = 0; index < current.Count; index++)
+                {
+                    if (current[index].Severity == GenerationIssueSeverity.Error)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Validator가 발견한 Warning과 Error 전체 목록이다.
+        /// Validator가 발견한 Warning과 Error 전체 목록.
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyList<GenerationValidationIssue> Issues => issues ?? Array.Empty<GenerationValidationIssue>();
 
-        private readonly GenerationValidationIssue[] issues;
+        [SerializeField]
+        private GenerationValidationIssue[] issues;
 
     #endregion
 
@@ -129,7 +150,7 @@ namespace inonego.Xeri.Generation
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 전달받은 진단 전체를 보존하는 검증 결과를 만든다.
+        /// 전달받은 진단 전체를 복사해 검증 결과를 만든다.
         /// </summary>
         // ------------------------------------------------------------
         public GenerationValidationResult(IReadOnlyList<GenerationValidationIssue> issues)
@@ -140,20 +161,28 @@ namespace inonego.Xeri.Generation
             }
 
             this.issues = new GenerationValidationIssue[issues.Count];
-            isValid = true;
 
             for (var index = 0; index < issues.Count; index++)
             {
-                var issue = issues[index];
-                this.issues[index] = issue;
-
-                if (issue.Severity == GenerationIssueSeverity.Error)
-                {
-                    isValid = false;
-                }
+                this.issues[index] = issues[index];
             }
         }
 
     #endregion
+    }
+
+    // ============================================================
+    /// <summary>
+    /// 생성 결과가 도메인 제약을 만족하는지 판정하는 최소 계약.
+    /// </summary>
+    // ============================================================
+    public interface IGenerationValidator<in TResult>
+    {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 생성 결과의 유효성과 진단 목록을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        GenerationValidationResult Validate(TResult result);
     }
 }
