@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityBase.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-29
 
 # 설명
 엔티티 추상 베이스 클래스.
@@ -124,7 +124,7 @@ namespace inonego.Xeri.Game
         /// HP 상태 변경 이벤트를 구독한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void InitHP()
+        private void BindHP()
         {
             if (spawnState != SpawnState.Spawned)
             {
@@ -149,6 +149,8 @@ namespace inonego.Xeri.Game
                 );
             }
 
+            // Deserialize callback이 중복 호출돼도 같은 handler가 중복 등록되지 않게 정규화한다.
+            hp.OnStateChange -= _OnHPStateChange;
             hp.OnStateChange += _OnHPStateChange;
         }
 
@@ -157,7 +159,7 @@ namespace inonego.Xeri.Game
         /// HP 이벤트 구독을 해제하고 Dead Reason이면 사망 상태를 보장한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void ReleaseHP(DespawnReason reason)
+        private void UnbindHP(DespawnReason reason)
         {
             if (spawnState != SpawnState.Despawning)
             {
@@ -235,6 +237,26 @@ namespace inonego.Xeri.Game
             set => despawnFromRegistry = value;
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Registry가 Spawned 소유 관계를 확정할 때 HP 런타임 연결을 구성한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        void IEntity.OnRegistrationAttached()
+        {
+            BindHP();
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Registry가 Spawned 소유 관계를 해제할 때 HP 런타임 연결을 정리한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        void IEntity.OnRegistrationDetached(DespawnReason reason)
+        {
+            UnbindHP(reason);
+        }
+
         // ------------------------------------------------------------
         /// <summary>
         /// Spawning 상태에서 호출되는 파생 Entity 훅.
@@ -261,12 +283,11 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Registry 등록 뒤 HP 이벤트 구독과 파생 Entity 훅을 순서대로 호출한다.
+        /// Registry 등록 완료 뒤 파생 Entity의 실제 Spawn 완료 훅을 호출한다.
         /// </summary>
         // ------------------------------------------------------------
         void ISpawnable.OnSpawned()
         {
-            InitHP();
             OnSpawned();
         }
 
@@ -279,20 +300,12 @@ namespace inonego.Xeri.Game
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Registry 등록 해제 전에 파생 Entity 훅과 HP 구독 해제를 순서대로 수행한다.
+        /// Registry 등록 해제 전에 파생 Entity 훅을 호출한다.
         /// </summary>
         // ------------------------------------------------------------
         void IDespawnable.OnDespawning(DespawnReason reason)
         {
-            try
-            {
-                OnDespawning(reason);
-            }
-            finally
-            {
-                // 파생 훅이 실패해도 Entity가 더 이상 HP 변경을 수신하지 않도록 구독을 해제한다.
-                ReleaseHP(reason);
-            }
+            OnDespawning(reason);
         }
 
         // ------------------------------------------------------------

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_EntitySpawnRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-08-29
 
 # 설명
 EntitySpawnRegistry 핵심 동작 테스트.
@@ -10,10 +10,13 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 # 테스트 구성
  E: 기본 기능 (키 자동 생성/디스폰 시 키 클리어)
  H: HP 연동 (HP 사망 자동 디스폰)
+ S: 직렬화 (Registry/Entity/HP/KeyGenerator JSON round-trip)
  X: 예외 처리 (사망 엔티티 스폰 롤백)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+
+using UnityEngine;
 
 using NUnit;
 using NUnit.Framework;
@@ -41,10 +44,14 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         /// HP_I 를 주입받는 테스트 엔티티.
         /// </summary>
         // ------------------------------------------------------------
+        [Serializable]
         private class TestEntity : EntityBase
         {
-            private readonly HP_I       hp    = new HP_I { MaxValue = 100 };
-            private readonly Value<int> group = new Value<int>();
+            [SerializeField]
+            private HP_I hp = new HP_I { MaxValue = 100 };
+
+            [SerializeField]
+            private Value<int> group = new Value<int>();
 
             public override IHP         HP    => hp;
             public override IValue<int> Group => group;
@@ -62,6 +69,7 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
         /// 외부 인스턴스 주입 + TrySpawn 노출 테스트 레지스트리.
         /// </summary>
         // ------------------------------------------------------------
+        [Serializable]
         private class TestRegistry : EntitySpawnRegistry<TestEntity>
         {
             public TestEntity NextEntity { get; set; }
@@ -131,6 +139,45 @@ namespace inonego.Xeri.TEST.Game._EntitySpawn
             Assert.IsTrue(entity.HP.IsDead);
             Assert.AreEqual(SpawnState.Despawned, entity.SpawnState);
             Assert.AreEqual(0, registry.Spawned.Count);
+        }
+
+    #endregion
+
+    #region S-1: JSON Round-trip
+
+        // ------------------------------------------------------------------------------------------
+        /// <summary>
+        /// JsonUtility round-trip 뒤 Entity membership, HP 자동 디스폰 연결과 KeyGenerator 연속성을 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------------------------------------
+        [Test]
+        public void TEST_EntitySpawnRegistry_JsonUtility_RoundTrip_HP연결과_KeyGenerator_복원()
+        {
+            var registry = new TestRegistry();
+
+            Assert.IsTrue(registry.TrySpawn(out var first));
+            Assert.IsTrue(registry.TrySpawn(out var second));
+
+            var firstKey = first.Key;
+            var secondKey = second.Key;
+            var json = JsonUtility.ToJson(registry);
+            var restored = JsonUtility.FromJson<TestRegistry>(json);
+
+            Assert.IsNotNull(restored);
+            Assert.AreEqual(2, restored.Spawned.Count);
+            Assert.IsNotNull(restored.Find(firstKey));
+            Assert.IsNotNull(restored.Find(secondKey));
+
+            var restoredFirst = restored.Find(firstKey);
+            restoredFirst.Damage(100);
+
+            Assert.IsTrue(restoredFirst.HP.IsDead);
+            Assert.AreEqual(SpawnState.Despawned, restoredFirst.SpawnState);
+            Assert.AreEqual(1, restored.Spawned.Count);
+            Assert.IsNull(restored.Find(firstKey));
+
+            Assert.IsTrue(restored.TrySpawn(out var next));
+            Assert.AreEqual(2UL, next.Key);
         }
 
     #endregion

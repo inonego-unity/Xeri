@@ -1,6 +1,6 @@
-/* BLOCK_HEADER_BEGIN =======================================================================
+﻿/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SpawnRegistry.cs
-수정일 : 2026-07-29
+수정일 : 2026-08-29
 
 # 설명
 SpawnRegistryBase / SpawnRegistry 핵심 동작 테스트.
@@ -16,6 +16,8 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 using System;
 using System.Collections;
 using System.Collections.Generic;
+
+using UnityEngine;
 
 using NUnit;
 using NUnit.Framework;
@@ -40,13 +42,26 @@ namespace inonego.Xeri.TEST.Game._Spawn
         /// ulong 키 기반 단순 스폰 객체.
         /// </summary>
         // ------------------------------------------------------------
+        [Serializable]
         private class TestObject : ISpawnRegistryObject<ulong>
         {
-            public ulong      Key        { get; private set; }
-            public bool       HasKey     { get; private set; }
+            public static int SpawnedHookCount { get; set; } = 0;
+
+            public ulong      Key        => key;
+            public bool       HasKey     => hasKey;
             public SpawnState SpawnState => spawnState;
 
+            [SerializeField]
+            private ulong key = 0UL;
+
+            [SerializeField]
+            private bool hasKey = false;
+
+            [NonSerialized]
             private SpawnState spawnState = SpawnState.Despawned;
+
+            [NonSerialized]
+            private Action<DespawnReason> despawnFromRegistry = null;
 
             SpawnState ISpawnRegistryObject<ulong>.SpawnState
             {
@@ -54,21 +69,25 @@ namespace inonego.Xeri.TEST.Game._Spawn
                 set => spawnState = value;
             }
 
-            Action<DespawnReason> IDespawnable.DespawnFromRegistry { get; set; }
+            Action<DespawnReason> IDespawnable.DespawnFromRegistry
+            {
+                get => despawnFromRegistry;
+                set => despawnFromRegistry = value;
+            }
 
             public void SetKey(ulong key)
             {
-                Key    = key;
-                HasKey = true;
+                this.key = key;
+                hasKey = true;
             }
 
             public void ClearKey()
             {
-                HasKey = false;
+                hasKey = false;
             }
 
             void ISpawnable.OnSpawning() {}
-            void ISpawnable.OnSpawned() {}
+            void ISpawnable.OnSpawned() => SpawnedHookCount++;
             void IDespawnable.OnDespawning(DespawnReason reason) {}
             void IDespawnable.OnDespawned(DespawnReason reason) {}
         }
@@ -78,6 +97,7 @@ namespace inonego.Xeri.TEST.Game._Spawn
         /// 키 자동 부여 + 외부 인스턴스 주입이 가능한 테스트 레지스트리.
         /// </summary>
         // ------------------------------------------------------------
+        [Serializable]
         private class TestRegistry : SpawnRegistry<ulong, TestObject>
         {
             private ulong nextKey = 0;
@@ -245,6 +265,43 @@ namespace inonego.Xeri.TEST.Game._Spawn
 
             Assert.AreEqual(SpawnState.Despawned, obj.SpawnState);
             Assert.AreEqual(0, registry.Spawned.Count);
+        }
+
+    #endregion
+
+    #region S-1: JSON Round-trip
+
+        // ------------------------------------------------------------------------------------------
+        /// <summary>
+        /// JsonUtility round-trip 뒤 Spawned membership과 Registry 내부 런타임 연결이 복구되는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------------------------------------
+        [Test]
+        public void TEST_SpawnRegistry_JsonUtility_RoundTrip_Spawned와_내부_연결_복원()
+        {
+            TestObject.SpawnedHookCount = 0;
+
+            var registry = new TestRegistry();
+            Assert.IsTrue(registry.TrySpawn(out var original));
+
+            var key = original.Key;
+            var json = JsonUtility.ToJson(registry);
+            var restored = JsonUtility.FromJson<TestRegistry>(json);
+
+            Assert.IsNotNull(restored);
+            Assert.AreEqual(1, restored.Spawned.Count);
+
+            var restoredObject = restored.Find(key);
+            Assert.IsNotNull(restoredObject);
+            Assert.AreEqual(key, restoredObject.Key);
+            Assert.IsTrue(restoredObject.HasKey);
+            Assert.AreEqual(SpawnState.Spawned, restoredObject.SpawnState);
+            Assert.AreEqual(1, TestObject.SpawnedHookCount);
+
+            ((IDespawnable)restoredObject).Despawn();
+
+            Assert.AreEqual(0, restored.Spawned.Count);
+            Assert.AreEqual(SpawnState.Despawned, restoredObject.SpawnState);
         }
 
     #endregion

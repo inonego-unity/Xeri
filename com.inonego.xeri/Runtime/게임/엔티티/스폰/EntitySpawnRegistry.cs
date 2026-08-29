@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntitySpawnRegistry.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-29
 
 # 설명
 엔티티 전용 스폰 레지스트리 베이스·구현체.
@@ -64,6 +64,30 @@ namespace inonego.Xeri.Game
             }
 
             this.keyGenerator = keyGenerator;
+        }
+
+    #endregion
+
+    #region 등록 런타임 연결
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Registry가 Entity의 Spawned 소유 관계를 확정할 때 Entity 내부 연결을 구성한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected override void OnRegistrationAttached(TEntity entity)
+        {
+            entity.OnRegistrationAttached();
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Registry가 Entity의 Spawned 소유 관계를 해제할 때 Entity 내부 연결을 정리한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected override void OnRegistrationDetached(TEntity entity, DespawnReason reason)
+        {
+            entity.OnRegistrationDetached(reason);
         }
 
     #endregion
