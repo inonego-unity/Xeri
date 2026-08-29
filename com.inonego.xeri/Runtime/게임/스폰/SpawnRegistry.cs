@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SpawnRegistry.cs
-수정일 : 2026-07-31
+수정일 : 2026-08-28
 
 # 설명
 스폰 레지스트리 베이스·구현체와 스폰된 객체 사전, 디스폰 확장 메서드 정의.
@@ -262,6 +262,37 @@ namespace inonego.Xeri.Game
             {
                 throw new InvalidOperationException("DespawnAll 처리 중에는 새 객체를 스폰할 수 없습니다.");
             }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기존 Key와 논리 상태를 유지한 객체를 현재 Registry Spawn 수명에 편입한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public T SpawnExisting(T spawnable)
+        {
+            if (spawnable == null)
+            {
+                throw new ArgumentNullException(nameof(spawnable));
+            }
+
+            if (!spawnable.HasKey)
+            {
+                throw new InvalidOperationException
+                (
+                    "기존 객체를 Spawn하려면 미리 확정된 Key가 필요합니다."
+                );
+            }
+
+            if (_Spawned.ContainsKey(spawnable.Key))
+            {
+                throw new InvalidOperationException
+                (
+                    $"이미 동일 키({spawnable.Key})가 등록되어 있습니다."
+                );
+            }
+
+            return Spawn(spawnable);
         }
 
         // ------------------------------------------------------------

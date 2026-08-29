@@ -1,20 +1,17 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DataPackage.cs
-수정일 : 2026-05-08
+수정일 : 2026-08-28
 
 # 설명
-DataPackage 슬롯 시스템, 테이블 CRUD, REF 핵심 기능 테스트.
+DataPackage 직접 Table, Source 구성, 슬롯/Scope와 REF 소비 흐름 테스트.
 
 # 테스트 구성
- T: 테이블 CRUD (생성/추가/읽기/제거/다중 타입)
- S: 슬롯 시스템 (Register/Unregister/Scope/Named/Clear/OnChange)
- R: REF (ToValue/Key/HasKey)
- I: 통합 시나리오
+ T: 직접 Table 수명 흐름 (다중 타입/충돌/제거)
+ D: Source 구성 흐름 (다중 Source/REF/Replace/Rollback/직접 Table 경계)
+ S: 슬롯/Registry 흐름 (Scope/REF/OnChange/Clear)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 
 using UnityEngine;
 
@@ -24,11 +21,11 @@ using NUnit.Framework;
 namespace inonego.Xeri.TEST._DataPackage
 {
 
-    // ============================================================
+    // ================================================================================
     /// <summary>
-    /// DataPackage 및 REF 핵심 기능 테스트 클래스.
+    /// DataPackage 직접 Table, Source 구성, 슬롯 및 REF 핵심 기능 테스트 클래스.
     /// </summary>
-    // ============================================================
+    // ================================================================================
     public class TEST_DataPackage
     {
 
@@ -36,34 +33,139 @@ namespace inonego.Xeri.TEST._DataPackage
 
         // ============================================================
         /// <summary>
-        /// 테스트용 데이터 클래스.
+        /// 테스트용 데이터 클래스 A.
         /// </summary>
         // ============================================================
         [Serializable]
-        private class TestData : ITableValue
+        private class TestDataA : ITableValue
         {
-            [SerializeField] private string key;
-            public string Key      { get => key; set => key = value; }
-            public bool   HasKey   => !string.IsNullOrEmpty(key);
-            public int    Value;
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 데이터 Key.
+            /// </summary>
+            // ------------------------------------------------------------
+            public string Key { get => key; set => key = value; }
+
+            [SerializeField]
+            private string key = null;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 유효한 Key를 가지고 있는지 반환한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool HasKey
+            {
+                get
+                {
+                    return !string.IsNullOrEmpty(key);
+                }
+            }
+
+            public int Value = 0;
         }
 
         // ============================================================
         /// <summary>
-        /// 테스트용 데이터 클래스 2.
+        /// 테스트용 데이터 클래스 B.
         /// </summary>
         // ============================================================
         [Serializable]
-        private class TestData2 : ITableValue
+        private class TestDataB : ITableValue
         {
-            [SerializeField] private string key;
-            public string Key    { get => key; set => key = value; }
-            public bool   HasKey => !string.IsNullOrEmpty(key);
-            public string Name;
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 데이터 Key.
+            /// </summary>
+            // ------------------------------------------------------------
+            public string Key { get => key; set => key = value; }
+
+            [SerializeField]
+            private string key = null;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 유효한 Key를 가지고 있는지 반환한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool HasKey
+            {
+                get
+                {
+                    return !string.IsNullOrEmpty(key);
+                }
+            }
+
+            public string Value = null;
         }
 
-        [Serializable] private class TestTable  : Table_V<TestData>  {}
-        [Serializable] private class TestTable2 : Table_V<TestData2> {}
+        // ============================================================
+        /// <summary>
+        /// TestDataA 전용 테스트 Table.
+        /// </summary>
+        // ============================================================
+        [Serializable]
+        private class TestTableA : Table_V<TestDataA>
+        {
+            // NONE
+        }
+
+        // ============================================================
+        /// <summary>
+        /// TestDataB 전용 테스트 Table.
+        /// </summary>
+        // ============================================================
+        [Serializable]
+        private class TestTableB : Table_V<TestDataB>
+        {
+            // NONE
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// TestDataA 값 목록으로 테스트용 Table을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static TestTableA CreateTableA(params TestDataA[] values)
+        {
+            var lTable = new TestTableA();
+
+            // 테스트 시나리오에서 선언한 row reference를 그대로 Table 입력으로 구성한다.
+            foreach (var value in values)
+            {
+                lTable.Add(value);
+            }
+
+            return lTable;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// TestDataB 값 목록으로 테스트용 Table을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static TestTableB CreateTableB(params TestDataB[] values)
+        {
+            var lTable = new TestTableB();
+
+            // 테스트 시나리오에서 선언한 row reference를 그대로 Table 입력으로 구성한다.
+            foreach (var value in values)
+            {
+                lTable.Add(value);
+            }
+
+            return lTable;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 고정 test provider와 지정 location으로 Source를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static DataPackage.Source CreateSource(string location)
+        {
+            return new DataPackage.Source("test", location);
+        }
 
     #endregion
 
@@ -93,353 +195,354 @@ namespace inonego.Xeri.TEST._DataPackage
 
     #endregion
 
-    #region T-1: 기본 생성
+    #region T-1: 직접 Table 수명 흐름
 
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 서로 다른 타입의 Table을 함께 사용하다 동일 타입 재등록이 실패한 뒤에도
+        /// <br/> 기존 조회 상태가 유지되고, 한 타입 제거가 다른 타입에 영향을 주지 않는지 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
         [Test]
-        public void TEST_DataPackage_기본_생성()
+        public void TEST_DataPackage_Direct_Table_추가_충돌_제거_흐름()
         {
             var package = new DataPackage();
+            var valueA1 = new TestDataA { Key = "A1", Value = 100 };
+            var valueB1 = new TestDataB { Key = "B1", Value = "B1" };
 
-            Assert.IsNotNull(package);
-            Assert.IsFalse(DataPackage.TryCurrent(out _), "Register 전에는 TryCurrent가 false이어야 합니다");
-        }
+            package.AddTable<TestTableA, TestDataA>(CreateTableA(valueA1));
+            package.AddTable<TestTableB, TestDataB>(CreateTableB(valueB1));
 
-    #endregion
+            // 두 타입이 함께 공개된 상태에서 기존 row reference를 그대로 조회해야 한다.
+            Assert.AreSame(valueA1, package.Read<TestDataA>("A1"));
+            Assert.AreSame(valueB1, package.Read<TestDataB>("B1"));
 
-    #region T-2: 테이블 추가
-
-        [Test]
-        public void TEST_DataPackage_AddTable_등록_및_중복_예외()
-        {
-            var package = new DataPackage();
-            var table   = new TestTable();
-
-            table.Dictionary.Add("key1", new TestData { Key = "key1", Value = 100 });
-            table.Dictionary.Add("key2", new TestData { Key = "key2", Value = 200 });
-
-            package.AddTable<TestTable, TestData>(table);
-
-            Assert.AreEqual(100, package.Read<TestData>("key1").Value);
-            Assert.AreEqual(200, package.Read<TestData>("key2").Value);
-
+            // 동일 타입 재등록 실패가 이미 공개된 두 Table 상태를 훼손하면 안 된다.
             Assert.Throws<InvalidOperationException>
             (
-                () => package.AddTable<TestTable, TestData>(new TestTable()),
-                "중복 추가 시 예외가 발생해야 합니다"
+                () => package.AddTable<TestTableA, TestDataA>
+                (
+                    CreateTableA(new TestDataA { Key = "A2", Value = 999 })
+                )
             );
+
+            Assert.AreSame(valueA1, package.Read<TestDataA>("A1"));
+            Assert.AreSame(valueB1, package.Read<TestDataB>("B1"));
+
+            // A Table 제거 후에도 B Table은 같은 상태로 계속 사용되어야 한다.
+            package.RemoveTable<TestDataA>();
+
+            Assert.IsNull(package.TryRead<TestDataA>("A1"));
+            Assert.AreSame(valueB1, package.Read<TestDataB>("B1"));
+            Assert.Throws<InvalidOperationException>(() => package.RemoveTable<TestDataA>());
         }
 
     #endregion
 
-    #region T-3: 테이블 읽기
+    #region D-1: 다중 Source 조회와 제거
 
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 서로 다른 Source의 같은 타입 데이터를 함께 조회하고 REF로 소비한 뒤,
+        /// <br/> Source 제거에 따라 해당 데이터만 순차적으로 사라지는 흐름을 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
         [Test]
-        public void TEST_DataPackage_Read_TryRead_기본_및_미등록()
+        public void TEST_DataPackage_Source_추가_REF_조회_제거_흐름()
         {
             var package = new DataPackage();
-            var table   = new TestTable();
+            var sourceA = CreateSource("a.xml");
+            var sourceB = CreateSource("b.xml");
 
-            table.Dictionary.Add("key1", new TestData { Key = "key1", Value = 100 });
-            package.AddTable<TestTable, TestData>(table);
+            var valueA1 = new TestDataA { Key = "A1", Value = 100 };
+            var valueA2 = new TestDataA { Key = "A2", Value = 200 };
+            var valueB1 = new TestDataA { Key = "B1", Value = 300 };
 
-            // 정상 읽기
-            Assert.AreEqual(100, package.Read<TestData>("key1").Value);
-
-            // 없는 키 → null 반환
-            Assert.IsNull(package.Read<TestData>("none"), "없는 키는 null이어야 합니다");
-
-            // TryRead — 테이블 없으면 null
-            Assert.IsNull(package.TryRead<TestData2>("key1"), "없는 테이블은 null이어야 합니다");
-
-            // 테이블 제거 후 Read → 예외
-            package.RemoveTable<TestData>();
-            Assert.Throws<InvalidOperationException>(() => package.Read<TestData>("key1"));
-        }
-
-    #endregion
-
-    #region T-4: 테이블 제거
-
-        [Test]
-        public void TEST_DataPackage_RemoveTable_제거_및_이중_제거_예외()
-        {
-            var package = new DataPackage();
-            var table   = new TestTable();
-
-            table.Dictionary.Add("key1", new TestData { Key = "key1", Value = 100 });
-            package.AddTable<TestTable, TestData>(table);
-
-            package.RemoveTable<TestData>();
-
-            Assert.Throws<InvalidOperationException>(() => package.Read<TestData>("key1"));
-            Assert.Throws<InvalidOperationException>
-            (
-                () => package.RemoveTable<TestData>(),
-                "없는 테이블 제거 시 예외가 발생해야 합니다"
-            );
-        }
-
-    #endregion
-
-    #region T-5: 다중 타입 테이블
-
-        [Test]
-        public void TEST_DataPackage_다중_타입_테이블_동시_관리()
-        {
-            var package = new DataPackage();
-            var table1  = new TestTable();
-            var table2  = new TestTable2();
-
-            table1.Dictionary.Add("d1", new TestData  { Key = "d1", Value = 99   });
-            table2.Dictionary.Add("d2", new TestData2 { Key = "d2", Name  = "검"  });
-
-            package.AddTable<TestTable,  TestData> (table1);
-            package.AddTable<TestTable2, TestData2>(table2);
-
-            Assert.AreEqual(99,  package.Read<TestData> ("d1").Value);
-            Assert.AreEqual("검", package.Read<TestData2>("d2").Name);
-        }
-
-    #endregion
-
-    #region S-1: Register / Unregister
-
-        [Test]
-        public void TEST_DataPackage_Register_Unregister_기본()
-        {
-            var package = new DataPackage();
-
-            // 등록 전 — TryCurrent false
-            Assert.IsFalse(DataPackage.TryCurrent(out _));
-
+            package.AddSource(sourceA, CreateTableA(valueA1, valueA2));
+            package.AddSource(sourceB, CreateTableA(valueB1));
             DataPackage.Register(package);
 
-            Assert.IsTrue(DataPackage.TryCurrent(out var current));
-            Assert.AreSame(package, current);
+            var refA1 = new REF<TestDataA>("A1");
+            var refB1 = new REF<TestDataA>("B1");
 
-            DataPackage.Unregister(InstanceRegistry.DEFAULT_SLOT);
+            // 두 Source가 generic/non-generic Table view와 REF 조회 경로에 함께 반영되어야 한다.
+            Assert.AreEqual(3, package.Table<TestDataA>().Count);
+            Assert.AreEqual(3, package.Table(typeof(TestDataA)).Count);
+            Assert.AreSame(valueA2, package.Table<TestDataA>().Dictionary["A2"]);
+            Assert.AreSame(valueA1, refA1.ToValue());
+            Assert.AreSame(valueB1, refB1.ToValue());
 
-            Assert.IsFalse(DataPackage.TryCurrent(out _), "Unregister 후 TryCurrent가 false이어야 합니다");
+            // Source A 제거 후 A의 값만 사라지고 Source B의 값은 계속 조회되어야 한다.
+            package.RemoveSource(sourceA);
+
+            Assert.IsNull(refA1.ToValue());
+            Assert.AreSame(valueB1, refB1.ToValue());
+            Assert.AreEqual(1, package.Table<TestDataA>().Count);
+
+            // 마지막 Source까지 제거하면 해당 ValueType의 logical Table도 사라져야 한다.
+            package.RemoveSource(sourceB);
+
+            Assert.IsNull(refB1.ToValue());
+            Assert.Throws<InvalidOperationException>(() => package.Table<TestDataA>());
         }
 
     #endregion
 
-    #region S-2-1: Scope 기본 전환
+    #region D-2: Source 교체와 REF 재해석
 
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Source reload 뒤 기존 REF가 새 row를 해석하고 ValueType 구성도 갱신되며,
+        /// <br/> 다른 Source의 데이터는 영향 없이 유지되는 흐름을 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
         [Test]
-        public void TEST_DataPackage_Scope_전환_및_복원()
+        public void TEST_DataPackage_Source_교체_REF_재해석_흐름()
         {
-            var main = new DataPackage();
-            var sub  = new DataPackage();
+            var package = new DataPackage();
+            var sourceA = CreateSource("a.xml");
+            var sourceB = CreateSource("b.xml");
 
-            DataPackage.Register(main);
-            DataPackage.Register("SUB", sub);
+            var valueA1Old = new TestDataA { Key = "A1", Value = 100 };
+            var valueA2    = new TestDataA { Key = "A2", Value = 200 };
+            var valueB1    = new TestDataA { Key = "B1", Value = 300 };
 
-            Assert.AreSame(main, DataPackage.Current, "기본 슬롯은 main이어야 합니다");
+            package.AddSource(sourceA, CreateTableA(valueA1Old, valueA2));
+            package.AddSource(sourceB, CreateTableA(valueB1));
+            DataPackage.Register(package);
 
-            using (DataPackage.Scope("SUB"))
-            {
-                Assert.AreSame(sub, DataPackage.Current, "Scope 내에서는 sub가 Current이어야 합니다");
-            }
+            var refA1     = new REF<TestDataA>("A1");
+            var refA2     = new REF<TestDataA>("A2");
+            var refB1     = new REF<TestDataA>("B1");
+            var refTypeB1 = new REF<TestDataB>("A1");
 
-            Assert.AreSame(main, DataPackage.Current, "Scope 종료 후 main으로 복원되어야 합니다");
+            var valueA1New = new TestDataA { Key = "A1", Value = 500 };
+            var valueA3    = new TestDataA { Key = "A3", Value = 400 };
+            var valueTypeB1 = new TestDataB { Key = "A1", Value = "B1" };
+
+            package.ReplaceSource
+            (
+                sourceA,
+                new ITable[]
+                {
+                    CreateTableA(valueA1New, valueA3),
+                    CreateTableB(valueTypeB1),
+                }
+            );
+
+            // A/B ValueType은 같은 "A1" Key를 독립적으로 해석하면서 reload 결과를 각각 반영해야 한다.
+            Assert.AreSame(valueA1New, refA1.ToValue());
+            Assert.IsNull(refA2.ToValue());
+            Assert.AreSame(valueB1, refB1.ToValue());
+            Assert.AreSame(valueTypeB1, refTypeB1.ToValue());
+            Assert.AreSame(valueA3, package.Read<TestDataA>("A3"));
+
+            var valueTypeB2 = new TestDataB { Key = "A1", Value = "B2" };
+
+            // Source A가 더 이상 A 타입을 제공하지 않아도 Source B의 A lookup은 유지되어야 한다.
+            package.ReplaceSource(sourceA, CreateTableB(valueTypeB2));
+
+            Assert.IsNull(refA1.ToValue());
+            Assert.AreSame(valueB1, refB1.ToValue());
+            Assert.AreSame(valueTypeB2, refTypeB1.ToValue());
+            Assert.AreEqual(1, package.Table<TestDataA>().Count);
         }
 
     #endregion
 
-    #region S-2-2: Scope 중첩
+    #region D-3: Source 재구성 실패 롤백
 
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 동일 Source 재추가와 다른 Source Key 충돌이 실패했을 때,
+        /// <br/> 이미 공개된 lookup과 REF 결과가 기존 상태를 유지하는지 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
         [Test]
-        public void TEST_DataPackage_Scope_중첩_LIFO_복원()
+        public void TEST_DataPackage_Source_재구성_실패_기존_상태_유지()
         {
-            var main  = new DataPackage();
-            var slotA = new DataPackage();
-            var slotB = new DataPackage();
+            var package = new DataPackage();
+            var sourceA = CreateSource("a.xml");
+            var sourceB = CreateSource("b.xml");
 
-            DataPackage.Register(main);
-            DataPackage.Register("A", slotA);
-            DataPackage.Register("B", slotB);
+            var valueA1 = new TestDataA { Key = "A1", Value = 100 };
+            var valueB1 = new TestDataA { Key = "B1", Value = 200 };
 
+            package.AddSource(sourceA, CreateTableA(valueA1));
+            package.AddSource(sourceB, CreateTableA(valueB1));
+            DataPackage.Register(package);
+
+            var refA1 = new REF<TestDataA>("A1");
+            var refB1 = new REF<TestDataA>("B1");
+
+            // 동일 Source를 AddSource로 다시 넣는 호출은 reload로 해석하지 않고 기존 상태를 유지해야 한다.
+            Assert.Throws<InvalidOperationException>
+            (
+                () => package.AddSource
+                (
+                    sourceA,
+                    CreateTableA(new TestDataA { Key = "A2", Value = 999 })
+                )
+            );
+
+            Assert.AreSame(valueA1, refA1.ToValue());
+            Assert.AreSame(valueB1, refB1.ToValue());
+
+            // ReplaceSource가 다른 Source의 Key와 충돌하면 incoming 값이 일부라도 노출되면 안 된다.
+            Assert.Throws<InvalidOperationException>
+            (
+                () => package.ReplaceSource
+                (
+                    sourceA,
+                    CreateTableA
+                    (
+                        new TestDataA { Key = "A2", Value = 300 },
+                        new TestDataA { Key = "B1", Value = 400 }
+                    )
+                )
+            );
+
+            Assert.AreSame(valueA1, refA1.ToValue());
+            Assert.AreSame(valueB1, refB1.ToValue());
+            Assert.IsNull(package.TryRead<TestDataA>("A2"));
+            Assert.AreEqual(2, package.Table<TestDataA>().Count);
+        }
+
+    #endregion
+
+    #region D-4: 직접 Table과 Source 구성 경계
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 같은 ValueType을 direct AddTable과 Source 구성으로 섞으려는 흐름이 실패하고,
+        /// <br/> 실패 전 기존 조회 상태가 그대로 유지되는지 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_DataPackage_Direct_Table_Source_혼용_실패_상태_유지()
+        {
+            var directPackage = new DataPackage();
+            var sourcePackage = new DataPackage();
+            var source = CreateSource("a.xml");
+
+            var valueA1 = new TestDataA { Key = "A1", Value = 10 };
+            var valueA2 = new TestDataA { Key = "A2", Value = 20 };
+
+            directPackage.AddTable<TestTableA, TestDataA>(CreateTableA(valueA1));
+
+            // direct Table이 이미 공개된 타입에는 Source lookup을 추가하지 않는다.
+            Assert.Throws<InvalidOperationException>
+            (
+                () => directPackage.AddSource(source, CreateTableA(valueA2))
+            );
+
+            Assert.AreSame(valueA1, directPackage.Read<TestDataA>("A1"));
+            Assert.IsNull(directPackage.TryRead<TestDataA>("A2"));
+
+            sourcePackage.AddSource(source, CreateTableA(valueA2));
+
+            // 반대 방향도 같은 타입의 기존 Source 조회 상태를 덮어쓰지 않아야 한다.
+            Assert.Throws<InvalidOperationException>
+            (
+                () => sourcePackage.AddTable<TestTableA, TestDataA>(CreateTableA(valueA1))
+            );
+
+            Assert.Throws<InvalidOperationException>(() => sourcePackage.RemoveTable<TestDataA>());
+            Assert.AreSame(valueA2, sourcePackage.Read<TestDataA>("A2"));
+        }
+
+    #endregion
+
+    #region S-1: Scope와 REF 컨텍스트 전환
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 슬롯별 DataPackage를 중첩 Scope로 전환할 때 REF가 현재 슬롯 값을 해석하고,
+        /// <br/> Scope 종료 순서에 따라 이전 컨텍스트로 정확히 복원되는지 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_DataPackage_Scope_REF_중첩_전환_복원_흐름()
+        {
+            var packageA = new DataPackage();
+            var packageB = new DataPackage();
+
+            packageA.AddTable<TestTableA, TestDataA>
+            (
+                CreateTableA(new TestDataA { Key = "A1", Value = 100 })
+            );
+            packageB.AddTable<TestTableA, TestDataA>
+            (
+                CreateTableA(new TestDataA { Key = "A1", Value = 200 })
+            );
+
+            DataPackage.Register("A", packageA);
+            DataPackage.Register("B", packageB);
+
+            var refA1 = new REF<TestDataA>("A1");
+
+            // 바깥 Scope의 조회 상태를 기준으로 안쪽 Scope가 일시적으로 컨텍스트를 교체한다.
             using (DataPackage.Scope("A"))
             {
-                Assert.AreSame(slotA, DataPackage.Current);
+                Assert.AreEqual(100, refA1.ToValue().Value);
 
                 using (DataPackage.Scope("B"))
                 {
-                    Assert.AreSame(slotB, DataPackage.Current);
+                    Assert.AreEqual(200, refA1.ToValue().Value);
                 }
 
-                Assert.AreSame(slotA, DataPackage.Current, "B 종료 후 A로 복원되어야 합니다");
+                Assert.AreEqual(100, refA1.ToValue().Value);
             }
 
-            Assert.AreSame(main, DataPackage.Current, "A 종료 후 기본 슬롯으로 복원되어야 합니다");
+            // 모든 Scope가 끝나면 미등록 기본 슬롯로 복원되어 REF가 값을 해석하지 못해야 한다.
+            Assert.IsNull(refA1.ToValue());
         }
 
     #endregion
 
-    #region S-3: Named 인덱서
+    #region S-2: Registry 변경 이벤트 흐름
 
-        [Test]
-        public void TEST_DataPackage_Named_인덱서_접근()
-        {
-            var main = new DataPackage();
-            var sub  = new DataPackage();
-
-            DataPackage.Register(main);
-            DataPackage.Register("SUB", sub);
-
-            Assert.AreSame(main, DataPackage.Named[InstanceRegistry.DEFAULT_SLOT]);
-            Assert.AreSame(sub,  DataPackage.Named["SUB"]);
-        }
-
-    #endregion
-
-    #region S-4: Clear
-
-        [Test]
-        public void TEST_DataPackage_Clear_모든_슬롯_제거()
-        {
-            DataPackage.Register(new DataPackage());
-            DataPackage.Register("SUB", new DataPackage());
-
-            DataPackage.Clear();
-
-            Assert.IsFalse(DataPackage.TryCurrent(out _), "Clear 후 TryCurrent가 false이어야 합니다");
-            Assert.Throws<KeyNotFoundException>(() => { var _ = DataPackage.Named["SUB"]; });
-        }
-
-    #endregion
-
-    #region S-5: OnChange 이벤트
-
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// <br/> OnChange 이벤트가 Register·Unregister·Clear 시 발생하고
-        /// <br/> Scope 전환 시에는 발생하지 않음을 검증한다.
+        /// <br/> Register·Unregister·Clear는 변경 이벤트를 발생시키고 Scope 전환은 제외되며,
+        /// <br/> 최종 Clear 뒤 현재 슬롯 상태까지 함께 정리되는지 검증한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [Test]
-        public void TEST_DataPackage_OnChange_Register_Unregister_Clear()
+        public void TEST_DataPackage_Registry_변경_이벤트_및_Clear_흐름()
         {
-            var count = 0;
-            DataPackage.OnChange += () => count++;
+            var changeCount = 0;
+            Action onChange = () => changeCount++;
+
+            DataPackage.OnChange += onChange;
 
             try
             {
-                var pkg = new DataPackage();
+                DataPackage.Register(new DataPackage());
+                DataPackage.Register("SUB", new DataPackage());
 
-                DataPackage.Register(pkg);                          // +1
-                DataPackage.Register("SUB", new DataPackage());     // +1
+                var countBeforeScope = changeCount;
 
+                // Scope는 등록 상태를 바꾸지 않으므로 변경 이벤트가 추가로 발생하면 안 된다.
                 using (DataPackage.Scope("SUB"))
                 {
-                    // Scope는 이벤트 발생 안 함
+                    Assert.IsTrue(DataPackage.TryCurrent(out _));
                 }
 
-                DataPackage.Unregister("SUB");                      // +1
-                DataPackage.Clear();                                // +1
+                Assert.AreEqual(countBeforeScope, changeCount);
 
-                Assert.AreEqual(4, count, "Register×2, Unregister×1, Clear×1 = 4회이어야 합니다");
+                DataPackage.Unregister("SUB");
+                DataPackage.Clear();
+
+                Assert.AreEqual(4, changeCount);
+                Assert.IsFalse(DataPackage.TryCurrent(out _));
             }
             finally
             {
-                DataPackage.OnChange -= () => count++;
+                // 같은 delegate instance로 구독을 해제해 후속 테스트에 정적 이벤트가 누적되지 않게 한다.
+                DataPackage.OnChange -= onChange;
                 DataPackage.Clear();
             }
-        }
-
-    #endregion
-
-    #region R-1: REF.ToValue 기본
-
-        [Test]
-        public void TEST_DataPackage_REF_ToValue_등록키_미등록키()
-        {
-            var package = new DataPackage();
-            var table   = new TestTable();
-
-            table.Dictionary.Add("hero", new TestData { Key = "hero", Value = 500 });
-            package.AddTable<TestTable, TestData>(table);
-
-            DataPackage.Register(package);
-
-            var ref1 = new REF<TestData>("hero");
-            var ref2 = new REF<TestData>("none");
-
-            Assert.AreEqual(500,  ref1.ToValue().Value, "등록된 키는 값을 반환해야 합니다");
-            Assert.IsNull(ref2.ToValue(),               "없는 키는 null을 반환해야 합니다");
-        }
-
-    #endregion
-
-    #region R-2: REF.ToValue 미등록 슬롯
-
-        [Test]
-        public void TEST_DataPackage_REF_ToValue_미등록_슬롯_null()
-        {
-            var ref1 = new REF<TestData>("hero");
-
-            Assert.IsNull(ref1.ToValue(), "DataPackage 미등록 시 null을 반환해야 합니다");
-        }
-
-    #endregion
-
-    #region R-3: REF.Key / HasKey
-
-        [Test]
-        public void TEST_DataPackage_REF_Key_HasKey()
-        {
-            var ref1 = new REF<TestData>("hero");
-
-            string key = ref1.Key;
-
-            Assert.AreEqual("hero", key,       "Key가 생성자에 전달한 값을 반환해야 합니다");
-            Assert.IsTrue(ref1.HasKey,         "키가 있으므로 HasKey가 true이어야 합니다");
-            Assert.IsFalse(default(REF<TestData>).HasKey, "빈 REF의 HasKey는 false이어야 합니다");
-        }
-
-    #endregion
-
-    #region I-1: 다중 슬롯 + REF 통합
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// <br/> 다중 슬롯 전환과 REF 조회를 포함한 전체 시나리오를 검증한다.
-        /// <br/> 슬롯별로 다른 테이블이 로드된 상황에서 Current와 REF가 올바르게 동작함을 확인한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_DataPackage_다중_슬롯_REF_통합_시나리오()
-        {
-            // 스테이지 A 패키지
-            var pkgA  = new DataPackage();
-            var tblA  = new TestTable();
-            tblA.Dictionary.Add("boss", new TestData { Key = "boss", Value = 9999 });
-            pkgA.AddTable<TestTable, TestData>(tblA);
-
-            // 스테이지 B 패키지
-            var pkgB  = new DataPackage();
-            var tblB  = new TestTable();
-            tblB.Dictionary.Add("boss", new TestData { Key = "boss", Value = 1234 });
-            pkgB.AddTable<TestTable, TestData>(tblB);
-
-            DataPackage.Register("A", pkgA);
-            DataPackage.Register("B", pkgB);
-
-            var bossRef = new REF<TestData>("boss");
-
-            using (DataPackage.Scope("A"))
-            {
-                Assert.AreEqual(9999, bossRef.ToValue().Value, "슬롯 A에서는 9999이어야 합니다");
-            }
-
-            using (DataPackage.Scope("B"))
-            {
-                Assert.AreEqual(1234, bossRef.ToValue().Value, "슬롯 B에서는 1234이어야 합니다");
-            }
-
-            // Scope 종료 후 DEFAULT_SLOT 미등록 → null
-            Assert.IsNull(bossRef.ToValue(), "기본 슬롯 미등록 시 null이어야 합니다");
         }
 
     #endregion
