@@ -1,11 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Table.cs
-수정일 : 2026-05-01
+수정일 : 2026-08-30
 
 # 설명
 데이터 테이블 구현.
 - Table_V<T>: 값 형태([SerializeField]) 직렬화
 - Table_R<T>: 참조 형태([SerializeReference]) 직렬화 (다형성 지원)
+- Merge는 concrete Table 구현이 아니라 ITable<T> 계약을 기준으로 호환한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -162,12 +163,12 @@ namespace inonego.Xeri
                 throw new ArgumentNullException(nameof(other));
             }
 
-            if (other is not Table<TTableValue> otherTable)
+            if (other is not ITable<TTableValue> otherTable)
             {
                 throw new InvalidOperationException($"병합하려는 테이블이 {typeof(TTableValue).Name} 타입이 아닙니다.");
             }
 
-            Merge(otherTable as ITable<TTableValue>);
+            Merge(otherTable);
         }
 
         // ------------------------------------------------------------
