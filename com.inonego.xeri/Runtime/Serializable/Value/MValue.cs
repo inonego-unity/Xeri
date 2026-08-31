@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValue.cs
-수정일 : 2026-05-03
+수정일 : 2026-08-31
 
 # 설명
 Order 순서로 적용되는 IModifier<T> 목록을 가지는 Modifiable Value.
-Base 또는 modifiers 변경 시 Modified(캐시값)를 재계산하고 OnModifiedChange를 발행한다.
+Base·modifier 구성 변경 또는 명시적 Refresh에서 Modified 캐시를 재계산하고 실제 값 변경 시 OnModifiedChange를 발행한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -89,7 +89,7 @@ namespace inonego.Xeri.Serializable
         /// 수정자를 모두 적용한 값을 다시 계산해 cached 에 반영한다.
         /// </summary>
         // -----------------------------------------------------------------------
-        private void Refresh(bool invokeEvent = true)
+        public void Refresh(bool invokeEvent = true)
         {
             var (prev, next) = (cached, Modify(Base));
 
