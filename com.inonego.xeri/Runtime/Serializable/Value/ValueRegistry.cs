@@ -1,12 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ValueRegistry.cs
-수정일 : 2026-08-24
+수정일 : 2026-08-31
 
 # 설명
-이름 붙은 string/int/float/flag 값을 하나의 직렬화 가능한 Registry로 관리한다.
+이름 붙은 string/int/float/flag 값을 하나의 직렬화 가능한 Registry로 관리하고 runtime 변경을 알린다.
 
 # 제약사항
 하나의 Key는 하나의 값 타입에만 속하며 구조화된 도메인 State를 대신하지 않는다.
+CloneFrom은 상태 복제 과정에서 변경 이벤트를 발행하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -47,7 +48,18 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 메서드
+    #region 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Registry의 실제 값 구성이 변경된 뒤 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public event Action OnChange = null;
+
+    #endregion
+
+    #region 공통 연산
 
         // ------------------------------------------------------------
         /// <summary>
@@ -75,18 +87,22 @@ namespace inonego.Xeri.Serializable
         {
             if (Has(dictionary, key))
             {
+                // 동일 값 재설정은 Registry 상태 변화가 아니므로 알림을 생략한다.
+                if (EqualityComparer<T>.Default.Equals(dictionary[key], value)) return value;
+
                 dictionary[key] = value;
+                OnChange?.Invoke();
+                return value;
             }
-            else
+
+            if (Has(key))
             {
-                if (Has(key))
-                {
-                    throw new InvalidOperationException($"키({key})에 해당하는 값이 다른 타입으로 존재합니다.");
-                }
-
-                dictionary.Add(key, value);
+                throw new InvalidOperationException($"키({key})에 해당하는 값이 다른 타입으로 존재합니다.");
             }
 
+            // 신규 Key 등록은 fallback 값과 같더라도 Registry 구성 변화로 취급한다.
+            dictionary.Add(key, value);
+            OnChange?.Invoke();
             return value;
         }
 
@@ -97,7 +113,12 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public bool Remove(string key)
         {
-            return valSs.Remove(key) || valIs.Remove(key) || valFs.Remove(key) || valFlags.Remove(key);
+            var removed = valSs.Remove(key) || valIs.Remove(key) || valFs.Remove(key) || valFlags.Remove(key);
+            if (!removed) return false;
+
+            // 실제 Key 제거가 완료된 뒤 Registry 변경을 외부에 알린다.
+            OnChange?.Invoke();
+            return true;
         }
 
         // ------------------------------------------------------------
@@ -107,10 +128,16 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public void Clear()
         {
+            // 이미 비어 있는 Registry는 관찰 가능한 상태 변화가 없다.
+            if (valSs.Count == 0 && valIs.Count == 0 && valFs.Count == 0 && valFlags.Count == 0) return;
+
             valSs.Clear();
             valIs.Clear();
             valFs.Clear();
             valFlags.Clear();
+
+            // 일괄 정리는 개별 Key 수와 무관하게 하나의 변경으로 알린다.
+            OnChange?.Invoke();
         }
 
     #endregion
@@ -300,15 +327,27 @@ namespace inonego.Xeri.Serializable
                 throw new InvalidOperationException($"키({key})에 해당하는 값이 다른 타입으로 존재합니다.");
             }
 
+            // 신규 Flag 등록이 완료된 뒤 Registry 변경을 외부에 알린다.
             valFlags.Add(key);
+            OnChange?.Invoke();
         }
 
     #endregion
 
     #region 복제
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 빈 ValueRegistry 인스턴스를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public ValueRegistry @new() => new ValueRegistry();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source의 모든 값을 변경 알림 없이 복제한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public void CloneFrom(ValueRegistry source)
         {
             if (source == null)
@@ -316,7 +355,11 @@ namespace inonego.Xeri.Serializable
                 throw new ArgumentNullException(nameof(source));
             }
 
-            Clear();
+            // 복제는 runtime mutation이 아니므로 공개 Clear 경로를 거치지 않는다.
+            valSs.Clear();
+            valIs.Clear();
+            valFs.Clear();
+            valFlags.Clear();
 
             foreach (var (key, value) in source.valSs)
             {
@@ -340,5 +383,6 @@ namespace inonego.Xeri.Serializable
         }
 
     #endregion
+
     }
 }
