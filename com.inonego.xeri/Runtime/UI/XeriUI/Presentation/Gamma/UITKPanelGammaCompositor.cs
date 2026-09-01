@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKPanelGammaCompositor.cs
-수정일 : 2026-08-23
+수정일 : 2026-09-01
 
 # 설명
 UI Toolkit PanelSettings를 FP16 offscreen RenderTexture로 렌더링한 뒤 화면용 Panel에서
@@ -8,7 +8,7 @@ gamma→linear 합성하는 Panel 단위 컴포지터다.
 
 # 특이사항
 한 PanelSettings는 동시에 한 인스턴스만 점유할 수 있다.
-Gamma UI의 Premultiplied Color/Alpha는 합성 전까지 R16G16B16A16_SFloat 정밀도로 보존한다.
+Gamma UI의 Premultiplied Color/Alpha는 합성 전까지 R16G16B16A16_SFloat 정밀도로 보존하고 공통 Xeri Gamma 변환 계약으로 Linear PMA에 합성한다.
 화면용 합성 Panel은 원본 Panel보다 작은 Order Offset만큼 위에 배치해 UGUI와의 공통 Layer 순서를 유지한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -28,6 +28,7 @@ namespace inonego.Xeri.UI
     // ======================================================================================
     internal sealed class UITKPanelGammaCompositor
     {
+
     #region 내부 데이터
 
         // ============================================================
@@ -37,7 +38,8 @@ namespace inonego.Xeri.UI
         // ============================================================
         private sealed class GammaCompositeElement : VisualElement
         {
-        #region 필드
+
+        #region 합성 상태
 
             // ------------------------------------------------------------
             /// <summary>
@@ -104,13 +106,14 @@ namespace inonego.Xeri.UI
             }
 
         #endregion
+
         }
 
     #endregion
 
-    #region 필드
+    #region 합성 구성 및 상태
 
-        private const string BLIT_SHADER_NAME = "Hidden/XeriUI/UITKGammaComposite";
+        private const string COMPOSITE_SHADER_NAME = "Hidden/XeriUI/UITKGammaComposite";
         private const float COMPOSITE_ORDER_OFFSET = 0.25f;
         private const int DEPTH_STENCIL_BITS = 24;
         private const GraphicsFormat COLOR_FORMAT = GraphicsFormat.R16G16B16A16_SFloat;
@@ -145,7 +148,7 @@ namespace inonego.Xeri.UI
         private GameObject compositeHost = null;
         private UIDocument compositeDocument = null;
         private GammaCompositeElement compositeElement = null;
-        private Material blitMaterial = null;
+        private Material compositeMaterial = null;
         private bool previousForceGammaRendering = false;
         private bool previousClearDepthStencil = false;
         private bool previousClearColor = false;
@@ -156,7 +159,7 @@ namespace inonego.Xeri.UI
 
     #endregion
 
-    #region 메서드
+    #region Panel 점유 수명
 
         // ------------------------------------------------------------
         /// <summary>
@@ -185,11 +188,11 @@ namespace inonego.Xeri.UI
                 Release();
             }
 
-            var shader = Shader.Find(BLIT_SHADER_NAME);
+            var shader = Shader.Find(COMPOSITE_SHADER_NAME);
 
             if (shader == null)
             {
-                error = $"[UITKPanelGammaCompositor] Shader not found: {BLIT_SHADER_NAME}";
+                error = $"[UITKPanelGammaCompositor] Shader not found: {COMPOSITE_SHADER_NAME}";
                 return false;
             }
 
@@ -204,7 +207,7 @@ namespace inonego.Xeri.UI
 
             try
             {
-                blitMaterial = new Material(shader)
+                compositeMaterial = new Material(shader)
                 {
                     name = $"{HostName} Gamma Composite Material",
                     hideFlags = HideFlags.HideAndDontSave,
@@ -283,7 +286,7 @@ namespace inonego.Xeri.UI
 
     #endregion
 
-    #region 내부 처리
+    #region 합성 내부 처리
 
         // ------------------------------------------------------------
         /// <summary>
@@ -336,7 +339,7 @@ namespace inonego.Xeri.UI
 
             ReleaseRenderTexture();
 
-            // FP16 Linear RT는 forceGammaRendering이 기록한 USS gamma 값과 Premultiplied Alpha를 합성 전까지 보존한다.
+            // non-sRGB FP16 RT는 forceGammaRendering이 기록한 USS gamma 값과 Premultiplied Alpha를 합성 전까지 보존한다.
             targetTexture = new RenderTexture
             (
                 width,
@@ -415,7 +418,7 @@ namespace inonego.Xeri.UI
             compositeElement = new GammaCompositeElement
             {
                 Texture = targetTexture,
-                Material = blitMaterial,
+                Material = compositeMaterial,
             };
             root.Add(compositeElement);
         }
@@ -496,10 +499,10 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         private void ReleaseMaterial()
         {
-            if (blitMaterial == null) return;
+            if (compositeMaterial == null) return;
 
-            DestroyObject(blitMaterial);
-            blitMaterial = null;
+            DestroyObject(compositeMaterial);
+            compositeMaterial = null;
         }
 
         // ------------------------------------------------------------
@@ -522,5 +525,6 @@ namespace inonego.Xeri.UI
         }
 
     #endregion
+
     }
 }

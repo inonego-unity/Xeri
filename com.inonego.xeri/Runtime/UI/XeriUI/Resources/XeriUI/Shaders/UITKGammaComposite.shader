@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKGammaComposite.shader
-수정일 : 2026-08-01
+수정일 : 2026-09-01
 
 # 설명
 UI Toolkit Background Image로 전달된 Gamma Panel RenderTexture를 Linear 화면에 합성한다.
 
 # 특이사항, 제약사항
-Premultiplied RenderTexture를 Straight Color로 변환한 뒤 gamma→linear 변환하고 다시 Premultiply한다.
+XeriUIGamma.hlsl의 공통 Gamma PMA→Linear PMA 함수를 사용해 Texture 입력 경로와 색공간 계약을 공유한다.
 ========================================================================= BLOCK_HEADER_END */
 
 Shader "Hidden/XeriUI/UITKGammaComposite"
@@ -38,6 +38,7 @@ Shader "Hidden/XeriUI/UITKGammaComposite"
             #pragma multi_compile_local _ _UIE_RENDER_TYPE_TEXTURE
 
             #include "Internal/UnityUIE.cginc"
+            #include "XeriUIGamma.hlsl"
 
             v2f Vert(appdata_t input)
             {
@@ -49,20 +50,11 @@ Shader "Hidden/XeriUI/UITKGammaComposite"
                 half textureSlot = input.typeTexSettings.y;
                 float4 color = SampleTextureSlot(textureSlot, input.uvClip.xy);
 
-                // Offscreen UI는 Premultiplied Gamma이므로 색 공간 변환 전 Straight Color를 복원한다.
-                if (color.a > 0.001f)
-                {
-                    color.rgb /= color.a;
-                }
-
-                #ifndef UNITY_COLORSPACE_GAMMA
-                color.r = GammaToLinearSpaceExact(color.r);
-                color.g = GammaToLinearSpaceExact(color.g);
-                color.b = GammaToLinearSpaceExact(color.b);
-                #endif
-
-                color *= input.color;
-                color.rgb *= color.a;
+                color = XeriGammaPremultipliedToLinearPremultiplied
+                (
+                    color,
+                    input.color
+                );
 
                 float coverage = 1.0f;
 
