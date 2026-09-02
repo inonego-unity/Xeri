@@ -116,7 +116,7 @@ namespace inonego.Xeri.Localization
 
                 OnLangCodeChange?.Invoke(code);
 
-                // UGUI: 씬 전체 ILocalizedUI 구현체 일괄 갱신 (UITK 측은 OnLangCodeChange 구독으로 처리).
+                // UGUI와 UITK의 현재 ILocalizedUI 구현체를 일괄 갱신한다.
                 ILocalizedUI.ReloadLocalizedUIAll();
             }
             finally

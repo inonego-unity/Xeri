@@ -1,15 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_LocalizedUIReload.cs
-수정일 : 2026-05-09
+수정일 : 2026-09-02
 
 # 설명
-LangCode 변경 시 ILocalizedUI 구현 MonoBehaviour 의 ReloadLocalizedUI 자동 호출 검증.
+LangCode 변경 시 ILocalizedUI 구현 MonoBehaviour와 UIDocument VisualElement의 ReloadLocalizedUI 자동 호출 검증.
 
 # 테스트 구성
- R: 씬 순회 reload — ILocalizedUI 구현체 모두 호출되는지
+ R: Runtime 전체 reload — 일반 Scene과 DontDestroyOnLoad의 ILocalizedUI 구현체가 모두 호출되는지
 
 # 특이사항
-PlayMode 필요 — 씬에 GameObject 부착 + Awake/OnEnable 이 정상 호출되어야 ILocalizedUI 가 잡힌다.
+PlayMode 필요 — Runtime Object 탐색과 UIDocument Visual Tree가 실제 생성된 상태에서 검증한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -18,6 +18,7 @@ using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 using NUnit;
 using NUnit.Framework;
@@ -53,11 +54,29 @@ namespace inonego.Xeri.TEST._LocalizedUI
             }
         }
 
+        // ============================================================
+        /// <summary>
+        /// 테스트용 UITK ILocalizedUI 구현.
+        /// </summary>
+        // ============================================================
+        private class TestLocalizedElement : VisualElement, ILocalizedUI
+        {
+            public int    ReloadCount      { get; private set; }
+            public string LastCodeAtReload { get; private set; }
+
+            public void ReloadLocalizedUI()
+            {
+                ReloadCount++;
+                LastCodeAtReload = Localization.CurrentLangCode;
+            }
+        }
+
     #endregion
 
     #region 픽스처
 
         private readonly List<GameObject> spawned = new();
+        private readonly List<PanelSettings> panelSettings = new();
 
         [SetUp]
         public void SetUp()
@@ -77,6 +96,12 @@ namespace inonego.Xeri.TEST._LocalizedUI
             }
             spawned.Clear();
 
+            foreach (var settings in panelSettings)
+            {
+                if (settings != null) UnityEngine.Object.DestroyImmediate(settings);
+            }
+            panelSettings.Clear();
+
             Singleton<Localization>.Clear();
         }
 
@@ -85,6 +110,34 @@ namespace inonego.Xeri.TEST._LocalizedUI
             var go = new GameObject(name);
             spawned.Add(go);
             return go.AddComponent<TestLocalizedUI>();
+        }
+
+        private TestLocalizedElement CreateUITKTarget
+        (
+            string name,
+            bool dontDestroyOnLoad = false
+        )
+        {
+            var go = new GameObject(name);
+            go.SetActive(false);
+            spawned.Add(go);
+
+            var settings = ScriptableObject.CreateInstance<PanelSettings>();
+            panelSettings.Add(settings);
+
+            var document = go.AddComponent<UIDocument>();
+            document.panelSettings = settings;
+            go.SetActive(true);
+
+            var element = new TestLocalizedElement();
+            document.rootVisualElement.Add(element);
+
+            if (dontDestroyOnLoad)
+            {
+                UnityEngine.Object.DontDestroyOnLoad(go);
+            }
+
+            return element;
         }
 
     #endregion
@@ -112,7 +165,51 @@ namespace inonego.Xeri.TEST._LocalizedUI
 
     #endregion
 
-    #region R-2: 동일 LangCode 재설정 시 Reload 호출 안 됨
+    #region R-2: LangCode 변경 → UIDocument VisualElement ILocalizedUI Reload 호출
+
+        [UnityTest]
+        public IEnumerator TEST_LocalizedUI_LangCode_변경시_UITK_구현체_Reload()
+        {
+            var ui = CreateUITKTarget("UITKLoc");
+
+            yield return null;
+
+            Localization.CurrentLangCode = "en";
+
+            yield return null;
+
+            Assert.GreaterOrEqual(ui.ReloadCount, 1, "UITK ILocalizedUI가 최소 1회 Reload 받아야 합니다");
+            Assert.AreEqual("en", ui.LastCodeAtReload);
+        }
+
+    #endregion
+
+    #region R-3: LangCode 변경 → DontDestroyOnLoad ILocalizedUI Reload 호출
+
+        [UnityTest]
+        public IEnumerator TEST_LocalizedUI_LangCode_변경시_DontDestroyOnLoad_구현체_Reload()
+        {
+            var mono = CreateTarget("DDOLLoc");
+            UnityEngine.Object.DontDestroyOnLoad(mono.gameObject);
+            var ui = CreateUITKTarget("DDOLUITKLoc", true);
+
+            yield return null;
+
+            Assert.AreEqual("DontDestroyOnLoad", mono.gameObject.scene.name);
+
+            Localization.CurrentLangCode = "en";
+
+            yield return null;
+
+            Assert.GreaterOrEqual(mono.ReloadCount, 1, "DontDestroyOnLoad MonoBehaviour가 Reload 받아야 합니다");
+            Assert.GreaterOrEqual(ui.ReloadCount, 1, "DontDestroyOnLoad UIDocument VisualElement가 Reload 받아야 합니다");
+            Assert.AreEqual("en", mono.LastCodeAtReload);
+            Assert.AreEqual("en", ui.LastCodeAtReload);
+        }
+
+    #endregion
+
+    #region R-4: 동일 LangCode 재설정 시 Reload 호출 안 됨
 
         [UnityTest]
         public IEnumerator TEST_LocalizedUI_동일_LangCode시_Reload_미호출()
