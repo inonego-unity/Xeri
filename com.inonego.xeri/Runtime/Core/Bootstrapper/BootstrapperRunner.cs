@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명: BootstrapperRunner.cs
-수정일: 2026-05-20
+파일명 : BootstrapperRunner.cs
+수정일 : 2026-09-02
 
 # 설명
-BootStrapper 모듈 목록을 순차 실행하는 런타임 헬퍼.
-실제 MonoBehaviour 생명주기와 분리하여 모듈 실행 규칙을 단위 테스트할 수 있게 한다.
+Bootstrapper Module 목록에서 지정 phase만 원래 목록 순서대로 실행한다.
+Module은 Bootstrapper가 보장한 phase ordering 안에서 독립적으로 초기화된다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -17,26 +17,30 @@ namespace inonego.Xeri.Bootstrapper
 {
     // ============================================================
     /// <summary>
-    /// BootStrapper 모듈 실행 헬퍼.
+    /// Bootstrapper Module phase 실행 헬퍼.
     /// </summary>
     // ============================================================
     public static class BootstrapperRunner
     {
 
-    #region 메서드
+    #region 단계 실행
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 모듈 목록을 순서대로 초기화한다. null 모듈은 건너뛴다.
+        /// 지정 phase의 Module만 목록 순서대로 실행한다.
         /// </summary>
-        // ------------------------------------------------------------
-        public static async Awaitable Init(IReadOnlyList<BootstrapperModuleAsset> modules)
+        // ----------------------------------------------------------------------
+        public static async Awaitable RunPhase
+        (
+            IReadOnlyList<BootstrapperModuleAsset> modules,
+            BootstrapperModulePhase phase
+        )
         {
             if (modules == null) return;
 
             foreach (var module in modules)
             {
-                if (module == null) continue;
+                if (module == null || module.Phase != phase) continue;
 
                 await module.Init();
             }

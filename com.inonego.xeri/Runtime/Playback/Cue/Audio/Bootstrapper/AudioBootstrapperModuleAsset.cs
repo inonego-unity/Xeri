@@ -1,15 +1,17 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioBootstrapperModuleAsset.cs
-수정일 : 2026-08-01
+수정일 : 2026-09-02
 
 # 설명
-기존 Xeri Bootstrapper에서 App 단위 Audio Host Prefab을 생성한다.
+Initial Scene 이전 phase에서 App 단위 Audio Host Prefab을 생성하고 Audio runtime 수명을 준비한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 
 using UnityEngine;
 
+using inonego;
+using inonego.Xeri;
 using inonego.Xeri.Bootstrapper;
 
 namespace inonego.Xeri.Playback
@@ -27,6 +29,17 @@ namespace inonego.Xeri.Playback
     public sealed class AudioBootstrapperModuleAsset : BootstrapperModuleAsset
     {
 
+    #region 실행 단계
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Audio Host가 생성될 Initial Scene 이전 phase.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override BootstrapperModulePhase Phase => BootstrapperModulePhase.BeforeInitialScene;
+
+    #endregion
+
     #region 필드
 
         [SerializeField]
@@ -34,7 +47,7 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
-    #region BootstrapperModuleAsset
+    #region Audio Host 초기화
 
         // ----------------------------------------------------------------------
         /// <summary>
