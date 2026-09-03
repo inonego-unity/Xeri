@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6695490326436327213}
   - component: {fileID: 7613934688830580991}
+  - component: {fileID: 2596973800812640139}
   - component: {fileID: 3249500878873084550}
   - component: {fileID: 1789521576062519447}
   - component: {fileID: 416524157499843510}
@@ -63,6 +64,18 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!225 &2596973800812640139
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8117813494844554710}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!114 &3249500878873084550
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenSession.cs
-수정일 : 2026-08-22
+수정일 : 2026-09-03
 
 # 설명
-한 Screen의 공개 상태와 Stack, Hook, Transition 진행 상태를 묶는다.
+한 Screen의 공개 상태와 Stack, Hook, Transition 및 합성 Alpha 진행 상태를 묶는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -17,6 +17,7 @@ namespace inonego.Xeri.UI.Game
     // ============================================================
     public sealed class ScreenSession
     {
+
     #region 필드
 
         // ------------------------------------------------------------
@@ -60,6 +61,13 @@ namespace inonego.Xeri.UI.Game
         /// </summary>
         // ------------------------------------------------------------
         internal ScreenSessionResources Resources { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Screen lifecycle과 외부 Modifier를 합성하는 Presentation Alpha.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal PresentationAlpha Alpha { get; set; }
 
         // ------------------------------------------------------------
         /// <summary>

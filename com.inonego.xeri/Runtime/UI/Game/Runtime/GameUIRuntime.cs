@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIRuntime.cs
-수정일 : 2026-08-23
+수정일 : 2026-09-03
 
 # 설명
 App 단위 Singleton 등록, Main UI Context, 공용 서비스, 혼합 Layer Profile, Render Pipeline Adapter와 Scene Fade의 조립·역순 해제를 소유한다.
+공용 Presentation Transition backend의 실행 경계를 제공하되 backend 자체 소유권은 외부에 노출하지 않는다.
 Shutdown은 일반 소유 객체를 한 번씩 정리하고, 사전 조건에서 거부된 Profile과 Layer Registry 소유권만 유지한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -197,6 +198,27 @@ namespace inonego.Xeri.UI.Game
                     inputDriver.OnLastInputDeviceChanged -= value;
                 }
             }
+        }
+
+    #endregion
+
+    #region Presentation Transition
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Runtime 소유 공용 backend로 Presentation Transition을 실행한다.
+        /// <br/> 외부에는 backend 소유권 대신 취소 Handle만 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public PresentationTransitionHandle PlayPresentationTransition
+        (
+            PresentationTransitionParams parameters,
+            Action onCompleted = null,
+            Action<Exception> onFailed = null
+        )
+        {
+            ThrowIfUnavailable();
+            return transitioner.Play(parameters, onCompleted, onFailed);
         }
 
     #endregion

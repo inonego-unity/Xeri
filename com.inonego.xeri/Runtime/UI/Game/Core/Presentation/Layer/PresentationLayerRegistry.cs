@@ -1,12 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationLayerRegistry.cs
-수정일 : 2026-07-31
+수정일 : 2026-09-03
 
 # 설명
 stable string ID로 Presentation Layer를 등록하고 조회하며 활성 소비자 수를 추적한다.
+Alpha capability를 제공하는 등록 Layer는 외부 presentation 작업이 명시적으로 열거할 수 있다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace inonego.Xeri.UI.Game
@@ -18,6 +20,7 @@ namespace inonego.Xeri.UI.Game
     // ============================================================
     public sealed class PresentationLayerRegistry : IDisposable
     {
+
     #region 내부 데이터
 
         // ============================================================
@@ -40,6 +43,7 @@ namespace inonego.Xeri.UI.Game
         // ============================================================
         internal sealed class Entry
         {
+
         #region 필드
 
             // ------------------------------------------------------------
@@ -131,10 +135,15 @@ namespace inonego.Xeri.UI.Game
 
     #region 필드
 
-        private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
-        private bool isDisposed = false;
-
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Registry 소유권이 종료되었는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
         internal bool IsDisposed => isDisposed;
+
+        private bool isDisposed = false;
+        private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
 
     #endregion
 
@@ -265,6 +274,50 @@ namespace inonego.Xeri.UI.Game
 
             driver = entry.Driver;
             return true;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 현재 등록된 Alpha-capable Layer ID와 Presentation Alpha를 지정 Collection에 복사한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void CopyPresentationAlphasTo
+        (
+            ICollection<KeyValuePair<string, PresentationAlpha>> destination
+        )
+        {
+            ThrowIfDisposed();
+
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            foreach (var pair in entries)
+            {
+                var entry = pair.Value;
+
+                if
+                (
+                    entry.State != EntryState.Available ||
+                    entry.Driver is not IPresentationAlphaLayerDriver alphaLayer
+                )
+                {
+                    continue;
+                }
+
+                var alpha = alphaLayer.Alpha;
+                if (alpha == null) continue;
+
+                destination.Add
+                (
+                    new KeyValuePair<string, PresentationAlpha>
+                    (
+                        pair.Key,
+                        alpha
+                    )
+                );
+            }
         }
 
         // ------------------------------------------------------------

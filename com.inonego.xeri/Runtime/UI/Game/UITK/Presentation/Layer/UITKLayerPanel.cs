@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKLayerPanel.cs
-수정일 : 2026-08-04
+수정일 : 2026-09-03
 
 # 설명
-PresentationLayerAsset의 공통 Screen Overlay 순서를 독립 Runtime Panel과 UIDocument에 적용한다.
+PresentationLayerAsset의 공통 Screen Overlay 순서와 합성 Alpha를 독립 Runtime Panel에 적용한다.
 Linear Color Space에서는 USS gamma 색을 보존하는 offscreen 합성을 Layer 수명에 맞춰 기본 제공한다.
 Layer Root에 Xeri Runtime Control Baseline을 Theme과 무관하게 자동 적용한다.
 ========================================================================= BLOCK_HEADER_END */
@@ -13,6 +13,8 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+using inonego;
+using inonego.Xeri;
 using inonego.Xeri.UI;
 
 namespace inonego.Xeri.UI.Game
@@ -24,8 +26,13 @@ namespace inonego.Xeri.UI.Game
     // ============================================================
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UIDocument))]
-    public sealed class UITKLayerPanel : MonoBehaviour, IPresentationLayerDriver<VisualElement>
+    public sealed class UITKLayerPanel :
+        MonoBehaviour,
+        IPresentationLayerDriver<VisualElement>,
+        IPresentationAlphaLayerDriver,
+        IPresentationTransitionTarget
     {
+
     #region 필드
 
         private const string RootUssClassName = "xeri-game-ui";
@@ -41,6 +48,14 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         public VisualElement Root => FindRoot();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer Root 전체에 합성되는 Presentation Alpha.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PresentationAlpha Alpha => presentationAlpha ??= new PresentationAlpha(this);
+
+        private PresentationAlpha presentationAlpha = null;
         private UIDocument document = null;
 
         [SerializeField]
@@ -164,7 +179,40 @@ namespace inonego.Xeri.UI.Game
             // Theme 구성과 무관하게 Xeri Control Baseline을 이 Layer에 적용한다.
             ApplyRuntimeBaseline(root);
             root.style.display = DisplayStyle.Flex;
+            presentationAlpha?.Refresh();
             ApplyGammaCompositing();
+        }
+
+    #endregion
+
+    #region IPresentationTransitionTarget
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer Root가 현재 Panel에 연결되어 Alpha를 적용할 수 있는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool IPresentationTransitionTarget.IsValid
+        {
+            get
+            {
+                if (this == null) return false;
+
+                var root = FindRoot();
+                return root != null && root.panel != null;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 합성된 Alpha를 Layer Root opacity에 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        void IPresentationTransitionTarget.Apply(float value)
+        {
+            var root = FindRoot() ??
+                throw new MissingReferenceException("UITK Layer Root를 찾을 수 없습니다.");
+            root.style.opacity = Mathf.Clamp01(value);
         }
 
     #endregion

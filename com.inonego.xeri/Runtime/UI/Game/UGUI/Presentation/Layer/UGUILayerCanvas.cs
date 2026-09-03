@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UGUILayerCanvas.cs
-수정일 : 2026-07-31
+수정일 : 2026-09-03
 
 # 설명
-PresentationLayerAsset의 공통 Screen Overlay 순서를 Canvas에 적용하고 RectTransform Root를 제공한다.
+PresentationLayerAsset의 공통 Screen Overlay 순서와 합성 Alpha를 Canvas에 적용한다.
+RectTransform은 View 배치 Root를, CanvasGroup은 Layer Canvas 전체 Alpha 경계를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEngine;
@@ -15,8 +16,15 @@ namespace inonego.Xeri.UI.Game
     /// UGUI Presentation Layer backend.
     /// </summary>
     // ============================================================
-    public sealed class UGUILayerCanvas : MonoBehaviour, IPresentationLayerDriver<RectTransform>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(CanvasGroup))]
+    public sealed class UGUILayerCanvas :
+        MonoBehaviour,
+        IPresentationLayerDriver<RectTransform>,
+        IPresentationAlphaLayerDriver,
+        IPresentationTransitionTarget
     {
+
     #region 필드
 
         // ------------------------------------------------------------
@@ -39,6 +47,15 @@ namespace inonego.Xeri.UI.Game
         [SerializeField]
         private Canvas canvas = null;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer Canvas 전체에 합성되는 Presentation Alpha.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PresentationAlpha Alpha => presentationAlpha ??= new PresentationAlpha(this);
+
+        private PresentationAlpha presentationAlpha = null;
+        private CanvasGroup canvasGroup = null;
         private int order = 0;
 
     #endregion
@@ -98,6 +115,14 @@ namespace inonego.Xeri.UI.Game
                 return false;
             }
 
+            CacheCanvasGroup();
+
+            if (canvasGroup == null || canvasGroup.transform != canvas.transform)
+            {
+                error = "Layer Canvas에 CanvasGroup이 필요합니다.";
+                return false;
+            }
+
             error = "";
             return true;
         }
@@ -124,14 +149,64 @@ namespace inonego.Xeri.UI.Game
 
             if (active)
             {
-                // 비활성 Canvas가 무시한 정렬 값을 활성화가 끝난 실제 backend에 다시 적용한다.
+                // 비활성 Canvas가 무시한 정렬과 Alpha를 활성화가 끝난 실제 backend에 다시 적용한다.
                 ApplyOrder();
+                presentationAlpha?.Refresh();
             }
         }
 
     #endregion
 
+    #region IPresentationTransitionTarget
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer CanvasGroup이 현재 합성 Alpha를 적용할 수 있는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool IPresentationTransitionTarget.IsValid
+        {
+            get
+            {
+                if (this == null) return false;
+
+                CacheCanvasGroup();
+                return canvasGroup != null;
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 합성된 Alpha를 Layer Root CanvasGroup에 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        void IPresentationTransitionTarget.Apply(float value)
+        {
+            CacheCanvasGroup();
+
+            if (canvasGroup == null)
+            {
+                throw new MissingReferenceException("UGUI Layer CanvasGroup이 없습니다.");
+            }
+
+            canvasGroup.alpha = Mathf.Clamp01(value);
+        }
+
+    #endregion
+
     #region 내부 처리
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Layer Canvas GameObject의 CanvasGroup을 현재 backend에 연결한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CacheCanvasGroup()
+        {
+            if (canvasGroup != null) return;
+
+            canvasGroup = GetComponent<CanvasGroup>();
+        }
 
         // ------------------------------------------------------------
         /// <summary>

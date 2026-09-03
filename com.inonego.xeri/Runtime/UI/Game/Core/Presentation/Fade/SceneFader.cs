@@ -1,15 +1,17 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SceneFader.cs
-수정일 : 2026-08-06
+수정일 : 2026-09-03
 
 # 설명
 App 기본 Layer의 Fade Overlay를 Cover부터 Reveal 또는 종료까지 소유하는 상태 머신이다.
+Fade lifecycle Alpha는 PresentationAlpha Base로 전환해 실제 backend 적용과 분리한다.
 
 # 시간 정책
 Scene 전환은 게임 시간 정지와 독립적이어야 하므로 항상 Unscaled 시간으로 재생한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -23,6 +25,7 @@ namespace inonego.Xeri.UI.Game
     // ============================================================
     public sealed class SceneFader : IDisposable
     {
+
     #region 필드
 
         // ------------------------------------------------------------
@@ -45,6 +48,7 @@ namespace inonego.Xeri.UI.Game
         private readonly IPresentationTransitioner transitioner = null;
 
         private OverlayHandle<ISceneFadeDriver> overlay = null;
+        private PresentationAlpha alpha = null;
         private bool overlayInitialized = false;
         private PresentationTransitionHandle transition = null;
         private SceneFadeState stableState = SceneFadeState.Clear;
@@ -114,8 +118,7 @@ namespace inonego.Xeri.UI.Game
 
                 Play
                 (
-                    driver,
-                    driver.Alpha,
+                    alpha.Base,
                     1.0f,
                     parameters.Duration,
                     currentGeneration,
@@ -136,7 +139,7 @@ namespace inonego.Xeri.UI.Game
                     throw;
                 }
 
-                throw RollbackToStable(driver, exception);
+                throw RollbackToStable(exception);
             }
         }
 
@@ -173,8 +176,7 @@ namespace inonego.Xeri.UI.Game
 
                 Play
                 (
-                    driver,
-                    driver.Alpha,
+                    alpha.Base,
                     0.0f,
                     parameters.Duration,
                     currentGeneration,
@@ -189,7 +191,7 @@ namespace inonego.Xeri.UI.Game
                     throw;
                 }
 
-                throw RollbackToStable(driver, exception);
+                throw RollbackToStable(exception);
             }
         }
 
@@ -221,7 +223,7 @@ namespace inonego.Xeri.UI.Game
                     throw new InvalidOperationException("Scene Fade Driver가 유효하지 않습니다.");
                 }
 
-                driver.Apply(0.0f);
+                alpha = new PresentationAlpha(driver, 0.0f);
                 overlayInitialized = true;
             }
             catch (Exception exception)
@@ -251,7 +253,6 @@ namespace inonego.Xeri.UI.Game
         // ------------------------------------------------------------
         private void Play
         (
-            ISceneFadeDriver driver,
             float startValue,
             float endValue,
             float duration,
@@ -260,11 +261,11 @@ namespace inonego.Xeri.UI.Game
             Action<Exception> onFailed
         )
         {
-            driver.Apply(startValue);
+            alpha.Apply(startValue);
 
             var parameters = new PresentationTransitionParams
             (
-                driver,
+                alpha,
                 startValue,
                 endValue,
                 duration,
@@ -280,11 +281,11 @@ namespace inonego.Xeri.UI.Game
 
                 if (!playReturned)
                 {
-                    synchronousFailure = RollbackToStable(driver, failure);
+                    synchronousFailure = RollbackToStable(failure);
                     return;
                 }
 
-                HandleAsyncFailure(driver, failure, onFailed);
+                HandleAsyncFailure(failure, onFailed);
             }
 
             var handle = transitioner.Play
@@ -396,22 +397,22 @@ namespace inonego.Xeri.UI.Game
         /// <br/> 최초 실패와 롤백 실패를 함께 보존한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        private Exception RollbackToStable
-        (
-            ISceneFadeDriver driver,
-            Exception failure
-        )
+        private Exception RollbackToStable(Exception failure)
         {
             var errors = new List<Exception> { failure };
             var stableAlpha = stableState == SceneFadeState.Covered ? 1.0f : 0.0f;
 
-            try
+            // Overlay 반환이 이미 terminal 처리된 경우에는 마지막 적용값을 유지하고 backend를 다시 건드리지 않는다.
+            if (alpha != null)
             {
-                driver.Apply(stableAlpha);
-            }
-            catch (Exception exception)
-            {
-                errors.Add(exception);
+                try
+                {
+                    alpha.Apply(stableAlpha);
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
             }
 
             if (stableState == SceneFadeState.Clear && transition == null)
@@ -440,12 +441,11 @@ namespace inonego.Xeri.UI.Game
         // ----------------------------------------------------------------------
         private void HandleAsyncFailure
         (
-            ISceneFadeDriver driver,
             Exception failure,
             Action<Exception> onFailed
         )
         {
-            var reportedFailure = RollbackToStable(driver, failure);
+            var reportedFailure = RollbackToStable(failure);
 
             // 소비자 callback 예외가 원래 Fade 실패를 대체하지 않게 기록만 한다.
             try
@@ -469,6 +469,7 @@ namespace inonego.Xeri.UI.Game
 
             var current = overlay;
             overlay = null;
+            alpha = null;
             overlayInitialized = false;
             current.Dispose();
         }

@@ -1,12 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ScreenController.cs
-수정일 : 2026-08-22
+수정일 : 2026-09-03
 
 # 설명
 Screen Open·Close·Replace·Clear 명령과 Stack, 상태 훅, Transition과 대칭 수명을 중재한다.
+Screen lifecycle Alpha는 PresentationAlpha Base로 전환해 외부 Modifier와 독립적으로 합성한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -20,6 +22,7 @@ namespace inonego.Xeri.UI.Game
     // ============================================================
     public sealed class ScreenController
     {
+
     #region 필드
 
         // ------------------------------------------------------------
@@ -436,7 +439,7 @@ namespace inonego.Xeri.UI.Game
                 }
 
                 driver.SetInteractable(false);
-                driver.Apply(0.0f);
+                session.Alpha = new PresentationAlpha(driver, 0.0f);
             }
             catch (Exception exception)
             {
@@ -601,7 +604,7 @@ namespace inonego.Xeri.UI.Game
             var generation = ++session.TransitionGeneration;
             var parameters = new PresentationTransitionParams
             (
-                session.Resources.Instance.Driver,
+                session.Alpha,
                 0.0f,
                 1.0f,
                 session.Options.OpenDuration,
@@ -620,7 +623,7 @@ namespace inonego.Xeri.UI.Game
 
                     try
                     {
-                        session.Resources.Instance.Driver.Apply(1.0f);
+                        session.Alpha.Apply(1.0f);
                     }
                     catch (Exception applyException)
                     {
@@ -654,7 +657,7 @@ namespace inonego.Xeri.UI.Game
 
             try
             {
-                session.Resources.Instance.Driver.Apply(1.0f);
+                session.Alpha.Apply(1.0f);
             }
             catch (Exception exception)
             {
@@ -807,7 +810,7 @@ namespace inonego.Xeri.UI.Game
             {
                 try
                 {
-                    session.Resources.Instance.Driver.Apply(0.0f);
+                    session.Alpha.Apply(0.0f);
                 }
                 catch (Exception exception)
                 {
@@ -836,7 +839,7 @@ namespace inonego.Xeri.UI.Game
 
                 try
                 {
-                    session.Resources.Instance.Driver.Apply(0.0f);
+                    session.Alpha.Apply(0.0f);
                 }
                 catch (Exception applyException)
                 {
@@ -866,8 +869,8 @@ namespace inonego.Xeri.UI.Game
             var generation = ++session.TransitionGeneration;
             var parameters = new PresentationTransitionParams
             (
-                session.Resources.Instance.Driver,
-                session.Resources.Instance.Driver.Visibility,
+                session.Alpha,
+                session.Alpha.Base,
                 0.0f,
                 session.Options.CloseDuration,
                 session.Options.UsesUnscaledTime
@@ -885,7 +888,7 @@ namespace inonego.Xeri.UI.Game
 
                     try
                     {
-                        session.Resources.Instance.Driver.Apply(0.0f);
+                        session.Alpha.Apply(0.0f);
                     }
                     catch (Exception applyException)
                     {
@@ -968,6 +971,9 @@ namespace inonego.Xeri.UI.Game
             }
 
             resources.ReleaseSource(errors);
+
+            // Source 반환 뒤에는 닫힌 Session이 표시 backend를 더 이상 보유하지 않게 Alpha 연결도 종료한다.
+            session.Alpha = null;
             resources.ReleaseLayer(errors);
 
             var detached = stack.Remove(session);
@@ -1203,7 +1209,7 @@ namespace inonego.Xeri.UI.Game
             try
             {
                 session.Resources.Instance.Driver.SetInteractable(false);
-                session.Resources.Instance.Driver.Apply(0.0f);
+                session.Alpha.Apply(0.0f);
             }
             catch (Exception exception)
             {
@@ -1306,6 +1312,9 @@ namespace inonego.Xeri.UI.Game
             }
 
             resources.ReleaseSource(errors);
+
+            // Source 반환 뒤에는 닫힌 Session이 표시 backend를 더 이상 보유하지 않게 Alpha 연결도 종료한다.
+            session.Alpha = null;
             resources.ReleaseLayer(errors);
 
             var inputSession = resources.TakeInputSession();
