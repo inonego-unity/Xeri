@@ -1,12 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : MusicLayer.cs
+파일명 : UnityAudioClipCueAsset.cs
 수정일 : 2026-09-04
 
 # 설명
-동기 Music Layer Group 안에서 재생할 단일 Audio Cue 참조를 정의한다.
+UnityAudioClipCue runtime 정의를 Unity Asset으로 authoring하고 보관한다.
 ========================================================================= BLOCK_HEADER_END */
-
-using System;
 
 using UnityEngine;
 
@@ -14,35 +12,31 @@ namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Music Layer Group을 구성하는 단일 Audio Cue 항목.
+    /// UnityAudioClipCue를 직렬화하는 Audio Cue Asset.
     /// </summary>
     // ============================================================
-    [Serializable]
-    public sealed class MusicLayer
+    [CreateAssetMenu(menuName = "Xeri/Playback/Unity Audio Clip Cue", fileName = "AudioCue")]
+    public sealed class UnityAudioClipCueAsset : AudioCueAsset
     {
 
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 이 Layer에서 재생할 Audio Cue.
+        /// Asset에 authoring된 runtime Audio Cue 정의.
         /// </summary>
         // ------------------------------------------------------------
-        public AudioCue Cue => cue != null ? cue.Cue : null;
+        public new UnityAudioClipCue Cue => cue;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 이 Layer에 authoring된 Audio Cue Asset.
+        /// Base AudioCueAsset의 내부 공통 계약에 concrete Cue를 제공한다.
         /// </summary>
         // ------------------------------------------------------------
-        public AudioCueAsset CueAsset
-        {
-            get => cue;
-            set => cue = value;
-        }
+        protected override AudioCue _cue => cue;
 
         [SerializeField]
-        private AudioCueAsset cue = null;
+        private UnityAudioClipCue cue = new();
 
     #endregion
 

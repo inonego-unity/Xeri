@@ -138,8 +138,8 @@ namespace inonego.Xeri.TEST._Playback
             var sourcePrefab = CreateSourcePrefab();
             var sfxClip = CreateClip("TEST_SFX", 1.0f);
             var musicClip = CreateClip("TEST_Music", 1.0f);
-            var sfxCue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
-            var musicCue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
+            var sfxCue = new UnityAudioClipCue();
+            var musicCue = new UnityAudioClipCue();
 
             try
             {
@@ -196,8 +196,6 @@ namespace inonego.Xeri.TEST._Playback
             {
                 Object.DestroyImmediate(root);
                 AudioManager.Clear();
-                Object.DestroyImmediate(sfxCue);
-                Object.DestroyImmediate(musicCue);
                 Object.DestroyImmediate(sfxClip);
                 Object.DestroyImmediate(musicClip);
                 Object.DestroyImmediate(sourcePrefab.gameObject);
@@ -220,8 +218,8 @@ namespace inonego.Xeri.TEST._Playback
             var sourcePrefab = CreateSourcePrefab();
             var sfxClip = CreateClip("TEST_SFX", 1.0f);
             var musicClip = CreateClip("TEST_Music", 1.0f);
-            var sfxCue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
-            var musicCue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
+            var sfxCue = new UnityAudioClipCue();
+            var musicCue = new UnityAudioClipCue();
 
             try
             {
@@ -268,8 +266,6 @@ namespace inonego.Xeri.TEST._Playback
             {
                 Object.DestroyImmediate(root);
                 AudioManager.Clear();
-                Object.DestroyImmediate(sfxCue);
-                Object.DestroyImmediate(musicCue);
                 Object.DestroyImmediate(sfxClip);
                 Object.DestroyImmediate(musicClip);
                 Object.DestroyImmediate(sourcePrefab.gameObject);

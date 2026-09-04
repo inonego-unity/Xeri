@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioCue.cs
-수정일 : 2026-08-21
+수정일 : 2026-09-04
 
 # 설명
-오디오 Cue가 공통으로 사용하는 재생 설정을 정의한다.
+오디오 Cue가 공통으로 사용하는 runtime 재생 설정을 정의한다.
 
 # 적용 범위
 시작 시간과 런타임 배치는 상위 호출자가 소유하며 Cue는 기본 Bus와 재생 설정을 제공한다.
@@ -24,7 +24,8 @@ namespace inonego.Xeri.Playback
     /// 오디오 Cue의 공통 재생 설정.
     /// </summary>
     // ============================================================
-    public abstract class AudioCue : ScriptableObject, IPlaybackCue
+    [Serializable]
+    public abstract class AudioCue : IPlaybackCue
     {
 
     #region 필드

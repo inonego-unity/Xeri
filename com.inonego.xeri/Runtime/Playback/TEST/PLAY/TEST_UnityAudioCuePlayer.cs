@@ -117,7 +117,7 @@ namespace inonego.Xeri.TEST._Playback
             var root = new GameObject("TEST_UnityAudioCuePlayer");
             var sourcePrefab = CreateSourcePrefab();
             var clip = CreateClip("TEST_Control", 1.0f);
-            var cue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
+            var cue = new UnityAudioClipCue();
 
             try
             {
@@ -159,7 +159,6 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
                 Object.DestroyImmediate(clip);
                 Object.DestroyImmediate(sourcePrefab.gameObject);
                 Object.DestroyImmediate(root);
@@ -184,8 +183,8 @@ namespace inonego.Xeri.TEST._Playback
             var sourcePrefab = CreateSourcePrefab();
             var positionClip = CreateClip("TEST_Position", 1.0f);
             var emitterClip = CreateClip("TEST_Emitter", 1.0f);
-            var positionCue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
-            var emitterCue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
+            var positionCue = new UnityAudioClipCue();
+            var emitterCue = new UnityAudioClipCue();
 
             try
             {
@@ -248,8 +247,6 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(positionCue);
-                Object.DestroyImmediate(emitterCue);
                 Object.DestroyImmediate(positionClip);
                 Object.DestroyImmediate(emitterClip);
                 Object.DestroyImmediate(sourcePrefab.gameObject);
@@ -273,7 +270,7 @@ namespace inonego.Xeri.TEST._Playback
             var root = new GameObject("TEST_UnityAudioCuePlayer");
             var sourcePrefab = CreateSourcePrefab();
             var clip = CreateClip("TEST_Natural", 0.1f);
-            var cue = ScriptableObject.CreateInstance<UnityAudioClipCue>();
+            var cue = new UnityAudioClipCue();
 
             try
             {
@@ -301,7 +298,6 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
                 Object.DestroyImmediate(clip);
                 Object.DestroyImmediate(sourcePrefab.gameObject);
                 Object.DestroyImmediate(root);
