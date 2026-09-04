@@ -278,19 +278,45 @@ namespace inonego.Xeri.UI.Game
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 현재 등록된 Alpha-capable Layer ID와 Presentation Alpha를 지정 Collection에 복사한다.
+        /// ID에 해당하는 Alpha-capable Layer의 Presentation Alpha를 조회한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public void CopyPresentationAlphasTo
+        public bool TryGetPresentationAlpha
         (
-            ICollection<KeyValuePair<string, PresentationAlpha>> destination
+            string id,
+            out PresentationAlpha alpha
         )
         {
             ThrowIfDisposed();
+            alpha = null;
 
-            if (destination == null)
+            if
+            (
+                string.IsNullOrWhiteSpace(id) ||
+                !entries.TryGetValue(id, out var entry) ||
+                entry.State != EntryState.Available ||
+                entry.Driver is not IPresentationAlphaLayerDriver alphaLayer
+            )
             {
-                throw new ArgumentNullException(nameof(destination));
+                return false;
+            }
+
+            alpha = alphaLayer.Alpha;
+            return alpha != null;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 현재 등록된 Alpha-capable Layer를 동기 순회한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void ForEachPresentationAlpha(Action<string, PresentationAlpha> action)
+        {
+            ThrowIfDisposed();
+
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
             }
 
             foreach (var pair in entries)
@@ -309,14 +335,7 @@ namespace inonego.Xeri.UI.Game
                 var alpha = alphaLayer.Alpha;
                 if (alpha == null) continue;
 
-                destination.Add
-                (
-                    new KeyValuePair<string, PresentationAlpha>
-                    (
-                        pair.Key,
-                        alpha
-                    )
-                );
+                action(pair.Key, alpha);
             }
         }
 
