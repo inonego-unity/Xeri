@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UnityParticleSystemCuePlayer.cs
-수정일 : 2026-08-22
+수정일 : 2026-09-05
 
 # 설명
 UnityParticleSystemCuePlayer의 Binding 배치, Transform 추적과 Prefab 렌더링 설정 보존을 검증한다.
@@ -17,9 +17,12 @@ using UnityEngine.TestTools;
 
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Playback;
+
 namespace inonego.Xeri.TEST._Playback
 {
-    using inonego.Xeri.Playback;
 
     // ============================================================
     /// <summary>
@@ -48,6 +51,23 @@ namespace inonego.Xeri.TEST._Playback
             main.startLifetime = 10.0f;
 
             return particle;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 ParticleSystem Prefab을 사용하는 단일 Variant runtime Cue를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static UnityParticleSystemCue CreateCue(ParticleSystem prefab)
+        {
+            return new UnityParticleSystemCue
+            (
+                new UnityParticleSystemCueVariant
+                {
+                    Prefab = prefab,
+                    UsesUnscaledTime = true,
+                }
+            );
         }
 
         // ------------------------------------------------------------
@@ -87,13 +107,10 @@ namespace inonego.Xeri.TEST._Playback
             var emitter = new GameObject("TEST_Emitter");
             var prefab = CreateParticlePrefab();
             var materialSource = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            var cue = ScriptableObject.CreateInstance<UnityParticleSystemCue>();
+            var cue = CreateCue(prefab);
 
             try
             {
-                cue.Prefab = prefab;
-                cue.UsesUnscaledTime = true;
-
                 var authoredMaterial = materialSource.GetComponent<Renderer>().sharedMaterial;
                 Assert.IsNotNull(authoredMaterial);
                 prefab.GetComponent<ParticleSystemRenderer>().sharedMaterial = authoredMaterial;
@@ -149,7 +166,7 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
+                cue.Dispose();
                 Object.DestroyImmediate(prefab.gameObject);
                 Object.DestroyImmediate(materialSource);
                 Object.DestroyImmediate(emitter);
@@ -171,11 +188,10 @@ namespace inonego.Xeri.TEST._Playback
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
-            var cue = ScriptableObject.CreateInstance<UnityParticleSystemCue>();
+            var cue = CreateCue(prefab);
 
             try
             {
-                cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
 
@@ -186,7 +202,7 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
+                cue.Dispose();
                 Object.DestroyImmediate(prefab.gameObject);
                 Object.DestroyImmediate(root);
             }
@@ -206,11 +222,10 @@ namespace inonego.Xeri.TEST._Playback
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
-            var cue = ScriptableObject.CreateInstance<UnityParticleSystemCue>();
+            var cue = CreateCue(prefab);
 
             try
             {
-                cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
                 var binding = default(TransformBinding_Tracked);
@@ -222,7 +237,7 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
+                cue.Dispose();
                 Object.DestroyImmediate(prefab.gameObject);
                 Object.DestroyImmediate(root);
             }
@@ -242,11 +257,10 @@ namespace inonego.Xeri.TEST._Playback
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
-            var cue = ScriptableObject.CreateInstance<UnityParticleSystemCue>();
+            var cue = CreateCue(prefab);
 
             try
             {
-                cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
                 var binding = default(TransformBinding_Fixed);
@@ -258,7 +272,7 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
+                cue.Dispose();
                 Object.DestroyImmediate(prefab.gameObject);
                 Object.DestroyImmediate(root);
             }
@@ -278,11 +292,10 @@ namespace inonego.Xeri.TEST._Playback
         {
             var root = new GameObject("TEST_UnityParticleSystemCuePlayer");
             var prefab = CreateParticlePrefab();
-            var cue = ScriptableObject.CreateInstance<UnityParticleSystemCue>();
+            var cue = CreateCue(prefab);
 
             try
             {
-                cue.Prefab = prefab;
                 var player = root.AddComponent<UnityParticleSystemCuePlayer>();
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
                 var rotation = new Quaternion(float.MaxValue, float.MaxValue, 0.0f, 0.0f);
@@ -295,7 +308,7 @@ namespace inonego.Xeri.TEST._Playback
             }
             finally
             {
-                Object.DestroyImmediate(cue);
+                cue.Dispose();
                 Object.DestroyImmediate(prefab.gameObject);
                 Object.DestroyImmediate(root);
             }

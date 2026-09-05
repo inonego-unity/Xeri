@@ -1,6 +1,6 @@
 # UniXeri Audio Consumer Guide
 
-UniXeri Audio는 Unity `AudioSource` 기반 Cue 재생과 Master·Bus 출력 제어를 제공한다. 소비자는 Audio Host를 한 번 구성하고 `UnityAudioClipCue` Asset을 만들어 `AudioManager`에서 재생한다.
+UniXeri Audio는 Unity `AudioSource` 기반 Cue 재생과 Master·Bus 출력 제어를 제공한다. `UnityAudioClipCueAsset`은 하나 이상의 interchangeable Variant를 authoring하고, 소비자는 owner 수명에 맞춰 `CreateCue()`로 runtime `UnityAudioClipCue`를 한 번 생성해 재사용한다.
 
 ## Audio Host 구성
 
@@ -47,15 +47,16 @@ Project 창에서 다음 Asset을 만든다.
 Create/Xeri/Playback/Unity Audio Clip Cue
 ```
 
-`UnityAudioClipCue`에서 다음 값을 설정한다.
+`UnityAudioClipCueAsset`에는 `Variants`와 선택 정책을 설정한다.
 
-- `Clip`: 재생할 `AudioClip`
-- `Bus`: `Music`, `SFX`, `UI`, `Voice`, `Ambience`
-- `Volume`: Cue 기본 볼륨
-- `Pitch`: `-3` 이상 `3` 이하의 재생 Pitch
-- `Is Looping`: 반복 재생 여부
-- `Spatial Blend`: 3D 재생에서 사용할 공간 혼합 비율
-- `Rolloff Mode`, `Min Distance`, `Max Distance`: 거리 감쇠 설정
+- `Exclude Previous`: Variant가 2개 이상일 때 직전 선택을 다음 선택에서 제외한다.
+- `Variants`: 같은 의미적 Cue 안에서 교체 가능한 재생 Variant 목록.
+- 각 Variant의 `Clip`: 재생할 `AudioClip`.
+- 각 Variant의 `Bus`: `Music`, `SFX`, `UI`, `Voice`, `Ambience`.
+- 각 Variant의 `Volume`, `Pitch`, `Is Looping`.
+- 각 Variant의 `Spatial Blend`, `Rolloff Mode`, `Min Distance`, `Max Distance`.
+
+`Exclude Previous`의 선택 이력은 Asset이 아니라 `CreateCue()`로 생성한 runtime Cue에 저장된다. 따라서 같은 Asset을 서로 다른 actor가 사용해도 각 actor가 runtime Cue를 따로 만들면 선택 이력이 섞이지 않는다.
 
 ## 기본 재생
 
@@ -66,7 +67,14 @@ using UnityEngine;
 public sealed class CharacterAudio : MonoBehaviour
 {
     [SerializeField]
-    private UnityAudioClipCue attackCue;
+    private UnityAudioClipCueAsset attackCueAsset;
+
+    private AudioCue attackCue;
+
+    private void Awake()
+    {
+        attackCue = attackCueAsset.CreateCue();
+    }
 
     public void PlayAttack()
     {
@@ -106,9 +114,9 @@ IAudioPlayback playback = AudioManager.Current.PlayScheduled(cue, startTime);
 
 ```text
 MusicLayerGroup
-├── MusicLayer → UnityAudioClipCue
-├── MusicLayer → UnityAudioClipCue
-└── MusicLayer → UnityAudioClipCue
+├── MusicLayer → UnityAudioClipCueAsset
+├── MusicLayer → UnityAudioClipCueAsset
+└── MusicLayer → UnityAudioClipCueAsset
 ```
 
 ```csharp

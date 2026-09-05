@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_AudioManager.cs
-수정일 : 2026-08-01
+수정일 : 2026-09-05
 
 # 설명
 AudioManager의 Master·Bus 출력, 동시 재생과 Bus별 종료 계약을 검증한다.
@@ -14,9 +14,12 @@ using UnityEngine;
 
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Playback;
+
 namespace inonego.Xeri.TEST._Playback
 {
-    using inonego.Xeri.Playback;
 
     // ============================================================
     /// <summary>
@@ -138,18 +141,23 @@ namespace inonego.Xeri.TEST._Playback
             var sourcePrefab = CreateSourcePrefab();
             var sfxClip = CreateClip("TEST_SFX", 1.0f);
             var musicClip = CreateClip("TEST_Music", 1.0f);
-            var sfxCue = new UnityAudioClipCue();
-            var musicCue = new UnityAudioClipCue();
+            var sfxVariant = new UnityAudioClipCueVariant
+            {
+                Clip = sfxClip,
+                Bus = AudioBus.SFX,
+                Volume = 0.8f,
+            };
+            var musicVariant = new UnityAudioClipCueVariant
+            {
+                Clip = musicClip,
+                Bus = AudioBus.Music,
+                Volume = 0.5f,
+            };
+            var sfxCue = new UnityAudioClipCue(sfxVariant);
+            var musicCue = new UnityAudioClipCue(musicVariant);
 
             try
             {
-                sfxCue.Clip = sfxClip;
-                sfxCue.Bus = AudioBus.SFX;
-                sfxCue.Volume = 0.8f;
-
-                musicCue.Clip = musicClip;
-                musicCue.Bus = AudioBus.Music;
-                musicCue.Volume = 0.5f;
 
                 var manager = CreateManager(root, sourcePrefab);
                 var sfxPlayback = manager.Play(sfxCue, volumeScale: 0.5f);
@@ -162,7 +170,7 @@ namespace inonego.Xeri.TEST._Playback
                 Assert.AreEqual(0.4f, sfxPlayback.Volume, 0.001f);
                 Assert.AreEqual(0.4f, sfxSource.volume, 0.001f);
                 Assert.AreEqual(0.5f, musicSource.volume, 0.001f);
-                Assert.AreEqual(0.8f, sfxCue.Volume, 0.001f);
+                Assert.AreEqual(0.8f, sfxVariant.Volume, 0.001f);
 
                 manager.SetMasterVolume(0.5f);
                 manager.SetBusVolume(AudioBus.SFX, 0.5f);
@@ -218,17 +226,22 @@ namespace inonego.Xeri.TEST._Playback
             var sourcePrefab = CreateSourcePrefab();
             var sfxClip = CreateClip("TEST_SFX", 1.0f);
             var musicClip = CreateClip("TEST_Music", 1.0f);
-            var sfxCue = new UnityAudioClipCue();
-            var musicCue = new UnityAudioClipCue();
+            var sfxVariant = new UnityAudioClipCueVariant
+            {
+                Clip = sfxClip,
+                Bus = AudioBus.SFX,
+                Volume = 0.8f,
+            };
+            var musicVariant = new UnityAudioClipCueVariant
+            {
+                Clip = musicClip,
+                Bus = AudioBus.Music,
+            };
+            var sfxCue = new UnityAudioClipCue(sfxVariant);
+            var musicCue = new UnityAudioClipCue(musicVariant);
 
             try
             {
-                sfxCue.Clip = sfxClip;
-                sfxCue.Bus = AudioBus.SFX;
-                sfxCue.Volume = 0.8f;
-
-                musicCue.Clip = musicClip;
-                musicCue.Bus = AudioBus.Music;
 
                 var manager = CreateManager(root, sourcePrefab);
                 manager.SetBusVolume(AudioBus.SFX, 0.25f);

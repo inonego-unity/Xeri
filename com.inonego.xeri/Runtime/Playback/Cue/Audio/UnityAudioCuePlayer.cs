@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioCuePlayer.cs
-수정일 : 2026-08-22
+수정일 : 2026-09-05
 
 # 설명
 UnityAudioClipCue를 Pool에서 획득한 AudioSource voice로 즉시 또는 DSP 예약 실행하고 Playback을 갱신한다.
@@ -11,6 +11,7 @@ Bus 출력 정책은 AudioManager가 계산하고 Player는 전달받은 초기 
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -48,7 +49,7 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
-    #region 메서드
+    #region Audio 재생
 
         // ------------------------------------------------------------
         /// <summary>
@@ -62,10 +63,10 @@ namespace inonego.Xeri.Playback
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 지원 Audio Cue의 Clip과 공통 재생 설정을 검증해 concrete Cue로 반환한다.
+        /// 지원 Audio Cue에서 이번 재생의 Variant를 하나 선택하고 재생 설정을 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        internal UnityAudioClipCue ValidateCue(AudioCue cue)
+        internal UnityAudioClipCueVariant SelectVariant(AudioCue cue)
         {
             if (cue == null)
             {
@@ -81,55 +82,61 @@ namespace inonego.Xeri.Playback
                 );
             }
 
-            if (audioCue.Clip == null)
-            {
-                throw new InvalidOperationException("Unity Audio Clip Cue에 AudioClip이 설정되지 않았습니다.");
-            }
-
-            ValidateCueSettings(audioCue);
-            return audioCue;
+            var variant = audioCue.SelectVariant();
+            ValidateVariant(variant);
+            return variant;
         }
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// Unity Audio Clip Cue의 볼륨·Pitch·공간 재생 설정을 검증한다.
+        /// Unity Audio Clip Cue Variant의 Clip·볼륨·Pitch·공간 재생 설정을 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        private static void ValidateCueSettings(UnityAudioClipCue audioCue)
+        private static void ValidateVariant(UnityAudioClipCueVariant variant)
         {
-            if
-            (
-                !audioCue.Volume.IsFinite() ||
-                audioCue.Volume < 0.0f ||
-                audioCue.Volume > 1.0f
-            )
+            if (variant == null)
             {
-                throw new InvalidOperationException("Unity Audio Clip Cue의 Volume이 유효하지 않습니다.");
+                throw new InvalidOperationException("Unity Audio Clip Cue Variant가 비어 있습니다.");
+            }
+
+            if (variant.Clip == null)
+            {
+                throw new InvalidOperationException("Unity Audio Clip Cue Variant에 AudioClip이 설정되지 않았습니다.");
             }
 
             if
             (
-                !audioCue.Pitch.IsFinite() ||
-                audioCue.Pitch < -3.0f ||
-                audioCue.Pitch > 3.0f
+                !variant.Volume.IsFinite() ||
+                variant.Volume < 0.0f ||
+                variant.Volume > 1.0f
             )
             {
-                throw new InvalidOperationException("Unity Audio Clip Cue의 Pitch가 유효하지 않습니다.");
+                throw new InvalidOperationException("Unity Audio Clip Cue Variant의 Volume이 유효하지 않습니다.");
             }
 
             if
             (
-                !audioCue.SpatialBlend.IsFinite() ||
-                audioCue.SpatialBlend < 0.0f ||
-                audioCue.SpatialBlend > 1.0f ||
-                !Enum.IsDefined(typeof(AudioRolloffMode), audioCue.RolloffMode) ||
-                !audioCue.MinDistance.IsFinite() ||
-                audioCue.MinDistance <= 0.0f ||
-                !audioCue.MaxDistance.IsFinite() ||
-                audioCue.MaxDistance < audioCue.MinDistance
+                !variant.Pitch.IsFinite() ||
+                variant.Pitch < -3.0f ||
+                variant.Pitch > 3.0f
             )
             {
-                throw new InvalidOperationException("Unity Audio Clip Cue의 공간 재생 설정이 유효하지 않습니다.");
+                throw new InvalidOperationException("Unity Audio Clip Cue Variant의 Pitch가 유효하지 않습니다.");
+            }
+
+            if
+            (
+                !variant.SpatialBlend.IsFinite() ||
+                variant.SpatialBlend < 0.0f ||
+                variant.SpatialBlend > 1.0f ||
+                !Enum.IsDefined(typeof(AudioRolloffMode), variant.RolloffMode) ||
+                !variant.MinDistance.IsFinite() ||
+                variant.MinDistance <= 0.0f ||
+                !variant.MaxDistance.IsFinite() ||
+                variant.MaxDistance < variant.MinDistance
+            )
+            {
+                throw new InvalidOperationException("Unity Audio Clip Cue Variant의 공간 재생 설정이 유효하지 않습니다.");
             }
         }
 
@@ -140,14 +147,15 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public IAudioPlayback Play(AudioCue cue)
         {
+            var variant = SelectVariant(cue);
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: false,
                 Vector3.zero,
                 transformBinding: null,
                 output: null,
-                cue?.Volume ?? 0.0f,
+                variant.Volume,
                 outputVolume: 1.0f
             );
         }
@@ -159,14 +167,15 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         public IAudioPlayback Play(AudioCue cue, Vector3 position)
         {
+            var variant = SelectVariant(cue);
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: true,
                 position,
                 transformBinding: null,
                 output: null,
-                cue?.Volume ?? 0.0f,
+                variant.Volume,
                 outputVolume: 1.0f
             );
         }
@@ -183,27 +192,28 @@ namespace inonego.Xeri.Playback
                 throw new ArgumentNullException(nameof(emitter));
             }
 
+            var variant = SelectVariant(cue);
             var binding = new TransformBinding_Tracked(emitter);
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: true,
                 binding.World.Position,
                 binding,
                 output: null,
-                cue?.Volume ?? 0.0f,
+                variant.Volume,
                 outputVolume: 1.0f
             );
         }
 
         // --------------------------------------------------------------------------------
         /// <summary>
-        /// AudioManager가 계산한 초기 볼륨과 출력 Group으로 Audio Cue를 2D 실행한다.
+        /// AudioManager가 선택한 Variant를 계산된 초기 볼륨과 출력 Group으로 2D 실행한다.
         /// </summary>
         // --------------------------------------------------------------------------------
         internal UnityAudioPlayback Play
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             float volume,
             AudioMixerGroup output,
             float outputVolume
@@ -211,7 +221,7 @@ namespace inonego.Xeri.Playback
         {
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: false,
                 Vector3.zero,
                 transformBinding: null,
@@ -223,12 +233,12 @@ namespace inonego.Xeri.Playback
 
         // --------------------------------------------------------------------------------
         /// <summary>
-        /// AudioManager가 계산한 초기 설정으로 Audio Cue를 지정 DSP 시각에 2D 예약 실행한다.
+        /// AudioManager가 선택한 Variant를 지정 DSP 시각에 2D 예약 실행한다.
         /// </summary>
         // --------------------------------------------------------------------------------
         internal UnityAudioPlayback PlayScheduled
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             double dspTime,
             float volume,
             AudioMixerGroup output,
@@ -237,7 +247,7 @@ namespace inonego.Xeri.Playback
         {
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: false,
                 Vector3.zero,
                 transformBinding: null,
@@ -250,12 +260,12 @@ namespace inonego.Xeri.Playback
 
         // --------------------------------------------------------------------------------
         /// <summary>
-        /// AudioManager가 계산한 초기 설정으로 Audio Cue를 지정 월드 위치에서 실행한다.
+        /// AudioManager가 선택한 Variant를 지정 월드 위치에서 실행한다.
         /// </summary>
         // --------------------------------------------------------------------------------
         internal UnityAudioPlayback Play
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             Vector3 position,
             float volume,
             AudioMixerGroup output,
@@ -264,7 +274,7 @@ namespace inonego.Xeri.Playback
         {
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: true,
                 position,
                 transformBinding: null,
@@ -276,12 +286,12 @@ namespace inonego.Xeri.Playback
 
         // --------------------------------------------------------------------------------
         /// <summary>
-        /// AudioManager가 계산한 초기 설정으로 Audio Cue를 emitter 위치에서 실행한다.
+        /// AudioManager가 선택한 Variant를 emitter 위치에서 실행한다.
         /// </summary>
         // --------------------------------------------------------------------------------
         internal UnityAudioPlayback Play
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             Transform emitter,
             float volume,
             AudioMixerGroup output,
@@ -296,7 +306,7 @@ namespace inonego.Xeri.Playback
             var binding = new TransformBinding_Tracked(emitter);
             return Play
             (
-                cue,
+                variant,
                 in binding,
                 volume,
                 output,
@@ -306,12 +316,12 @@ namespace inonego.Xeri.Playback
 
         // --------------------------------------------------------------------------------
         /// <summary>
-        /// AudioManager가 계산한 초기 설정으로 Audio Cue를 Tracked Transform Binding 위치에서 실행한다.
+        /// AudioManager가 선택한 Variant를 Tracked Transform Binding 위치에서 실행한다.
         /// </summary>
         // --------------------------------------------------------------------------------
         internal UnityAudioPlayback Play
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             in TransformBinding_Tracked binding,
             float volume,
             AudioMixerGroup output,
@@ -329,7 +339,7 @@ namespace inonego.Xeri.Playback
 
             return PlayInternal
             (
-                cue,
+                variant,
                 isSpatial: true,
                 binding.World.Position,
                 binding,
@@ -402,7 +412,7 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------------------------------------
         private UnityAudioPlayback PlayInternal
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             bool isSpatial,
             Vector3 position,
             TransformBinding_Tracked? transformBinding,
@@ -422,7 +432,7 @@ namespace inonego.Xeri.Playback
                 throw new InvalidOperationException("UnityAudioCuePlayer의 AudioSource Pool이 초기화되지 않았습니다.");
             }
 
-            var audioCue = ValidateCue(cue);
+            ValidateVariant(variant);
 
             if
             (
@@ -446,14 +456,14 @@ namespace inonego.Xeri.Playback
 
                 // 재사용 voice가 이전 Cue의 상태를 이어받지 않도록 모든 변경 가능 설정을 덮어쓴다.
                 source.playOnAwake = false;
-                source.clip = audioCue.Clip;
-                source.pitch = audioCue.Pitch;
-                source.loop = audioCue.IsLooping;
+                source.clip = variant.Clip;
+                source.pitch = variant.Pitch;
+                source.loop = variant.IsLooping;
                 source.outputAudioMixerGroup = output;
-                source.spatialBlend = isSpatial ? audioCue.SpatialBlend : 0.0f;
-                source.rolloffMode = audioCue.RolloffMode;
-                source.minDistance = audioCue.MinDistance;
-                source.maxDistance = audioCue.MaxDistance;
+                source.spatialBlend = isSpatial ? variant.SpatialBlend : 0.0f;
+                source.rolloffMode = variant.RolloffMode;
+                source.minDistance = variant.MinDistance;
+                source.maxDistance = variant.MaxDistance;
 
                 if (isSpatial)
                 {
@@ -468,7 +478,7 @@ namespace inonego.Xeri.Playback
                 (
                     sourceLease,
                     volume,
-                    audioCue.Pitch,
+                    variant.Pitch,
                     outputVolume,
                     transformBinding,
                     scheduledStartDSPTime
@@ -497,7 +507,7 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
-    #region Cue Player 구현
+    #region 인터페이스 구현
 
         // ------------------------------------------------------------
         /// <summary>
@@ -567,18 +577,22 @@ namespace inonego.Xeri.Playback
         {
             if (!binding.IsValid)
             {
-                throw new ArgumentException("Tracked Transform Binding의 Target과 Local TRS가 유효하지 않습니다.", nameof(binding));
+                throw new ArgumentException
+                (
+                    "Tracked Transform Binding의 Target과 Local TRS가 유효하지 않습니다.",
+                    nameof(binding)
+                );
             }
 
-            var audioCue = RequireAudioCue(cue);
+            var variant = SelectVariant(RequireAudioCue(cue));
             return PlayInternal
             (
-                audioCue,
+                variant,
                 isSpatial: true,
                 binding.World.Position,
                 binding,
                 output: null,
-                audioCue.Volume,
+                variant.Volume,
                 outputVolume: 1.0f
             );
         }

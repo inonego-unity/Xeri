@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : UnityAudioClipCueAsset.cs
+파일명 : UnityVFXGraphCueAsset.cs
 수정일 : 2026-09-05
 
 # 설명
-하나의 의미적 Audio Cue가 사용할 UnityAudioClipCueVariant들과 선택 정책을 Unity Asset으로 authoring한다.
-Runtime 선택 이력은 Asset에 저장하지 않고 CreateCue로 생성한 UnityAudioClipCue가 소유한다.
+하나의 의미적 Visual Cue가 사용할 VFX Graph Variant들과 선택 정책을 Unity Asset으로 authoring한다.
+Runtime 선택 이력과 Pool 상태는 CreateCue로 생성한 UnityVFXGraphCue가 소유한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -15,15 +15,15 @@ namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Unity AudioClip Variant를 authoring하는 Audio Cue Asset.
+    /// Unity VFX Graph Variant를 authoring하는 Visual Cue Asset.
     /// </summary>
     // ============================================================
     [CreateAssetMenu
     (
-        fileName = "AudioCue",
-        menuName = "Xeri/Playback/Unity Audio Clip Cue"
+        fileName = "UnityVFXGraphCue",
+        menuName = "Xeri/Playback/Unity VFX Graph Cue"
     )]
-    public sealed class UnityAudioClipCueAsset : AudioCueAsset
+    public sealed class UnityVFXGraphCueAsset : VisualCueAsset
     {
 
     #region 필드
@@ -36,8 +36,8 @@ namespace inonego.Xeri.Playback
         public int VariantCount => variants != null ? variants.Length : 0;
 
         [SerializeField]
-        private UnityAudioClipCueVariant[] variants =
-            Array.Empty<UnityAudioClipCueVariant>();
+        private UnityVFXGraphCueVariant[] variants =
+            Array.Empty<UnityVFXGraphCueVariant>();
 
     #endregion
 
@@ -48,9 +48,9 @@ namespace inonego.Xeri.Playback
         /// 이 Asset의 Variant와 선택 정책을 사용하는 runtime Cue를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public override AudioCue CreateCue()
+        public override VisualCue CreateCue()
         {
-            return new UnityAudioClipCue(this);
+            return new UnityVFXGraphCue(this);
         }
 
     #endregion
@@ -62,7 +62,7 @@ namespace inonego.Xeri.Playback
         /// 지정 인덱스의 authoring Variant를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public UnityAudioClipCueVariant GetVariant(int index)
+        public UnityVFXGraphCueVariant GetVariant(int index)
         {
             if (index < 0 || index >= VariantCount)
             {
@@ -83,7 +83,7 @@ namespace inonego.Xeri.Playback
         // ------------------------------------------------------------
         private void OnValidate()
         {
-            variants ??= Array.Empty<UnityAudioClipCueVariant>();
+            variants ??= Array.Empty<UnityVFXGraphCueVariant>();
         }
 
     #endregion

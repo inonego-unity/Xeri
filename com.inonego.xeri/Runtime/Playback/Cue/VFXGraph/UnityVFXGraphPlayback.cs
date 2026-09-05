@@ -1,21 +1,27 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityVFXGraphPlayback.cs
-수정일 : 2026-08-22
+수정일 : 2026-09-05
 
 # 설명
-Pool에서 실행 중인 Unity VFX Graph Cue의 수명과 Transform 추적을 관리한다.
+Pool Lease로 실행 중인 Unity VFX Graph Cue의 수명과 Transform 추적을 관리한다.
+자연 종료나 명시적 종료에서 Lease를 Dispose해 획득 원본 Pool로 자동 반환한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.VFX;
+
+using inonego;
+using inonego.Xeri;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// 실행 중인 Unity VFX Graph Cue Playback.
+    /// 한 번 획득한 VFX Graph Cue 재생의 실행 수명.
     /// </summary>
     // ============================================================
     public sealed class UnityVFXGraphPlayback : ICuePlayback
@@ -25,61 +31,64 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Playback 수명 상태.
+        /// 현재 Cue Playback 상태.
         /// </summary>
         // ------------------------------------------------------------
         public CuePlaybackState State { get; private set; } = CuePlaybackState.Playing;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Cue Domain이 노출 Property와 추가 World 상태를 연결할 현재 VisualEffect.
+        /// 현재 재생 중인 VisualEffect 인스턴스.
         /// </summary>
         // ------------------------------------------------------------
         public VisualEffect Effect => vfx;
 
-        private UnityVFXGraphCuePlayer owner = null;
-        private UnityVFXGraphCue cue = null;
         private VisualEffect vfx = null;
-        private TransformBinding_Tracked? _TransformBinding = null;
+        private UnityVFXGraphCuePlayer owner = null;
+        private Lease<VisualEffect> lease = null;
+        private TransformBinding_Tracked? transformBinding = null;
         private bool isAwaitingInitSimulation = true;
 
     #endregion
 
     #region 생성자
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Player가 획득한 VisualEffect와 선택적 추적 Transform으로 Playback을 생성한다.
+        /// Pool Lease와 선택적 Transform 추적 Binding으로 Playback을 생성한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         internal UnityVFXGraphPlayback
         (
             UnityVFXGraphCuePlayer owner,
-            UnityVFXGraphCue cue,
-            VisualEffect vfx,
-            TransformBinding_Tracked? _TransformBinding
+            Lease<VisualEffect> lease,
+            TransformBinding_Tracked? transformBinding
         )
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
-            this.cue = cue ?? throw new ArgumentNullException(nameof(cue));
-            this.vfx = vfx ?? throw new ArgumentNullException(nameof(vfx));
-            this._TransformBinding = _TransformBinding;
+            this.lease = lease ?? throw new ArgumentNullException(nameof(lease));
+            vfx = lease.Value ?? throw new ArgumentException
+            (
+                "VisualEffect Lease에는 유효한 VisualEffect가 필요합니다.",
+                nameof(lease)
+            );
+            this.transformBinding = transformBinding;
         }
 
     #endregion
 
-    #region 메서드
+    #region 종료
 
-        // --------------------------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> Immediate는 VisualEffect 출력을 즉시 종료하고 Pool에 반환한다.
-        /// <br/> Natural은 Spawn 정지를 요청하고 VFX Graph System이 모두 Sleep할 때까지 Draining한다.
+        /// 지정 종료 방식으로 VFX Graph 재생 종료를 시작하거나 즉시 반환한다.
         /// </summary>
-        // --------------------------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public void Stop(CueStopMode mode = CueStopMode.Immediate)
         {
             if (State == CuePlaybackState.Released) return;
 
+            // Natural 종료는 새 Spawn만 막고 Graph가 sleep될 때까지 Playback을 유지한다.
             if (mode == CueStopMode.Natural)
             {
                 if (State == CuePlaybackState.Draining) return;
@@ -94,7 +103,7 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Playback을 즉시 종료한다.
+        /// Playback을 즉시 종료하고 획득 Lease를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Dispose()
@@ -102,18 +111,23 @@ namespace inonego.Xeri.Playback
             Stop();
         }
 
-        // ------------------------------------------------------------
+    #endregion
+
+    #region 진행
+
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Transform 추적과 VFX Graph 자연 종료를 한 Frame 진행한다.
+        /// Transform 추적과 Graph 활성 상태를 갱신하고 sleep 시 Playback을 자동 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         internal void Tick()
         {
             if (State == CuePlaybackState.Released) return;
 
-            if (_TransformBinding.HasValue)
+            // Tracked Binding이 있으면 매 Frame 현재 World TRS를 재생 인스턴스에 반영한다.
+            if (transformBinding.HasValue)
             {
-                var binding = _TransformBinding.Value;
+                var binding = transformBinding.Value;
 
                 if (!binding.IsValid)
                 {
@@ -132,7 +146,7 @@ namespace inonego.Xeri.Playback
 
             var hasActiveSystem = vfx.HasAnySystemAwake();
 
-            // Play 직후 Graph가 실제 활성 상태를 보고할 때까지는 자연 종료를 판정하지 않는다.
+            // Play 직후 한 Frame의 초기 sleep 상태를 자연 완료로 오인하지 않도록 최초 활성화를 기다린다.
             if (isAwaitingInitSimulation)
             {
                 if (!hasActiveSystem) return;
@@ -145,31 +159,70 @@ namespace inonego.Xeri.Playback
             Release();
         }
 
-        // ------------------------------------------------------------
+    #endregion
+
+    #region 반환
+
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Terminal 상태를 먼저 확정한 뒤 VisualEffect를 Player Pool에 반환한다.
+        /// 재생 인스턴스를 정지하고 Lease 반환과 Player 추적 해제를 한 번만 수행한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private void Release()
         {
             if (State == CuePlaybackState.Released) return;
 
             var releaseOwner = owner;
-            var releaseCue = cue;
+            var releaseLease = lease;
             var releaseVFX = vfx;
 
+            // 외부 정리 중 예외가 발생해도 재진입하지 않도록 terminal 상태를 먼저 확정한다.
             State = CuePlaybackState.Released;
             owner = null;
-            cue = null;
+            lease = null;
             vfx = null;
-            _TransformBinding = null;
+            transformBinding = null;
 
-            releaseOwner.ReleasePlayback
-            (
-                this,
-                releaseCue,
-                releaseVFX
-            );
+            List<Exception> failures = null;
+
+            try
+            {
+                if (releaseVFX != null)
+                {
+                    releaseVFX.Stop();
+                    releaseVFX.pause = false;
+                }
+            }
+            catch (Exception exception)
+            {
+                failures ??= new();
+                failures.Add(exception);
+            }
+
+            // Lease가 기억한 원본 Pool로 인스턴스를 반환한다.
+            try
+            {
+                releaseLease?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                failures ??= new();
+                failures.Add(exception);
+            }
+            finally
+            {
+                // Pool 반환 성공 여부와 무관하게 Player의 활성 추적에서는 terminal Playback을 제거한다.
+                releaseOwner?.ReleasePlayback(this);
+            }
+
+            if (failures != null)
+            {
+                throw new AggregateException
+                (
+                    "VFX Graph Playback 반환 중 하나 이상의 정리가 실패했습니다.",
+                    failures
+                );
+            }
         }
 
     #endregion

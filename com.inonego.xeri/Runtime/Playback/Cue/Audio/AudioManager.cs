@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioManager.cs
-수정일 : 2026-08-22
+수정일 : 2026-09-05
 
 # 설명
 Audio Cue와 동기 Music Layer Group의 정면 재생 API 및 Master·Bus 출력 정책을 제공한다.
@@ -11,6 +11,7 @@ UnityAudioCuePlayer를 통해 즉시·DSP 예약 2D, 고정 위치 3D와 emitter
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
@@ -176,6 +177,7 @@ namespace inonego.Xeri.Playback
 
         private UnityAudioCuePlayer player = null;
         private readonly List<ManagedAudioPlayback> playbacks = new();
+        private readonly Dictionary<AudioCueAsset, AudioCue> musicCues = new();
 
     #endregion
 
@@ -190,11 +192,12 @@ namespace inonego.Xeri.Playback
         {
             ValidatePlay(cue, volumeScale);
 
-            var bus = cue.Bus;
+            var variant = player.SelectVariant(cue);
+            var bus = variant.Bus;
             var playback = player.Play
             (
-                cue,
-                cue.Volume * volumeScale,
+                variant,
+                variant.Volume * volumeScale,
                 GetBusSettings(bus).Output,
                 CalculateOutputVolume(bus)
             );
@@ -217,7 +220,9 @@ namespace inonego.Xeri.Playback
         {
             ValidatePlay(cue, volumeScale);
             ValidateScheduledDSPTime(dspTime);
-            return PlayScheduledValidated(cue, dspTime, volumeScale);
+
+            var variant = player.SelectVariant(cue);
+            return PlayScheduledValidated(variant, dspTime, volumeScale);
         }
 
         // ------------------------------------------------------------
@@ -234,12 +239,13 @@ namespace inonego.Xeri.Playback
         {
             ValidatePlay(cue, volumeScale);
 
-            var bus = cue.Bus;
+            var variant = player.SelectVariant(cue);
+            var bus = variant.Bus;
             var playback = player.Play
             (
-                cue,
+                variant,
                 position,
-                cue.Volume * volumeScale,
+                variant.Volume * volumeScale,
                 GetBusSettings(bus).Output,
                 CalculateOutputVolume(bus)
             );
@@ -267,12 +273,13 @@ namespace inonego.Xeri.Playback
 
             ValidatePlay(cue, volumeScale);
 
-            var bus = cue.Bus;
+            var variant = player.SelectVariant(cue);
+            var bus = variant.Bus;
             var playback = player.Play
             (
-                cue,
+                variant,
                 emitter,
-                cue.Volume * volumeScale,
+                variant.Volume * volumeScale,
                 GetBusSettings(bus).Output,
                 CalculateOutputVolume(bus)
             );
@@ -292,11 +299,11 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------
         public IMusicPlayback Play(MusicLayerGroup group)
         {
-            ValidateMusicLayerGroup(group);
+            var variants = PrepareMusicLayerGroup(group);
 
             // Group 검증이 끝난 뒤 미래 시각을 잡아 모든 Layer가 같은 유효 시작점을 공유하게 한다.
             var dspTime = AudioSettings.dspTime + DEFAULT_MUSIC_SCHEDULE_LEAD_TIME;
-            return PlayMusicLayerGroupValidated(group, dspTime);
+            return PlayMusicLayerGroupValidated(variants, dspTime);
         }
 
         // ----------------------------------------------------------------------
@@ -306,24 +313,23 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------
         public IMusicPlayback PlayScheduled(MusicLayerGroup group, double dspTime)
         {
-            ValidateMusicLayerGroup(group);
+            var variants = PrepareMusicLayerGroup(group);
             ValidateScheduledDSPTime(dspTime);
-            return PlayMusicLayerGroupValidated(group, dspTime);
+            return PlayMusicLayerGroupValidated(variants, dspTime);
         }
-
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 검증 완료된 Music Layer Group을 하나의 DSP 시작점으로 예약하고 Aggregate Handle을 생성한다.
+        /// 검증 완료된 Music Layer Variant를 하나의 DSP 시작점으로 예약하고 Aggregate Handle을 생성한다.
         /// </summary>
         // ----------------------------------------------------------------------
         private IMusicPlayback PlayMusicLayerGroupValidated
         (
-            MusicLayerGroup group,
+            UnityAudioClipCueVariant[] variants,
             double dspTime
         )
         {
-            var layers = new IAudioPlayback[group.LayerCount];
+            var layers = new IAudioPlayback[variants.Length];
 
             try
             {
@@ -331,7 +337,7 @@ namespace inonego.Xeri.Playback
                 {
                     layers[i] = PlayScheduledValidated
                     (
-                        group.GetLayer(i).Cue,
+                        variants[i],
                         dspTime,
                         1.0f
                     );
@@ -348,10 +354,10 @@ namespace inonego.Xeri.Playback
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// Music Layer Group의 Cue와 공통 Timeline 계약을 재생 시작 전에 검증한다.
+        /// Music Layer Group의 runtime Cue에서 이번 재생 Variant를 선택하고 공통 Timeline 계약을 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        private void ValidateMusicLayerGroup(MusicLayerGroup group)
+        private UnityAudioClipCueVariant[] PrepareMusicLayerGroup(MusicLayerGroup group)
         {
             if (group == null)
             {
@@ -363,7 +369,8 @@ namespace inonego.Xeri.Playback
                 throw new InvalidOperationException("Music Layer Group에는 하나 이상의 Layer가 필요합니다.");
             }
 
-            UnityAudioClipCue referenceCue = null;
+            var variants = new UnityAudioClipCueVariant[group.LayerCount];
+            UnityAudioClipCueVariant referenceVariant = null;
 
             for (var i = 0; i < group.LayerCount; i++)
             {
@@ -374,33 +381,60 @@ namespace inonego.Xeri.Playback
                     throw new InvalidOperationException($"Music Layer Group의 Layer {i}가 설정되지 않았습니다.");
                 }
 
-                var audioCue = player.ValidateCue(layer.Cue);
+                var cueAsset = layer.CueAsset ?? throw new InvalidOperationException
+                (
+                    $"Music Layer Group의 Layer {i}에 Audio Cue Asset이 필요합니다."
+                );
+                var variant = player.SelectVariant(ResolveMusicCue(cueAsset));
+                variants[i] = variant;
 
-                if (audioCue.Bus != AudioBus.Music)
+                if (variant.Bus != AudioBus.Music)
                 {
-                    throw new InvalidOperationException("Music Layer Group의 모든 Cue는 Music Bus를 사용해야 합니다.");
+                    throw new InvalidOperationException("Music Layer Group의 모든 Cue Variant는 Music Bus를 사용해야 합니다.");
                 }
 
-                if (referenceCue == null)
+                if (referenceVariant == null)
                 {
-                    referenceCue = audioCue;
+                    referenceVariant = variant;
                     continue;
                 }
 
                 if
                 (
-                    audioCue.Clip.frequency != referenceCue.Clip.frequency ||
-                    audioCue.Clip.samples != referenceCue.Clip.samples ||
-                    audioCue.Pitch != referenceCue.Pitch ||
-                    audioCue.IsLooping != referenceCue.IsLooping
+                    variant.Clip.frequency != referenceVariant.Clip.frequency ||
+                    variant.Clip.samples != referenceVariant.Clip.samples ||
+                    variant.Pitch != referenceVariant.Pitch ||
+                    variant.IsLooping != referenceVariant.IsLooping
                 )
                 {
                     throw new InvalidOperationException
                     (
-                        "Music Layer Group의 모든 Cue는 같은 Sample Timeline, Pitch와 Loop 설정을 가져야 합니다."
+                        "Music Layer Group의 모든 Cue Variant는 같은 Sample Timeline, Pitch와 Loop 설정을 가져야 합니다."
                     );
                 }
             }
+
+            return variants;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Music Layer Asset의 runtime Cue를 Manager 수명 동안 한 번 생성해 재사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private AudioCue ResolveMusicCue(AudioCueAsset asset)
+        {
+            if (musicCues.TryGetValue(asset, out var cue))
+            {
+                return cue;
+            }
+
+            cue = asset.CreateCue() ?? throw new InvalidOperationException
+            (
+                $"Audio Cue Asset '{asset.name}'이 runtime Cue를 생성하지 못했습니다."
+            );
+            musicCues.Add(asset, cue);
+            return cue;
         }
 
         // ----------------------------------------------------------------------
@@ -644,17 +678,17 @@ namespace inonego.Xeri.Playback
         // ----------------------------------------------------------------------
         private IAudioPlayback PlayScheduledValidated
         (
-            AudioCue cue,
+            UnityAudioClipCueVariant variant,
             double dspTime,
             float volumeScale
         )
         {
-            var bus = cue.Bus;
+            var bus = variant.Bus;
             var playback = player.PlayScheduled
             (
-                cue,
+                variant,
                 dspTime,
-                cue.Volume * volumeScale,
+                variant.Volume * volumeScale,
                 GetBusSettings(bus).Output,
                 CalculateOutputVolume(bus)
             );
@@ -752,7 +786,7 @@ namespace inonego.Xeri.Playback
 
     #endregion
 
-    #region Cue Player 구현
+    #region 인터페이스 구현
 
         // ------------------------------------------------------------
         /// <summary>
@@ -866,12 +900,13 @@ namespace inonego.Xeri.Playback
             var audioCue = RequireAudioCue(cue);
             ValidatePlay(audioCue, 1.0f);
 
-            var bus = audioCue.Bus;
+            var variant = player.SelectVariant(audioCue);
+            var bus = variant.Bus;
             var playback = player.Play
             (
-                audioCue,
+                variant,
                 in binding,
-                audioCue.Volume,
+                variant.Volume,
                 GetBusSettings(bus).Output,
                 CalculateOutputVolume(bus)
             );
@@ -943,6 +978,7 @@ namespace inonego.Xeri.Playback
         private void OnDisable()
         {
             StopAll();
+            musicCues.Clear();
         }
 
     #endregion

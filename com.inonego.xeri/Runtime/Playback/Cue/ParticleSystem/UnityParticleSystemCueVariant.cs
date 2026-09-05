@@ -1,47 +1,55 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : VisualCue.cs
+파일명 : UnityParticleSystemCueVariant.cs
 수정일 : 2026-09-05
 
 # 설명
-Visual Cue Asset에서 생성되어 Variant 선택 상태를 소유하는 runtime Visual Cue의 공통 기반을 선언한다.
-구체 ParticleSystem·VFX Graph 리소스와 Pool 상태는 하위 runtime Cue가 소유한다.
+Unity ParticleSystem Prefab과 재생 설정을 하나의 Visual Cue Variant로 묶는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+
+using UnityEngine;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Visual Cue의 runtime 재생 단위.
+    /// Unity ParticleSystem 기반 Visual Cue Variant.
     /// </summary>
     // ============================================================
-    public abstract class VisualCue : VariantCue, IDisposable
+    [Serializable]
+    public sealed class UnityParticleSystemCueVariant
     {
 
-    #region 생성자
+    #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 Variant 선택 정책으로 Visual runtime Cue를 생성한다.
+        /// 재생할 ParticleSystem Prefab.
         /// </summary>
         // ------------------------------------------------------------
-        protected VisualCue(bool excludePrevious)
-            : base(excludePrevious)
+        public ParticleSystem Prefab
         {
-            // NONE
+            get => prefab;
+            set => prefab = value;
         }
 
-    #endregion
-
-    #region 정리
+        [SerializeField]
+        private ParticleSystem prefab = null;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// runtime Visual Cue가 소유한 재생 자원을 정리한다.
+        /// ParticleSystem이 unscaled time으로 진행될지 여부.
         /// </summary>
         // ------------------------------------------------------------
-        public abstract void Dispose();
+        public bool UsesUnscaledTime
+        {
+            get => usesUnscaledTime;
+            set => usesUnscaledTime = value;
+        }
+
+        [SerializeField]
+        private bool usesUnscaledTime = true;
 
     #endregion
 

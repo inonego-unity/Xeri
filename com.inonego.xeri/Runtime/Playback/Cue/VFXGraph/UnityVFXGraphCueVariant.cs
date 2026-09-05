@@ -1,33 +1,42 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : AudioCue.cs
+파일명 : UnityVFXGraphCueVariant.cs
 수정일 : 2026-09-05
 
 # 설명
-Audio Cue Asset에서 생성되어 재생 선택 상태를 소유하는 runtime Audio Cue의 공통 기반을 선언한다.
+Unity VisualEffect Prefab을 하나의 VFX Graph Cue Variant로 묶는다.
 ========================================================================= BLOCK_HEADER_END */
+
+using System;
+
+using UnityEngine;
+using UnityEngine.VFX;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Audio Cue의 runtime 재생 단위.
+    /// Unity VFX Graph 기반 Visual Cue Variant.
     /// </summary>
     // ============================================================
-    public abstract class AudioCue : VariantCue
+    [Serializable]
+    public sealed class UnityVFXGraphCueVariant
     {
 
-    #region 생성자
+    #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 Variant 선택 정책으로 Audio runtime Cue를 생성한다.
+        /// 재생할 VisualEffect Prefab.
         /// </summary>
         // ------------------------------------------------------------
-        protected AudioCue(bool excludePrevious)
-            : base(excludePrevious)
+        public VisualEffect Prefab
         {
-            // NONE
+            get => prefab;
+            set => prefab = value;
         }
+
+        [SerializeField]
+        private VisualEffect prefab = null;
 
     #endregion
 

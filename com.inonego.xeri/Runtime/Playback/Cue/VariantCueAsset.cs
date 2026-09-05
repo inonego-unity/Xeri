@@ -1,33 +1,35 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : AudioCue.cs
+파일명 : VariantCueAsset.cs
 수정일 : 2026-09-05
 
 # 설명
-Audio Cue Asset에서 생성되어 재생 선택 상태를 소유하는 runtime Audio Cue의 공통 기반을 선언한다.
+Variant 기반 Cue가 공통으로 사용하는 선택 정책을 Unity Asset authoring 데이터로 정의한다.
+선택 이력은 Asset에 저장하지 않고 생성된 runtime Cue가 소유한다.
 ========================================================================= BLOCK_HEADER_END */
+
+using UnityEngine;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Audio Cue의 runtime 재생 단위.
+    /// Variant 선택 정책을 authoring하는 Cue Asset의 공통 기반.
     /// </summary>
     // ============================================================
-    public abstract class AudioCue : VariantCue
+    public abstract class VariantCueAsset : ScriptableObject
     {
 
-    #region 생성자
+    #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 Variant 선택 정책으로 Audio runtime Cue를 생성한다.
+        /// 직전 선택 Variant를 다음 무작위 선택에서 제외할지 여부.
         /// </summary>
         // ------------------------------------------------------------
-        protected AudioCue(bool excludePrevious)
-            : base(excludePrevious)
-        {
-            // NONE
-        }
+        public bool ExcludePrevious => excludePrevious;
+
+        [SerializeField]
+        private bool excludePrevious = false;
 
     #endregion
 

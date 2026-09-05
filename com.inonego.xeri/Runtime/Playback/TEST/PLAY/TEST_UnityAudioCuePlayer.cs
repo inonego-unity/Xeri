@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UnityAudioCuePlayer.cs
-수정일 : 2026-08-01
+수정일 : 2026-09-05
 
 # 설명
 UnityAudioCuePlayer의 AudioSource Pool, 공간 재생과 Playback 수명 계약을 검증한다.
@@ -18,9 +18,12 @@ using UnityEngine.TestTools;
 
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Playback;
+
 namespace inonego.Xeri.TEST._Playback
 {
-    using inonego.Xeri.Playback;
 
     // ============================================================
     /// <summary>
@@ -117,13 +120,16 @@ namespace inonego.Xeri.TEST._Playback
             var root = new GameObject("TEST_UnityAudioCuePlayer");
             var sourcePrefab = CreateSourcePrefab();
             var clip = CreateClip("TEST_Control", 1.0f);
-            var cue = new UnityAudioClipCue();
+            var variant = new UnityAudioClipCueVariant
+            {
+                Clip = clip,
+                Volume = 0.5f,
+                Pitch = -2.0f,
+            };
+            var cue = new UnityAudioClipCue(variant);
 
             try
             {
-                cue.Clip = clip;
-                cue.Volume = 0.5f;
-                cue.Pitch = -2.0f;
 
                 var player = CreatePlayer(root, sourcePrefab);
                 var service = new CuePlaybackService(new ICuePlayer[] { player });
@@ -183,21 +189,26 @@ namespace inonego.Xeri.TEST._Playback
             var sourcePrefab = CreateSourcePrefab();
             var positionClip = CreateClip("TEST_Position", 1.0f);
             var emitterClip = CreateClip("TEST_Emitter", 1.0f);
-            var positionCue = new UnityAudioClipCue();
-            var emitterCue = new UnityAudioClipCue();
+            var positionVariant = new UnityAudioClipCueVariant
+            {
+                Clip = positionClip,
+                SpatialBlend = 0.75f,
+                RolloffMode = AudioRolloffMode.Linear,
+                MinDistance = 2.0f,
+                MaxDistance = 15.0f,
+            };
+            var emitterVariant = new UnityAudioClipCueVariant
+            {
+                Clip = emitterClip,
+                Volume = 0.6f,
+                Pitch = 0.8f,
+                SpatialBlend = 0.5f,
+            };
+            var positionCue = new UnityAudioClipCue(positionVariant);
+            var emitterCue = new UnityAudioClipCue(emitterVariant);
 
             try
             {
-                positionCue.Clip = positionClip;
-                positionCue.SpatialBlend = 0.75f;
-                positionCue.RolloffMode = AudioRolloffMode.Linear;
-                positionCue.MinDistance = 2.0f;
-                positionCue.MaxDistance = 15.0f;
-
-                emitterCue.Clip = emitterClip;
-                emitterCue.Volume = 0.6f;
-                emitterCue.Pitch = 0.8f;
-                emitterCue.SpatialBlend = 0.5f;
 
                 var player = CreatePlayer(root, sourcePrefab);
                 var positionPlayback = player.Play(positionCue, new Vector3(1.0f, 2.0f, 3.0f));
@@ -270,12 +281,15 @@ namespace inonego.Xeri.TEST._Playback
             var root = new GameObject("TEST_UnityAudioCuePlayer");
             var sourcePrefab = CreateSourcePrefab();
             var clip = CreateClip("TEST_Natural", 0.1f);
-            var cue = new UnityAudioClipCue();
+            var variant = new UnityAudioClipCueVariant
+            {
+                Clip = clip,
+                IsLooping = true,
+            };
+            var cue = new UnityAudioClipCue(variant);
 
             try
             {
-                cue.Clip = clip;
-                cue.IsLooping = true;
 
                 var player = CreatePlayer(root, sourcePrefab);
                 var playback = player.Play(cue);

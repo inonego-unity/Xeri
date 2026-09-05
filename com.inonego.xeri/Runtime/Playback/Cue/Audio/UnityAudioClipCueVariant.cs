@@ -1,33 +1,41 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : AudioCue.cs
+파일명 : UnityAudioClipCueVariant.cs
 수정일 : 2026-09-05
 
 # 설명
-Audio Cue Asset에서 생성되어 재생 선택 상태를 소유하는 runtime Audio Cue의 공통 기반을 선언한다.
+Unity AudioClip과 공통 AudioCueVariant 설정을 묶는 authoring Variant를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
+
+using System;
+
+using UnityEngine;
 
 namespace inonego.Xeri.Playback
 {
     // ============================================================
     /// <summary>
-    /// Audio Cue의 runtime 재생 단위.
+    /// Unity AudioClip 기반 Audio Cue Variant.
     /// </summary>
     // ============================================================
-    public abstract class AudioCue : VariantCue
+    [Serializable]
+    public sealed class UnityAudioClipCueVariant : AudioCueVariant
     {
 
-    #region 생성자
+    #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 Variant 선택 정책으로 Audio runtime Cue를 생성한다.
+        /// 재생할 Unity AudioClip.
         /// </summary>
         // ------------------------------------------------------------
-        protected AudioCue(bool excludePrevious)
-            : base(excludePrevious)
+        public AudioClip Clip
         {
-            // NONE
+            get => clip;
+            set => clip = value;
         }
+
+        [SerializeField]
+        private AudioClip clip = null;
 
     #endregion
 
