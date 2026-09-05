@@ -167,6 +167,48 @@ namespace inonego.Xeri.Pool
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 지정한 위치 유지 정책으로 Component와 일회 반환 책임을 함께 획득합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Lease<T> AcquireLease(bool worldPositionStays)
+        {
+            var item = Acquire(worldPositionStays);
+
+            return CreateAcquisitionLease
+            (
+                item,
+                (value, pushToReleased) => Release
+                (
+                    value,
+                    pushToReleased,
+                    worldPositionStays
+                )
+            );
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        /// <summary>
+        /// 지정한 위치 유지 정책으로 Component와 일회 반환 책임을 비동기로 함께 획득합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------------------------------------
+        public async Awaitable<Lease<T>> AcquireLeaseAsync(bool worldPositionStays)
+        {
+            var item = await AcquireAsync(worldPositionStays);
+
+            return CreateAcquisitionLease
+            (
+                item,
+                (value, pushToReleased) => Release
+                (
+                    value,
+                    pushToReleased,
+                    worldPositionStays
+                )
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 기본 위치 유지 정책으로 새 Component를 생성합니다.
         /// </summary>
         // ------------------------------------------------------------

@@ -127,18 +127,10 @@ namespace inonego.Xeri.Pool
         // ----------------------------------------------------------------------
         public Lease<T> AcquireLease()
         {
-            var item = Acquire();
-            var generation = acquiredGens[item];
-
-            return new Lease<T>
+            return CreateAcquisitionLease
             (
-                item,
-                () => ReleaseAcquisition
-                (
-                    item,
-                    generation,
-                    pushToReleased: true
-                )
+                Acquire(),
+                Release
             );
         }
 
@@ -151,18 +143,10 @@ namespace inonego.Xeri.Pool
         // ----------------------------------------------------------------------
         public async Awaitable<Lease<T>> AcquireLeaseAsync()
         {
-            var item = await AcquireAsync();
-            var generation = acquiredGens[item];
-
-            return new Lease<T>
+            return CreateAcquisitionLease
             (
-                item,
-                () => ReleaseAcquisition
-                (
-                    item,
-                    generation,
-                    pushToReleased: true
-                )
+                await AcquireAsync(),
+                Release
             );
         }
 
@@ -215,6 +199,7 @@ namespace inonego.Xeri.Pool
                         (
                             pair.Key,
                             pair.Value,
+                            Release,
                             pushToReleased,
                             removeFromAcquired: false
                         );
@@ -464,6 +449,46 @@ namespace inonego.Xeri.Pool
         // ----------------------------------------------------------------------
         protected virtual void OnDiscard(T item) {}
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 이미 Acquired된 항목에 현재 Generation의 일회 반환 책임을 결합합니다.
+        /// <br/> 파생 Pool은 자체 반환 정책을 전달해 공통 Lease 소유권 검증과 실패 정리를 재사용합니다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        protected Lease<T> CreateAcquisitionLease
+        (
+            T item,
+            Action<T, bool> releaseAction
+        )
+        {
+            if (ReferenceEquals(item, null))
+            {
+                throw new ArgumentNullException(nameof(item));
+            }
+
+            if (releaseAction == null)
+            {
+                throw new ArgumentNullException(nameof(releaseAction));
+            }
+
+            if (!acquiredGens.TryGetValue(item, out var generation))
+            {
+                throw new InvalidOperationException("현재 풀에서 사용 중이지 않은 항목에는 Lease를 생성할 수 없습니다.");
+            }
+
+            return new Lease<T>
+            (
+                item,
+                () => ReleaseAcquisition
+                (
+                    item,
+                    generation,
+                    releaseAction,
+                    pushToReleased: true
+                )
+            );
+        }
+
     #endregion
 
     #region 내부 처리
@@ -520,6 +545,7 @@ namespace inonego.Xeri.Pool
         (
             T item,
             long generation,
+            Action<T, bool> releaseAction,
             bool pushToReleased,
             bool removeFromAcquired = true
         )
@@ -531,8 +557,7 @@ namespace inonego.Xeri.Pool
 
             try
             {
-                // 개별·일괄 반환 모두 같은 public virtual 확장 경계를 사용한다.
-                Release(item, pushToReleased);
+                releaseAction(item, pushToReleased);
             }
             catch (Exception primaryException)
             {
