@@ -1,10 +1,32 @@
 # Xeri Drag Drop
 
+## 개요
+
+
 `Drag_Drop`은 UGUI와 UI Toolkit에서 공통으로 사용할 수 있는 드래그/드롭 시스템입니다.
 
 Core는 UI 프레임워크에 의존하지 않고, UGUI와 UITK 구현은 Core 객체에 입력과 좌표계를 연결하는 어댑터 역할을 합니다.
 
-## 구성
+## 왜 필요한가
+
+드래그 상태, Drop Zone 판정, UI 좌표 변환과 실제 도메인 이동을 한 Component에 묶으면 UGUI/UITK마다 로직을 다시 구현하게 됩니다. Xeri Drag Drop은 Core 상태와 Drop 규칙을 backend에서 분리해서 같은 상호작용 의미를 서로 다른 UI 프레임워크에서 재사용할 수 있게 합니다.
+
+## 언제 사용하는가
+
+- 같은 Drag/Drop 규칙을 UGUI와 UI Toolkit에서 공통으로 써야 할 때
+- Drop 가능 여부를 `IDropRule`로 분리하고 싶을 때
+- 실제 위치 이동 없이 Drag 사건만 사용하거나, 좌표계 처리를 Adapter에 맡기고 싶을 때
+- 여러 Draggable/DropZone이 하나의 Coordinator에서 관계를 공유해야 할 때
+
+단순히 한 UI 요소를 포인터로 움직이기만 하는 기능이라면 별도 Coordinator/DropZone 구조가 필요하지 않을 수 있습니다.
+
+## 가장 빠른 시작
+
+- UGUI: `DraggableUI`와 `DropZoneUI`를 같은 흐름에 두고 필요한 이벤트를 구독합니다.
+- UITK: `UITKDraggableManipulator`, `UITKDropZoneManipulator`와 공통 `DragDropCoordinator`를 조립합니다.
+- 프로젝트 규칙은 `IDropRule`이나 이벤트 소비자에 두고 Core 타입에 도메인 로직을 넣지 않습니다.
+
+## 구조
 
 ```text
 Runtime/UI/Drag_Drop
@@ -260,3 +282,8 @@ UGUI에서는 `DropZoneUI`의 `DropRuleAsset` 목록을 사용할 수 있고, Co
 - 드롭 대상이 될 수 없는 드래그 항목은 `CanDrop = false`로 설정합니다.
 - UGUI에서 드래그 중 드롭 영역 raycast가 필요하면 `DisableRaycastDuringDrag`를 켜는 것이 일반적입니다.
 - UITK에서 직접 위치를 이동하려면 대상 VisualElement가 absolute position을 사용할 수 있어야 합니다. `UITKDraggableManipulator.ForceAbsolutePosition`이 기본적으로 이를 보정합니다.
+
+## 관련 문서
+
+- [Xeri UI](../README.md)
+- [확장 계약](../../../Documentation~/concepts/extension-contracts.md)

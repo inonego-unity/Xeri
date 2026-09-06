@@ -82,6 +82,10 @@ crashlytics-build.properties
 # TestRunner generated files
 InitTestScene*.unity*
 
+# DocFX generated output and intermediate API metadata
+/_site/
+/.docfx/
+
 # Addressables default ignores, before user customizations
 /ServerData
 /[Aa]ssets/StreamingAssets/aa*

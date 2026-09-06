@@ -1,7 +1,23 @@
 # Xeri IO
 
+## 개요
+
+
 `Runtime/IO`는 값을 어디서 읽고 어디에 쓸지를 추상화하는 작은 계층입니다.
 파일, 메모리, Resources, Addressables 같은 입력원 차이를 상위 시스템이 직접 알지 않도록 합니다.
+
+## 왜 필요한가
+
+상위 시스템이 `File.ReadAllText`, `Resources.Load`, Addressables handle을 직접 섞어 쓰면 저장 위치가 바뀔 때 도메인 코드와 수명 처리까지 함께 바뀝니다. Xeri IO는 **어디서 읽는가**와 **무엇을 읽는가**를 `TLocation`/`TValue` 계약으로 분리하고, 외부 자원 수명이 있으면 `Lease`로 함께 전달합니다.
+
+## 언제 사용하는가
+
+- 같은 소비 코드에서 파일·메모리·Resources·Addressables 입력원을 교체할 때
+- 테스트에서 실제 파일 대신 Memory IO를 주입하고 싶을 때
+- 읽은 값이 외부 asset handle 수명에 묶이는 경우를 공통 응답으로 처리할 때
+- serializer와 저장 위치 접근을 별도 계층으로 유지하고 싶을 때
+
+프로젝트 코드가 단일 고정 파일 하나만 읽고 다른 저장 경계가 전혀 없다면 직접 IO가 더 단순할 수 있습니다.
 
 ```text
 TLocation -> IDataReader<TLocation, TValue> -> ReadResponse<TValue>
@@ -215,7 +231,7 @@ TextFileIO -> string -> serializer -> domain object
 IO는 `domain object`가 무엇인지, 문자열이 JSON인지 XML인지 알지 않습니다.
 반대로 serializer는 문자열이 파일에서 왔는지 메모리에서 왔는지 알 필요가 없습니다.
 
-## 확장 규칙
+## 확장 지점
 
 - IO 구현은 `Runtime/IO` 안에서 특정 domain, editor UI, feature service를 참조하지 않습니다.
 - serializer 포맷을 IO 타입 이름에 섞지 않습니다. 예: `JsonFileIO`보다 `TextFileIO` + `ISerializer` 조합을 우선합니다.
@@ -225,30 +241,7 @@ IO는 `domain object`가 무엇인지, 문자열이 JSON인지 XML인지 알지 
 - 변환이 목적이면 새 reader를 만들기 전에 `MappedDataReader` 또는 `AsyncMappedDataReader` 조합을 검토합니다.
 - async가 실제 입력원 계약이면 `IAsyncDataReader`/`IAsyncDataWriter`를 함께 구현합니다. sync 구현이 자연스럽지 않으면 억지로 sync를 만들지 않습니다.
 
-## AI 작업 가이드
+## 관련 문서
 
-AI가 이 영역을 수정하거나 확장할 때는 다음 순서로 판단합니다.
-
-1. 필요한 것이 IO인지 serializer인지 domain operation인지 먼저 분리합니다.
-2. `TLocation`과 `TValue`를 한 문장으로 정의합니다.
-3. 기존 구현 또는 mapping adapter 조합으로 해결 가능한지 확인합니다.
-4. 새 구현이 필요하면 읽기 전용인지 읽기/쓰기 모두 필요한지 정합니다.
-5. Unity asset 수명 관리가 있으면 `Lease`가 필요한지 검토합니다.
-6. 테스트가 필요하면 파일 시스템 의존이 핵심이 아닌 한 `MemoryIO<T>`를 우선 사용합니다.
-
-잘못된 방향의 예:
-
-```text
-JsonTextFileIO         // 포맷 책임과 파일 IO 책임이 섞임
-ProjectDataReader      // 특정 domain 책임이 IO로 내려옴
-AddressablesTextReader // TextAsset -> string 변환만 위해 전용 reader를 계속 늘림
-```
-
-권장 방향:
-
-```text
-TextFileIO + UnityJsonSerializer
-Runtime service + MemoryIO<T>
-ResourcesAssetReader<TextAsset> + MappedDataReader<string, TextAsset, string>
-AddressablesAssetReader<TextAsset> + MappedDataReader<string, TextAsset, string>
-```
+- [소유권과 수명](../../Documentation~/concepts/ownership-and-lifetime.md)
+- [IO 유지보수 지침](../../Documentation~/maintainers/io.md)

@@ -1,6 +1,28 @@
-# UniXeri Audio Consumer Guide
+# Xeri Audio
 
-UniXeri Audio는 Unity `AudioSource` 기반 Cue 재생과 Master·Bus 출력 제어를 제공한다. `UnityAudioClipCueAsset`은 하나 이상의 interchangeable Variant를 authoring하고, 소비자는 owner 수명에 맞춰 `CreateCue()`로 runtime `UnityAudioClipCue`를 한 번 생성해 재사용한다.
+## 개요
+
+Xeri Audio는 Unity `AudioSource` 기반 Cue 재생과 Master·Bus 출력 제어를 제공한다. `UnityAudioClipCueAsset`은 하나 이상의 interchangeable Variant를 authoring하고, 소비자는 owner 수명에 맞춰 `CreateCue()`로 runtime `UnityAudioClipCue`를 한 번 생성해 재사용한다.
+
+## 왜 필요한가
+
+AudioSource 생성·재사용, Variant 선택 이력, 3D emitter 추적, Bus/Master volume과 Playback 종료를 각 Presenter가 직접 구현하면 재생 정책과 자원 수명이 분산된다. Xeri Audio는 Unity Audio backend와 voice 수명을 공통화하고, 프로젝트는 어떤 사건에서 어떤 Cue를 재생할지에 집중하게 한다.
+
+## 언제 사용하는가
+
+- 여러 Audio Cue가 같은 voice pool과 Bus/Master 설정을 공유할 때
+- runtime Cue별 Variant 선택 상태를 Asset과 분리해야 할 때
+- loop, scheduled playback, 3D emitter follow 같은 재생 수명을 명시적으로 제어할 때
+- Audio를 VFX 등 다른 Cue와 `CuePlaybackService`에서 함께 관리할 때
+
+One-shot SFX 몇 개를 고정 AudioSource로 재생하는 작은 기능에는 전체 Audio Runtime이 필요하지 않을 수 있다.
+
+## 가장 빠른 시작
+
+1. Audio Host에 `AudioManager`와 `UnityAudioCuePlayer`를 구성한다.
+2. `UnityAudioClipCueAsset`을 만들고 `CreateCue()`로 runtime Cue를 준비한다.
+3. `AudioManager.Current.Play(cue)`로 재생한다.
+4. loop나 owner보다 오래 살아서는 안 되는 Playback은 owner 종료 시 명시적으로 `Dispose()`한다.
 
 ## Audio Host 구성
 
@@ -257,3 +279,8 @@ service.StopAll();
 ## 현재 제공 범위
 
 기본 구현은 `UnityAudioClipCue`, DSP 예약 재생과 `MusicLayerGroup` 기반 동기 Layer Playback을 Unity `AudioSource` backend로 지원한다. BGM 선곡, Cross Fade, Adaptive Music, Dialogue 진행과 FMOD·Wwise 연동은 Consumer 프로젝트의 상위 서비스 또는 선택적 Adapter에서 구성한다.
+
+## 관련 문서
+
+- [Playback](../../README.md)
+- [소유권과 수명](../../../../Documentation~/concepts/ownership-and-lifetime.md)

@@ -1,0 +1,151 @@
+- name: Xeri 문서
+  href: index.md
+- name: 시작하기
+  items:
+  - name: 설치와 요구 환경
+    href: getting-started/installation.md
+  - name: 프로젝트에 처음 연결하기
+    href: getting-started/first-setup.md
+  - name: 어떤 모듈을 선택할까
+    href: getting-started/choosing-modules.md
+- name: 공통 개념
+  items:
+  - name: Xeri 구조
+    href: concepts/architecture.md
+  - name: 소유권과 수명
+    href: concepts/ownership-and-lifetime.md
+  - name: 확장 계약
+    href: concepts/extension-contracts.md
+  - name: 프로젝트 통합 패턴
+    href: concepts/integration-patterns.md
+- name: 사용 가이드
+  href: guides/index.md
+  items:
+  - name: Bootstrapper Module 추가하기
+    href: guides/core/add-bootstrapper-module.md
+  - name: DataPackage 구성하기
+    href: guides/data/build-data-package.md
+  - name: Entity Registry 구현하기
+    href: guides/game/create-entity-registry.md
+  - name: State Machine 구성하기
+    href: guides/game/create-state-machine.md
+  - name: Use와 Reaction 연결하기
+    href: guides/game/connect-use-and-reaction.md
+  - name: 결정적 생성 흐름 만들기
+    href: guides/generation/deterministic-generation.md
+  - name: Instanced Renderer 구성하기
+    href: guides/rendering/build-instanced-renderer.md
+  - name: UI Tracking 연결하기
+    href: guides/tracking/track-ui-element.md
+  - name: Window와 View Source 연결하기
+    href: guides/xeri-ui/create-window-view.md
+  - name: MValue Modifier 합성하기
+    href: guides/serialization/use-mvalue.md
+  - name: Locale 정책 연결하기
+    href: guides/localization/project-locale-policy.md
+  - name: Pool Lease 사용하기
+    href: guides/utility/use-pool-lease.md
+  - name: Document Workspace 구성하기
+    href: guides/workspace/build-document-workspace.md
+  - name: Cue Presenter 구성하기
+    href: guides/playback/create-cue-presenter.md
+- name: Runtime 모듈
+  href: modules/index.md
+- name: Core
+  items:
+  - name: Bootstrapper
+    href: modules/core/bootstrapper.md
+  - name: Singleton과 슬롯
+    href: modules/core/singleton.md
+  - name: Primitive
+    href: modules/core/primitive.md
+- name: Localization
+  items:
+  - name: Localization
+    href: modules/localization/localization.md
+- name: Playback
+  items:
+  - name: Playback Cue
+    href: modules/playback/cue.md
+- name: Rendering
+  items:
+  - name: Instancing
+    href: modules/rendering/instancing.md
+- name: Serializable
+  items:
+  - name: Value와 Modifier
+    href: modules/serialization/value.md
+  - name: Collections
+    href: modules/serialization/collections.md
+  - name: Serializer
+    href: modules/serialization/serializer.md
+  - name: Managed Reference
+    href: modules/serialization/managed-reference.md
+- name: Tracking
+  items:
+  - name: Tracking
+    href: modules/tracking/tracking.md
+- name: Xeri UI
+  items:
+  - name: Window
+    href: modules/xeri-ui/window.md
+  - name: Tray
+    href: modules/xeri-ui/tray.md
+  - name: View
+    href: modules/xeri-ui/view.md
+- name: Game
+  items:
+  - name: Entity와 Spawn 수명
+    href: modules/game/entity-lifecycle.md
+  - name: State Machine
+    href: modules/game/state-machine.md
+  - name: Board
+    href: modules/game/board.md
+  - name: Controller
+    href: modules/game/controller.md
+  - name: HP
+    href: modules/game/hp.md
+  - name: Physics Query
+    href: modules/game/physics-query.md
+  - name: AI Group과 Brain
+    href: modules/game/ai-group.md
+  - name: Use System
+    href: modules/game/use.md
+  - name: Reaction
+    href: modules/game/reaction.md
+  - name: Zone Graph
+    href: modules/game/zone-graph.md
+  - name: Level
+    href: modules/game/level.md
+- name: Data
+  items:
+  - name: DataPackage
+    href: modules/data/data-package.md
+- name: Generation
+  items:
+  - name: Generation
+    href: modules/generation/generation.md
+- name: Utility
+  items:
+  - name: GameObject Provider
+    href: modules/utility/game-object-provider.md
+  - name: Object Pooling
+    href: modules/utility/pooling.md
+  - name: Timer
+    href: modules/utility/timer.md
+  - name: Paging
+    href: modules/utility/paging.md
+- name: Game UI
+  items:
+  - name: 설정과 시작
+    href: modules/game-ui/setup.md
+  - name: 구조와 수명
+    href: modules/game-ui/architecture.md
+  - name: Screen과 입력
+    href: modules/game-ui/screens.md
+  - name: 표시와 배치
+    href: modules/game-ui/presentation.md
+  - name: 구현과 문제 해결
+    href: modules/game-ui/troubleshooting.md
+- name: 유지보수
+  href: maintainers/index.md

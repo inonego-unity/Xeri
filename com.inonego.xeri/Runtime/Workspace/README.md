@@ -1,10 +1,29 @@
 # Xeri Workspace
 
+## 개요
+
 `Runtime/Workspace`는 사용자가 만들고, 열고, 수정하고, 저장하고, 닫는 작업 단위를 다루는 영역입니다.
 현재 제공되는 기본 workspace 모듈은 `Document`입니다.
 
 Workspace는 UI, 파일 포맷, serializer, Unity EditorWindow에 직접 묶이지 않는 작업 상태를 다룹니다.
 사용자 입력과 표시 방식은 view/editor 계층에서 붙이고, 사용자 흐름 해석은 각 workspace 모듈의 controller가 담당합니다.
+
+## 왜 필요한가
+
+파일 읽기/쓰기만으로는 “현재 열려 있는 작업”, dirty 상태, Save/SaveAs/SaveTo 의미, 중복 Open, 사용자에게 위치를 물어봐야 하는 상태를 표현하기 어렵습니다. Workspace는 외부 저장소와 UI 사이에 장기 작업 상태를 두어 같은 편집 흐름을 Runtime Tool, Unity Editor, 테스트에서 재사용할 수 있게 합니다.
+
+## 언제 사용하는가
+
+- 여러 작업 단위를 동시에 열고 저장·닫아야 할 때
+- 저장 위치와 실제 작업 상태를 분리해야 할 때
+- UI가 바뀌어도 같은 Create/Open/Save/Close 규칙을 재사용해야 할 때
+- domain reload나 Host 재생성 후 열린 작업 상태를 복구해야 할 때
+
+단순 설정 파일 하나를 읽고 즉시 덮어쓰는 흐름에는 Workspace보다 IO + Serializer 조합이 더 적합합니다.
+
+## 어디서 시작하는가
+
+문서형 작업이라면 [Document README](./Document/README.md)에서 Session, Handler, Service/Controller와 기본 저장 흐름부터 확인합니다. 프로젝트 UI는 Controller 결과를 해석하되 파일 패널이나 탭 상태를 Workspace Core에 넣지 않습니다.
 
 ## 현재 모듈
 
@@ -14,7 +33,7 @@ Workspace는 UI, 파일 포맷, serializer, Unity EditorWindow에 직접 묶이�
 
 Document 사용법은 [Document README](./Document/README.md)를 기준으로 봅니다.
 
-## Workspace에 둘 것
+## 책임 범위
 
 Workspace에는 장기간 유지되는 작업 상태와 그 상태 전이를 둡니다.
 
@@ -50,21 +69,8 @@ Serializer = 데이터 형식 변환
 
 위 조건에 맞지 않으면 Workspace보다 IO, UI, serializer, domain-specific runtime 모듈이 더 적절할 수 있습니다.
 
-## AI 작업 가이드
+## 관련 문서
 
-Workspace 영역을 수정하거나 확장할 때는 먼저 대상 기능이 실제 작업 상태인지 확인합니다.
-
-- 작업 상태면 기존 workspace 모듈로 표현 가능한지 먼저 봅니다.
-- 외부 데이터 접근이면 `Runtime/IO` 쪽을 우선 검토합니다.
-- 표시와 입력이면 UI 또는 Editor 계층에 둡니다.
-- serializer 포맷 분기는 Workspace가 아니라 serializer/handler 쪽에 둡니다.
-- active view, focused tab, scroll 같은 view 상태를 Workspace의 전역 정책으로 고정하지 않습니다.
-
-잘못된 방향:
-
-```text
-Workspace가 EditorWindow를 직접 참조
-Workspace가 파일 다이얼로그를 직접 띄움
-Workspace가 serializer 포맷을 직접 분기
-Workspace가 active view 상태를 하나로 고정
-```
+- [Workspace Document](Document/README.md)
+- [Document Workspace 구성하기](../../Documentation~/guides/workspace/build-document-workspace.md)
+- [Workspace 유지보수 지침](../../Documentation~/maintainers/workspace.md)

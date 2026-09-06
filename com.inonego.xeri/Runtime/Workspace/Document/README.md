@@ -1,12 +1,39 @@
 # Xeri Workspace Document
 
+## 개요
+
+
 `Runtime/Workspace/Document`는 Unity Editor와 Runtime 양쪽에서 사용할 수 있는 문서 작업 기반입니다.
 문서의 정체성, 본문, 열린 작업 상태, 위치, 저장 흐름을 분리해서 여러 editor tool이 같은 core 흐름을 재사용할 수 있게 합니다.
 
-이 문서는 API 레퍼런스와 구현 가이드의 중간 지점을 목표로 합니다.
-세부 구현은 코드와 테스트를 기준으로 보고, 여기서는 어떤 개념을 어디에 두어야 하는지와 확장 시 지켜야 할 계약을 설명합니다.
+이 문서는 Document를 사용하는 데 필요한 핵심 개념과 공개 계약을 설명합니다.
+내부 구현과 검증 기준은 별도 유지보수 문서로 분리하고, 여기서는 사용 흐름과 책임 경계를 중심으로 설명합니다.
 
-## Core Model
+## 왜 필요한가
+
+문서 편집 기능을 파일 IO 중심으로 만들면 “열려 있는 문서”, dirty 상태, 현재 위치, SaveAs 후 기준 위치 변경, 중복 Open, Recovery 같은 작업 상태가 UI 코드에 흩어집니다. Document Workspace는 **문서 내용과 작업 세션**, **저장 위치**, **포맷 변환**, **사용자 흐름 해석**을 분리해 같은 문서 모델을 서로 다른 Host에서 재사용하게 합니다.
+
+## 언제 사용하는가
+
+- 여러 문서를 동시에 열고 수정·저장·닫아야 할 때
+- 새 문서와 기존 문서가 같은 Session 모델을 사용해야 할 때
+- Save / SaveAs / SaveTo 의미를 명확히 구분해야 할 때
+- UI가 파일 위치 선택이나 저장 확인을 담당하되 Core 저장 규칙은 공유해야 할 때
+- domain reload나 Host 재생성 후 열린 Session을 복구해야 할 때
+
+단일 파일을 로드해 즉시 처리하고 열린 작업 상태를 유지하지 않는 기능에는 Document Workspace가 필요하지 않습니다.
+
+## 가장 빠른 시작
+
+1. 문서 Body와 `TypeID`를 정합니다.
+2. 저장 구조에 맞는 `IDocumentHandler` 또는 built-in Handler를 구성합니다.
+3. `DocumentWorkspace`, `DocumentWorkspaceService`, 필요하면 `DocumentWorkspaceController`를 조립합니다.
+4. Body를 수정한 쪽이 `SetDirty()`를 호출합니다.
+5. 사용자 UI는 Controller의 `NeedLoc`, `PendingUser` 같은 결과를 해석합니다.
+
+아래 `기본 흐름`, `Service와 Controller`, `기본 Handler` 섹션에 실제 코드가 이어집니다.
+
+## 핵심 모델
 
 ```text
 Document   = TypeID, Version, Name 같은 문서 metadata
@@ -24,7 +51,7 @@ Recovery   = host lifecycle boundary 이후 Session을 다시 만들기 위한 �
 문서로 유지해야 하는 editor memo, annotation, export setting 같은 정보는 Body에 들어갈 수 있습니다.
 selection, scroll, focused tab 같은 UI 상태는 core document body가 아니라 view/editor state로 분리합니다.
 
-## Storage Shapes
+## 저장 구조
 
 Xeri document system은 하나의 파일 구조를 강제하지 않습니다.
 같은 `DocumentWorkspaceService`를 쓰더라도 저장 구조는 handler가 결정합니다.
@@ -38,7 +65,7 @@ Xeri document system은 하나의 파일 구조를 강제하지 않습니다.
 `DocumentEnvelope<TBody>`는 Xeri native serialized document 형식입니다.
 모든 document가 envelope를 가져야 한다는 뜻이 아닙니다.
 
-## Basic Flow
+## 기본 흐름
 
 문서 열기와 저장은 세 단계로 나뉩니다.
 
@@ -84,7 +111,7 @@ if (session is IDocumentSession<SampleDocumentBody> typedSession)
 `SetDocument`, `SetLocation`, `SetDirty`, `ClearDirty`는 session 상태 변경의 단일 진입점입니다.
 같은 값으로 다시 설정하면 change event를 발생시키지 않습니다.
 
-## Service And Controller
+## Service와 Controller
 
 `DocumentWorkspaceService`는 저수준 실행 API입니다.
 입력이 부족하면 실패를 반환하고, 사용자에게 무엇을 물어볼지는 결정하지 않습니다.
@@ -115,7 +142,7 @@ if (save.NeedLoc)
 Controller는 파일 패널이나 확인 창을 직접 띄우지 않습니다.
 `NeedLoc`, `PendingUser`, `AlreadyOpen` 같은 결과를 보고 실제 UI를 처리하는 책임은 editor/view 쪽에 있습니다.
 
-## Save Semantics
+## 저장 의미
 
 | Flow | 의미 | session location | dirty |
 |---|---|---|---|
@@ -126,7 +153,7 @@ Controller는 파일 패널이나 확인 창을 직접 띄우지 않습니다.
 `SaveTo`는 native save 계약을 사용한 복사 저장입니다.
 다른 포맷으로 변환하는 import/export, runtime build, export pipeline은 별도 흐름입니다.
 
-## Handler Contract
+## Handler 계약
 
 문서 타입 하나는 하나의 `IDocumentHandler`가 담당합니다.
 Handler는 TypeID별 처리 규칙이며, 개별 session 상태를 내부에 저장하지 않습니다.
@@ -140,7 +167,7 @@ Handler의 기본 계약:
 - `Save`는 session의 `Location`이나 `IsDirty`를 직접 바꾸지 않습니다.
 - save 이후의 `Location` 변경과 dirty 해제는 `DocumentWorkspaceService`가 처리합니다.
 
-## Built-In Handlers
+## 기본 Handler
 
 ### Raw Text
 
@@ -218,7 +245,7 @@ Xeri native XML 예시:
 파일 포맷 이름은 `Document`, `Metadata`, `Body`, `TypeID`, `Version`, `Name`을 사용합니다.
 `_TypeID` 같은 C# 내부 필드명은 파일 포맷에 노출하지 않습니다.
 
-## Create Policy
+## 생성 정책
 
 새 문서 생성이 필요한 handler는 `DocumentBodyCreator<TBody>`를 주입받습니다.
 
@@ -272,7 +299,7 @@ Recovery 책임 분리는 다음과 같습니다.
 memory location과 object reference location은 일반적으로 domain reload 이후 같은 값을 보장할 수 없으므로 기본 recovery 대상으로 보지 않습니다.
 복구 record를 만들 수 없는 session이 있으면 `RecordRecovery()`는 실패 응답을 반환하고, 가능한 정보는 응답에 남깁니다.
 
-## Workspace Responsibility
+## Workspace 책임
 
 `DocumentWorkspace`는 열린 session 목록과 add/remove 이벤트만 관리합니다.
 
@@ -287,7 +314,7 @@ Workspace가 직접 하지 않는 것:
 
 이 값들은 editor/view/controller layer에서 관리합니다.
 
-## Extension Guide
+## 확장 지점
 
 새 문서 타입은 먼저 `IDocumentHandler`로 추가합니다.
 저장 구조가 raw text, body root, envelope 중 하나와 맞으면 built-in handler를 조합해서 시작합니다.
@@ -305,29 +332,9 @@ handler가 지원하는 location을 IO location으로 mapping할 수 있으면 �
 - resolver 기반 자동 문서 타입 판별
 - LSP, syntax highlight, inspector UI 같은 view 기능
 
-## AI Implementation Guide
+## 관련 문서
 
-이 영역을 수정하거나 확장할 때는 다음 기준을 우선합니다.
-
-- 변경하려는 값이 `Document` metadata인지, `Body` 데이터인지, `Session` 상태인지, `Location`인지 먼저 구분합니다.
-- 저장 실행은 service, 사용자 분기는 controller에 둡니다.
-- 새 추상화를 만들기 전에 기존 `IDocumentHandler`, `IDocumentLocation`, `IDocumentSession` 조합으로 가능한지 확인합니다.
-- Xeri metadata가 파일 안에 필요하면 envelope handler를 사용합니다.
-- 기존 JSON/XML root를 유지해야 하면 body serialized handler를 사용합니다.
-- raw text/code file은 raw text handler를 사용합니다.
-- domain reload 대응은 `RecordRecovery()`/`Recover(string)`을 사용하고, record 문자열 보관은 host adapter에서 처리합니다.
-- body 변경은 자동 감지하지 않습니다. 변경한 쪽이 `SetDirty()`를 호출합니다.
-
-피해야 할 방향:
-
-```text
-Document가 body 데이터를 직접 소유
-Body가 session이나 workspace를 참조
-Handler.Save가 session.SetLocation 또는 ClearDirty 호출
-Workspace가 active session을 강제로 하나만 관리
-SaveTo가 SaveAs처럼 session location을 바꿈
-DocumentWorkspaceService가 IO, serializer, envelope 구성 책임을 가짐
-Handler가 JSON/XML 문자열을 직접 조립함
-모든 문서에 DocumentEnvelope를 강제함
-Recovery record DTO를 host adapter의 public 저장 계약으로 노출함
-```
+- [Document Workspace 구성하기](../../../Documentation~/guides/workspace/build-document-workspace.md)
+- [Workspace](../README.md)
+- [IO](../../IO/README.md)
+- [Workspace Document 유지보수 지침](../../../Documentation~/maintainers/workspace-document.md)

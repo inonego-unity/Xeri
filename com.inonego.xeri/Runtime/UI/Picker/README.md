@@ -1,8 +1,27 @@
 # Xeri Picker
 
+## 개요
+
 Unity UI Toolkit 기반 단일 선택 UI입니다.
 호출자는 `PickerSpec<TEntry, TValue>`로 데이터 표시 규칙을 만들고 `Picker.Show(...)`로
 modal window 또는 호출 위치에 연결된 dropdown을 엽니다.
+
+## 왜 필요한가
+
+Inspector, EditorWindow, 도구 UI마다 검색·필터·정렬·paging·취소 처리를 따로 만들면 선택 UI가 도메인마다 중복됩니다. Xeri Picker는 목록을 어떻게 보여줄지 `PickerSpec`으로 선언하게 하고, 프로젝트 코드는 원본 entry 수집과 최종 선택값 해석만 담당하게 합니다.
+
+## 언제 사용하는가
+
+- 많은 후보 중 하나를 검색·필터·정렬해서 선택해야 할 때
+- 원본 `TEntry`와 최종 반환 `TValue`를 분리해야 할 때
+- modal과 특정 control에 붙는 dropdown을 같은 spec으로 재사용할 때
+- 여러 도메인 Picker를 공통 UI 위의 얇은 facade로 만들고 싶을 때
+
+후보가 몇 개뿐이고 단순 PopupField로 충분하면 Picker까지 사용할 필요는 없습니다.
+
+## 가장 빠른 시작
+
+`ListPicker.Spec<T>()` 또는 `PickerSpec<TEntry,TValue>`로 표시 규칙을 만들고 `Picker.Show(...)`에 entries와 callback을 전달합니다. 도메인별 Picker를 새로 만들 때도 검색/정렬/UI를 복제하지 말고 entry 수집과 spec 구성만 감싸는 방식을 권장합니다.
 
 ```text
 원본 데이터 목록 -> PickerSpec -> Picker.Show(...) -> 선택값 TValue
@@ -324,32 +343,7 @@ Picker.Show(spec, entries, currentValue, value => { });
 첫 항목에서 위로 이동하면 이전 페이지 마지막 항목으로 이동하고,
 마지막 항목에서 아래로 이동하면 다음 페이지 첫 항목으로 이동합니다.
 
-## 수동 확인
-
-Editor 수동 테스트는 `TEST_PickerManualEditorWindow`에 있습니다.
-
-```text
-Runtime/UI/Picker/TEST/Editor/TEST_PickerManualEditorWindow.cs
-```
-
-기본 Picker manual은 preview와 column layout 검증을 담당합니다.
-
-- 긴 `preview-name` ellipsis
-- 긴 `preview-sub-label` ellipsis
-- 여러 줄 preview desc
-- fixed column
-- flexible column
-- right/center alignment
-- sortable false column
-- searchable false column
-- hidden column
-- 긴 table cell text overflow
-
-ListPicker와 DictionaryPicker manual은 facade 선택 흐름 확인용으로 유지합니다.
-
-테스트는 `[Explicit]`, `[Category("Manual")]`로 분리되어 있어 일반 테스트 실행에서 자동으로 멈추지 않습니다.
-
-## 확장 방향
+## 확장 지점
 
 REF, DataPackage, Addressable 같은 도메인 전용 Picker는 기본 Picker 위에 얇은 facade로 추가하는 것을 권장합니다.
 
@@ -368,3 +362,8 @@ AddressablePicker.Show(...)
 
 UI 동작, 검색, 필터, 컬럼, 정렬, preview, 취소 처리는 공통 Picker가 담당하고,
 도메인별 코드는 entry 수집과 표시 규칙만 담당합니다.
+
+## 관련 문서
+
+- [Xeri UI](../README.md)
+- [Picker 검증 지침](../../../Documentation~/maintainers/picker-validation.md)
