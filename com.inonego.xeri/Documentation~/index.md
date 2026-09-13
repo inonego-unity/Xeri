@@ -19,7 +19,7 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | 하고 싶은 일 | 시작 문서 |
 |---|---|
 | 시작 순서를 구성한다 | [Bootstrapper](modules/core/bootstrapper.md) |
-| 데이터를 로드하고 현재 Context에서 조회한다 | [DataPackage](modules/data/data-package.md) |
+| IO·Data·Localization·Workspace를 사용한다 | [Xeri Fabric](https://github.com/inonego-unity/Xeri-Fabric) |
 | Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |
 | Screen/Modal/Overlay UI를 운영한다 | [Game UI 설정과 시작](modules/game-ui/setup.md) |
 | Window/Tool UI를 만든다 | [Xeri Window](modules/xeri-ui/window.md) |

@@ -44,8 +44,11 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 | **Rendering** | 대량 Mesh instance batch와 runtime instancing |
 | **Generation** | 결정적 Seed/Random과 생성 결과 validation |
 | **Localization** | Locale 상태와 localized UI 갱신 |
-| **Workspace** | Document create/open/save/close/recovery workflow |
 | **Utility** | GameObject Provider, Pool, Timer, Paging 등 독립 보조 기능 |
+
+## 확장 패키지
+
+- **Xeri Workspace** — Document create/open/save/close/recovery와 이후 공통 Editor authoring 환경은 [Xeri-Workspace](https://github.com/inonego-unity/Xeri-Workspace)에서 제공합니다.
 
 ## 빠른 시작
 

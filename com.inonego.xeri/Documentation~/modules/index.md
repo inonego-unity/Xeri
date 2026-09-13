@@ -5,30 +5,28 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 | 모듈 | 개요 문서 | 주요 역할 |
 |---|---|---|
 | Core | [README](../../Runtime/Core/README.md) | Bootstrapper, Lease, Singleton, 공통 계약 |
-| IO | [README](../../Runtime/IO/README.md) | 파일·메모리·Unity asset 데이터 접근 |
-| Localization | [README](../../Runtime/Localization/README.md) | locale 저장과 localized string/UI 연결 |
 | Playback | [README](../../Runtime/Playback/README.md) | Cue, 재생 수명, Audio |
 | Rendering | [README](../../Runtime/Rendering/README.md) | Runtime rendering 보조 기능 |
 | Serializable | [README](../../Runtime/Serializable/README.md) | Unity 직렬화 보조 타입과 serializer |
 | Tracking | [README](../../Runtime/Tracking/README.md) | 값 resolve·transition·commit 추적 |
 | UI | [README](../../Runtime/UI/README.md) | Game UI, Drag & Drop, Picker, Xeri UI |
-| Workspace | [README](../../Runtime/Workspace/README.md) | 장기 작업 상태와 Document workflow |
 | Game | [README](../../Runtime/게임/README.md) | Entity, Spawn, State, HP, AI 등 |
-| Data | [README](../../Runtime/데이터/README.md) | Table, DataPackage, REF |
 | Generation | [README](../../Runtime/생성/README.md) | seed, random, validation |
 | Utility | [README](../../Runtime/유틸리티/README.md) | pooling, timer, paging, logging 등 |
+
+## 확장 패키지
+
+- [Xeri Fabric](https://github.com/inonego-unity/Xeri-Fabric) — IO, Data, Localization, Workspace Runtime
 
 ## 주요 세부 시스템
 
 - Core: [Bootstrapper](core/bootstrapper.md), [Singleton과 슬롯](core/singleton.md), [Primitive](core/primitive.md)
-- Localization: [Localization](localization/localization.md)
 - Playback: [Playback Cue](playback/cue.md)
 - Rendering: [Instancing](rendering/instancing.md)
 - Serializable: [Value와 Modifier](serialization/value.md), [Collections](serialization/collections.md), [Serializer](serialization/serializer.md), [Managed Reference](serialization/managed-reference.md)
 - Tracking: [Tracking](tracking/tracking.md)
 - Xeri UI: [Window](xeri-ui/window.md), [Tray](xeri-ui/tray.md), [View](xeri-ui/view.md)
 - Game: [Entity와 Spawn 수명](game/entity-lifecycle.md), [State Machine](game/state-machine.md), [Board](game/board.md), [Controller](game/controller.md), [HP](game/hp.md), [Physics Query](game/physics-query.md), [AI Group](game/ai-group.md), [Use](game/use.md), [Reaction](game/reaction.md), [Zone Graph](game/zone-graph.md), [Level](game/level.md)
-- Data: [DataPackage](data/data-package.md)
 - Generation: [Generation](generation/generation.md)
 - Utility: [GameObject Provider](utility/game-object-provider.md), [Object Pooling](utility/pooling.md), [Timer](utility/timer.md), [Paging](utility/paging.md)
 - Game UI: [설정과 시작](game-ui/setup.md), [구조와 수명](game-ui/architecture.md), [Screen과 입력](game-ui/screens.md), [표시와 배치](game-ui/presentation.md)

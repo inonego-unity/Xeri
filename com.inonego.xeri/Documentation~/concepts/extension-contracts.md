@@ -26,9 +26,9 @@ Project Adapter / Source / Driver / Handler
 
 | 영역 | 확장 계약 예 |
 |---|---|
-| IO | `IDataReader`, `IDataWriter` |
+| Xeri Fabric / IO | `IDataReader`, `IDataWriter` |
 | Game UI | `IScreenSource`, `IScreenDriver`, `IPresentationLayerDriver` |
-| Workspace Document | `IDocumentHandler`, `IDocumentLocation` |
+| Xeri Fabric / Workspace | `IDocumentHandler`, `IDocumentLocation` |
 | Playback | `ICuePlayer`, `ICueBinding` |
 
 세부 계약은 각 모듈 README와 API Reference를 기준으로 확인합니다.

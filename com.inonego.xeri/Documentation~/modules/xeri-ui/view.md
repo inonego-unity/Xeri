@@ -101,4 +101,4 @@ View 시스템은 다음을 책임지지 않습니다.
 
 - [Xeri Window](window.md)
 - [Xeri Tray](tray.md)
-- [Workspace Document](../../../Runtime/Workspace/Document/README.md)
+- [Xeri Fabric Workspace Document](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/Workspace/Document/README.md)

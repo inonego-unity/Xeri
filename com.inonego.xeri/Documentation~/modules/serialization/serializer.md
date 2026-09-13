@@ -73,6 +73,6 @@ Document Handler + ISerializer
 
 ## 관련 문서
 
-- [IO](../../../Runtime/IO/README.md)
-- [Workspace Document](../../../Runtime/Workspace/Document/README.md)
+- [Xeri Fabric IO](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/IO/README.md)
+- [Xeri Fabric Workspace Document](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/Workspace/Document/README.md)
 - [Serializable 모듈](../../../Runtime/Serializable/README.md)

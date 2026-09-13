@@ -54,7 +54,7 @@ Create → Load → Validate → Compose → Register
 
 처음부터 전체 프레임워크를 연결하기보다 각 시스템의 최소 흐름을 먼저 확인합니다.
 
-- Data: Table 하나를 `DataPackage`에 등록하고 `REF<T>`로 읽기
+- Xeri Fabric / Data: Table 하나를 `DataPackage`에 등록하고 `REF<T>`로 읽기
 - Generation: 같은 Seed에서 같은 결과가 재현되는지 확인
 - UI: Screen 하나를 열고 닫으며 Acquire/Release 대칭 확인
 - Tracking: 하나의 Binding을 등록하고 Lease 해제 시 clear되는지 확인

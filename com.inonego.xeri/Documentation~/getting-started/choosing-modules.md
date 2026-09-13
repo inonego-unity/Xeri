@@ -14,12 +14,12 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 
 | 필요 | 모듈 |
 |---|---|
-| 파일·메모리·Resources·Addressables 읽기/쓰기 | IO |
+| 파일·메모리·Resources·Addressables 읽기/쓰기 | Xeri Fabric / IO |
 | 객체와 JSON/XML 문자열 변환 | Serializable / Serializer |
 | Unity 직렬화용 Dictionary/Ordered Collection | Serializable / Collections |
 | Base 값과 Modifier 합성 | Serializable / Value |
-| 여러 Table과 Source를 하나의 조회 Context로 제공 | Data / DataPackage |
-| Key만 저장하고 현재 데이터 Context에서 늦게 해석 | Data / `REF<T>` |
+| 여러 Table과 Source를 하나의 조회 Context로 제공 | Xeri Fabric / DataPackage |
+| Key만 저장하고 현재 데이터 Context에서 늦게 해석 | Xeri Fabric / `REF<T>` |
 
 ## 게임 Runtime
 

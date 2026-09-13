@@ -4,7 +4,7 @@ Xeri Serializable은 Unity 직렬화 환경에서 일반 C# 모델을 다루기 
 
 ## 개요
 
-이 모듈은 직렬화 가능한 자료구조와 값 표현, managed reference 선택 보조, serializer adapter를 한 영역에 모읍니다. 저장 위치를 읽고 쓰는 책임은 `IO`와 분리합니다.
+이 모듈은 직렬화 가능한 자료구조와 값 표현, managed reference 선택 보조, serializer adapter를 한 영역에 모읍니다. 저장 위치를 읽고 쓰는 책임은 Xeri Fabric의 `IO`와 분리합니다.
 
 ## 왜 필요한가
 
@@ -26,7 +26,7 @@ Unity 직렬화 규칙과 일반 C# 자료구조 사이에는 Dictionary, 다형
 - JSON/XML 변환이면 [Serializer](../../Documentation~/modules/serialization/serializer.md)
 - 다형 `SerializeReference` authoring이면 [Managed Reference](../../Documentation~/modules/serialization/managed-reference.md)
 
-저장 위치가 문제라면 Serializable이 아니라 [IO](../IO/README.md)에서 시작합니다.
+저장 위치가 문제라면 Serializable이 아니라 [Xeri Fabric IO](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/IO/README.md)에서 시작합니다.
 
 ## 책임 범위
 
@@ -58,6 +58,6 @@ Unity 직렬화 규칙과 일반 C# 자료구조 사이에는 Dictionary, 다형
 - [Serializable Collections](../../Documentation~/modules/serialization/collections.md)
 - [Serializer](../../Documentation~/modules/serialization/serializer.md)
 - [Managed Reference와 SerializeReference Picker](../../Documentation~/modules/serialization/managed-reference.md)
-- [IO](../IO/README.md)
-- [Workspace](../Workspace/README.md)
+- [Xeri Fabric IO](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/IO/README.md)
+- [Xeri Fabric Workspace](https://github.com/inonego-unity/Xeri-Fabric/tree/main/com.inonego.xeri.fabric/Runtime/Workspace)
 - [확장 계약](../../Documentation~/concepts/extension-contracts.md)

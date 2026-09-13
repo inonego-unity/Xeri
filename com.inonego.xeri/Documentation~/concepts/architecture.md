@@ -21,8 +21,9 @@ Unity / File / Addressables / UI backend
 ## 모듈 경계
 
 - `Core`는 여러 모듈에서 사용하는 기반 계약과 생명주기를 제공합니다.
-- `IO`, `Serializable`은 데이터 접근과 변환 책임을 분리합니다.
-- `UI`, `Playback`, `Workspace`, `Game`은 독립적인 Runtime 도메인을 제공합니다.
+- Xeri Fabric의 `IO`와 Xeri의 `Serializable`은 데이터 접근과 변환 책임을 분리합니다.
+- `UI`, `Playback`, `Game`은 독립적인 Runtime 도메인을 제공합니다.
+- `IO`, `Data`, `Localization`, `Workspace`는 Xeri 기반 확장 패키지 [Xeri Fabric](https://github.com/inonego-unity/Xeri-Fabric)에서 제공합니다.
 - 작은 보조 기능은 `Rendering`, `Tracking`, `Generation`, `Utility` 같은 영역에 분리합니다.
 ## 규칙
 

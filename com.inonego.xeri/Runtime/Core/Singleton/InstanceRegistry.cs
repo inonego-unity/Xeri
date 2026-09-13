@@ -187,7 +187,7 @@ namespace inonego.Xeri
         {
             private readonly InstanceRegistry<T> owner;
 
-            internal NamedAccessor(InstanceRegistry<T> owner)
+            protected internal NamedAccessor(InstanceRegistry<T> owner)
             {
                 this.owner = owner;
             }
