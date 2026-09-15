@@ -5,6 +5,7 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 | 모듈 | 개요 문서 | 주요 역할 |
 |---|---|---|
 | Core | [README](../../Runtime/Core/README.md) | Bootstrapper, Lease, Singleton, 공통 계약 |
+| Commanding | [README](../../Runtime/Commanding/README.md) | Command 실행, Undo/Redo history, 그룹 |
 | Playback | [README](../../Runtime/Playback/README.md) | Cue, 재생 수명, Audio |
 | Rendering | [README](../../Runtime/Rendering/README.md) | Runtime rendering 보조 기능 |
 | Serializable | [README](../../Runtime/Serializable/README.md) | Unity 직렬화 보조 타입과 serializer |
@@ -21,6 +22,7 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 ## 주요 세부 시스템
 
 - Core: [Bootstrapper](core/bootstrapper.md), [Singleton과 슬롯](core/singleton.md), [Primitive](core/primitive.md)
+- Commanding: [DoSession](commanding/do-session.md)
 - Playback: [Playback Cue](playback/cue.md)
 - Rendering: [Instancing](rendering/instancing.md)
 - Serializable: [Value와 Modifier](serialization/value.md), [Collections](serialization/collections.md), [Serializer](serialization/serializer.md), [Managed Reference](serialization/managed-reference.md)

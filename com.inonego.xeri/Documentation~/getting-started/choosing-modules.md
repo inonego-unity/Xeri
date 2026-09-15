@@ -10,6 +10,13 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | 일회성 반환 책임 | Core / Lease |
 | 이름별 Runtime 인스턴스와 임시 Context | Core / Singleton |
 
+## 작업 실행과 history
+
+| 필요 | 모듈 |
+|---|---|
+| Command 기반 작업 실행과 Undo/Redo | Commanding / DoSession |
+| 여러 변경을 하나의 Undo 단위로 그룹화 | Commanding / DoSession |
+
 ## 데이터와 직렬화
 
 | 필요 | 모듈 |

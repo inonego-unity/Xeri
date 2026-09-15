@@ -53,6 +53,10 @@
     href: modules/core/singleton.md
   - name: Primitive
     href: modules/core/primitive.md
+- name: Commanding
+  items:
+  - name: DoSession
+    href: modules/commanding/do-session.md
 - name: Playback
   items:
   - name: Playback Cue
