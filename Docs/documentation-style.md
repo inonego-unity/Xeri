@@ -21,7 +21,7 @@ Xeri 문서는 다음 네 종류로 구분한다.
 - `Docs/`: 문서 작성 규칙, 템플릿, 계획, 유지보수용 문서를 둔다.
 - [`Docs/site-maintenance.md`](site-maintenance.md): DocFX build, API snapshot과 GitHub Pages 운영 절차를 둔다.
 - `Docs/templates/`: 새 문서를 작성할 때 기준으로 사용할 템플릿을 둔다.
-- `com.inonego.xeri/Documentation~/`: 향후 공개 Manual/Wiki 문서를 둔다.
+- `com.inonego.xeri/Documentation~/`: 공개 Manual 문서의 source of truth를 둔다.
 - `Runtime/**/README.md`: 해당 코드 영역의 모듈 개요를 둔다.
 
 ## 제목과 용어

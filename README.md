@@ -45,8 +45,8 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 
 ## 확장 패키지
 
-- **Xeri Fabric** — IO, Data, Localization, Workspace Runtime은 [Xeri-Fabric](https://github.com/inonego-unity/Xeri-Fabric)에서 제공합니다.
-- **Xeri Shell** — Window, Tray, View Session과 tool-style UI shell은 [Xeri-Shell](https://github.com/inonego-unity/Xeri-Shell)에서 제공합니다.
+- **Xeri Fabric** — IO, Data, Localization, Workspace Runtime은 [Xeri Fabric Documentation](https://inonego-unity.github.io/Xeri-Fabric/)에서 제공합니다.
+- **Xeri Shell** — Window, Tray, View Session과 tool-style UI shell은 [Xeri Shell Documentation](https://inonego-unity.github.io/Xeri-Shell/)에서 제공합니다.
 
 ## 빠른 시작
 
