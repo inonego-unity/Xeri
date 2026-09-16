@@ -10,14 +10,10 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 | Rendering | [README](../../Runtime/Rendering/README.md) | Runtime rendering 보조 기능 |
 | Serializable | [README](../../Runtime/Serializable/README.md) | Unity 직렬화 보조 타입과 serializer |
 | Tracking | [README](../../Runtime/Tracking/README.md) | 값 resolve·transition·commit 추적 |
-| UI | [README](../../Runtime/UI/README.md) | Game UI, Drag & Drop, Picker, Xeri UI |
+| UI | [README](../../Runtime/UI/README.md) | Game UI, Drag & Drop, Picker, Bar |
 | Game | [README](../../Runtime/게임/README.md) | Entity, Spawn, State, HP, AI 등 |
 | Generation | [README](../../Runtime/생성/README.md) | seed, random, validation |
 | Utility | [README](../../Runtime/유틸리티/README.md) | pooling, timer, paging, logging 등 |
-
-## 확장 패키지
-
-- [Xeri Fabric](https://github.com/inonego-unity/Xeri-Fabric) — IO, Data, Localization, Workspace Runtime
 
 ## 주요 세부 시스템
 
@@ -27,7 +23,6 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 - Rendering: [Instancing](rendering/instancing.md)
 - Serializable: [Value와 Modifier](serialization/value.md), [Collections](serialization/collections.md), [Serializer](serialization/serializer.md), [Managed Reference](serialization/managed-reference.md)
 - Tracking: [Tracking](tracking/tracking.md)
-- Xeri UI: [Window](xeri-ui/window.md), [Tray](xeri-ui/tray.md), [View](xeri-ui/view.md)
 - Game: [Entity와 Spawn 수명](game/entity-lifecycle.md), [State Machine](game/state-machine.md), [Board](game/board.md), [Controller](game/controller.md), [HP](game/hp.md), [Physics Query](game/physics-query.md), [AI Group](game/ai-group.md), [Use](game/use.md), [Reaction](game/reaction.md), [Zone Graph](game/zone-graph.md), [Level](game/level.md)
 - Generation: [Generation](generation/generation.md)
 - Utility: [GameObject Provider](utility/game-object-provider.md), [Object Pooling](utility/pooling.md), [Timer](utility/timer.md), [Paging](utility/paging.md)

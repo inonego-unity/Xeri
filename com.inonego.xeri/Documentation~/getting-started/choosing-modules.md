@@ -21,12 +21,9 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 
 | 필요 | 모듈 |
 |---|---|
-| 파일·메모리·Resources·Addressables 읽기/쓰기 | Xeri Fabric / IO |
 | 객체와 JSON/XML 문자열 변환 | Serializable / Serializer |
 | Unity 직렬화용 Dictionary/Ordered Collection | Serializable / Collections |
 | Base 값과 Modifier 합성 | Serializable / Value |
-| 여러 Table과 Source를 하나의 조회 Context로 제공 | Xeri Fabric / DataPackage |
-| Key만 저장하고 현재 데이터 Context에서 늦게 해석 | Xeri Fabric / `REF<T>` |
 
 ## 게임 Runtime
 
@@ -46,8 +43,6 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | 게임 Screen/Modal/Overlay/Focus/Input Runtime | Game UI |
 | UGUI/UITK 공통 Drag & Drop | UI / Drag & Drop |
 | 검색·필터·테이블 선택 UI | UI / Picker |
-| 데스크톱형 Window/Tray | Xeri UI |
-| Stable ID 기반 UITK View와 Session 복원 | Xeri UI / View |
 | 월드 값을 화면 위치로 반복 반영 | Tracking |
 | 대량 Mesh의 `RenderMeshInstanced` 제출 | Rendering / Instancing |
 

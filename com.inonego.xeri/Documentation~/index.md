@@ -20,10 +20,8 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 |---|---|
 | 시작 순서를 구성한다 | [Bootstrapper](modules/core/bootstrapper.md) |
 | 작업 실행과 Undo/Redo history를 관리한다 | [Commanding과 DoSession](modules/commanding/do-session.md) |
-| IO·Data·Localization·Workspace를 사용한다 | [Xeri Fabric](https://github.com/inonego-unity/Xeri-Fabric) |
 | Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |
 | Screen/Modal/Overlay UI를 운영한다 | [Game UI 설정과 시작](modules/game-ui/setup.md) |
-| Window/Tool UI를 만든다 | [Xeri Window](modules/xeri-ui/window.md) |
 | Audio/VFX Cue를 공통 재생한다 | [Playback Cue](modules/playback/cue.md) |
 | 결정적 procedural generation을 만든다 | [Generation](modules/generation/generation.md) |
 | 반복 객체의 반환 수명을 관리한다 | [Object Pooling](modules/utility/pooling.md) |

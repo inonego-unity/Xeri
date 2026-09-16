@@ -38,7 +38,7 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 | **Serializable** | Unity 직렬화 보조 컬렉션, serializer, `MValue`, managed reference |
 | **Data** | Table, `DataPackage`, `REF<T>` 기반 데이터 Context |
 | **Game** | Entity, Spawn, State Machine, HP, AI Group, Board, Zone, Use/Reaction |
-| **UI** | Game UI, Drag & Drop, Picker, Xeri Window/Tray/View |
+| **UI** | Game UI, Drag & Drop, Picker, Bar |
 | **Playback** | Cue, Playback lifecycle, Unity Audio |
 | **Tracking** | resolve → transition → commit 반복 갱신과 Lease 수명 |
 | **Rendering** | 대량 Mesh instance batch와 runtime instancing |
@@ -48,7 +48,8 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 
 ## 확장 패키지
 
-- **Xeri Workspace** — Document create/open/save/close/recovery와 이후 공통 Editor authoring 환경은 [Xeri-Workspace](https://github.com/inonego-unity/Xeri-Workspace)에서 제공합니다.
+- **Xeri Fabric** — IO, Data, Localization, Workspace Runtime은 [Xeri-Fabric](https://github.com/inonego-unity/Xeri-Fabric)에서 제공합니다.
+- **Xeri Shell** — Window, Tray, View Session과 tool-style UI shell은 [Xeri-Shell](https://github.com/inonego-unity/Xeri-Shell)에서 제공합니다.
 
 ## 빠른 시작
 

@@ -74,10 +74,8 @@ Scope stack은 `AsyncLocal`을 사용하므로 async 컨텍스트별 현재 슬�
 
 ## 사용 예
 
-Xeri Fabric의 `Localization`, `DataPackage`와 Xeri의 `AudioManager` 등은 이 슬롯/Registry 패턴을 사용해 기본 인스턴스와 선택적 named context를 구분합니다.
+`AudioManager` 같은 Xeri Runtime 서비스는 이 슬롯/Registry 패턴을 사용해 기본 인스턴스와 선택적 named context를 구분할 수 있습니다.
 
 ## 관련 문서
 
-- [Xeri Fabric DataPackage](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Documentation~/modules/data/data-package.md)
-- [Xeri Fabric Localization](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Documentation~/modules/localization/localization.md)
 - [Xeri Core](../../../Runtime/Core/README.md)

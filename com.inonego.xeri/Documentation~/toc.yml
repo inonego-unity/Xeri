@@ -35,8 +35,6 @@
     href: guides/rendering/build-instanced-renderer.md
   - name: UI Tracking 연결하기
     href: guides/tracking/track-ui-element.md
-  - name: Window와 View Source 연결하기
-    href: guides/xeri-ui/create-window-view.md
   - name: MValue Modifier 합성하기
     href: guides/serialization/use-mvalue.md
   - name: Pool Lease 사용하기
@@ -79,14 +77,6 @@
   items:
   - name: Tracking
     href: modules/tracking/tracking.md
-- name: Xeri UI
-  items:
-  - name: Window
-    href: modules/xeri-ui/window.md
-  - name: Tray
-    href: modules/xeri-ui/tray.md
-  - name: View
-    href: modules/xeri-ui/view.md
 - name: Game
   items:
   - name: Entity와 Spawn 수명

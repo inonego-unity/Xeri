@@ -68,11 +68,9 @@ Document Handler + ISerializer
 
 - serializer 구현이 파일 경로나 Addressables address를 알게 하지 않습니다.
 - domain validation과 schema migration을 serializer 자체에 넣지 않습니다.
-- 기존 외부 포맷의 root 구조가 중요하면 Workspace Document Handler의 저장 형태를 함께 확인합니다.
+- 기존 외부 포맷의 root 구조가 중요하면 serializer를 소비하는 저장 계층의 handler 계약을 함께 확인합니다.
 - JSON과 XML 사이에서 지원 가능한 serialization feature가 다르므로 단순 포맷 교체가 항상 동등하다고 가정하지 않습니다.
 
 ## 관련 문서
 
-- [Xeri Fabric IO](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/IO/README.md)
-- [Xeri Fabric Workspace Document](https://github.com/inonego-unity/Xeri-Fabric/blob/main/com.inonego.xeri.fabric/Runtime/Workspace/Document/README.md)
 - [Serializable 모듈](../../../Runtime/Serializable/README.md)

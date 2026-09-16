@@ -20,16 +20,11 @@
 
 ## UI와 데이터 표현
 
-- [Xeri Window와 View Source 연결하기](xeri-ui/create-window-view.md)
 - [MValue로 Modifier 합성하기](serialization/use-mvalue.md)
 
 ## Utility
 
 - [Pool Lease 사용하기](utility/use-pool-lease.md)
-
-## 확장 패키지
-
-- [Xeri Fabric](https://github.com/inonego-unity/Xeri-Fabric) — IO, Data, Localization, Workspace Runtime
 
 ## Playback
 

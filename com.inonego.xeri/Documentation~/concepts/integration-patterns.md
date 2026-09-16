@@ -45,7 +45,7 @@ Register / Publish
 
 ## 안정 ID와 Key를 사용한다
 
-Xeri Fabric의 `DataPackage.Source`, Window ID, Generation stable key처럼 저장·복원·결정성에 참여하는 식별자는 collection index나 일시적인 object name보다 의미가 안정적인 문자열이나 key를 사용합니다.
+저장·복원·결정성에 참여하는 식별자는 collection index나 일시적인 object name보다 의미가 안정적인 문자열이나 key를 사용합니다.
 
 특히 결정적 생성에서는 하위 난수 흐름을 배열 순서 하나에 묶지 않고 역할과 안정 ID에서 Seed를 파생하면 다른 하위 시스템의 변경이 결과 전체에 전파되는 것을 줄일 수 있습니다.
 
@@ -55,7 +55,6 @@ Xeri Fabric의 `DataPackage.Source`, Window ID, Generation stable key처럼 저�
 |---|---|
 | `UseController`의 후보 선택과 사용 전달 | 후보를 어떻게 탐색할지, 어떤 입력을 사용할지 |
 | `CuePlaybackService`의 Player 선택과 Playback 수명 | 어떤 게임 사건에서 어떤 Cue를 재생할지 |
-| Xeri Fabric `DataPackage`의 Table/Source/Scope 계약 | 데이터를 어디서 읽고 어떤 시점에 등록할지 |
 | `GenerationSeed`의 결정적 파생 | 실제 생성 알고리즘과 stable key 체계 |
 | `TrackingBinding`의 resolve/commit 수명 | 무엇을 추적하고 어떤 좌표계로 변환할지 |
 | `EntitySpawnRegistry`의 Spawn/Despawn 계약 | 구체 Entity 생성과 외부 자원 해제 방식 |

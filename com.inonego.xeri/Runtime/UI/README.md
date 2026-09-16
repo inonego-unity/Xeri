@@ -7,20 +7,19 @@ Xeri UI는 UGUI와 UI Toolkit을 사용하는 Runtime/Editor UI 기능을 모은
 
 ## 왜 필요한가
 
-UI 문제는 Screen lifecycle, Drag/Drop, 목록 선택, Window/Tray처럼 서로 다른 책임을 가집니다. 이를 하나의 거대한 UI Runtime으로 묶지 않고 공통 namespace 아래 독립 시스템으로 제공해 필요한 기능만 선택하도록 합니다.
+UI 문제는 Screen lifecycle, Drag/Drop, 목록 선택처럼 서로 다른 책임을 가집니다. 이를 하나의 거대한 UI Runtime으로 묶지 않고 공통 namespace 아래 독립 시스템으로 제공해 필요한 기능만 선택하도록 합니다.
 
 ## 언제 사용하는가
 
 - 게임 화면 stack/focus/input 수명이 필요하면 **Game UI**
 - UGUI/UITK 공통 Drag/Drop 규칙이 필요하면 **Drag & Drop**
 - 검색·필터 가능한 선택 창이 필요하면 **Picker**
-- 데스크톱형 Window/Tray와 View Session이 필요하면 **Xeri UI**
 
 하위 시스템끼리 자동으로 모두 연결되는 것은 아닙니다. 프로젝트가 필요한 UI 책임만 조합합니다.
 
 ## 어디서 시작하는가
 
-게임 화면 lifecycle이면 [Game UI](Game/README.md), Drag/Drop이면 [Drag & Drop](Drag_Drop/README.md), Editor 선택 UI면 [Picker](Picker/README.md), Window/Tray 도구형 UI면 [Xeri Window](../../Documentation~/modules/xeri-ui/window.md)와 [View](../../Documentation~/modules/xeri-ui/view.md)에서 시작합니다.
+게임 화면 lifecycle이면 [Game UI](Game/README.md), Drag/Drop이면 [Drag & Drop](Drag_Drop/README.md), Editor 선택 UI면 [Picker](Picker/README.md)에서 시작합니다.
 
 ## 하위 모듈
 
@@ -30,7 +29,6 @@ UI 문제는 Screen lifecycle, Drag/Drop, 목록 선택, Window/Tray처럼 서�
 | Drag & Drop | backend 공통 drag/drop 상태와 UGUI/UITK adapter | [README](Drag_Drop/README.md) |
 | Game UI | Layer, Screen, Modal, Focus, Input, Transition Runtime | [README](Game/README.md) |
 | Picker | UI Toolkit 기반 선택 UI와 table/filter/paging | [README](Picker/README.md) |
-| Xeri UI | Window, Tray, View Source/Session과 UI Toolkit 표현 기반 | [Window](../../Documentation~/modules/xeri-ui/window.md) · [Tray](../../Documentation~/modules/xeri-ui/tray.md) · [View](../../Documentation~/modules/xeri-ui/view.md) |
 
 ## 책임 범위
 
