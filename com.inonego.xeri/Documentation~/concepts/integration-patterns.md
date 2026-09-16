@@ -13,7 +13,7 @@ Adapter / Service / Presenter
      ↓
 Xeri Contract
      ↓
-Unity / IO / Rendering Backend
+Unity / External Storage / Rendering Backend
 ```
 
 중간 Adapter는 프로젝트의 용어와 Xeri의 범용 계약을 서로 변환합니다.

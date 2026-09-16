@@ -26,7 +26,7 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 - **명시적 소유권** — `Acquire ↔ Release`, `Register ↔ Unregister`, `Bind ↔ Unbind`처럼 시작과 종료를 짝으로 표현합니다.
 - **프로젝트 정책 분리** — Xeri는 범용 Runtime 계약을 제공하고, 실제 게임 규칙은 Adapter/Service/Presenter 계층에 둡니다.
 - **완전 구성 후 공개** — Registry나 Current Context에는 필요한 구성이 끝난 객체만 노출합니다.
-- **Backend 분리** — IO, UI, Playback 등은 구체 공급 경로나 표시 backend와 상위 소비 코드를 분리합니다.
+- **Backend 분리** — 외부 데이터 접근, UI, Playback 등은 구체 공급 경로나 표시 backend와 상위 소비 코드를 분리합니다.
 - **작은 모듈 조합** — 모든 기능을 하나의 전역 Runtime에 넣지 않고 필요한 시스템만 선택해서 사용합니다.
 
 ## 주요 모듈
@@ -34,16 +34,13 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 | 영역 | 주요 역할 |
 |---|---|
 | **Core** | Bootstrapper, Lease, Singleton, 공통 primitive와 lifecycle 계약 |
-| **IO** | File, Memory, Resources, Addressables 데이터 접근 |
 | **Serializable** | Unity 직렬화 보조 컬렉션, serializer, `MValue`, managed reference |
-| **Data** | Table, `DataPackage`, `REF<T>` 기반 데이터 Context |
 | **Game** | Entity, Spawn, State Machine, HP, AI Group, Board, Zone, Use/Reaction |
 | **UI** | Game UI, Drag & Drop, Picker, Bar |
 | **Playback** | Cue, Playback lifecycle, Unity Audio |
 | **Tracking** | resolve → transition → commit 반복 갱신과 Lease 수명 |
 | **Rendering** | 대량 Mesh instance batch와 runtime instancing |
 | **Generation** | 결정적 Seed/Random과 생성 결과 validation |
-| **Localization** | Locale 상태와 localized UI 갱신 |
 | **Utility** | GameObject Provider, Pool, Timer, Paging 등 독립 보조 기능 |
 
 ## 확장 패키지

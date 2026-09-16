@@ -45,7 +45,7 @@ Adapter / Service / Presenter
         ↓
 Xeri 계약과 Runtime 수명
         ↓
-Unity / IO / Rendering backend
+Unity / External Storage / Rendering backend
 ```
 
 Xeri가 소유하는 범용 lifecycle과 프로젝트가 선택하는 정책을 구분하는 기준은 [프로젝트 통합 패턴](concepts/integration-patterns.md)에서 설명합니다.

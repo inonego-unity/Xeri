@@ -345,20 +345,15 @@ Picker.Show(spec, entries, currentValue, value => { });
 
 ## 확장 지점
 
-REF, DataPackage, Addressable 같은 도메인 전용 Picker는 기본 Picker 위에 얇은 facade로 추가하는 것을 권장합니다.
-
-```csharp
-REFPicker.Spec<T>()
-REFPicker.Show<T>()
-AddressablePicker.Spec(...)
-AddressablePicker.Show(...)
-```
-
-핵심 구조는 유지합니다.
+프로젝트 전용 reference나 외부 자원 선택 기능은 기본 Picker 위에 얇은 facade로 추가하는 것을 권장합니다.
 
 ```text
-데이터 소스 수집 -> PickerSpec 구성 -> Picker.Show(...)
+project source 수집
+→ PickerSpec 구성
+→ Picker.Show(...)
 ```
+
+기본 Picker는 도메인별 데이터 소유권이나 저장 정책을 직접 알지 않도록 유지합니다.
 
 UI 동작, 검색, 필터, 컬럼, 정렬, preview, 취소 처리는 공통 Picker가 담당하고,
 도메인별 코드는 entry 수집과 표시 규칙만 담당합니다.
