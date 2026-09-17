@@ -1,17 +1,21 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerWindow.cs
-수정일 : 2026-08-04
+수정일 : 2026-09-17
 
 # 설명
 PickerView를 Unity EditorWindow 안에 호스팅하고 창 수명주기를 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEditor;
 using UnityEngine;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
 
 namespace inonego.Xeri.Editor.Picker
@@ -23,12 +27,13 @@ namespace inonego.Xeri.Editor.Picker
     // ============================================================
     public sealed class PickerWindow : EditorWindow
     {
+
     #region 필드
 
-        private static readonly Vector2 minimumModalWindowSize = new Vector2(640f, 560f);
-        private static readonly Vector2 initialModalWindowSize = new Vector2(680f, 620f);
-        private static readonly Vector2 minimumDropdownWindowSize = new Vector2(250f, 180f);
-        private static readonly Vector2 initialDropdownWindowSize = new Vector2(290f, 280f);
+        private static readonly Vector2 minimumModalWindowSize = new(640f, 560f);
+        private static readonly Vector2 initialModalWindowSize = new(680f, 620f);
+        private static readonly Vector2 minimumDropdownWindowSize = new(250f, 180f);
+        private static readonly Vector2 initialDropdownWindowSize = new(290f, 280f);
         private IPickerWindowBridge bridge = null;
         private bool isDropdown = false;
 
@@ -173,5 +178,6 @@ namespace inonego.Xeri.Editor.Picker
         }
 
     #endregion
+
     }
 }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerViewResourceLoader.cs
-수정일 : 2026-06-07
+수정일 : 2026-09-17
 
 # 설명
 Picker runtime view가 사용할 UXML/USS asset을 Resources에서 로드한다.
@@ -13,72 +13,72 @@ using UnityEngine.UIElements;
 
 namespace inonego.Xeri.UI.Picker
 {
-   // ============================================================
-   /// <summary>
-   /// Picker view Resources loader.
-   /// </summary>
-   // ============================================================
-   public static class PickerViewResourceLoader
-   {
+    // ============================================================
+    /// <summary>
+    /// Picker view Resources loader.
+    /// </summary>
+    // ============================================================
+    public static class PickerViewResourceLoader
+    {
 
-   #region 필드
+    #region 필드
 
-      private const string LAYOUT_PATH = "XeriUI/Picker/PickerView";
-      private const string THEME_STYLE_PATH = "XeriUI/Picker/PickerTheme";
-      private const string VIEW_STYLE_PATH = "XeriUI/Picker/PickerViewStyle";
+        private const string layoutPath = "XeriUI/Picker/PickerView";
+        private const string themeStylePath = "XeriUI/Picker/PickerTheme";
+        private const string viewStylePath = "XeriUI/Picker/PickerViewStyle";
 
-   #endregion
+    #endregion
 
-   #region 메서드
+    #region 메서드
 
-      // ------------------------------------------------------------
-      /// <summary>
-      /// PickerView UXML을 로드한다.
-      /// </summary>
-      // ------------------------------------------------------------
-      public static VisualTreeAsset LoadLayout()
-      {
-         return LoadRequired<VisualTreeAsset>(LAYOUT_PATH, "PickerView UXML");
-      }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// PickerView UXML을 로드한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static VisualTreeAsset LoadLayout()
+        {
+            return LoadRequired<VisualTreeAsset>(layoutPath, "PickerView UXML");
+        }
 
-      // ------------------------------------------------------------
-      /// <summary>
-      /// Picker theme USS를 로드한다.
-      /// </summary>
-      // ------------------------------------------------------------
-      public static StyleSheet LoadThemeStyle()
-      {
-         return LoadRequired<StyleSheet>(THEME_STYLE_PATH, "PickerTheme USS");
-      }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Picker theme USS를 로드한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static StyleSheet LoadThemeStyle()
+        {
+            return LoadRequired<StyleSheet>(themeStylePath, "PickerTheme USS");
+        }
 
-      // ------------------------------------------------------------
-      /// <summary>
-      /// Picker view USS를 로드한다.
-      /// </summary>
-      // ------------------------------------------------------------
-      public static StyleSheet LoadViewStyle()
-      {
-         return LoadRequired<StyleSheet>(VIEW_STYLE_PATH, "PickerView USS");
-      }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Picker view USS를 로드한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static StyleSheet LoadViewStyle()
+        {
+            return LoadRequired<StyleSheet>(viewStylePath, "PickerView USS");
+        }
 
-      // ------------------------------------------------------------
-      /// <summary>
-      /// Resources 경로에서 필수 asset을 로드한다.
-      /// </summary>
-      // ------------------------------------------------------------
-      private static T LoadRequired<T>(string path, string label) where T : UnityEngine.Object
-      {
-         var asset = Resources.Load<T>(path);
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Resources 경로에서 필수 asset을 로드한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static T LoadRequired<T>(string path, string label) where T : UnityEngine.Object
+        {
+            var asset = Resources.Load<T>(path);
 
-         if (asset == null)
-         {
-            throw new InvalidOperationException($"{label}을 Resources에서 로드할 수 없습니다. Path: {path}");
-         }
+            if (asset == null)
+            {
+                throw new InvalidOperationException($"{label}을 Resources에서 로드할 수 없습니다. Path: {path}");
+            }
 
-         return asset;
-      }
+            return asset;
+        }
 
-   #endregion
+    #endregion
 
-   }
+    }
 }

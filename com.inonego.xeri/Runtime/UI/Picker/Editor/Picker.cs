@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Picker.cs
-수정일 : 2026-08-04
+수정일 : 2026-09-17
 
 # 설명
 Picker 선택 UI를 모달 또는 dropdown으로 여는 Editor 전용 공개 진입점.
@@ -10,10 +10,14 @@ PickerWindow는 Unity EditorWindow 호스트이고, 이 타입이 소비자가 �
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
 
 namespace inonego.Xeri.Editor.Picker
@@ -25,9 +29,10 @@ namespace inonego.Xeri.Editor.Picker
     // ============================================================
     public static class Picker
     {
+
     #region 상수
 
-        private const int DefaultPageSize = 8;
+        private const int defaultPageSize = 8;
 
     #endregion
 
@@ -44,7 +49,7 @@ namespace inonego.Xeri.Editor.Picker
             IReadOnlyList<TEntry> entries,
             TValue currentValue,
             Action<TValue> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return Show(spec, entries, currentValue, onSelected, null, pageSize);
@@ -62,7 +67,7 @@ namespace inonego.Xeri.Editor.Picker
             TValue currentValue,
             Action<TValue> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return PickerWindow.OpenModal
@@ -88,17 +93,17 @@ namespace inonego.Xeri.Editor.Picker
             TValue currentValue,
             Action<TValue> onSelected,
             Rect rect,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return Show(spec, entries, currentValue, onSelected, rect, null, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 취소 callback을 포함해 rect 기준으로 Picker dropdown window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public static PickerWindow Show<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
@@ -107,7 +112,7 @@ namespace inonego.Xeri.Editor.Picker
             Action<TValue> onSelected,
             Rect rect,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return PickerWindow.OpenDropdown
@@ -132,41 +137,41 @@ namespace inonego.Xeri.Editor.Picker
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             Action<TValue> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return Show(spec, entries, default, onSelected, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 현재 선택값 없이 rect 기준으로 Picker dropdown window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public static PickerWindow Show<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             Action<TValue> onSelected,
             Rect rect,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return Show(spec, entries, default, onSelected, rect, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 현재 선택값 없이 취소 callback을 포함해 Picker modal window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public static PickerWindow Show<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             Action<TValue> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return Show(spec, entries, default, onSelected, onCanceled, pageSize);
@@ -184,7 +189,7 @@ namespace inonego.Xeri.Editor.Picker
             Action<TValue> onSelected,
             Rect rect,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return Show(spec, entries, default, onSelected, rect, onCanceled, pageSize);
@@ -205,17 +210,17 @@ namespace inonego.Xeri.Editor.Picker
             IReadOnlyList<TEntry> entries,
             TEntry currentValue,
             Action<TEntry> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowList(title, entries, currentValue, onSelected, null, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 취소 callback을 포함해 list entry 자체를 선택값으로 반환하는 modal window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         public static PickerWindow ShowList<TEntry>
         (
             string title,
@@ -223,7 +228,7 @@ namespace inonego.Xeri.Editor.Picker
             TEntry currentValue,
             Action<TEntry> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             var spec = ListPicker.Spec<TEntry>(title).Build();
@@ -241,24 +246,24 @@ namespace inonego.Xeri.Editor.Picker
             string title,
             IReadOnlyList<TEntry> entries,
             Action<TEntry> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowList(title, entries, default, onSelected, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 현재 선택값 없이 취소 callback을 포함해 list picker modal window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         public static PickerWindow ShowList<TEntry>
         (
             string title,
             IReadOnlyList<TEntry> entries,
             Action<TEntry> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowList(title, entries, default, onSelected, onCanceled, pageSize);
@@ -276,17 +281,17 @@ namespace inonego.Xeri.Editor.Picker
             Func<TEntry, TValue> valueGetter,
             TValue currentValue,
             Action<TValue> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowList(title, entries, valueGetter, currentValue, onSelected, null, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 취소 callback을 포함해 list entry에서 선택값을 추출하는 modal window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         public static PickerWindow ShowList<TEntry, TValue>
         (
             string title,
@@ -295,7 +300,7 @@ namespace inonego.Xeri.Editor.Picker
             TValue currentValue,
             Action<TValue> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             var spec = ListPicker.Spec(title, valueGetter).Build();
@@ -318,17 +323,17 @@ namespace inonego.Xeri.Editor.Picker
             IReadOnlyDictionary<TKey, TValue> dictionary,
             TKey currentKey,
             Action<TKey> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowDictionary(title, dictionary, currentKey, onSelected, null, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 취소 callback을 포함해 dictionary picker modal window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public static PickerWindow ShowDictionary<TKey, TValue>
         (
             string title,
@@ -336,7 +341,7 @@ namespace inonego.Xeri.Editor.Picker
             TKey currentKey,
             Action<TKey> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             var spec = DictionaryPicker.Spec<TKey, TValue>(title).Build();
@@ -355,29 +360,30 @@ namespace inonego.Xeri.Editor.Picker
             string title,
             IReadOnlyDictionary<TKey, TValue> dictionary,
             Action<TKey> onSelected,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowDictionary(title, dictionary, default, onSelected, pageSize);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 현재 선택값 없이 취소 callback을 포함해 dictionary picker modal window를 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         public static PickerWindow ShowDictionary<TKey, TValue>
         (
             string title,
             IReadOnlyDictionary<TKey, TValue> dictionary,
             Action<TKey> onSelected,
             Action onCanceled,
-            int pageSize = DefaultPageSize
+            int pageSize = defaultPageSize
         )
         {
             return ShowDictionary(title, dictionary, default, onSelected, onCanceled, pageSize);
         }
 
     #endregion
+
     }
 }
