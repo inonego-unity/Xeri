@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DropZone.cs
-수정일 : 2026-05-22
+수정일 : 2026-09-17
 
 # 설명
 Core DropZone 드롭 생명주기와 드롭 규칙 테스트.
@@ -18,6 +18,9 @@ using UnityEngine;
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -189,7 +192,13 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [Test]
         public void TEST_DropZone_IDropRule_false_진입_거부()
         {
-            dropZone.AddDropRule(new DropRule { Result = false });
+            dropZone.AddDropRule
+            (
+                new DropRule
+                {
+                    Result = false,
+                }
+            );
 
             var fired = false;
             dropZone.OnDropEnter += (_, _) => fired = true;

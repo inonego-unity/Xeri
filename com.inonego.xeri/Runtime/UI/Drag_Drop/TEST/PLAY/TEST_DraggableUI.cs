@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DraggableUI.cs
-수정일 : 2026-05-22
+수정일 : 2026-09-17
 
 # 설명
 DraggableUI Play Mode 통합 테스트.
@@ -23,6 +23,9 @@ using UnityEngine.UI;
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -92,9 +95,20 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [TearDown]
         public void TearDown()
         {
-            if (dragGO        != null) UnityEngine.Object.DestroyImmediate(dragGO);
-            if (canvasGO      != null) UnityEngine.Object.DestroyImmediate(canvasGO);
-            if (eventSystemGO != null) UnityEngine.Object.DestroyImmediate(eventSystemGO);
+            if (dragGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(dragGO);
+            }
+
+            if (canvasGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(canvasGO);
+            }
+
+            if (eventSystemGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(eventSystemGO);
+            }
         }
 
     #endregion
@@ -183,11 +197,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region F-1: Input Filter
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 허용되지 않은 버튼은 OnInitializePotentialDrag 에서 pointerDrag 가 null 로 리셋된다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [UnityTest]
         public IEnumerator TEST_DraggableUI_InputFilter_false_드래그_시작_거부()
         {
@@ -210,11 +224,12 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region P-1: Raycast Policy
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// DisableRaycastDuringDrag=true 면 드래그 중 CanvasGroup.blocksRaycasts 가 false 로 전환된다.
+        /// <br/> DisableRaycastDuringDrag=true이면 드래그 중
+        /// <br/> CanvasGroup.blocksRaycasts가 false로 전환된다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         [UnityTest]
         public IEnumerator TEST_DraggableUI_UGUIRaycastPolicy_blocksRaycasts_전환_및_복원()
         {

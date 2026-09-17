@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DropZoneUI.cs
-수정일 : 2026-05-22
+수정일 : 2026-09-17
 
 # 설명
 DropZoneUI Play Mode 통합 테스트.
@@ -22,6 +22,9 @@ using UnityEngine.UI;
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -109,11 +112,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         private Resolver resolver = null;
         private DragDropCoordinator coordinator = null;
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// EventSystem · Canvas · DraggableUI · DropZoneUI 를 준비한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [SetUp]
         public void SetUp()
         {
@@ -152,10 +155,25 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [TearDown]
         public void TearDown()
         {
-            if (zoneGO        != null) UnityEngine.Object.DestroyImmediate(zoneGO);
-            if (dragGO        != null) UnityEngine.Object.DestroyImmediate(dragGO);
-            if (canvasGO      != null) UnityEngine.Object.DestroyImmediate(canvasGO);
-            if (eventSystemGO != null) UnityEngine.Object.DestroyImmediate(eventSystemGO);
+            if (zoneGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(zoneGO);
+            }
+
+            if (dragGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(dragGO);
+            }
+
+            if (canvasGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(canvasGO);
+            }
+
+            if (eventSystemGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(eventSystemGO);
+            }
         }
 
     #endregion
@@ -179,11 +197,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region R-1: Enter
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 드래그 중 Resolver가 DropZone을 반환하면 OnDropEnter가 발화한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [UnityTest]
         public IEnumerator TEST_DropZoneUI_Coordinator_Route_OnDropEnter_발화()
         {

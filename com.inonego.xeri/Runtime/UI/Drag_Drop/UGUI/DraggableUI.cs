@@ -1,7 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DraggableUI.cs
-수정일 : 2026-07-30
-
+수정일 : 2026-09-17
 # 설명
 UGUI EventSystem 입력을 Core Draggable에 연결하고 모든 종료 경로에서 입력 상태를 복원한다.
 ========================================================================= BLOCK_HEADER_END */
@@ -31,10 +30,6 @@ namespace inonego.Xeri.UI.DragDrop
 
     #region 필드
 
-        [Header("설정")]
-        [SerializeField]
-        private bool canMove = true;
-
         // ------------------------------------------------------------
         /// <summary>
         /// 드래그 중 위치 이동을 허용하는지 여부.
@@ -53,8 +48,9 @@ namespace inonego.Xeri.UI.DragDrop
             }
         }
 
+        [Header("설정")]
         [SerializeField]
-        private bool canDrop = true;
+        private bool canMove = true;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -75,7 +71,7 @@ namespace inonego.Xeri.UI.DragDrop
         }
 
         [SerializeField]
-        private PointerEventData.InputButton dragButton = PointerEventData.InputButton.Left;
+        private bool canDrop = true;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -96,7 +92,7 @@ namespace inonego.Xeri.UI.DragDrop
         }
 
         [SerializeField]
-        private bool disableRaycastDuringDrag = true;
+        private PointerEventData.InputButton dragButton = PointerEventData.InputButton.Left;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -117,6 +113,9 @@ namespace inonego.Xeri.UI.DragDrop
                 }
             }
         }
+
+        [SerializeField]
+        private bool disableRaycastDuringDrag = true;
 
         // ------------------------------------------------------------
         /// <summary>

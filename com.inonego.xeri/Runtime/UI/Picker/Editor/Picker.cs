@@ -1,7 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Picker.cs
 수정일 : 2026-09-17
-
 # 설명
 Picker 선택 UI를 모달 또는 dropdown으로 여는 Editor 전용 공개 진입점.
 
@@ -179,7 +178,8 @@ namespace inonego.Xeri.Editor.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 선택값 없이 취소 callback을 포함해 rect 기준으로 Picker dropdown window를 표시한다.
+        /// <br/> 현재 선택값 없이 취소 callback을 포함해
+        /// <br/> rect 기준으로 Picker dropdown window를 표시한다.
         /// </summary>
         // ------------------------------------------------------------
         public static PickerWindow Show<TEntry, TValue>

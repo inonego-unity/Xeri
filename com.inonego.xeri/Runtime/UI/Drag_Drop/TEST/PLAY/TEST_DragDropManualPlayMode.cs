@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragDropManualPlayMode.cs
-수정일 : 2026-06-09
+수정일 : 2026-09-17
 
 # 설명
 UGUI / Runtime UI Toolkit DragDrop 을 PlayMode 화면에서 직접 드래그해 확인하는 수동 테스트.
@@ -27,7 +27,9 @@ using UnityEngine.UIElements;
 using NUnit;
 using NUnit.Framework;
 
-using inonego.Xeri.TEST.UI;
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -85,11 +87,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             return eventSystem;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// Game View 기본 카메라 경고가 나오지 않도록 테스트용 카메라를 생성한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private void CreateTestCamera()
         {
             cameraGO = new GameObject("TEST_Camera");
@@ -202,13 +204,15 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             panelSettings.name = "TEST_DragDrop_PanelSettings";
             panelSettings.scaleMode = PanelScaleMode.ConstantPixelSize;
-            XeriUITKManualTestPanelSettings.ApplyDefaultRuntimeTheme(panelSettings);
 
             uitkRoot = new GameObject("TEST_UITK_DragDrop");
-            var document = uitkRoot.AddComponent<UIDocument>();
-            document.panelSettings = panelSettings;
+            uitkRoot.SetActive(false);
+            var renderer = uitkRoot.AddComponent<PanelRenderer>();
+            renderer.panelSettings = panelSettings;
+            var layer = uitkRoot.AddComponent<UITKLayerPanel>();
+            layer.SetActive(true);
 
-            var root = document.rootVisualElement;
+            var root = layer.Root;
             root.style.flexGrow = 1f;
             root.style.backgroundColor = new Color(0.05f, 0.05f, 0.05f, 0.9f);
 
@@ -322,11 +326,30 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [TearDown]
         public void TearDown()
         {
-            if (uguiRoot      != null) UnityEngine.Object.DestroyImmediate(uguiRoot);
-            if (uitkRoot      != null) UnityEngine.Object.DestroyImmediate(uitkRoot);
-            if (eventSystemGO != null) UnityEngine.Object.DestroyImmediate(eventSystemGO);
-            if (cameraGO      != null) UnityEngine.Object.DestroyImmediate(cameraGO);
-            if (panelSettings != null) UnityEngine.Object.DestroyImmediate(panelSettings);
+            if (uguiRoot != null)
+            {
+                UnityEngine.Object.DestroyImmediate(uguiRoot);
+            }
+
+            if (uitkRoot != null)
+            {
+                UnityEngine.Object.DestroyImmediate(uitkRoot);
+            }
+
+            if (eventSystemGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(eventSystemGO);
+            }
+
+            if (cameraGO != null)
+            {
+                UnityEngine.Object.DestroyImmediate(cameraGO);
+            }
+
+            if (panelSettings != null)
+            {
+                UnityEngine.Object.DestroyImmediate(panelSettings);
+            }
         }
 
     #endregion

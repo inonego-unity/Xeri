@@ -1,7 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EditorAssetDropManipulator.cs
-수정일 : 2026-05-22
-
+수정일 : 2026-09-17
 # 설명
 UnityEditor DragAndDrop 으로 Editor UI Toolkit 요소에 Asset/Object drop 처리를 붙인다.
 ========================================================================= BLOCK_HEADER_END */
@@ -71,11 +70,11 @@ namespace inonego.Xeri.UI.DragDrop.Editor
 
     #region 콜백 등록
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// target VisualElement 에 Editor DragAndDrop 이벤트를 등록한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         protected override void RegisterCallbacksOnTarget()
         {
             target.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
@@ -83,11 +82,11 @@ namespace inonego.Xeri.UI.DragDrop.Editor
             target.RegisterCallback<DragLeaveEvent>  (OnDragLeave);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// target VisualElement 에서 Editor DragAndDrop 이벤트를 등록 해제한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         protected override void UnregisterCallbacksFromTarget()
         {
             target.UnregisterCallback<DragUpdatedEvent>(OnDragUpdated);

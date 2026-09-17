@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Draggable.cs
-수정일 : 2026-05-22
+수정일 : 2026-09-17
 
 # 설명
 Core Draggable 드래그 생명주기 테스트.
@@ -19,6 +19,9 @@ using UnityEngine;
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -101,11 +104,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region L-2: Drag
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// InvokeDrag는 입력 위치와 오프셋으로 GoalPos를 계산해 Pos에 적용한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
         public void TEST_Draggable_InvokeDrag_GoalPos_계산_및_Pos_적용()
         {
@@ -126,11 +129,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region M-1: CanMove
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// CanMove가 false이면 GoalPos는 계산하지만 실제 Pos는 이동하지 않는다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
         public void TEST_Draggable_CanMove_false_GoalPos_계산하되_Pos_미적용()
         {

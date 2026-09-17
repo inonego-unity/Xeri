@@ -1,7 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : DropZoneUI.cs
-수정일 : 2026-07-30
-
+수정일 : 2026-09-17
 # 설명
 UGUI 오브젝트를 Core DropZone으로 등록하는 드롭 가능 UI 컴포넌트.
 ========================================================================= BLOCK_HEADER_END */
@@ -26,10 +25,6 @@ namespace inonego.Xeri.UI.DragDrop
 
     #region 필드
 
-        [Header("설정")]
-        [SerializeField]
-        private bool canDrop = true;
-
         // ------------------------------------------------------------
         /// <summary>
         /// 드롭 허용 여부.
@@ -47,6 +42,10 @@ namespace inonego.Xeri.UI.DragDrop
                 }
             }
         }
+
+        [Header("설정")]
+        [SerializeField]
+        private bool canDrop = true;
 
         [SerializeField]
         private List<DropRuleAsset> dropRuleAssets = new();

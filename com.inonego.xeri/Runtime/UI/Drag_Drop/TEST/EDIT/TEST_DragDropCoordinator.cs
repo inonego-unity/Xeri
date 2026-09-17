@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragDropCoordinator.cs
-수정일 : 2026-07-30
+수정일 : 2026-09-17
 
 # 설명
 DragDropCoordinator 활성 드래그 추적과 드롭 라우팅 테스트.
@@ -19,6 +19,9 @@ using UnityEngine;
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -187,11 +190,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region R-2: Drop
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// HandleDragEnd는 현재 DropZone에 DropDone을 발화하고 활성 목록에서 제거한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
         public void TEST_DragDropCoordinator_HandleDragEnd_DropDone_처리()
         {
@@ -208,11 +211,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             CollectionAssert.DoesNotContain(coordinator.ActiveDraggables, draggable);
         }
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 같은 DropZone을 새 대상이 점유한 뒤 이전 Drag 종료가 현재 대상을 Drop하지 않는지 검증한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [Test]
         public void TEST_DragDropCoordinator_DropZone대상교체_이전Drag종료가현재대상유지()
         {

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UITKDragDrop.cs
-수정일 : 2026-07-30
+수정일 : 2026-09-17
 
 # 설명
 Runtime UI Toolkit DragDrop Manipulator 연결과 예외 종료 상태 테스트.
@@ -20,6 +20,9 @@ using UnityEngine.TestTools;
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 namespace inonego.Xeri.TEST.UI._Drag_Drop
@@ -34,24 +37,25 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region 헬퍼
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 실제 pointer capture를 사용할 Runtime UI Toolkit 문서를 생성한다.
+        /// 실제 pointer capture를 사용할 Runtime UI Toolkit Panel을 생성한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static UIDocument CreateDocument
+        // ----------------------------------------------------------------------
+        private static VisualElement CreatePanel
         (
-            out GameObject documentObject,
+            out GameObject panelObject,
             out PanelSettings panelSettings
         )
         {
             panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
-            documentObject = new GameObject("TEST_UITKDragDrop");
-
-            var document = documentObject.AddComponent<UIDocument>();
-            document.panelSettings = panelSettings;
-
-            return document;
+            panelObject = new GameObject("TEST_UITKDragDrop");
+            panelObject.SetActive(false);
+            var renderer = panelObject.AddComponent<PanelRenderer>();
+            renderer.panelSettings = panelSettings;
+            var layer = panelObject.AddComponent<UITKLayerPanel>();
+            layer.SetActive(true);
+            return layer.Root;
         }
 
         // ------------------------------------------------------------
@@ -118,11 +122,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region L-1: Draggable Manipulator
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// VisualElement에 UITKDraggableManipulator를 붙이면 Core Draggable이 생성된다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [Test]
         public void TEST_UITKDragDrop_AddManipulator_Draggable_생성()
         {
@@ -143,7 +147,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [UnityTest]
         public IEnumerator TEST_UITKDragDrop_DragBegin실패_Drag와Pointer정리()
         {
-            var document = CreateDocument(out var documentObject, out var panelSettings);
+            var root = CreatePanel(out var panelObject, out var panelSettings);
             var element = new VisualElement();
             var coordinator = new DragDropCoordinator();
             var manipulator = new UITKDraggableManipulator(coordinator)
@@ -152,7 +156,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
                 DragThreshold = 0f,
             };
 
-            document.rootVisualElement.Add(element);
+            root.Add(element);
             element.AddManipulator(manipulator);
 
             try
@@ -185,7 +189,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(documentObject);
+                UnityEngine.Object.DestroyImmediate(panelObject);
                 UnityEngine.Object.DestroyImmediate(panelSettings);
             }
         }
@@ -198,7 +202,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [UnityTest]
         public IEnumerator TEST_UITKDragDrop_DragEnd실패_Drag와Pointer정리()
         {
-            var document = CreateDocument(out var documentObject, out var panelSettings);
+            var root = CreatePanel(out var panelObject, out var panelSettings);
             var element = new VisualElement();
             var coordinator = new DragDropCoordinator();
             var manipulator = new UITKDraggableManipulator(coordinator)
@@ -207,7 +211,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
                 DragThreshold = 0f,
             };
 
-            document.rootVisualElement.Add(element);
+            root.Add(element);
             element.AddManipulator(manipulator);
 
             try
@@ -243,7 +247,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(documentObject);
+                UnityEngine.Object.DestroyImmediate(panelObject);
                 UnityEngine.Object.DestroyImmediate(panelSettings);
             }
         }
@@ -252,11 +256,11 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
     #region R-1: DropZone Manipulator
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// DropZone Manipulator는 Coordinator와 Resolver에 DropZone을 등록한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
         public void TEST_UITKDragDrop_DropZoneManipulator_Register()
         {
@@ -272,16 +276,15 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             CollectionAssert.Contains(coordinator.DropZones, manipulator.DropZone);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// DropZone 이탈 알림 실패 뒤 Resolver 등록이 남지 않는지 검증한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         [UnityTest]
         public IEnumerator TEST_UITKDragDrop_DropZone해제실패_Resolver등록해제()
         {
-            var document = CreateDocument(out var documentObject, out var panelSettings);
-            var root = document.rootVisualElement;
+            var root = CreatePanel(out var panelObject, out var panelSettings);
             var zone = new VisualElement();
             var coordinator = new DragDropCoordinator();
             var resolver = new UITKDropResolver(root);
@@ -327,7 +330,7 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(documentObject);
+                UnityEngine.Object.DestroyImmediate(panelObject);
                 UnityEngine.Object.DestroyImmediate(panelSettings);
             }
         }

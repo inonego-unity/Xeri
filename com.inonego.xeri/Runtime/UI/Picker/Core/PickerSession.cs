@@ -1,7 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerSession.cs
 수정일 : 2026-09-17
-
 # 설명
 Picker 실행 단위의 검색, 필터, 정렬, 현재 선택, 페이징 상태를 관리한다.
 ========================================================================= BLOCK_HEADER_END */
@@ -30,9 +29,7 @@ namespace inonego.Xeri.UI.Picker
         private readonly Action<TValue> onSelected;
         private readonly List<PickerEntry<TEntry, TValue>> allEntries;
         private readonly List<PickerEntry<TEntry, TValue>> filteredEntries = new();
-        private readonly List<PickerEntry<TEntry, TValue>> pageEntries = new();
         private readonly Dictionary<string, bool> filterStates = new();
-        private readonly Paginator paginator;
         private string searchText = string.Empty;
         private string sortColumnID = string.Empty;
         private bool sortAscending = true;
@@ -43,6 +40,8 @@ namespace inonego.Xeri.UI.Picker
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyList<PickerEntry<TEntry, TValue>> PageEntries => pageEntries;
+
+        private readonly List<PickerEntry<TEntry, TValue>> pageEntries = new();
 
         // ------------------------------------------------------------
         /// <summary>
@@ -64,6 +63,8 @@ namespace inonego.Xeri.UI.Picker
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyPaginator Paginator => paginator;
+
+        private readonly Paginator paginator;
 
         // ------------------------------------------------------------
         /// <summary>
