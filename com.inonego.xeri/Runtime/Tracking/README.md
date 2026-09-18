@@ -45,4 +45,4 @@ Tracking은 무엇을 추적해야 하는지 결정하지 않습니다. 대상 �
 
 - [Tracking 상세](../../Documentation~/modules/tracking/tracking.md)
 - [소유권과 수명](../../Documentation~/concepts/ownership-and-lifetime.md)
-- [Game UI](../UI/Game/README.md)
+- [UI Core](../UI/Core/README.md)

@@ -1,27 +1,21 @@
-# Game UI Validation
+# UI Core Validation
 
-Xeri Game UI Core의 공개 경로를 한 Scene에서 실행하는 선택형 Package Sample이다.
-Screen Stack, Modal, Overlay, Spotlight, Scene Fade, Focus, Input, UITK Layer와 Gradient/Gamma 합성을
-실제 Handle과 Controller 수명으로 확인한다.
+Xeri UI Core의 공개 경로를 한 Scene에서 검증하는 선택형 Package Sample이다. Screen Stack, Modal, Presentation Lease, Spotlight, Scene Fade, Focus, Input, UITK Layer와 Gradient 표현을 실제 Runtime 수명으로 확인한다.
 
-이 샘플 에셋은 Xeri의 공개 API와 Package 내부 에셋만 사용한다. 프로젝트 전용 Settings,
-Input Actions, Bootstrapper, Render Pipeline Component는 참조하지 않는다. Xeri Runtime의
-설치 의존성은 Game UI 사용 가이드의 `최초 설정 > 의존성`을 따른다.
+샘플은 Xeri의 공개 API와 Package 내부 샘플 자원만 사용한다. 프로젝트 전용 Settings, Bootstrapper, Render Pipeline 우회 Component에는 의존하지 않는다.
 
 ## 가져오기
 
 1. Unity에서 `Window > Package Manager`를 연다.
 2. `Xeri` Package를 선택한다.
-3. `Samples`의 `Game UI Validation`에서 `Import`를 누른다.
+3. `Samples`의 `UI Core Validation`에서 `Import`를 누른다.
 4. 가져온 `GameUIValidation.unity`를 연다.
 
 Unity는 샘플을 다음 형식의 프로젝트 경로로 복사한다.
 
 ```text
-Assets/Samples/Xeri/<version>/Game UI Validation/
+Assets/Samples/Xeri/<version>/UI Core Validation/
 ```
-
-샘플을 사용하지 않는 프로젝트에는 Scene, 폰트와 시각 기준본이 복사되지 않는다.
 
 ## 실행
 
@@ -29,72 +23,46 @@ Assets/Samples/Xeri/<version>/Game UI Validation/
 2. Play Mode로 진입한다.
 3. Mouse 또는 Keyboard/Gamepad Navigation과 Submit으로 버튼을 조작한다.
 
-활성 `GameUIRuntime`이 없으면 샘플은 `GameUIValidationSettings.asset`과 Xeri 표준
-`GameUIHost.prefab`으로 독립 Runtime을 만들고 전체 기능을 검증한다. Scene이 닫힐 때 자신이
-만든 Host 전체를 정리한다.
+활성 `UIRuntime`이 없으면 샘플은 `GameUIValidationSettings.asset`과 Xeri의 `UIHost.prefab`으로 독립 Runtime을 만들고 전체 기능을 검증한다. 이미 App Runtime이 있으면 App Profile을 바꾸지 않고 샘플 전용 Layer Registry와 Child `UIContext`만 생성한다.
 
-App Runtime이 이미 있으면 샘플 전용 Layer Registry와 `runtime.Main`의 Child Context를 만들어
-Screen, Modal, Overlay와 Context Focus만 검증한다. 이 공유 모드에서는 App Profile,
-SceneFader, Input Settings와 Runtime Shutdown을 건드리지 않으며 Fade 버튼이 비활성화된다.
-화면 왼쪽 아래 상태 카드가 현재 실행 모드를 표시한다.
+## 검증 항목
 
-## 검증 경로
-
-| 동작 | 확인하는 공개 경로 |
+| 명령 | 검증 내용 |
 |---|---|
-| `PUSH DETAIL` | 같은 `IScreenSource`로 새 Screen Session을 Stack에 추가 |
-| `PUSH ANOTHER` | 동일 Screen ID의 허용된 중복 Session 추가 |
-| `REPLACE TOP` | 현재 top을 같은 등록의 새 Session으로 교체 |
-| `POP SCREEN` | 일반 Close Transition과 이전 Focus 복원 |
-| `OPEN MODAL` | Modal Handle을 현재 Screen의 자식 수명으로 소유 |
-| `SPOTLIGHT` | UITK Spotlight Lease를 현재 Screen의 자식 수명으로 소유하고 대상 구멍 입력을 통과 |
-| `Overlay Toast` | `OverlayHandle`로 Layer Usage와 동적 View를 함께 획득·반환 |
-| `Cover → Reveal` | 기본 `SceneFader`의 Cover와 Reveal 실행 |
-| `Clear & Restore` | Stack을 정리한 뒤 Dashboard를 새로 획득 |
+| `PUSH DETAIL` | `IScreenSource`가 만든 Screen Session을 Stack에 추가 |
+| `PUSH ANOTHER` | 같은 Screen ID의 별도 Session 수명 |
+| `REPLACE TOP` | 현재 top을 새 Session으로 교체 |
+| `POP SCREEN` | Close Transition과 이전 Focus 복원 |
+| `OPEN MODAL` | `ModalSession`의 Presentation·interaction·owned lifetime 수명 |
+| `SPOTLIGHT` | UITK Spotlight Lease를 현재 Screen의 자식 수명으로 소유 |
+| `Overlay Toast` | `PresentationLease`가 View와 Layer Usage를 함께 소유 |
+| `Cover → Reveal` | 기본 `SceneFader`의 Cover/Reveal 실행 |
+| `Clear & Restore` | Stack 전체 정리 후 Dashboard 재생성 |
 
-Dashboard는 Stack, Modal, Fade, Input Device와 Screen 상태 훅을 표시한다. 화면 표현에는
-Xeri Linear/Radial/Conic Gradient Material, Layer Gamma 합성과 `XeriLoopAnimator`를 사용한다.
+Dashboard에는 Stack 수, Modal 수, Fade 상태, 마지막 Input Device와 주요 UI Core 상태가 표시된다. Gradient는 Unity 6000.7 native Linear/Radial 표현만 검증하며 Xeri 전용 gradient fallback은 사용하지 않는다.
 
-## 파일 구성
+## 샘플 구조
 
 ```text
-GameUIValidation/
-├── GameUIValidation.unity
-├── GameUIValidationSettings.asset
-├── GameUIValidationGameplay.inputactions
-├── Runtime/   # 샘플 조립 코드와 전용 Assembly
-├── UI/        # UXML, USS, Layer, Panel Settings와 Profile
-├── Fonts/     # Unity와 HTML이 함께 사용하는 Inter와 OFL 1.1
-└── Web~/      # HTML/CSS 1920×1080 시각 기준본
+GameUIValidation.unity
+GameUIValidationSettings.asset
+GameUIValidationGameplay.inputactions
+Runtime/   # 샘플 조립 코드와 전용 Assembly
+UI/        # UXML, USS, Layer, PanelSettings, Profile
+Fonts/     # Unity/HTML 공용 Inter, OFL 1.1
+Web~/      # 1920x1080 HTML/CSS 시각 기준본
 ```
 
-`GameUIValidationGameplay.inputactions`는 UI가 Gameplay 입력을 차단하고 복원하는 경로를
-독립적으로 실행하기 위한 최소 Action Map이다. 실제 애플리케이션의 입력 계약을 예시로
-복제하지 않는다.
+`GameUIValidationGameplay.inputactions`는 샘플을 독립 실행하기 위한 최소 UI/Gameplay Action Map이다. 실제 애플리케이션에서는 프로젝트 입력 계약을 사용한다.
 
-## HTML/CSS 시각 기준
+## HTML/CSS 기준본
 
-`Web~/index.html`을 브라우저로 열면 Unity 화면의 1920×1080 기준본을 확인할 수 있다.
-`Web~/style.css`와 `UI/GameUIValidationScreen.uss`는 USS에서 직접 표현 가능한 크기, 간격,
-색, Gradient 각도와 Stop을 같은 값으로 유지한다.
+`Web~/index.html`을 브라우저로 열면 Unity 화면의 1920x1080 기준본을 확인할 수 있다. `Web~/style.css`와 `UI/GameUIValidationScreen.uss`는 동일한 정보 구조와 주요 시각 값을 유지한다.
 
-HTML은 JavaScript로 1920×1080 Canvas를 균일 축소한다. Unity 화면은 고정 크기 Root와 전용
-Panel Settings의 `Shrink` 모드로 같은 contain 배율을 적용한다.
+브라우저 전용 표현은 검증 참고용이며 Unity Runtime 계약이 아니다. Text Engine rasterization처럼 엔진별 차이는 완전한 픽셀 일치를 요구하지 않는다.
 
-다음 CSS 표현은 UI Toolkit에 직접 대응하는 기능이 없으므로 시각 비교 범위에서 제외한다.
-
-- `backdrop-filter`
-- `filter: saturate`
-- CSS Gaussian `box-shadow`
-- 브라우저와 Unity Text Engine의 글리프 Rasterization 차이
-
-## 폰트 라이선스
-
-Inter Font 파일은 SIL Open Font License 1.1로 배포된다. 저작권과 전체 라이선스 원문은
-`Fonts/Inter-LICENSE.txt`에 함께 보관한다. 폰트를 수정하지 않은 상태로 Unity Sample과
-HTML 기준본에 함께 사용한다.
+Inter Font는 SIL Open Font License 1.1을 따른다. 라이선스는 `Fonts/Inter-LICENSE.txt`에 포함된다.
 
 ## 제거
 
-Package Manager의 샘플 Import는 Xeri Runtime을 변경하지 않는다. 검증 화면이 필요 없으면
-프로젝트의 `Assets/Samples/Xeri/<version>/Game UI Validation` 폴더만 제거한다.
+Package Manager의 Sample Import는 Xeri Runtime을 변경하지 않는다. 검증 화면이 필요 없으면 `Assets/Samples/Xeri/<version>/UI Core Validation` 폴더만 제거하면 된다.

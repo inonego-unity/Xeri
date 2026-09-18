@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : GameUIValidationLab.cs
-수정일 : 2026-08-05
+수정일 : 2026-09-13
 
 # 설명
 Xeri Package Sample의 단일 검증 Scene에서 실제 Game UI Runtime과 Context 공개 경로를 조립한다.
@@ -17,7 +17,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-using inonego.Xeri.UI.Game;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Samples.GameUIValidation
 {
@@ -83,7 +83,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         /// Validation Layer에 Toast VisualElement를 획득·반환하는 Overlay Source.
         /// </summary>
         // ============================================================
-        private sealed class ValidationOverlaySource : IOverlaySource<VisualElement>
+        private sealed class ValidationPresentationSource : IPresentationSource<VisualElement>
         {
 
         #region 필드
@@ -100,7 +100,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
             /// Toast StyleSheet와 닫기 명령을 연결한다.
             /// </summary>
             // ------------------------------------------------------------
-            public ValidationOverlaySource
+            public ValidationPresentationSource
             (
                 StyleSheet styleSheet,
                 Action close
@@ -112,7 +112,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
 
         #endregion
 
-        #region IOverlaySource
+        #region IPresentationSource
 
             // ------------------------------------------------------------
             /// <summary>
@@ -243,7 +243,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
     #region 필드
 
         [SerializeField]
-        private GameUIProfileAsset profile = null;
+        private UIProfileAsset profile = null;
 
         [SerializeField]
         private VisualTreeAsset screenTemplate = null;
@@ -255,7 +255,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         private GameObject runtimeHostPrefab = null;
 
         [SerializeField]
-        private GameUISettingsAsset settings = null;
+        private UISettingsAsset settings = null;
 
         [SerializeField]
         private PresentationLayerAsset validationLayerAsset = null;
@@ -263,18 +263,18 @@ namespace inonego.Xeri.Samples.GameUIValidation
         [SerializeField]
         private GameObject validationLayerPrefab = null;
 
-        private GameUIRuntime runtime = null;
-        private GameUIContext context = null;
+        private UIRuntime runtime = null;
+        private UIContext context = null;
         private GameObject ownedRuntimeHost = null;
         private GameObject ownedLayerRoot = null;
         private PresentationLayerRegistry ownedLayerRegistry = null;
         private PresentationLayerHandle ownedLayerRegistration = null;
-        private GameUIProfileHandle profileHandle = null;
+        private UIProfileHandle profileHandle = null;
         private ScreenRegistrationHandle dashboardRegistration = null;
         private ScreenRegistrationHandle detailRegistration = null;
         private GameUIValidationScreenSource screenSource = null;
-        private ModalHandle modalHandle = null;
-        private OverlayHandle<VisualElement> overlayHandle = null;
+        private ModalSession modalSession = null;
+        private Lease<VisualElement> toastLease = null;
         private UITKSpotlight spotlight = null;
         private Lease spotlightLease = null;
         private Coroutine clearRoutine = null;
@@ -344,10 +344,10 @@ namespace inonego.Xeri.Samples.GameUIValidation
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Color Space에 따른 Gamma 합성 설명.
+        /// 현재 Color Space와 direct Panel 출력 설명.
         /// </summary>
         // ------------------------------------------------------------
-        internal string GammaDescription => QualitySettings.activeColorSpace == ColorSpace.Linear ? "Linear / Gamma composite" : "Gamma / Direct panel";
+        internal string GammaDescription => QualitySettings.activeColorSpace == ColorSpace.Linear ? "Linear / Direct panel" : "Gamma / Direct panel";
 
         // ------------------------------------------------------------
         /// <summary>
@@ -388,7 +388,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
 
             try
             {
-                if (GameUIRuntime.TryCurrent(out var current))
+                if (UIRuntime.TryCurrent(out var current))
                 {
                     runtime = current;
                     isSharedRuntime = true;
@@ -496,7 +496,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         {
             if (!IsRuntimeAvailable)
             {
-                throw new InvalidOperationException("초기화된 GameUIRuntime을 찾지 못했습니다.");
+                throw new InvalidOperationException("초기화된 UIRuntime을 찾지 못했습니다.");
             }
 
             if (!isSharedRuntime && profile == null)
@@ -603,7 +603,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
 
             ownedRuntimeHost = Instantiate(runtimeHostPrefab);
             ownedRuntimeHost.name = "GameUIValidationRuntime";
-            runtime = ownedRuntimeHost.GetComponent<GameUIRuntime>();
+            runtime = ownedRuntimeHost.GetComponent<UIRuntime>();
 
             if (runtime == null)
             {
@@ -611,7 +611,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
                 ownedRuntimeHost = null;
                 throw new InvalidOperationException
                 (
-                    "검증용 Host Prefab Root에 GameUIRuntime이 없습니다."
+                    "검증용 Host Prefab Root에 UIRuntime이 없습니다."
                 );
             }
 
@@ -671,10 +671,10 @@ namespace inonego.Xeri.Samples.GameUIValidation
             spotlightLease = null;
             DisposeOwned(spotlight, errors);
             spotlight = null;
-            DisposeOwned(overlayHandle, errors);
-            overlayHandle = null;
-            DisposeOwned(modalHandle, errors);
-            modalHandle = null;
+            DisposeOwned(toastLease, errors);
+            toastLease = null;
+            DisposeOwned(modalSession, errors);
+            modalSession = null;
 
             if (isSharedRuntime && context != null)
             {
@@ -982,14 +982,14 @@ namespace inonego.Xeri.Samples.GameUIValidation
         {
             if (!IsValidationAvailable || ownerSession == null) return;
 
-            if (overlayHandle != null && !overlayHandle.IsDisposed)
+            if (toastLease != null && !toastLease.IsDisposed)
             {
                 CloseOverlay();
                 return;
             }
 
-            var source = new ValidationOverlaySource(screenStyle, CloseOverlay);
-            var opened = OverlayHandle<VisualElement>.Acquire
+            var source = new ValidationPresentationSource(screenStyle, CloseOverlay);
+            var opened = PresentationLease.Acquire<VisualElement>
             (
                 context.LayerRegistry,
                 LAYER_ID,
@@ -999,8 +999,8 @@ namespace inonego.Xeri.Samples.GameUIValidation
             try
             {
                 ownerSession.RegisterChild(opened);
-                overlayHandle = opened;
-                RecordActivity("Overlay acquired · view and layer usage owned");
+                toastLease = opened;
+                RecordActivity("Presentation acquired · view and layer usage owned");
             }
             catch
             {
@@ -1016,12 +1016,12 @@ namespace inonego.Xeri.Samples.GameUIValidation
         // ------------------------------------------------------------
         private void CloseOverlay()
         {
-            if (overlayHandle == null || overlayHandle.IsDisposed) return;
+            if (toastLease == null || toastLease.IsDisposed) return;
 
-            var current = overlayHandle;
-            overlayHandle = null;
+            var current = toastLease;
+            toastLease = null;
             current.Dispose();
-            RecordActivity("Overlay released · view and layer usage returned");
+            RecordActivity("Presentation released · view and layer usage returned");
         }
 
         // ----------------------------------------------------------------------
@@ -1037,7 +1037,7 @@ namespace inonego.Xeri.Samples.GameUIValidation
         {
             if (!IsValidationAvailable || ownerSession == null || layerRoot == null) return;
 
-            if (modalHandle != null && !modalHandle.IsDisposed)
+            if (modalSession != null && !modalSession.IsDisposed)
             {
                 RecordActivity("Modal Open rejected · already active");
                 return;
@@ -1046,18 +1046,19 @@ namespace inonego.Xeri.Samples.GameUIValidation
             var modalRoot = CreateModalRoot();
             layerRoot.Add(modalRoot);
             var visualHandle = new VisualElementHandle(modalRoot);
-            ModalHandle opened = null;
+            ModalSession opened = null;
 
             try
             {
                 opened = context.Modals.Open
                 (
-                    new UITKModalDriver(modalRoot),
+                    new UITKPresentation(modalRoot),
+                    new UITKModalInteractionDriver(modalRoot),
                     visualHandle
                 );
                 ownerSession.RegisterChild(opened);
-                modalHandle = opened;
-                RecordActivity("Modal opened · handle owned by screen session");
+                modalSession = opened;
+                RecordActivity("Modal opened · session owned by screen session");
 
                 modalRoot.schedule.Execute
                 (
@@ -1086,12 +1087,12 @@ namespace inonego.Xeri.Samples.GameUIValidation
         // ------------------------------------------------------------
         private void CloseModal()
         {
-            if (modalHandle == null || modalHandle.IsDisposed) return;
+            if (modalSession == null || modalSession.IsDisposed) return;
 
-            var current = modalHandle;
-            modalHandle = null;
+            var current = modalSession;
+            modalSession = null;
             current.Dispose();
-            RecordActivity("Modal closed · visual and layer usage released");
+            RecordActivity("Modal closed · presentation and owned lifetime released");
         }
 
         // ------------------------------------------------------------

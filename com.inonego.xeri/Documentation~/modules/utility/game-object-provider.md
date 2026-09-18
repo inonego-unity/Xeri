@@ -62,7 +62,7 @@ Provider가 반환하는 객체의 활성 상태는 공급 원본과 구현 계�
 `Release()` 호출과 함께 호출자의 반환 책임은 종료됩니다. 반환 중 예외가 발생하더라도 같은 인스턴스를 재시도하는 일반 계약은 아닙니다.
 ## 사용 경계
 
-Game UI Profile, Overlay, Window 등 상위 시스템이 GameObject 생성 방식을 알 필요가 없을 때 Provider를 주입합니다.
+UI Core Profile, Overlay, Window 등 상위 시스템이 GameObject 생성 방식을 알 필요가 없을 때 Provider를 주입합니다.
 
 ```text
 상위 시스템

@@ -4,7 +4,7 @@ Xeri Editor 영역은 Runtime 계약을 직접 확장하거나 authoring을 돕�
 
 ## 개요
 
-현재 Editor assembly에는 SerializedObject/SerializedProperty 보조 기능, generic type picker, tree UI와 Game UI의 HDRP editor 등록 구현이 있습니다.
+현재 Editor assembly에는 SerializedObject/SerializedProperty 보조 기능, generic type picker, tree UI와 UI Core의 HDRP editor 등록 구현이 있습니다.
 
 ## 책임 범위
 

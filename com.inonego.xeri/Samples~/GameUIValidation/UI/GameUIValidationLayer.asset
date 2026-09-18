@@ -11,6 +11,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5680fc7e6a2e0d546b171d5f9e1c7eec, type: 3}
   m_Name: GameUIValidationLayer
-  m_EditorClassIdentifier: inonego.Xeri::inonego.Xeri.UI.Game.PresentationLayerAsset
+  m_EditorClassIdentifier: inonego.Xeri::inonego.Xeri.UI.PresentationLayerAsset
   id: ValidationScreen
   order: 100

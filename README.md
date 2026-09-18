@@ -81,12 +81,12 @@ Manual은 개념과 실제 사용법을 설명하고, 사이트의 **API Referen
 
 ```text
 UniXeri/
-├─ com.inonego.xeri/      Unity Package
+├─ com.inonego.xeri/          Base Unity Package
 │  ├─ Runtime/
 │  ├─ Editor/
 │  ├─ Samples~/
 │  ├─ Tests/
 │  └─ Documentation~/
-├─ Docs/                  문서 작성·유지보수 자료
+├─ Docs/                      문서 작성·유지보수 자료
 └─ README.md
 ```

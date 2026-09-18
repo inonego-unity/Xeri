@@ -99,6 +99,6 @@ public sealed class ExampleBootstrapperModuleAsset : BootstrapperModuleAsset
 ## 관련 문서
 
 - [Xeri Core](../../../Runtime/Core/README.md)
-- [Xeri Game UI 설정](../game-ui/setup.md)
+- [Xeri UI Core 설정](../game-ui/setup.md)
 - [Xeri Audio](../../../Runtime/Playback/Cue/Audio/README.md)
 - [Xeri 구조](../../concepts/architecture.md)

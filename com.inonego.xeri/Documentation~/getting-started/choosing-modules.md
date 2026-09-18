@@ -40,7 +40,7 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 
 | 필요 | 모듈 |
 |---|---|
-| 게임 Screen/Modal/Overlay/Focus/Input Runtime | Game UI |
+| 게임 Screen/Modal/Overlay/Focus/Input Runtime | UI Core |
 | UGUI/UITK 공통 Drag & Drop | UI / Drag & Drop |
 | 검색·필터·테이블 선택 UI | UI / Picker |
 | 월드 값을 화면 위치로 반복 반영 | Tracking |

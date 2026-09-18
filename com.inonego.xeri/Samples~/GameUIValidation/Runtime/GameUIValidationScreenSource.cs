@@ -11,7 +11,7 @@ using System;
 
 using UnityEngine.UIElements;
 
-using inonego.Xeri.UI.Game;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Samples.GameUIValidation
 {

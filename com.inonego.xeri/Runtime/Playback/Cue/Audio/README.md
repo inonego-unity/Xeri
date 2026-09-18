@@ -56,7 +56,7 @@ Create/Xeri/Bootstrapper/Audio Module
 ```text
 BootstrapperSettings.Modules
 ├── AudioBootstrapperModuleAsset
-└── GameUIBootstrapperModuleAsset
+└── UIBootstrapperModuleAsset
 ```
 
 Bootstrapper를 사용하지 않는 프로젝트는 시작 Scene에 Audio Host Prefab을 직접 배치할 수 있다. 두 방식을 동시에 사용하면 같은 Singleton Slot의 중복 Host 중 나중에 등록한 객체가 제거된다.

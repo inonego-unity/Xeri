@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4286006f4d2db0e4797b835facfb2d6c, type: 3}
   m_Name: GameUIValidationProfile
-  m_EditorClassIdentifier: inonego.Xeri::inonego.Xeri.UI.Game.GameUIProfileAsset
+  m_EditorClassIdentifier: inonego.Xeri::inonego.Xeri.UI.UIProfileAsset
   layers:
   - asset: {fileID: 11400000, guid: a2d0fd799efb4e2c8a3c60e7f6238c77, type: 2}
     provider:

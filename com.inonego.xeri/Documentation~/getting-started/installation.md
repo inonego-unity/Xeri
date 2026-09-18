@@ -13,10 +13,10 @@ Xeri 패키지는 다음 Unity Package를 직접 의존합니다.
 | 패키지 | 현재 요구 버전 | 사용 영역 |
 |---|---:|---|
 | Addressables | `2.8.0` | GameObject Provider 등 |
-| Input System | `1.18.0` | Game UI 입력 |
-| UGUI | `2.6.0` | Game UI와 UGUI adapter |
+| Input System | `1.18.0` | UI Core 입력 |
+| UGUI | `2.6.0` | UI Core와 UGUI adapter |
 
-Game UI Runtime은 현재 DOTween과 `DOTween.Modules`를 직접 사용합니다. DOTween은 UPM `package.json`에 포함되지 않으므로 Game UI를 사용하는 프로젝트가 별도로 준비해야 합니다.
+UI Core Runtime은 현재 DOTween과 `DOTween.Modules`를 직접 사용합니다. DOTween은 UPM `package.json`에 포함되지 않으므로 UI Core를 사용하는 프로젝트가 별도로 준비해야 합니다.
 
 ## 로컬 패키지로 연결
 
@@ -32,10 +32,10 @@ Game UI Runtime은 현재 DOTween과 `DOTween.Modules`를 직접 사용합니다
 패키지 설치만으로 모든 Runtime이 자동 생성되는 것은 아닙니다. 시스템마다 초기화 방식이 다릅니다.
 
 - Core/Serializable/Generation 같은 순수 Runtime 타입은 필요한 위치에서 직접 생성합니다.
-- Game UI와 Audio처럼 Host가 필요한 기능은 Bootstrapper Module 또는 프로젝트 Host를 통해 초기화합니다.
+- UI Core와 Audio처럼 Host가 필요한 기능은 Bootstrapper Module 또는 프로젝트 Host를 통해 초기화합니다.
 - Addressables 자원을 읽는 기능은 호출자가 해당 자원의 수명 계약을 함께 관리해야 합니다.
 
-Game UI를 사용한다면 먼저 [Game UI 설정과 시작](../modules/game-ui/setup.md)을 확인합니다.
+UI Core를 사용한다면 먼저 [UI Core 설정과 시작](../modules/ui-core/setup.md)을 확인합니다.
 
 ## 관련 문서
 

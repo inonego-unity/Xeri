@@ -132,6 +132,7 @@ UGUI는 `UGUIDropResolver`, UITK는 `UITKDropResolver`를 제공합니다.
 ```csharp
 using UnityEngine;
 
+using inonego.Xeri.UI;
 using inonego.Xeri.UI.DragDrop;
 
 public sealed class UGUIDragDropExample : MonoBehaviour
@@ -188,11 +189,11 @@ using inonego.Xeri.UI.DragDrop;
 public sealed class UITKDragDropExample : MonoBehaviour
 {
     [SerializeField]
-    private UIDocument document = null;
+    private UITKLayerPanel layer = null;
 
     private void Awake()
     {
-        var root = document.rootVisualElement;
+        var root = layer.Root;
 
         var draggableElement = root.Q<VisualElement>("draggable");
         var dropZoneElement  = root.Q<VisualElement>("drop-zone");

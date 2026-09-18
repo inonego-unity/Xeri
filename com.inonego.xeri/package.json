@@ -9,8 +9,8 @@
   },
   "samples": [
     {
-      "displayName": "Game UI Validation",
-      "description": "Game UI Core validation scene with its local HTML and CSS visual reference.",
+      "displayName": "UI Core Validation",
+      "description": "UI Core validation scene with its local HTML and CSS visual reference.",
       "path": "Samples~/GameUIValidation"
     }
   ],

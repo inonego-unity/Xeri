@@ -26,7 +26,7 @@ Project Adapter / Source / Driver / Handler
 
 | 영역 | 확장 계약 예 |
 |---|---|
-| Game UI | `IScreenSource`, `IScreenDriver`, `IPresentationLayerDriver` |
+| UI Core | `IScreenSource`, `IScreenDriver`, `IPresentationLayerDriver` |
 | Playback | `ICuePlayer`, `ICueBinding` |
 
 세부 계약은 각 모듈 README와 API Reference를 기준으로 확인합니다.
