@@ -3,24 +3,29 @@
 수정일 : 2026-09-18
 
 # 설명
-MValue<T> 와 4 개 구체 Modifier(BooleanModifier / NumericFModifier / NumericIModifier / StringModifier)의 핵심 기능 테스트.
+MValue<T>와 built-in Modifier의 값 계산, 변경 전파와 구독 lifecycle을 검증한다.
 
 # 테스트 구성
  E: 기본 기능 (생성/Base 변경/암시적 변환/이벤트)
- M: 수정자 (Add/Remove/Clear/Order/InvokeOnModifiedChange)
- D: Modifier 카탈로그 (Boolean/NumericF/NumericI/String/Lambda 동작)
+ M: Modifier 등록·순서·자동 변경 전파·구독 lifecycle
+ S: 직렬화 후 runtime state 재구성
+ D: Modifier 연산
  X: 예외 처리 (키 없음/null 인자)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 
+using UnityEngine;
+
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Serializable;
+
 namespace inonego.Xeri.TEST.Serializable._Value
 {
-
-    using inonego.Xeri.Serializable;
 
     // ============================================================
     /// <summary>
@@ -137,13 +142,30 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             // Arrange
             var value = new MValue<int>(10);
-            value.AddModifier("add5", new NumericIModifier(NumericIOperation.ADD, 5));
+            value.AddModifier("a", new NumericIModifier(NumericIOperation.ADD, 5));
 
             // Act
             int direct = value;
 
             // Assert
             Assert.AreEqual(15, direct);
+        }
+
+    #endregion
+
+    #region E-4: OnModifiedChange 강제 발화
+
+        [Test]
+        public void TEST_MValue_InvokeOnModifiedChange_강제_발화()
+        {
+            var value = new MValue<int>(5);
+            ValueChangeEventArgs<int> fired = default;
+            value.OnModifiedChange += (_, e) => fired = e;
+
+            value.InvokeOnModifiedChange(previousValue: 8);
+
+            Assert.AreEqual(8, fired.Previous);
+            Assert.AreEqual(5, fired.Current);
         }
 
     #endregion
@@ -162,19 +184,20 @@ namespace inonego.Xeri.TEST.Serializable._Value
             // ------------------------------------------------------------
             // Add - Modified 갱신
             // ------------------------------------------------------------
-            value.AddModifier("add5", add5);
+            value.AddModifier("a", add5);
 
             Assert.AreEqual(15, value.Modified);
             Assert.AreEqual(1, value.Modifiers.Count);
 
-            ModifierEntry<int> pair0 = value.Modifiers[0];
-            Assert.AreSame(add5, pair0.Modifier);
-            Assert.AreEqual(0,   pair0.Order);
+            var entry0 = value.Modifiers[0];
+            Assert.AreEqual("a", entry0.Key);
+            Assert.AreSame(add5, entry0.Value);
+            Assert.AreEqual(0, entry0.Order);
 
             // ------------------------------------------------------------
             // Remove 성공 - true, Modified 원복
             // ------------------------------------------------------------
-            bool removed = value.RemoveModifier("add5");
+            bool removed = value.RemoveModifier("a");
 
             Assert.IsTrue(removed);
             Assert.AreEqual(10, value.Modified);
@@ -183,7 +206,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
             // ------------------------------------------------------------
             // Remove 실패(없는 키) - false, 변화 없음
             // ------------------------------------------------------------
-            bool removedAgain = value.RemoveModifier("add5");
+            bool removedAgain = value.RemoveModifier("a");
 
             Assert.IsFalse(removedAgain);
             Assert.AreEqual(10, value.Modified);
@@ -223,8 +246,8 @@ namespace inonego.Xeri.TEST.Serializable._Value
             var value = new MValue<int>(10);
 
             // 추가 순서와 Order 가 다르도록 의도적으로 섞어서 추가
-            value.AddModifier("mul", new NumericIModifier(NumericIOperation.MUL, 2), order: 1);
-            value.AddModifier("add", new NumericIModifier(NumericIOperation.ADD, 5), order: 0);
+            value.AddModifier("b", new NumericIModifier(NumericIOperation.MUL, 2), order: 1);
+            value.AddModifier("a", new NumericIModifier(NumericIOperation.ADD, 5), order: 0);
 
             // ------------------------------------------------------------
             // 기대값: (10 + 5) * 2 = 30
@@ -236,31 +259,202 @@ namespace inonego.Xeri.TEST.Serializable._Value
             // ------------------------------------------------------------
             Assert.AreEqual(2, value.Modifiers.Count);
 
-            ModifierEntry<int> p0 = value.Modifiers[0];
-            ModifierEntry<int> p1 = value.Modifiers[1];
-            Assert.AreEqual(0, p0.Order);
-            Assert.AreEqual(1, p1.Order);
+            var entry0 = value.Modifiers[0];
+            var entry1 = value.Modifiers[1];
+            Assert.AreEqual("a", entry0.Key);
+            Assert.AreEqual(0, entry0.Order);
+            Assert.AreEqual("b", entry1.Key);
+            Assert.AreEqual(1, entry1.Order);
         }
 
     #endregion
 
-    #region M-4: InvokeOnModifiedChange 강제 발화
+    #region M-4: Modifier 상태 변경 자동 갱신
 
         [Test]
-        public void TEST_MValue_InvokeOnModifiedChange_강제_발화()
+        public void TEST_MValue_Modifier_상태변경_자동갱신_및_이벤트()
         {
-            var value = new MValue<int>(5);
+            var value = new MValue<int>(10);
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+
+            value.AddModifier("a", modifier);
+
+            var firedCount = 0;
             ValueChangeEventArgs<int> fired = default;
-            value.OnModifiedChange += (_, e) => fired = e;
+            value.OnModifiedChange += (_, e) =>
+            {
+                firedCount++;
+                fired = e;
+            };
 
-            value.InvokeOnModifiedChange(previousValue: 8);
+            modifier.Value = 7;
 
-            Assert.AreEqual(8, fired.Previous);
-            Assert.AreEqual(5, fired.Current);
+            Assert.AreEqual(17, value.Modified);
+            Assert.AreEqual(1, firedCount);
+            Assert.AreEqual(15, fired.Previous);
+            Assert.AreEqual(17, fired.Current);
+
+            modifier.Operation = NumericIOperation.MUL;
+
+            Assert.AreEqual(70, value.Modified);
+            Assert.AreEqual(2, firedCount);
+            Assert.AreEqual(17, fired.Previous);
+            Assert.AreEqual(70, fired.Current);
+        }
+
+        [Test]
+        public void TEST_MValue_Modifier_최종값동일_이벤트미발생()
+        {
+            var value = new MValue<bool>(true);
+            var modifier = new BooleanModifier(BooleanOperation.OR, false);
+
+            value.AddModifier("a", modifier);
+
+            var firedCount = 0;
+            value.OnModifiedChange += (_, _) => firedCount++;
+
+            modifier.Value = true;
+
+            Assert.AreEqual(true, value.Modified);
+            Assert.AreEqual(0, firedCount);
+        }
+
+        [Test]
+        public void TEST_MValue_RemoveClearModifier_구독해제()
+        {
+            var value = new MValue<int>(10);
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+
+            value.AddModifier("a", modifier);
+            value.RemoveModifier("a");
+
+            modifier.Value = 7;
+
+            Assert.AreEqual(10, value.Modified);
+
+            value.AddModifier("b", modifier);
+            Assert.AreEqual(17, value.Modified);
+
+            value.ClearModifiers();
+
+            modifier.Value = 9;
+
+            Assert.AreEqual(10, value.Modified);
+        }
+
+        [Test]
+        public void TEST_MValue_같은Modifier_다중등록_다중MValue()
+        {
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+            var first = new MValue<int>(10);
+            var second = new MValue<int>(20);
+
+            first.AddModifier("a", modifier);
+            first.AddModifier("b", modifier);
+            second.AddModifier("c", modifier);
+
+            var firstEventCount = 0;
+            var secondEventCount = 0;
+            first.OnModifiedChange += (_, _) => firstEventCount++;
+            second.OnModifiedChange += (_, _) => secondEventCount++;
+
+            modifier.Value = 2;
+
+            Assert.AreEqual(14, first.Modified);
+            Assert.AreEqual(22, second.Modified);
+            Assert.AreEqual(1, firstEventCount);
+            Assert.AreEqual(1, secondEventCount);
+
+            Assert.IsTrue(first.RemoveModifier("a", invokeEvent: false));
+
+            modifier.Value = 3;
+
+            Assert.AreEqual(13, first.Modified);
+            Assert.AreEqual(23, second.Modified);
+            Assert.AreEqual(2, firstEventCount);
+            Assert.AreEqual(2, secondEventCount);
+
+            Assert.IsTrue(first.RemoveModifier("b", invokeEvent: false));
+
+            modifier.Value = 4;
+
+            Assert.AreEqual(10, first.Modified);
+            Assert.AreEqual(24, second.Modified);
+            Assert.AreEqual(2, firstEventCount);
+            Assert.AreEqual(3, secondEventCount);
+        }
+
+        [Test]
+        public void TEST_MValue_Modifier_OnChange_실제상태변경만_발화()
+        {
+            var numericF = new NumericFModifier(NumericFOperation.ADD, 1f);
+            var numericI = new NumericIModifier(NumericIOperation.ADD, 1);
+            var boolean = new BooleanModifier(BooleanOperation.OR, false);
+            var text = new StringModifier(StringOperation.SET, "a");
+
+            var numericFCount = 0;
+            var numericICount = 0;
+            var booleanCount = 0;
+            var textCount = 0;
+
+            numericF.OnChange += () => numericFCount++;
+            numericI.OnChange += () => numericICount++;
+            boolean.OnChange += () => booleanCount++;
+            text.OnChange += () => textCount++;
+
+            numericF.Value = 2f;
+            numericF.Value = 2f;
+            numericF.Operation = NumericFOperation.MUL;
+
+            numericI.Value = 2;
+            numericI.Value = 2;
+            numericI.Operation = NumericIOperation.MUL;
+
+            boolean.Value = true;
+            boolean.Value = true;
+            boolean.Operation = BooleanOperation.XOR;
+
+            text.Value = "b";
+            text.Value = "b";
+            text.Operation = StringOperation.SET;
+
+            Assert.AreEqual(2, numericFCount);
+            Assert.AreEqual(2, numericICount);
+            Assert.AreEqual(2, booleanCount);
+            Assert.AreEqual(1, textCount);
         }
 
     #endregion
 
+    #region S-1: 직렬화 후 runtime state 재구성
+
+        [Test]
+        public void TEST_MValue_JSON_직렬화_캐시와구독_재구성()
+        {
+            // Arrange
+            var original = new MValue<int>(10);
+
+            original.AddModifier
+            (
+                "a",
+                new NumericIModifier(NumericIOperation.ADD, 5)
+            );
+
+            // Act
+            var json = JsonUtility.ToJson(original);
+            var restored = JsonUtility.FromJson<MValue<int>>(json);
+            var modifier = restored.Modifiers[0].Value as NumericIModifier;
+
+            // Assert
+            Assert.AreEqual(15, restored.Modified);
+            Assert.IsNotNull(modifier);
+
+            modifier.Value = 7;
+
+            Assert.AreEqual(17, restored.Modified);
+        }
+
+    #endregion
 
     #region D-1: BooleanModifier
 
@@ -338,8 +532,16 @@ namespace inonego.Xeri.TEST.Serializable._Value
             // ------------------------------------------------------------
             // int → int 람다
             // ------------------------------------------------------------
-            var doubleI = new LambdaModifier<int>(x => x * 2);
+            Func<int, int> doubleLambda = x => x * 2;
+            var doubleI = new LambdaModifier<int>(doubleLambda);
 
+            Assert.AreSame(doubleLambda, doubleI.Lambda);
+            Assert.IsFalse
+            (
+                typeof(LambdaModifier<int>)
+                    .GetProperty(nameof(LambdaModifier<int>.Lambda))
+                    .CanWrite
+            );
             Assert.AreEqual(20, doubleI.Modify(10));
 
             // ------------------------------------------------------------
@@ -363,14 +565,12 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var value = new MValue<int>(10);
 
-            value.AddModifier("triple", new LambdaModifier<int>(x => x * 3));
+            value.AddModifier("a", new LambdaModifier<int>(x => x * 3));
 
             Assert.AreEqual(30, value.Modified);
         }
 
-
     #endregion
-
 
     #region X-1: AddModifier 키 없음 예외
 
@@ -394,11 +594,10 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var value = new MValue<int>(10);
 
-            Assert.Throws<ArgumentNullException>(() => value.AddModifier("k", null));
+            Assert.Throws<ArgumentNullException>(() => value.AddModifier("a", null));
         }
 
     #endregion
-
 
     }
 

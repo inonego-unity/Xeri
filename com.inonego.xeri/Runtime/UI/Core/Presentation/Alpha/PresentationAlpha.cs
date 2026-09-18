@@ -1,8 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationAlpha.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-18
 # 설명
 Presentation의 자체 Alpha와 순서화된 Modifier를 합성해 단일 backend Target에 적용한다.
+MValue의 Modified 변경을 구독해 Base와 Modifier 변화를 backend에 즉시 반영한다.
 Base 전환과 외부 Modifier가 같은 실제 Alpha를 직접 덮어쓰지 않도록 최종 작성 경계를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -69,8 +70,9 @@ namespace inonego.Xeri.UI
                 throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
             }
 
+            alpha.OnModifiedChange += HandleModifiedChange;
             alpha.Set(Mathf.Clamp01(target.Alpha), invokeEvent: false);
-            ApplyModified();
+            ApplyCurrent();
         }
 
         // ------------------------------------------------------------
@@ -91,8 +93,9 @@ namespace inonego.Xeri.UI
                 throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
             }
 
+            alpha.OnModifiedChange += HandleModifiedChange;
             alpha.Set(Mathf.Clamp01(baseAlpha), invokeEvent: false);
-            ApplyModified();
+            ApplyCurrent();
         }
 
     #endregion
@@ -121,26 +124,24 @@ namespace inonego.Xeri.UI
                 throw new ArgumentNullException(nameof(modifier));
             }
 
-            alpha.AddModifier
-            (
-                key,
-                modifier,
-                order,
-                invokeEvent: false
-            );
-            ApplyModified();
+            alpha.AddModifier(key, modifier, order);
+
             return new Lease(() => RemoveModifier(key));
         }
 
-        // --------------------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 내부 상태가 바뀐 Modifier를 다시 평가하고 현재 최종 Alpha를 backend에 적용한다.
+        /// 현재 합성된 Alpha를 backend에 명시적으로 다시 적용한다.
         /// </summary>
-        // --------------------------------------------------------------------------------
-        public void Refresh()
+        // ------------------------------------------------------------
+        public void ApplyCurrent()
         {
-            alpha.Refresh(invokeEvent: false);
-            ApplyModified();
+            if (!target.IsValid)
+            {
+                throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
+            }
+
+            target.SetAlpha(Modified);
         }
 
         // ------------------------------------------------------------
@@ -150,9 +151,7 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         private void RemoveModifier(string key)
         {
-            if (!alpha.RemoveModifier(key, invokeEvent: false)) return;
-
-            ApplyModified();
+            alpha.RemoveModifier(key);
         }
 
     #endregion
@@ -166,8 +165,7 @@ namespace inonego.Xeri.UI
         // --------------------------------------------------------------------------------
         public void Apply(float value)
         {
-            alpha.Set(Mathf.Clamp01(value), invokeEvent: false);
-            ApplyModified();
+            alpha.Set(Mathf.Clamp01(value));
         }
 
     #endregion
@@ -176,17 +174,18 @@ namespace inonego.Xeri.UI
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 현재 Modifier 합성 결과를 실제 Presentation backend에 적용한다.
+        /// Modified 변경 시 유효한 Presentation backend에 최신 Alpha를 적용한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        private void ApplyModified()
+        private void HandleModifiedChange
+        (
+            object _,
+            ValueChangeEventArgs<float> e
+        )
         {
-            if (!target.IsValid)
-            {
-                throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
-            }
+            if (!target.IsValid) return;
 
-            target.SetAlpha(Modified);
+            target.SetAlpha(Mathf.Clamp01(e.Current));
         }
 
     #endregion

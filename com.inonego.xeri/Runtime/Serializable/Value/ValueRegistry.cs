@@ -333,6 +333,5 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-
     }
 }

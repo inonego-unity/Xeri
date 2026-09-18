@@ -172,7 +172,6 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-
     #region 메서드
 
         // ------------------------------------------------------------

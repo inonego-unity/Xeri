@@ -3,8 +3,12 @@
 수정일 : 2026-09-18
 
 # 설명
-임의의 Func<T, T> 람다를 적용하는 IModifier<T> 제네릭 구현.
-Func 직렬화 불가로 [Serializable]을 붙이지 않으며 런타임 전용으로 사용한다.
+생성 시 고정된 Func<T, T> 람다를 적용하는 런타임 전용 IModifier<T> 구현.
+
+# 특이사항, 제약사항
+Lambda 자체와 Lambda가 참조하는 계산 의존성은 등록 후 불변이어야 한다.
+외부 mutable closure의 변경은 추적하지 않으며 MValue의 자동 갱신 계약 대상이 아니다.
+Func 직렬화 불가로 [Serializable]을 붙이지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -13,7 +17,7 @@ namespace inonego.Xeri.Serializable
 {
     // ============================================================
     /// <summary>
-    /// 임의 Func&lt;T, T&gt; 람다로 값을 수정하는 수정자.
+    /// 생성 시 고정된 Func&lt;T, T&gt; 람다로 값을 수정하는 수정자.
     /// </summary>
     // ============================================================
     public class LambdaModifier<T> : IModifier<T>
@@ -21,18 +25,39 @@ namespace inonego.Xeri.Serializable
 
     #region 필드
 
-        protected Func<T, T> lambda;
-        public virtual Func<T, T> Lambda
+        public Func<T, T> Lambda => lambda;
+
+        private readonly Func<T, T> lambda;
+
+    #endregion
+
+    #region 이벤트
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 불변 LambdaModifier는 내부 상태 변경이 없으므로 발생하지 않는 호환용 이벤트.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public event Action OnChange
         {
-            get => lambda;
-            set => lambda = value;
+            add
+            {
+                // NONE
+            }
+            remove
+            {
+                // NONE
+            }
         }
 
     #endregion
 
     #region 생성자
 
-        public LambdaModifier() {}
+        public LambdaModifier()
+        {
+            // NONE
+        }
 
         public LambdaModifier(Func<T, T> lambda)
         {
@@ -43,18 +68,17 @@ namespace inonego.Xeri.Serializable
 
     #region 메서드
 
-        // -----------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// 람다를 적용한 결과를 반환한다. 람다가 null 이면 입력값을 그대로 반환.
         /// </summary>
-        // -----------------------------------------------------------------
+        // ------------------------------------------------------------
         public T Modify(T value)
         {
             return lambda != null ? lambda(value) : value;
         }
 
     #endregion
-
 
     }
 }

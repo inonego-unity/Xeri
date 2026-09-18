@@ -117,7 +117,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-
     #region 암시적 변환
 
         // ------------------------------------------------------------

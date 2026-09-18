@@ -1,19 +1,19 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ValueDrawer.cs
-수정일 : 2026-05-08
+수정일 : 2026-09-18
 
 # 설명
 ValueDrawer / RangeValueDrawer / MValueDrawer의 핵심 기능 에디터 테스트.
-CreatePropertyGUI 구조 검증, Apply 로직 시뮬레이션, Undo 경로(InvokeOn*) 검증을 포함한다.
+CreatePropertyGUI 구조, Apply 로직, Undo 후 이벤트 동기화 경로를 검증한다.
 
 # 특이사항
-TrackPropertyValue 콜백은 패널 없이는 발화하지 않으므로
-Undo 경로는 InvokeOnBaseChange / InvokeOnRangeChange 직접 호출로 시뮬레이션한다.
+TrackPropertyValue / TrackSerializedObjectValue 콜백은 패널 없이는 직접 발화하지 않으므로
+Undo 후 이미 복원된 runtime state에서 drawer가 누락 이벤트를 보충하는 경로를 검증한다.
 
 # 테스트 구성
  G: GUI 구조 (CreatePropertyGUI 행/Toggle 검증)
  A: Apply 로직 (RecordObject + Set + SetDirty + Update 시뮬레이션)
- U: Undo 경로 (InvokeOn* 직접 호출 시뮬레이션)
+ U: Undo 후 이벤트 동기화 경로
  X: 가드 로직 (min > max 시 Set 미호출)
 ========================================================================= BLOCK_HEADER_END */
 
@@ -31,14 +31,16 @@ using NUnit.Framework;
 namespace inonego.Xeri.TEST.Serializable._Value
 {
 
+    using inonego;
+    using inonego.Xeri;
     using inonego.Xeri.Primitive;
     using inonego.Xeri.Serializable;
 
-    // ============================================================
+    // ======================================================================
     /// <summary>
     /// ValueDrawer / RangeValueDrawer / MValueDrawer 에디터 테스트 클래스.
     /// </summary>
-    // ============================================================
+    // ======================================================================
     public class TEST_ValueDrawer
     {
 
@@ -46,17 +48,17 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
         private class ValueWrapper : ScriptableObject
         {
-            [SerializeField] public Value<int> value = new(42);
+            [SerializeField] public Value<int> Value = new(42);
         }
 
         private class RangeValueWrapper : ScriptableObject
         {
-            [SerializeField] public RangeValue<int> value = new(5, new Range<int>(0, 10));
+            [SerializeField] public RangeValue<int> Value = new(5, new Range<int>(0, 10));
         }
 
         private class MValueWrapper : ScriptableObject
         {
-            [SerializeField] public MValue<int> value = new(42);
+            [SerializeField] public MValue<int> Value = new(42);
         }
 
     #endregion
@@ -68,7 +70,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper = ScriptableObject.CreateInstance<ValueWrapper>();
             var so      = new SerializedObject(wrapper);
-            var prop    = so.FindProperty("value");
+            var prop    = so.FindProperty("Value");
 
             var drawer = new ValueDrawer();
             var root   = drawer.CreatePropertyGUI(prop);
@@ -89,7 +91,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper = ScriptableObject.CreateInstance<RangeValueWrapper>();
             var so      = new SerializedObject(wrapper);
-            var prop    = so.FindProperty("value");
+            var prop    = so.FindProperty("Value");
 
             var drawer = new RangeValueDrawer();
             var root   = drawer.CreatePropertyGUI(prop);
@@ -112,7 +114,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper = ScriptableObject.CreateInstance<MValueWrapper>();
             var so      = new SerializedObject(wrapper);
-            var prop    = so.FindProperty("value");
+            var prop    = so.FindProperty("Value");
 
             var drawer = new MValueDrawer();
             var root   = drawer.CreatePropertyGUI(prop);
@@ -133,7 +135,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper  = ScriptableObject.CreateInstance<ValueWrapper>();
             var so       = new SerializedObject(wrapper);
-            var instance = wrapper.value;
+            var instance = wrapper.Value;
 
             ValueChangeEventArgs<int> fired = default;
             instance.OnBaseChange += (_, e) => fired = e;
@@ -158,7 +160,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper  = ScriptableObject.CreateInstance<RangeValueWrapper>();
             var so       = new SerializedObject(wrapper);
-            var instance = wrapper.value;
+            var instance = wrapper.Value;
 
             ValueChangeEventArgs<int> fired = default;
             instance.OnBaseChange += (_, e) => fired = e;
@@ -183,7 +185,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper  = ScriptableObject.CreateInstance<RangeValueWrapper>();
             var so       = new SerializedObject(wrapper);
-            var instance = wrapper.value;
+            var instance = wrapper.Value;
 
             ValueChangeEventArgs<Range<int>> fired = default;
             instance.Range.OnBaseChange += (_, e) => fired = e;
@@ -209,7 +211,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         {
             var wrapper  = ScriptableObject.CreateInstance<MValueWrapper>();
             var so       = new SerializedObject(wrapper);
-            var instance = wrapper.value;
+            var instance = wrapper.Value;
 
             ValueChangeEventArgs<int> fired = default;
             instance.OnBaseChange += (_, e) => fired = e;
@@ -235,7 +237,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
             // Apply(99) 이후 Undo → base 42 복원, lastKnownBase=99
             // TrackPropertyValue 콜백: lastKnownBase(99) != restored(42) → InvokeOnBaseChange(99)
             var wrapper  = ScriptableObject.CreateInstance<ValueWrapper>();
-            var instance = wrapper.value;
+            var instance = wrapper.Value;
 
             instance.Set(99, invokeEvent: false); // Apply 후 base=99 상태
             instance.Set(42, invokeEvent: false); // Undo 직렬화 복원 시뮬레이션
@@ -253,13 +255,56 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
+    #region U-2: MValueDrawer Undo 후 누락 이벤트 동기화
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 역직렬화로 runtime state가 복원된 뒤 누락된 Value 이벤트를 전달한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_ValueDrawer_MValueDrawer_Undo후_누락이벤트_동기화()
+        {
+            var wrapper  = ScriptableObject.CreateInstance<MValueWrapper>();
+            var instance = wrapper.Value;
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+
+            instance.AddModifier("a", modifier, invokeEvent: false);
+            Assert.AreEqual(47, instance.Modified);
+
+            // OnAfterDeserialize 이후의 복원 완료 상태를 재현한다.
+            instance.Set(100, invokeEvent: false);
+            Assert.AreEqual(105, instance.Modified);
+
+            ValueChangeEventArgs<int> baseChange = default;
+            ValueChangeEventArgs<int> modifiedChange = default;
+            instance.OnBaseChange += (_, e) => baseChange = e;
+            instance.OnModifiedChange += (_, e) => modifiedChange = e;
+
+            MValueDrawer.SynchronizeSerializedState
+            (
+                instance,
+                previousBase: 42,
+                previousModified: 47
+            );
+
+            Assert.AreEqual(42, baseChange.Previous);
+            Assert.AreEqual(100, baseChange.Current);
+            Assert.AreEqual(47, modifiedChange.Previous);
+            Assert.AreEqual(105, modifiedChange.Current);
+
+            UnityEngine.Object.DestroyImmediate(wrapper);
+        }
+
+    #endregion
+
     #region X-1: RangeValueDrawer min > max 가드
 
         [Test]
         public void TEST_ValueDrawer_RangeValueDrawer_min_gt_max_가드()
         {
             var wrapper  = ScriptableObject.CreateInstance<RangeValueWrapper>();
-            var instance = wrapper.value;
+            var instance = wrapper.Value;
 
             var fired = false;
             instance.Range.OnBaseChange += (_, e) => fired = true;
@@ -268,7 +313,9 @@ namespace inonego.Xeri.TEST.Serializable._Value
             var minValue = 10;
             var maxValue = 5;
             if (minValue <= maxValue)
+            {
                 instance.Range.Set(new Range<int>(minValue, maxValue), invokeEvent: true);
+            }
 
             Assert.IsFalse(fired);
 

@@ -63,15 +63,19 @@ float baseValue = value.Base;
 float result = value.Modified;
 ```
 
-Base를 변경하거나 modifier를 추가·제거하면 `Refresh()`가 Modified를 다시 계산합니다.
-modifier 내부 상태만 외부에서 바뀌었다면 해당 소유자가 `Refresh()`를 명시적으로 호출해야 합니다.
+Base를 변경하거나 modifier를 추가·제거하면 `MValue<T>`가 Modified를 다시 계산합니다.
+`IModifier<T>`는 상태 변경 알림 계약을 포함하므로 modifier 내부 상태 변경도 자동으로 반영됩니다.
+`LambdaModifier<T>`는 생성 시 delegate와 그 계산 의존성이 불변이라는 전제로 사용하며, 외부 mutable closure 변경은 지원하지 않습니다.
 
 ## Modifier 순서
 
 `MValue<T>`는 modifier를 `order` 오름차순으로 적용합니다.
 각 modifier는 `IModifier<T>.Modify(T value)`로 이전 단계 결과를 받아 다음 값을 반환합니다.
 동일 modifier의 의미적 식별이 필요하면 문자열 key 또는 `IKeyable<string>`을 사용합니다.
-## 이벤트와 강제 갱신
+`IReadOnlyMValue<T>.Modifiers`는 `IReadOnlyXOrdered<int, string, IModifier<T>>`로 노출되며 등록의 Order, Key, Value를 읽을 수 있습니다.
+동일한 Modifier 인스턴스를 여러 Key로 등록해도 `MValue<T>`는 해당 인스턴스의 `OnChange`를 한 번만 구독합니다.
+
+## 이벤트
 
 - `OnBaseChange`: 실제 Base 값이 바뀔 때 발생합니다.
 - `OnModifiedChange`: modifier 적용 결과가 바뀔 때 발생합니다.
@@ -81,7 +85,8 @@ modifier 내부 상태만 외부에서 바뀌었다면 해당 소유자가 `Refr
 
 ## 직렬화
 
-Value 계열은 Unity 직렬화 가능한 상태를 보관합니다.
+`Value<T>`, `MValue<T>`와 built-in Modifier는 Unity 직렬화 가능한 상태를 보관합니다.
+`MValue<T>`의 `Modified` 캐시와 Modifier 이벤트 구독은 runtime derived state이며, 역직렬화 후 Base와 Modifier 상태에서 다시 구성합니다.
 
 ## 확장 지점
 
@@ -94,7 +99,7 @@ Value 계열은 Unity 직렬화 가능한 상태를 보관합니다.
 
 - Base와 Modified를 같은 의미의 값으로 취급하지 않습니다.
 - modifier 적용 순서가 결과에 영향을 주면 `order`를 명시합니다.
-- modifier의 내부 상태가 바뀌었는데 목록 자체는 바뀌지 않았다면 `Refresh()` 책임을 놓치지 않습니다.
+- `IModifier<T>.Modify()`는 Base와 Modifier 상태만으로 결과를 계산하는 순수 값 변환으로 사용합니다.
 - UI 표시를 위해 Value가 직접 View를 참조하게 만들지 않습니다.
 
 ## 관련 문서

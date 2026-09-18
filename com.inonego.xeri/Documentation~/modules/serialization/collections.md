@@ -32,15 +32,11 @@ ordered.Add(10, "early");
 
 ## 핵심 모델
 
-Unity가 직접 직렬화하기 어려운 컬렉션 상태를 별도 serialized 표현으로 보관하고, 직렬화 전후에 Runtime 컬렉션과 동기화합니다.
+직렬화 authoritative state는 컬렉션 종류에 따라 다릅니다.
 
-```text
-Runtime collection
-    ↓ OnBeforeSerialize
-serialized representation
-    ↓ OnAfterDeserialize
-Runtime collection 복원
-```
+- `XDictionary` 계열은 Runtime dictionary와 serialized pair 표현을 분리하고 `ISerializationCallbackReceiver`로 동기화합니다.
+- `XOrdered`는 직렬화된 Entry 목록 자체가 authoritative state입니다. 별도 serialization callback으로 정렬이나 상태를 복구하지 않습니다.
+- Keyed `XOrdered`의 lookup만 비직렬화 runtime 파생 상태이며 필요할 때 Entry 목록에서 lazy 구성합니다.
 
 ## XDictionary
 
@@ -54,13 +50,14 @@ Runtime collection 복원
 | `XDictionary_RV` | `SerializeReference` | `SerializeField` |
 | `XDictionary_VR` | `SerializeField` | `SerializeReference` |
 | `XDictionary_VV` | `SerializeField` | `SerializeField` |
+
 ## XOrdered
 
-`XOrdered<TOrder, TValue>`는 `Order` 오름차순을 유지하는 직렬화 컬렉션입니다. Key 기반 변형은 정렬된 list와 `XDictionary_VR` lookup을 함께 유지합니다.
+`XOrdered<TOrder, TValue>`는 `Order` 오름차순을 유지하는 직렬화 컬렉션입니다.
 
-`XOrdered<TOrder, TKey, TValue>`의 직접 인덱서는 없는 key에 `null`을 반환하지만, `IReadOnlyDictionary` 명시 구현 인덱서는 BCL 계약대로 `KeyNotFoundException`을 발생시킵니다.
+`XOrdered<TOrder, TKey, TValue>`는 각 Entry가 `Order`, unique `Key`, `Value`를 함께 소유합니다. 직렬화된 Entry 목록이 authoritative state이고, Key lookup은 역직렬화 이후 필요할 때 Entry 목록에서 다시 구성하는 runtime 파생 상태입니다.
 
-정렬 순서가 필요하면 `AsKeyed()` 또는 기본 순회를 사용합니다. `Keys`와 `Values`는 내부 dictionary 순서이므로 정렬 순서를 의미하지 않습니다.
+두 변형 모두 기본 순회와 index 접근이 Order 순서를 따릅니다. 읽기 전용 노출은 `IReadOnlyXOrdered`를 사용하고, Keyed 변형은 `ContainsKey()`, `TryGetValue()`, `TryGetEntry()`로 Key 조회를 제공합니다.
 
 ## 선택 기준
 
@@ -71,9 +68,10 @@ Runtime collection 복원
 
 ## 제약과 주의사항
 
-- 역직렬화 시 serialized 목록을 기준으로 Runtime collection을 다시 만듭니다.
+- `XDictionary`는 역직렬화 시 serialized pair 목록을 기준으로 Runtime dictionary를 다시 만듭니다.
 - `XDictionary`의 중복 serialized key는 후행 값이 앞선 값을 덮어씁니다.
-- `XOrdered.AsKeyed()`는 호출 시 reverse map을 만들기 때문에 O(N) 추가 비용이 있습니다.
+- `XOrdered`는 저장된 Entry 순서를 그대로 신뢰하며 serialization 과정에서 자동 정렬·복구하지 않습니다.
+- Keyed `XOrdered`의 Key lookup은 비직렬화 runtime 파생 상태이며 필요할 때 Entry 목록에서 lazy 구성됩니다.
 - 직렬화 표현과 Runtime collection을 외부에서 별도로 수정하는 구조를 만들지 않습니다.
 
 ## 관련 문서

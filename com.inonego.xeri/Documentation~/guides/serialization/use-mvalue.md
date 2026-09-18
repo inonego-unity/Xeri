@@ -43,17 +43,27 @@ current = scale.Modified; // 1.0
 ```
 
 Key는 Modifier의 소유자를 구분할 수 있는 안정적인 값을 사용합니다.
-## 여러 변경을 한 번에 반영하기
+등록 목록은 `scale.Modifiers`를 통해 `IReadOnlyXOrdered<int, string, IModifier<float>>`로 읽을 수 있으며, Order·Key·Value를 조회할 수 있지만 외부에서 목록 자체를 변경할 수는 없습니다.
 
-한 frame에 여러 Modifier가 바뀌는 시스템은 각 조작에서 이벤트를 발행하지 않고 마지막에 `Refresh()`로 최종 값을 한 번 확정할 수 있습니다.
+## Modifier 내부 상태 변경
+
+`IModifier<T>`는 상태 변경 알림 계약을 포함합니다. 등록된 Modifier의 `Operation` 또는 `Value`가 실제로 변경되면 `MValue`가 자동으로 `Modified`를 다시 계산합니다.
 
 ```csharp
-scale.AddModifier("effect.a", modifierA, 100, invokeEvent: false);
-scale.AddModifier("effect.b", modifierB, 200, invokeEvent: false);
-scale.Refresh();
+var slow = new NumericFModifier(NumericFOperation.MUL, 0.5f);
+
+scale.AddModifier("slow", slow, 100);
+slow.Value = 0.25f;
+
+float current = scale.Modified; // 자동으로 0.25
 ```
 
-이미 등록된 Modifier 객체의 내부 값이 바뀌었다면 `MValue`는 그 변경을 자동 감지하지 않습니다. 최종 사용 경계에서 `Refresh()`를 호출합니다.
+재계산 결과가 이전 `Modified`와 같으면 `OnModifiedChange`는 발생하지 않습니다.
+동일한 Modifier 인스턴스를 여러 Key로 등록해도 `MValue`는 해당 인스턴스의 `OnChange`를 한 번만 구독하며, 마지막 등록이 제거될 때 구독을 해제합니다.
+
+`LambdaModifier<T>`는 생성 시 전달한 delegate를 이후 변경하지 않는 런타임 전용 Modifier입니다. Lambda가 참조하는 계산 의존성도 등록 후 불변이어야 하며, 외부 mutable closure를 변경하는 사용 방식은 지원하지 않습니다.
+
+`invokeEvent: false`는 해당 조작에서 이벤트만 억제하고 `Modified` 캐시는 즉시 갱신합니다.
 
 ## 최종 값의 단일 작성자 두기
 
@@ -62,7 +72,6 @@ scale.Refresh();
 ```csharp
 private void LateUpdate()
 {
-    scale.Refresh();
     target.speed = scale.Modified;
 }
 ```

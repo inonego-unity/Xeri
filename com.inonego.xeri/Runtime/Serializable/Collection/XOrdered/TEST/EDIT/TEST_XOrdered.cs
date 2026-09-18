@@ -3,68 +3,84 @@
 수정일 : 2026-09-18
 
 # 설명
-XOrdered<TOrder, TValue> 및 XOrdered<TOrder, TKey, TValue>의 핵심 기능 테스트.
-Add / Remove / Contains / Clear / 중복 Order / 인덱서 / Deconstruct / IReadOnlyList / IReadOnlyDictionary / AsKeyed / 직렬화.
+XOrdered<TOrder, TValue>와 XOrdered<TOrder, TKey, TValue>의 현재 공개 계약을 검증한다.
+정렬, 동일 Order 안정성, Entry 노출, Key lookup, 다중 등록과 직렬화를 다룬다.
 
 # 테스트 구성
- E:  XOrdered<TOrder, TValue> 기본 기능 (Add/Remove/Contains/Clear/중복 Order/인덱서/Deconstruct)
- I:  XOrdered<TOrder, TValue> 인터페이스 (IReadOnlyList)
- S:  XOrdered<TOrder, TValue> 직렬화
- P:  XOrdered<TOrder, TValue> 스트레스 (대량 데이터)
- KE: XOrdered<TOrder, TKey, TValue> 기본 기능 (Add/Remove/ContainsKey/TryGetValue/인덱서/AsKeyed/Deconstruct/중복 Key 예외)
- KI: XOrdered<TOrder, TKey, TValue> 인터페이스 (IReadOnlyList / IReadOnlyDictionary)
- KS: XOrdered<TOrder, TKey, TValue> 직렬화
- KP: XOrdered<TOrder, TKey, TValue> 스트레스 (대량 데이터)
+ U: Unkeyed XOrdered 기본 계약
+ K: Keyed XOrdered 기본 계약
+ S: Unity JSON 직렬화 계약
+ P: 대량 데이터 정렬 및 lookup 일관성
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 using UnityEngine;
 
 using NUnit;
 using NUnit.Framework;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Serializable;
+
 namespace inonego.Xeri.TEST.Serializable._XOrdered
 {
-
-    using inonego.Xeri.Serializable;
-
     // ============================================================
     /// <summary>
-    /// XOrdered 컬렉션의 핵심 기능 테스트 클래스.
+    /// XOrdered 컬렉션의 현재 공개 계약을 검증한다.
     /// </summary>
     // ============================================================
     public class TEST_XOrdered
     {
 
-    #region 헬퍼
+    #region 테스트 타입
 
-        // ------------------------------------------------------------
+        // ======================================================================
         /// <summary>
-        /// 테스트용 Value 클래스.
+        /// Comparer&lt;TOrder&gt;.Default의 enum 지원을 검증하는 Order.
         /// </summary>
-        // ------------------------------------------------------------
-        [Serializable]
-        private class TestElement : IEquatable<TestElement>
+        // ======================================================================
+        private enum TestOrder
         {
-            [SerializeField]
-            public string Name;
+            Early = -10,
+            Middle = 0,
+            Late = 10,
+        }
 
-            public TestElement() {}
+        // ============================================================
+        /// <summary>
+        /// 값 동등성과 Unity 직렬화를 함께 검증하는 테스트 값.
+        /// </summary>
+        // ============================================================
+        [Serializable]
+        private sealed class TestElement : IEquatable<TestElement>
+        {
+            public string Name => name;
+
+            [SerializeField]
+            private string name;
+
+            public TestElement()
+            {
+                // NONE
+            }
 
             public TestElement(string name)
             {
-                Name = name;
+                this.name = name;
             }
 
             public bool Equals(TestElement other)
             {
-                if (other == null) return false;
+                if (other == null)
+                {
+                    return false;
+                }
 
-                return Name == other.Name;
+                return name == other.name;
             }
 
             public override bool Equals(object obj)
@@ -74,663 +90,495 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
 
             public override int GetHashCode()
             {
-                return Name?.GetHashCode() ?? 0;
+                return name?.GetHashCode() ?? 0;
             }
         }
 
-
     #endregion
 
-    #region E-1: 기본 생성
+    #region U-1: Add 정렬과 동일 Order 안정 삽입
 
         [Test]
-        public void TEST_XOrdered_기본_생성_초기상태()
+        public void TEST_XOrdered_Add_오름차순_동일Order_안정삽입()
         {
+            // Arrange
             var ordered = new XOrdered<int, TestElement>();
 
-            Assert.AreEqual(0, ordered.Count);
-        }
+            // Act
+            ordered.Add(20, new TestElement("B"));
+            ordered.Add(10, new TestElement("A"));
+            ordered.Add(20, new TestElement("C"));
+            ordered.Add(20, new TestElement("D"));
+            ordered.Add(30, new TestElement("E"));
 
-    #endregion
-
-    #region E-2: Add / Remove / Contains / Clear / 중복 Order / 인덱서
-
-        [Test]
-        public void TEST_XOrdered_AddRemoveContainsClear_통합()
-        {
-            var ordered = new XOrdered<int, TestElement>();
-
-            // ------------------------------------------------------------
-            // 1. Add - 역순 추가 → 오름차순 정렬 확인
-            // ------------------------------------------------------------
-            ordered.Add(30, new TestElement("Third"));
-            ordered.Add(10, new TestElement("First"));
-            ordered.Add(20, new TestElement("Second"));
-
-            Assert.AreEqual(3, ordered.Count);
-            Assert.AreEqual("First",  ordered[0].Value.Name);
-            Assert.AreEqual(10,       ordered[0].Order);
-            Assert.AreEqual("Second", ordered[1].Value.Name);
-            Assert.AreEqual(20,       ordered[1].Order);
-            Assert.AreEqual("Third",  ordered[2].Value.Name);
-            Assert.AreEqual(30,       ordered[2].Order);
-
-            // ------------------------------------------------------------
-            // 2. Contains
-            // ------------------------------------------------------------
-            var firstValue = ordered[0].Value;
-
-            Assert.IsTrue(ordered.Contains(firstValue));
-            Assert.IsFalse(ordered.Contains(new TestElement("NonExistent")));
-
-            // ------------------------------------------------------------
-            // 3. 중복 Order 처리 (Upper Bound)
-            // ------------------------------------------------------------
-            ordered.Add(10, new TestElement("First-Dup"));
-
-            Assert.AreEqual(4, ordered.Count);
-            Assert.AreEqual("First",     ordered[0].Value.Name);
-            Assert.AreEqual("First-Dup", ordered[1].Value.Name);
-            Assert.AreEqual("Second",    ordered[2].Value.Name);
-            Assert.AreEqual("Third",     ordered[3].Value.Name);
-
-            // ------------------------------------------------------------
-            // 4. Remove
-            // ------------------------------------------------------------
-            var secondValue = ordered[2].Value;
-
-            Assert.IsTrue(ordered.Remove(secondValue));
-            Assert.AreEqual(3, ordered.Count);
-            Assert.AreEqual("First",     ordered[0].Value.Name);
-            Assert.AreEqual("First-Dup", ordered[1].Value.Name);
-            Assert.AreEqual("Third",     ordered[2].Value.Name);
-            Assert.IsFalse(ordered.Remove(secondValue));
-
-            // ------------------------------------------------------------
-            // 5. Clear
-            // ------------------------------------------------------------
-            ordered.Clear();
-
-            Assert.AreEqual(0, ordered.Count);
-
-            // ------------------------------------------------------------
-            // 6. Clear 후 재사용
-            // ------------------------------------------------------------
-            ordered.Add(1, new TestElement("A"));
-            ordered.Add(2, new TestElement("B"));
-
-            Assert.AreEqual(2, ordered.Count);
+            // Assert
+            Assert.AreEqual(5, ordered.Count);
+            Assert.AreEqual(10, ordered[0].Order);
             Assert.AreEqual("A", ordered[0].Value.Name);
+            Assert.AreEqual(20, ordered[1].Order);
             Assert.AreEqual("B", ordered[1].Value.Name);
+            Assert.AreEqual("C", ordered[2].Value.Name);
+            Assert.AreEqual("D", ordered[3].Value.Name);
+            Assert.AreEqual(30, ordered[4].Order);
+            Assert.AreEqual("E", ordered[4].Value.Name);
         }
 
     #endregion
 
-    #region E-3: foreach + Pair.Deconstruct
+    #region U-2: Remove / Contains / IndexOf / Clear
 
         [Test]
-        public void TEST_XOrdered_Deconstruct_foreach_및_인덱서()
+        public void TEST_XOrdered_RemoveContainsIndexOf_EqualityComparer_계약()
         {
+            // Arrange
+            var ordered = new XOrdered<int, TestElement>();
+            var second = new TestElement("B");
+
+            ordered.Add(10, new TestElement("A"));
+            ordered.Add(20, second);
+
+            // Act & Assert
+            Assert.AreEqual(0, ordered.IndexOf(new TestElement("A")));
+            Assert.IsTrue(ordered.Contains(new TestElement("A")));
+            Assert.IsTrue(ordered.Remove(new TestElement("A")));
+            Assert.AreEqual(1, ordered.Count);
+            Assert.AreSame(second, ordered[0].Value);
+            Assert.IsFalse(ordered.Remove(new TestElement("Missing")));
+
+            ordered.Clear();
+            Assert.AreEqual(0, ordered.Count);
+
+            ordered.Add(5, new TestElement("Reused"));
+
+            Assert.AreEqual(1, ordered.Count);
+            Assert.AreEqual("Reused", ordered[0].Value.Name);
+        }
+
+    #endregion
+
+    #region U-3: Entry / IReadOnlyXOrdered / Enumerator
+
+        [Test]
+        public void TEST_XOrdered_Entry_Deconstruct_IReadOnlyXOrdered_Enumerator()
+        {
+            // Arrange
             var ordered = new XOrdered<int, TestElement>();
 
-            ordered.Add(10, new TestElement("First"));
-            ordered.Add(20, new TestElement("Second"));
-            ordered.Add(30, new TestElement("Third"));
+            ordered.Add(20, new TestElement("B"));
+            ordered.Add(10, new TestElement("A"));
 
-            // foreach 분해
-            var orders = new List<int>();
-            var names  = new List<string>();
+            // Act
+            IReadOnlyXOrdered<int, TestElement> readOnly = ordered;
+            var (order, value) = readOnly[0];
+            var enumerator = ordered.GetEnumerator();
 
-            foreach (var (order, value) in ordered)
-            {
-                orders.Add(order);
-                names.Add(value.Name);
-            }
-
-            Assert.AreEqual(new[] { 10, 20, 30 },                 orders);
-            Assert.AreEqual(new[] { "First", "Second", "Third" }, names);
-
-            // 인덱서 결과 분해
-            var (firstOrder, firstValue) = ordered[0];
-
-            Assert.AreEqual(10,      firstOrder);
-            Assert.AreEqual("First", firstValue.Name);
+            // Assert
+            Assert.AreEqual(2, readOnly.Count);
+            Assert.IsTrue(readOnly.Contains(new TestElement("A")));
+            Assert.AreEqual(0, readOnly.IndexOf(new TestElement("A")));
+            Assert.AreEqual(10, order);
+            Assert.AreEqual("A", value.Name);
+            Assert.AreEqual
+            (
+                typeof(List<XOrdered<int, TestElement>.Entry>.Enumerator),
+                enumerator.GetType()
+            );
         }
 
     #endregion
 
-    #region I-1: IReadOnlyList<Pair>
+    #region U-4: Enum Order
 
         [Test]
-        public void TEST_XOrdered_IReadOnlyList_구현()
+        public void TEST_XOrdered_EnumOrder_ComparerDefault_지원()
         {
+            // Arrange
+            var ordered = new XOrdered<TestOrder, TestElement>();
+
+            // Act
+            ordered.Add(TestOrder.Late, new TestElement("Late"));
+            ordered.Add(TestOrder.Early, new TestElement("Early"));
+            ordered.Add(TestOrder.Middle, new TestElement("Middle"));
+
+            // Assert
+            Assert.AreEqual(TestOrder.Early, ordered[0].Order);
+            Assert.AreEqual(TestOrder.Middle, ordered[1].Order);
+            Assert.AreEqual(TestOrder.Late, ordered[2].Order);
+        }
+
+    #endregion
+
+    #region U-5: 대량 데이터 정렬
+
+        [Test]
+        public void TEST_XOrdered_대량데이터_정렬_유지()
+        {
+            // Arrange
+            const int testCount = 128;
+            var random = new System.Random(42);
             var ordered = new XOrdered<int, TestElement>();
 
-            ordered.Add(10, new TestElement("First"));
-            ordered.Add(20, new TestElement("Second"));
-            ordered.Add(30, new TestElement("Third"));
-
-            IReadOnlyList<XOrdered<int, TestElement>.Pair> readOnlyList = ordered;
-
-            Assert.AreEqual(3, readOnlyList.Count);
-            Assert.AreEqual("First",  readOnlyList[0].Value.Name);
-            Assert.AreEqual(10,       readOnlyList[0].Order);
-            Assert.AreEqual("Second", readOnlyList[1].Value.Name);
-            Assert.AreEqual(20,       readOnlyList[1].Order);
-            Assert.AreEqual("Third",  readOnlyList[2].Value.Name);
-            Assert.AreEqual(30,       readOnlyList[2].Order);
-
-            // LINQ
-            var firstItem = readOnlyList.First();
-
-            Assert.AreEqual("First", firstItem.Value.Name);
-            Assert.AreEqual(10,      firstItem.Order);
-        }
-
-    #endregion
-
-    #region S-1: JSON 직렬화
-
-        [Test]
-        public void TEST_XOrdered_JSON_직렬화_라운드트립()
-        {
-            var original = new XOrdered<int, TestElement>();
-
-            original.Add(30, new TestElement("Third"));
-            original.Add(10, new TestElement("First"));
-            original.Add(20, new TestElement("Second"));
-
-            string json         = JsonUtility.ToJson(original);
-            var    deserialized = JsonUtility.FromJson<XOrdered<int, TestElement>>(json);
-
-            Assert.AreEqual(original.Count, deserialized.Count);
-
-            for (int i = 0; i < original.Count; i++)
+            // Act
+            for (var index = 0; index < testCount; index++)
             {
-                Assert.AreEqual(original[i].Value.Name, deserialized[i].Value.Name);
-                Assert.AreEqual(original[i].Order,      deserialized[i].Order);
+                ordered.Add
+                (
+                    random.Next(0, 16),
+                    new TestElement($"Value-{index}")
+                );
             }
 
-            deserialized.Add(0, new TestElement("Zero"));
-
-            Assert.AreEqual(4,      deserialized.Count);
-            Assert.AreEqual("Zero", deserialized[0].Value.Name);
-            Assert.AreEqual(0,      deserialized[0].Order);
-        }
-
-    #endregion
-
-
-    #region P-1: 대량 데이터 스트레스
-
-        [Test]
-        public void TEST_XOrdered_대량_데이터_스트레스()
-        {
-            var ordered = new XOrdered<int, TestElement>();
-            const int testCount = 100;
-
-            // 1. 역순 Add → 오름차순 정렬
-            for (int i = testCount; i > 0; i--)
-            {
-                ordered.Add(i, new TestElement($"Element-{i}"));
-            }
-
+            // Assert
             Assert.AreEqual(testCount, ordered.Count);
 
-            for (int i = 0; i < testCount; i++)
+            for (var index = 1; index < ordered.Count; index++)
             {
-                int expectedOrder = i + 1;
-
-                Assert.AreEqual($"Element-{expectedOrder}", ordered[i].Value.Name);
-                Assert.AreEqual(expectedOrder,              ordered[i].Order);
+                Assert.LessOrEqual(ordered[index - 1].Order, ordered[index].Order);
             }
-
-            // 2. 랜덤 Add → 정렬 확인
-            ordered.Clear();
-
-            var random      = new System.Random(42);
-            var addedOrders = new List<int>();
-
-            for (int i = 0; i < testCount; i++)
-            {
-                int order = random.Next(1, 1000);
-                addedOrders.Add(order);
-                ordered.Add(order, new TestElement($"Random-{i}"));
-            }
-
-            addedOrders.Sort();
-
-            for (int i = 0; i < testCount; i++)
-            {
-                Assert.IsNotNull(ordered[i].Value);
-                Assert.AreEqual(addedOrders[i], ordered[i].Order);
-            }
-
-            // 3. Add/Remove 혼합
-            ordered.Clear();
-
-            var values = new List<TestElement>();
-
-            for (int i = 0; i < 50; i++)
-            {
-                var v = new TestElement($"Mix-{i}");
-                values.Add(v);
-                ordered.Add(i * 2, v);
-            }
-
-            Assert.AreEqual(50, ordered.Count);
-
-            for (int i = 0; i < 25; i++)
-            {
-                ordered.Remove(values[i * 2]);
-            }
-
-            Assert.AreEqual(25, ordered.Count);
-
-            for (int i = 50; i < 100; i++)
-            {
-                ordered.Add(i * 2, new TestElement($"Mix-{i}"));
-            }
-
-            Assert.AreEqual(75, ordered.Count);
-
-            int count     = 0;
-            int prevOrder = -1;
-
-            foreach (var (order, value) in ordered)
-            {
-                Assert.IsNotNull(value);
-                Assert.GreaterOrEqual(order, prevOrder);
-
-                prevOrder = order;
-                count++;
-            }
-
-            Assert.AreEqual(75, count);
         }
 
     #endregion
 
-    #region KE-1: Keyed 기본 생성
+    #region K-1: Add / Key 조회 / Entry identity
 
         [Test]
-        public void TEST_XOrdered_Keyed_기본_생성_초기상태()
+        public void TEST_XOrdered_Keyed_Add_정렬_Key조회_EntryIdentity()
         {
+            // Arrange
             var ordered = new XOrdered<int, string, TestElement>();
 
-            Assert.AreEqual(0, ordered.Count);
-        }
+            // Act
+            ordered.Add(30, "c", new TestElement("C"));
+            ordered.Add(10, "a", new TestElement("A"));
+            ordered.Add(20, "b", new TestElement("B"));
 
-    #endregion
+            var foundValue = ordered.TryGetValue("b", out var value);
+            var foundEntry = ordered.TryGetEntry("b", out var entry);
 
-    #region KE-2: Add / Remove / ContainsKey / TryGetValue / 인덱서 / Clear / 중복 Key 예외
-
-        [Test]
-        public void TEST_XOrdered_Keyed_AddRemoveContainsClear_통합()
-        {
-            var ordered = new XOrdered<int, string, TestElement>();
-
-            // 1. Add (Order, Key, Value)
-            ordered.Add(30, "key3", new TestElement("Third"));
-            ordered.Add(10, "key1", new TestElement("First"));
-            ordered.Add(20, "key2", new TestElement("Second"));
-
+            // Assert
             Assert.AreEqual(3, ordered.Count);
-            Assert.AreEqual("First",  ordered[0].Value.Name);
-            Assert.AreEqual(10,       ordered[0].Order);
-            Assert.AreEqual("Second", ordered[1].Value.Name);
-            Assert.AreEqual(20,       ordered[1].Order);
-            Assert.AreEqual("Third",  ordered[2].Value.Name);
-            Assert.AreEqual(30,       ordered[2].Order);
+            Assert.AreEqual("a", ordered[0].Key);
+            Assert.AreEqual("b", ordered[1].Key);
+            Assert.AreEqual("c", ordered[2].Key);
+            Assert.IsTrue(ordered.ContainsKey("a"));
+            Assert.IsFalse(ordered.ContainsKey("missing"));
+            Assert.IsTrue(foundValue);
+            Assert.AreEqual("B", value.Name);
+            Assert.IsTrue(foundEntry);
+            Assert.AreSame(ordered[1], entry);
+            Assert.AreEqual(20, entry.Order);
+            Assert.AreEqual("b", entry.Key);
+            Assert.AreSame(value, entry.Value);
 
-            // 2. Key 인덱서 (직접 API — 없으면 null)
-            Assert.AreEqual("First",  ordered["key1"].Name);
-            Assert.AreEqual("Second", ordered["key2"].Name);
-            Assert.AreEqual("Third",  ordered["key3"].Name);
-            Assert.IsNull(ordered["nonexistent"]);
-
-            // 3. TryGetValue
-            Assert.IsTrue(ordered.TryGetValue("key1", out var value1));
-            Assert.AreEqual("First", value1.Name);
-
-            Assert.IsFalse(ordered.TryGetValue("nonexistent", out var value2));
-            Assert.IsNull(value2);
-
-            // 4. ContainsKey
-            Assert.IsTrue(ordered.ContainsKey("key1"));
-            Assert.IsTrue(ordered.ContainsKey("key2"));
-            Assert.IsTrue(ordered.ContainsKey("key3"));
-            Assert.IsFalse(ordered.ContainsKey("nonexistent"));
-
-            // 5. 중복 Key 예외
-            Assert.Throws<ArgumentException>(() =>
-            {
-                ordered.Add(50, "key1", new TestElement("Duplicate"));
-            });
-
-            Assert.AreEqual(3, ordered.Count);
-
-            // 6. 중복 Order 처리
-            ordered.Add(10, "key4", new TestElement("First-Dup"));
-
-            Assert.AreEqual(4, ordered.Count);
-            Assert.AreEqual("First",     ordered[0].Value.Name);
-            Assert.AreEqual("First-Dup", ordered[1].Value.Name);
-            Assert.AreEqual("Second",    ordered[2].Value.Name);
-            Assert.AreEqual("Third",     ordered[3].Value.Name);
-
-            // 7. Remove (by Key)
-            Assert.IsTrue(ordered.Remove("key2"));
-            Assert.AreEqual(3, ordered.Count);
-            Assert.IsFalse(ordered.ContainsKey("key2"));
-            Assert.IsFalse(ordered.Remove("nonexistent"));
-
-            // 8. Clear
-            ordered.Clear();
-
-            Assert.AreEqual(0, ordered.Count);
-            Assert.IsFalse(ordered.ContainsKey("key1"));
-
-            // 9. Clear 후 재사용
-            ordered.Add(1, "keyA", new TestElement("A"));
-            ordered.Add(2, "keyB", new TestElement("B"));
-
-            Assert.AreEqual(2, ordered.Count);
-            Assert.AreEqual("A", ordered[0].Value.Name);
-            Assert.AreEqual("B", ordered[1].Value.Name);
-            Assert.IsTrue(ordered.ContainsKey("keyA"));
-            Assert.IsTrue(ordered.ContainsKey("keyB"));
+            Assert.IsFalse(ordered.TryGetValue("missing", out var missingValue));
+            Assert.IsNull(missingValue);
+            Assert.IsFalse(ordered.TryGetEntry("missing", out var missingEntry));
+            Assert.IsNull(missingEntry);
         }
 
     #endregion
 
-    #region KE-3: AsKeyed 순회
+    #region K-2: 동일 Order 안정 순서와 Entry Deconstruct
 
         [Test]
-        public void TEST_XOrdered_Keyed_AsKeyed_정렬순서_순회()
+        public void TEST_XOrdered_Keyed_동일Order_안정순서_EntryDeconstruct()
         {
+            // Arrange
             var ordered = new XOrdered<int, string, TestElement>();
 
-            ordered.Add(30, "key3", new TestElement("Third"));
-            ordered.Add(10, "key1", new TestElement("First"));
-            ordered.Add(20, "key2", new TestElement("Second"));
-
-            // AsKeyed - 정렬 순서로 (Order, Key, Value) Deconstruct
-            var keyedOrders = new List<int>();
-            var keyedKeys   = new List<string>();
-            var keyedNames  = new List<string>();
-
-            foreach (var (order, key, value) in ordered.AsKeyed())
-            {
-                keyedOrders.Add(order);
-                keyedKeys.Add(key);
-                keyedNames.Add(value.Name);
-            }
-
-            Assert.AreEqual(new[] { 10, 20, 30 },                 keyedOrders);
-            Assert.AreEqual(new[] { "key1", "key2", "key3" },     keyedKeys);
-            Assert.AreEqual(new[] { "First", "Second", "Third" }, keyedNames);
-        }
-
-    #endregion
-
-    #region KE-4: foreach + Pair.Deconstruct
-
-        [Test]
-        public void TEST_XOrdered_Keyed_Deconstruct_foreach()
-        {
-            var ordered = new XOrdered<int, string, TestElement>();
-
-            ordered.Add(10, "key1", new TestElement("First"));
-            ordered.Add(20, "key2", new TestElement("Second"));
-            ordered.Add(30, "key3", new TestElement("Third"));
-
-            var orders = new List<int>();
-            var names  = new List<string>();
-
-            foreach (var (order, value) in ordered)
-            {
-                orders.Add(order);
-                names.Add(value.Name);
-            }
-
-            Assert.AreEqual(new[] { 10, 20, 30 },                 orders);
-            Assert.AreEqual(new[] { "First", "Second", "Third" }, names);
-        }
-
-    #endregion
-
-    #region KI-1: IReadOnlyList<Pair>
-
-        [Test]
-        public void TEST_XOrdered_Keyed_IReadOnlyList_구현()
-        {
-            var ordered = new XOrdered<int, string, TestElement>();
-
-            ordered.Add(10, "key1", new TestElement("First"));
-            ordered.Add(20, "key2", new TestElement("Second"));
-            ordered.Add(30, "key3", new TestElement("Third"));
-
-            IReadOnlyList<XOrderedBase<int, TestElement>.Pair> readOnlyList = ordered;
-
-            Assert.AreEqual(3, readOnlyList.Count);
-            Assert.AreEqual("First",  readOnlyList[0].Value.Name);
-            Assert.AreEqual(10,       readOnlyList[0].Order);
-            Assert.AreEqual("Second", readOnlyList[1].Value.Name);
-            Assert.AreEqual(20,       readOnlyList[1].Order);
-            Assert.AreEqual("Third",  readOnlyList[2].Value.Name);
-            Assert.AreEqual(30,       readOnlyList[2].Order);
-        }
-
-    #endregion
-
-    #region KI-2: IReadOnlyDictionary<TKey, TValue>
-
-        [Test]
-        public void TEST_XOrdered_Keyed_IReadOnlyDictionary_구현()
-        {
-            var ordered = new XOrdered<int, string, TestElement>();
-
-            ordered.Add(10, "key1", new TestElement("First"));
-            ordered.Add(20, "key2", new TestElement("Second"));
-            ordered.Add(30, "key3", new TestElement("Third"));
-
-            IReadOnlyDictionary<string, TestElement> dict = ordered;
-
-            // Count
-            Assert.AreEqual(3, dict.Count);
-
-            // 인덱서 (BCL 계약: 키 없으면 throw)
-            Assert.AreEqual("First",  dict["key1"].Name);
-            Assert.AreEqual("Second", dict["key2"].Name);
-            Assert.AreEqual("Third",  dict["key3"].Name);
-
-            Assert.Throws<KeyNotFoundException>(() =>
-            {
-                var _ = dict["nonexistent"];
-            });
-
-            // 직접 API의 this[key]는 여전히 null 반환 (대조)
-            Assert.IsNull(ordered["nonexistent"]);
-
-            // ContainsKey / TryGetValue (인터페이스 경로)
-            Assert.IsTrue(dict.ContainsKey("key1"));
-            Assert.IsFalse(dict.ContainsKey("nonexistent"));
-
-            Assert.IsTrue(dict.TryGetValue("key2", out var v));
-            Assert.AreEqual("Second", v.Name);
-
-            // Keys / Values
-            var keys   = new List<string>(dict.Keys);
-            var values = new List<TestElement>(dict.Values);
-
-            Assert.AreEqual(3, keys.Count);
-            Assert.Contains("key1", keys);
-            Assert.Contains("key2", keys);
-            Assert.Contains("key3", keys);
-
-            Assert.AreEqual(3, values.Count);
-
-            // GetEnumerator → KeyValuePair (dict 순서, sort 순서 아님)
-            var pairs = new List<KeyValuePair<string, TestElement>>();
-
-            foreach (var kvp in dict)
-            {
-                pairs.Add(kvp);
-            }
-
-            Assert.AreEqual(3, pairs.Count);
-            var pairKeys = pairs.Select(p => p.Key).ToList();
-            Assert.Contains("key1", pairKeys);
-            Assert.Contains("key2", pairKeys);
-            Assert.Contains("key3", pairKeys);
-        }
-
-    #endregion
-
-    #region KS-1: JSON 직렬화
-
-        [Test]
-        public void TEST_XOrdered_Keyed_JSON_직렬화_라운드트립()
-        {
-            var original = new XOrdered<int, string, TestElement>();
-
-            original.Add(30, "key3", new TestElement("Third"));
-            original.Add(10, "key1", new TestElement("First"));
-            original.Add(20, "key2", new TestElement("Second"));
-
-            string json         = JsonUtility.ToJson(original);
-            var    deserialized = JsonUtility.FromJson<XOrdered<int, string, TestElement>>(json);
-
-            Assert.AreEqual(original.Count, deserialized.Count);
-
-            for (int i = 0; i < original.Count; i++)
-            {
-                Assert.AreEqual(original[i].Value.Name, deserialized[i].Value.Name);
-                Assert.AreEqual(original[i].Order,      deserialized[i].Order);
-            }
-
-            Assert.IsTrue(deserialized.ContainsKey("key1"));
-            Assert.IsTrue(deserialized.ContainsKey("key2"));
-            Assert.IsTrue(deserialized.ContainsKey("key3"));
-            Assert.AreEqual("First",  deserialized["key1"].Name);
-            Assert.AreEqual("Second", deserialized["key2"].Name);
-            Assert.AreEqual("Third",  deserialized["key3"].Name);
-
-            deserialized.Add(0, "key0", new TestElement("Zero"));
-
-            Assert.AreEqual(4,      deserialized.Count);
-            Assert.AreEqual("Zero", deserialized[0].Value.Name);
-            Assert.AreEqual(0,      deserialized[0].Order);
-            Assert.IsTrue(deserialized.ContainsKey("key0"));
-        }
-
-    #endregion
-
-
-
-
-    #region KP-1: 대량 데이터 스트레스
-
-        [Test]
-        public void TEST_XOrdered_Keyed_대량_데이터_스트레스()
-        {
-            var ordered = new XOrdered<int, string, TestElement>();
-            const int testCount = 100;
-
-            // 1. 역순 Add → 오름차순
-            for (int i = testCount; i > 0; i--)
-            {
-                ordered.Add(i, $"key{i}", new TestElement($"Element-{i}"));
-            }
-
-            Assert.AreEqual(testCount, ordered.Count);
-
-            for (int i = 0; i < testCount; i++)
-            {
-                int expectedOrder = i + 1;
-
-                Assert.AreEqual($"Element-{expectedOrder}", ordered[i].Value.Name);
-                Assert.AreEqual(expectedOrder,              ordered[i].Order);
-            }
-
-            // 2. Key 조회
-            for (int i = 1; i <= testCount; i++)
-            {
-                string key = $"key{i}";
-
-                Assert.IsTrue(ordered.ContainsKey(key));
-                Assert.IsTrue(ordered.TryGetValue(key, out var value));
-                Assert.AreEqual($"Element-{i}", value.Name);
-                Assert.AreEqual($"Element-{i}", ordered[key].Name);
-            }
-
-            // 3. 랜덤 Add → 정렬 확인
-            ordered.Clear();
-
-            var random      = new System.Random(42);
-            var addedOrders = new List<int>();
-
-            for (int i = 0; i < testCount; i++)
-            {
-                int order = random.Next(1, 1000);
-                addedOrders.Add(order);
-                ordered.Add(order, $"randomKey{i}", new TestElement($"Random-{i}"));
-            }
-
-            addedOrders.Sort();
-
-            for (int i = 0; i < testCount; i++)
-            {
-                Assert.IsNotNull(ordered[i].Value);
-                Assert.AreEqual(addedOrders[i], ordered[i].Order);
-            }
-
-            // 4. Add/Remove 혼합
-            ordered.Clear();
+            ordered.Add(10, "a", new TestElement("A"));
+            ordered.Add(10, "b", new TestElement("B"));
+            ordered.Add(10, "c", new TestElement("C"));
 
             var keys = new List<string>();
+            var names = new List<string>();
 
-            for (int i = 0; i < 50; i++)
+            // Act
+            foreach (var (order, key, value) in ordered)
             {
-                string key = $"Mix-{i}";
+                Assert.AreEqual(10, order);
                 keys.Add(key);
-                ordered.Add(i * 2, key, new TestElement($"Mix-{i}"));
+                names.Add(value.Name);
             }
 
-            Assert.AreEqual(50, ordered.Count);
+            // Assert
+            CollectionAssert.AreEqual
+            (
+                new[]
+                {
+                    "a",
+                    "b",
+                    "c",
+                },
+                keys
+            );
+            CollectionAssert.AreEqual
+            (
+                new[]
+                {
+                    "A",
+                    "B",
+                    "C",
+                },
+                names
+            );
+        }
 
-            for (int i = 0; i < 25; i++)
+    #endregion
+
+    #region K-3: 중복 Key 예외
+
+        [Test]
+        public void TEST_XOrdered_Keyed_중복Key_예외_상태보존()
+        {
+            // Arrange
+            var ordered = new XOrdered<int, string, TestElement>();
+            var original = new TestElement("Original");
+
+            ordered.Add(10, "key", original);
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>
+            (
+                () => ordered.Add(20, "key", new TestElement("Duplicate"))
+            );
+
+            Assert.AreEqual(1, ordered.Count);
+            Assert.IsTrue(ordered.TryGetValue("key", out var value));
+            Assert.AreSame(original, value);
+            Assert.AreSame(original, ordered[0].Value);
+        }
+
+    #endregion
+
+    #region K-4: 동일 Value 다중 등록과 정확한 Remove
+
+        [Test]
+        public void TEST_XOrdered_Keyed_동일Value_다중등록_Remove_정확한Entry()
+        {
+            // Arrange
+            var shared = new TestElement("Shared");
+            var ordered = new XOrdered<int, string, TestElement>();
+
+            ordered.Add(10, "a", shared);
+            ordered.Add(20, "b", shared);
+
+            // Act
+            var removed = ordered.Remove("a");
+
+            // Assert
+            Assert.IsTrue(removed);
+            Assert.AreEqual(1, ordered.Count);
+            Assert.IsFalse(ordered.ContainsKey("a"));
+            Assert.IsTrue(ordered.ContainsKey("b"));
+            Assert.IsTrue(ordered.TryGetValue("b", out var remaining));
+            Assert.AreSame(shared, remaining);
+            Assert.AreEqual("b", ordered[0].Key);
+            Assert.AreSame(shared, ordered[0].Value);
+        }
+
+    #endregion
+
+    #region K-5: Clear와 재사용
+
+        [Test]
+        public void TEST_XOrdered_Keyed_Clear_Lookup정리_재사용()
+        {
+            // Arrange
+            var ordered = new XOrdered<int, string, TestElement>();
+
+            ordered.Add(10, "a", new TestElement("A"));
+            ordered.Add(20, "b", new TestElement("B"));
+            Assert.IsTrue(ordered.ContainsKey("a"));
+
+            // Act
+            ordered.Clear();
+
+            // Assert
+            Assert.AreEqual(0, ordered.Count);
+            Assert.IsFalse(ordered.ContainsKey("a"));
+            Assert.IsFalse(ordered.ContainsKey("b"));
+
+            ordered.Add(5, "c", new TestElement("C"));
+
+            Assert.AreEqual(1, ordered.Count);
+            Assert.IsTrue(ordered.ContainsKey("c"));
+            Assert.AreEqual("C", ordered[0].Value.Name);
+        }
+
+    #endregion
+
+    #region K-6: IReadOnlyXOrdered와 구체 Enumerator
+
+        [Test]
+        public void TEST_XOrdered_Keyed_IReadOnlyXOrdered_전체Entry_Enumerator()
+        {
+            // Arrange
+            var ordered = new XOrdered<int, string, TestElement>();
+
+            ordered.Add(20, "b", new TestElement("B"));
+            ordered.Add(10, "a", new TestElement("A"));
+
+            // Act
+            IReadOnlyXOrdered<int, string, TestElement> readOnly = ordered;
+            var enumerator = ordered.GetEnumerator();
+            var (order, key, value) = readOnly[0];
+
+            // Assert
+            Assert.AreEqual(2, readOnly.Count);
+            Assert.IsTrue(readOnly.ContainsKey("a"));
+            Assert.IsTrue(readOnly.TryGetValue("a", out var foundValue));
+            Assert.AreEqual("A", foundValue.Name);
+            Assert.IsTrue(readOnly.TryGetEntry("a", out var foundEntry));
+            Assert.AreSame(readOnly[0], foundEntry);
+            Assert.AreEqual(10, order);
+            Assert.AreEqual("a", key);
+            Assert.AreEqual("A", value.Name);
+            Assert.AreEqual
+            (
+                typeof(List<XOrdered<int, string, TestElement>.Entry>.Enumerator),
+                enumerator.GetType()
+            );
+        }
+
+    #endregion
+
+    #region S-1: Unkeyed JSON 직렬화
+
+        [Test]
+        public void TEST_XOrdered_JSON_직렬화_순서보존_재사용()
+        {
+            // Arrange
+            var original = new XOrdered<int, TestElement>();
+
+            original.Add(30, new TestElement("C"));
+            original.Add(10, new TestElement("A"));
+            original.Add(20, new TestElement("B"));
+
+            // Act
+            var json = JsonUtility.ToJson(original);
+            var restored = JsonUtility.FromJson<XOrdered<int, TestElement>>(json);
+
+            // Assert
+            Assert.AreEqual(3, restored.Count);
+            Assert.AreEqual(10, restored[0].Order);
+            Assert.AreEqual("A", restored[0].Value.Name);
+            Assert.AreEqual(20, restored[1].Order);
+            Assert.AreEqual("B", restored[1].Value.Name);
+            Assert.AreEqual(30, restored[2].Order);
+            Assert.AreEqual("C", restored[2].Value.Name);
+
+            restored.Add(15, new TestElement("Inserted"));
+
+            Assert.AreEqual(4, restored.Count);
+            Assert.AreEqual(15, restored[1].Order);
+            Assert.AreEqual("Inserted", restored[1].Value.Name);
+        }
+
+    #endregion
+
+    #region S-2: Keyed JSON 직렬화와 Lookup 재구성
+
+        [Test]
+        public void TEST_XOrdered_Keyed_JSON_직렬화_Lookup_Lazy재구성()
+        {
+            // Arrange
+            var original = new XOrdered<int, string, TestElement>();
+
+            original.Add(30, "c", new TestElement("C"));
+            original.Add(10, "a", new TestElement("A"));
+            original.Add(20, "b", new TestElement("B"));
+
+            // Act
+            var json = JsonUtility.ToJson(original);
+            var restored = JsonUtility.FromJson<XOrdered<int, string, TestElement>>(json);
+
+            var foundValue = restored.TryGetValue("b", out var value);
+            var foundEntry = restored.TryGetEntry("b", out var entry);
+
+            // Assert
+            Assert.AreEqual(3, restored.Count);
+            Assert.IsTrue(restored.ContainsKey("a"));
+            Assert.IsTrue(restored.ContainsKey("b"));
+            Assert.IsTrue(restored.ContainsKey("c"));
+            Assert.IsTrue(foundValue);
+            Assert.AreEqual("B", value.Name);
+            Assert.IsTrue(foundEntry);
+            Assert.AreSame(restored[1], entry);
+
+            restored.Add(15, "inserted", new TestElement("Inserted"));
+
+            Assert.AreEqual("inserted", restored[1].Key);
+            Assert.IsTrue(restored.ContainsKey("inserted"));
+        }
+
+    #endregion
+
+    #region S-3: SerializeReference 공유 참조
+
+        [Test]
+        public void TEST_XOrdered_Keyed_JSON_SerializeReference_공유참조_보존()
+        {
+            // Arrange
+            var shared = new TestElement("Shared");
+            var original = new XOrdered<int, string, TestElement>();
+
+            original.Add(10, "a", shared);
+            original.Add(20, "b", shared);
+
+            // Act
+            var json = JsonUtility.ToJson(original);
+            var restored = JsonUtility.FromJson<XOrdered<int, string, TestElement>>(json);
+
+            // Assert
+            Assert.AreEqual(2, restored.Count);
+            Assert.AreSame(restored[0].Value, restored[1].Value);
+            Assert.AreEqual("Shared", restored[0].Value.Name);
+            Assert.IsTrue(restored.TryGetValue("a", out var first));
+            Assert.IsTrue(restored.TryGetValue("b", out var second));
+            Assert.AreSame(first, second);
+        }
+
+    #endregion
+
+    #region P-1: 대량 데이터 정렬과 Lookup 일관성
+
+        [Test]
+        public void TEST_XOrdered_Keyed_대량데이터_정렬과Lookup_일관성()
+        {
+            // Arrange
+            const int testCount = 128;
+            var random = new System.Random(42);
+            var ordered = new XOrdered<int, string, TestElement>();
+            var expected = new Dictionary<string, TestElement>();
+
+            // Act
+            for (var index = 0; index < testCount; index++)
             {
-                ordered.Remove(keys[i * 2]);
+                var key = $"key-{index}";
+                var value = new TestElement($"Value-{index}");
+                var order = random.Next(0, 16);
+
+                expected.Add(key, value);
+                ordered.Add(order, key, value);
             }
 
-            Assert.AreEqual(25, ordered.Count);
+            // Assert
+            Assert.AreEqual(testCount, ordered.Count);
 
-            for (int i = 50; i < 100; i++)
+            for (var index = 1; index < ordered.Count; index++)
             {
-                ordered.Add(i * 2, $"Mix-{i}", new TestElement($"Mix-{i}"));
+                Assert.LessOrEqual(ordered[index - 1].Order, ordered[index].Order);
             }
 
-            Assert.AreEqual(75, ordered.Count);
-
-            int count     = 0;
-            int prevOrder = -1;
-
-            foreach (var (order, value) in ordered)
+            foreach (var pair in expected)
             {
-                Assert.IsNotNull(value);
-                Assert.GreaterOrEqual(order, prevOrder);
-
-                prevOrder = order;
-                count++;
+                Assert.IsTrue(ordered.TryGetValue(pair.Key, out var value));
+                Assert.AreSame(pair.Value, value);
             }
-
-            Assert.AreEqual(75, count);
         }
 
     #endregion
 
     }
-
 }

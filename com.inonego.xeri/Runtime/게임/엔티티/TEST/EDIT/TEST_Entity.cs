@@ -197,7 +197,6 @@ namespace inonego.Xeri.TEST.Game._Entity
 
     #endregion
 
-
     }
 
 }

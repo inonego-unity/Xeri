@@ -282,7 +282,6 @@ namespace inonego.Xeri.TEST.Game._HP
 
     #endregion
 
-
     #region U-1: CalculateApplyAmount
 
         [Test]

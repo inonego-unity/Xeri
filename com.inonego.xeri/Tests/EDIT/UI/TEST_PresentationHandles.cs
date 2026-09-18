@@ -1,13 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PresentationHandles.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-18
 
 # 설명
-Modal·Drag Visual·Visibility·Overlay의 해제와 UGUI 초기 표시 계약을 검증한다.
+Modal·Drag Visual·Alpha·Visibility·Overlay의 해제와 UGUI 초기 표시 계약을 검증한다.
 
 # 테스트 구성
  M: Modal top 복원과 Terminal 정리
  D: Drag Visual 외부 파괴
+ A: Alpha Modifier reactive 반영
  V: UGUI 표시 구성 검증
  C: 중첩 Core 요청과 Overlay 롤백
 ========================================================================= BLOCK_HEADER_END */
@@ -26,6 +27,7 @@ namespace inonego.Xeri.TEST.UI._Game
 {
     using inonego;
     using inonego.Xeri;
+    using inonego.Xeri.Serializable;
     using inonego.Xeri.UI;
 
     // ============================================================
@@ -105,6 +107,56 @@ namespace inonego.Xeri.TEST.UI._Game
             {
                 DisposeCount++;
                 throw new InvalidOperationException("injected owned handle failure");
+            }
+        }
+
+        // ============================================================
+        /// <summary>
+        /// Alpha 상태를 기록하는 테스트 Target.
+        /// </summary>
+        // ============================================================
+        private sealed class TestAlphaTarget : IPresentationAlphaTarget
+        {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 현재 Target 유효 여부.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool IsValid { get; set; } = true;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 현재 적용된 Alpha.
+            /// </summary>
+            // ------------------------------------------------------------
+            public float Alpha { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Alpha 적용 호출 수.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int SetCount { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 초기 Alpha로 테스트 Target을 생성한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public TestAlphaTarget(float alpha)
+            {
+                Alpha = alpha;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Alpha를 기록한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void SetAlpha(float alpha)
+            {
+                Alpha = alpha;
+                SetCount++;
             }
         }
 
@@ -593,6 +645,70 @@ namespace inonego.Xeri.TEST.UI._Game
 
             handle.Dispose();
             controller.Dispose();
+        }
+
+    #endregion
+
+    #region A-1: Alpha Modifier reactive 반영
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// 등록된 Modifier 내부 값 변경이 Presentation Alpha backend에 즉시 반영되는지 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationAlpha_Modifier상태변경_자동Backend반영()
+        {
+            var target = new TestAlphaTarget(1.0f);
+            var alpha = new PresentationAlpha(target);
+            var modifier = new NumericFModifier
+            (
+                NumericFOperation.MUL,
+                1.0f
+            );
+            var lease = alpha.AcquireModifier("a", modifier);
+
+            modifier.Value = 0.5f;
+
+            Assert.AreEqual(0.5f, alpha.Modified);
+            Assert.AreEqual(0.5f, target.Alpha);
+
+            lease.Dispose();
+
+            Assert.AreEqual(1.0f, alpha.Modified);
+            Assert.AreEqual(1.0f, target.Alpha);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// 다중 Target Alpha Modifier가 각 Target을 자동 갱신하고 Dispose 시 복원하는지 검증한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationAlphaModifier_다중Target_자동반영과Dispose복원()
+        {
+            var firstTarget = new TestAlphaTarget(1.0f);
+            var secondTarget = new TestAlphaTarget(1.0f);
+            var first = new PresentationAlpha(firstTarget);
+            var second = new PresentationAlpha(secondTarget);
+            var modifier = new PresentationAlphaModifier
+            (
+                "a",
+                NumericFOperation.MUL,
+                1.0f
+            );
+
+            modifier.Add(first);
+            modifier.Add(second);
+            modifier.Apply(0.25f);
+
+            Assert.AreEqual(0.25f, firstTarget.Alpha);
+            Assert.AreEqual(0.25f, secondTarget.Alpha);
+
+            modifier.Dispose();
+
+            Assert.AreEqual(1.0f, firstTarget.Alpha);
+            Assert.AreEqual(1.0f, secondTarget.Alpha);
         }
 
     #endregion
