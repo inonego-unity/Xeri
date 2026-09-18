@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XOrderedBase.cs
-수정일 : 2026-05-02
+수정일 : 2026-09-18
 
 # 설명
 항상 Order 오름차순으로 정렬된 직렬화 가능 컬렉션의 추상 기본 클래스.
-Pair(Order, Value) 정렬 리스트 + IReadOnlyList<Pair> + Find / Contains / 깊은 복제 수신을 제공한다.
+Pair(Order, Value) 정렬 리스트 + IReadOnlyList<Pair> + Find / Contains를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -23,8 +23,7 @@ namespace inonego.Xeri.Serializable
     // ========================================================================================
     [Serializable]
     public abstract class XOrderedBase<TOrder, TValue> :
-    IReadOnlyList<XOrderedBase<TOrder, TValue>.Pair>,
-    IDeepCloneableFrom<XOrderedBase<TOrder, TValue>>
+    IReadOnlyList<XOrderedBase<TOrder, TValue>.Pair>
     where TOrder : struct, IComparable<TOrder>
     where TValue : class
     {
@@ -215,33 +214,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// <br/> source의 정렬 리스트를 깊은 복제하여 this에 채운다.
-        /// <br/> Value가 IDeepCloneable&lt;TValue&gt;면 Clone()을 사용한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public virtual void CloneFrom(XOrderedBase<TOrder, TValue> source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            list.Clear();
-
-            foreach (var pair in source.list)
-            {
-                var value  = pair.Value;
-                var cloned = value is IDeepCloneable<TValue> cloneable ? cloneable.Clone() : value;
-
-                list.Add(new Pair(pair.Order, cloned));
-            }
-        }
-
-    #endregion
 
     }
 }

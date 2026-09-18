@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MValue.cs
-수정일 : 2026-05-08
+수정일 : 2026-09-18
 
 # 설명
 MValue<T> 와 4 개 구체 Modifier(BooleanModifier / NumericFModifier / NumericIModifier / StringModifier)의 핵심 기능 테스트.
@@ -8,8 +8,7 @@ MValue<T> 와 4 개 구체 Modifier(BooleanModifier / NumericFModifier / Numeric
 # 테스트 구성
  E: 기본 기능 (생성/Base 변경/암시적 변환/이벤트)
  M: 수정자 (Add/Remove/Clear/Order/InvokeOnModifiedChange)
- C: 복제 (CloneFrom 깊은 복제)
- D: Modifier 카탈로그 (Boolean/NumericF/NumericI/String/Lambda 동작 + DeepClone)
+ D: Modifier 카탈로그 (Boolean/NumericF/NumericI/String/Lambda 동작)
  X: 예외 처리 (키 없음/null 인자)
 ========================================================================= BLOCK_HEADER_END */
 
@@ -262,50 +261,6 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region C-1: CloneFrom 깊은 복제
-
-        [Test]
-        public void TEST_MValue_CloneFrom_깊은복제()
-        {
-            // Arrange
-            var source = new MValue<int>(10);
-            var add5   = new NumericIModifier(NumericIOperation.ADD, 5);
-
-            source.AddModifier("add5", add5);
-
-            var clone = new MValue<int>();
-            clone.CloneFrom(source);
-
-            // ------------------------------------------------------------
-            // 값 일치
-            // ------------------------------------------------------------
-            Assert.AreEqual(source.Base,     clone.Base);
-            Assert.AreEqual(source.Modified, clone.Modified);
-            Assert.AreEqual(source.Modifiers.Count, clone.Modifiers.Count);
-
-            // ------------------------------------------------------------
-            // modifier 인스턴스는 다른 객체여야 함(깊은 복제)
-            // ------------------------------------------------------------
-            ModifierEntry<int> srcPair   = source.Modifiers[0];
-            ModifierEntry<int> clonePair = clone.Modifiers[0];
-            Assert.AreNotSame(srcPair.Modifier, clonePair.Modifier);
-
-            // ------------------------------------------------------------------------
-            // source modifier 값 변경이 clone 에 영향 없음(cross-reference identity 검증)
-            // - source.add5.Value 를 100 으로 바꾸고 source 를 강제로 갱신해도 clone 은 그대로여야 한다.
-            // - clone 측 add5 사본은 별도 인스턴스이므로 100 이 아닌 5 가 적용되어야 한다.
-            // ------------------------------------------------------------------------
-            add5.Value = 100;
-
-            // source 측 갱신: 같은 키를 다시 set 해서 Refresh 트리거
-            source.RemoveModifier("add5");
-            source.AddModifier("add5", add5);
-
-            Assert.AreEqual(110, source.Modified);
-            Assert.AreEqual(15,  clone.Modified, "clone 의 add5 사본은 source 의 add5 변경에 영향받지 않아야 함");
-        }
-
-    #endregion
 
     #region D-1: BooleanModifier
 
@@ -413,66 +368,9 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(30, value.Modified);
         }
 
-        [Test]
-        public void TEST_MValue_LambdaModifier_DeepClone_람다_참조_복사()
-        {
-            var src   = new LambdaModifier<int>(x => x + 1);
-            var clone = ((IDeepCloneable<IModifier<int>>)src).Clone() as LambdaModifier<int>;
-
-            Assert.AreNotSame(src, clone);
-            Assert.AreSame(src.Lambda, clone.Lambda);
-            Assert.AreEqual(11, clone.Modify(10));
-        }
 
     #endregion
 
-    #region D-5: Modifier 깊은 복제
-
-        [Test]
-        public void TEST_MValue_Modifier_DeepClone_모든_타입()
-        {
-            // ------------------------------------------------------------
-            // BooleanModifier
-            // ------------------------------------------------------------
-            var b = new BooleanModifier(BooleanOperation.AND, true);
-            var bClone = ((IDeepCloneable<IModifier<bool>>)b).Clone() as BooleanModifier;
-
-            Assert.AreNotSame(b, bClone);
-            Assert.AreEqual(BooleanOperation.AND, bClone.Operation);
-            Assert.AreEqual(true,                 bClone.Value);
-
-            // ------------------------------------------------------------
-            // NumericFModifier
-            // ------------------------------------------------------------
-            var f = new NumericFModifier(NumericFOperation.MUL, 2.5f);
-            var fClone = ((IDeepCloneable<IModifier<float>>)f).Clone() as NumericFModifier;
-
-            Assert.AreNotSame(f, fClone);
-            Assert.AreEqual(NumericFOperation.MUL, fClone.Operation);
-            Assert.AreEqual(2.5f,                  fClone.Value);
-
-            // ------------------------------------------------------------
-            // NumericIModifier
-            // ------------------------------------------------------------
-            var i = new NumericIModifier(NumericIOperation.SUB, 7);
-            var iClone = ((IDeepCloneable<IModifier<int>>)i).Clone() as NumericIModifier;
-
-            Assert.AreNotSame(i, iClone);
-            Assert.AreEqual(NumericIOperation.SUB, iClone.Operation);
-            Assert.AreEqual(7,                     iClone.Value);
-
-            // ------------------------------------------------------------
-            // StringModifier
-            // ------------------------------------------------------------
-            var s = new StringModifier(StringOperation.SET, "hi");
-            var sClone = ((IDeepCloneable<IModifier<string>>)s).Clone() as StringModifier;
-
-            Assert.AreNotSame(s, sClone);
-            Assert.AreEqual(StringOperation.SET, sClone.Operation);
-            Assert.AreEqual("hi",                sClone.Value);
-        }
-
-    #endregion
 
     #region X-1: AddModifier 키 없음 예외
 
@@ -501,17 +399,6 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region X-3: CloneFrom null 예외
-
-        [Test]
-        public void TEST_MValue_CloneFrom_Null_ArgumentNullException()
-        {
-            var clone = new MValue<int>();
-
-            Assert.Throws<ArgumentNullException>(() => clone.CloneFrom(null));
-        }
-
-    #endregion
 
     }
 

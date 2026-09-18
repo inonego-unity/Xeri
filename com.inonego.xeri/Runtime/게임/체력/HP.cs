@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : HP.cs
-수정일 : 2026-05-07
+수정일 : 2026-09-18
 
 # 설명
 제너릭 체력(HP) 추상 클래스 및 관련 열거형·구조체 정의.
@@ -46,9 +46,7 @@ namespace inonego.Xeri.Game
     /// <br/> 내부 저장은 TNumeric, 외부 API 는 TValue 로 노출한다.
     /// </summary>
     // ===========================================================================
-    public abstract class HP<TNumeric, TValue>
-        : IHP<TValue>,
-          IDeepCloneableFrom<HP<TNumeric, TValue>>
+    public abstract class HP<TNumeric, TValue> : IHP<TValue>
     where TNumeric : struct, INumeric<TNumeric, TValue>
     {
 
@@ -174,24 +172,6 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-    #region 깊은 복사
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// source 의 데이터를 this 로 복사한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void CloneFrom(HP<TNumeric, TValue> source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException($"HP.CloneFrom()의 인자가 null입니다.");
-            }
-
-            (current, value, maxValue) = (source.current, source.value, source.maxValue);
-        }
-
-    #endregion
 
     #region 메서드
 

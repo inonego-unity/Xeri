@@ -79,10 +79,9 @@ modifier 내부 상태만 외부에서 바뀌었다면 해당 소유자가 `Refr
 
 일반 값 변경에서 강제 이벤트 API를 기본 경로로 사용하지 않습니다.
 
-## 복제와 직렬화
+## 직렬화
 
-`Value<T>`와 `MValue<T>`는 Xeri 깊은 복제 계약을 구현합니다.
-`IModifier<T>`도 `IDeepCloneable<IModifier<T>>`를 요구하므로 modifier를 포함한 값 그래프를 독립적으로 복제할 수 있는 구조를 전제로 합니다.
+Value 계열은 Unity 직렬화 가능한 상태를 보관합니다.
 
 ## 확장 지점
 

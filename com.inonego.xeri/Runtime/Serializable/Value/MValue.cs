@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValue.cs
-수정일 : 2026-08-31
+수정일 : 2026-09-18
 
 # 설명
 Order 순서로 적용되는 IModifier<T> 목록을 가지는 Modifiable Value.
@@ -21,7 +21,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class MValue<T> : Value<T>, IMValue<T>, IDeepCloneable<MValue<T>>
+    public class MValue<T> : Value<T>, IMValue<T>
     {
 
     #region 필드
@@ -234,35 +234,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 빈 새 인스턴스를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public new MValue<T> @new() => new MValue<T>();
-
-        // ----------------------------------------------------------------------------------
-        /// <summary>
-        /// source 의 Base, cached, modifiers 를 모두 깊은 복제하여 this 에 채운다.
-        /// </summary>
-        // ----------------------------------------------------------------------------------
-        public void CloneFrom(MValue<T> source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source), "MValue<T>.CloneFrom()의 인자가 null입니다.");
-            }
-
-            base.CloneFrom(source);
-
-            cached = source.cached;
-
-            modifiers.CloneFrom(source.modifiers);
-        }
-
-    #endregion
 
     #region ModifierEntryView
 

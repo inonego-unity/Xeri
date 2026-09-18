@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XOrdered.cs
-수정일 : 2026-07-28
+수정일 : 2026-09-18
 
 # 설명
 항상 Order 오름차순으로 정렬된 직렬화 가능 컬렉션의 두 변형.
@@ -24,7 +24,6 @@ namespace inonego.Xeri.Serializable
     [Serializable]
     public class XOrdered<TOrder, TValue> :
     XOrderedBase<TOrder, TValue>,
-    IDeepCloneable<XOrdered<TOrder, TValue>>
     where TOrder : struct, IComparable<TOrder>
     where TValue : class
     {
@@ -60,23 +59,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 복제용 빈 인스턴스를 생성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public XOrdered<TOrder, TValue> @new() => new();
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// source의 정렬 리스트를 깊은 복제하여 this에 채운다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void CloneFrom(XOrdered<TOrder, TValue> source) => base.CloneFrom(source);
-
-    #endregion
 
     }
 
@@ -91,7 +73,6 @@ namespace inonego.Xeri.Serializable
     public class XOrdered<TOrder, TKey, TValue> :
     XOrderedBase<TOrder, TValue>,
     IReadOnlyDictionary<TKey, TValue>,
-    IDeepCloneable<XOrdered<TOrder, TKey, TValue>>
     where TOrder : struct, IComparable<TOrder>
     where TKey   : IEquatable<TKey>
     where TValue : class
@@ -312,67 +293,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 복제용 빈 인스턴스를 생성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public XOrdered<TOrder, TKey, TValue> @new() => new();
-
-        // ----------------------------------------------------------------------------------------------
-        /// <summary>
-        /// <br/> source의 list와 dictionary를 깊은 복제하여 this에 채운다.
-        /// <br/> reference 단위 cache를 사용해 동일 Value 참조가 여러 번 등장해도 단 한 번만 Clone()되며,
-        /// <br/> 결과적으로 list와 dictionary가 동일 복제 인스턴스(cross-reference identity)를 가리킨다.
-        /// </summary>
-        // ----------------------------------------------------------------------------------------------
-        public void CloneFrom(XOrdered<TOrder, TKey, TValue> source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            list.Clear();
-            dictionary.Clear();
-
-            var cloneCache = new Dictionary<TValue, TValue>(ReferenceEqualityComparer<TValue>.Instance);
-
-            foreach (var pair in source.list)
-            {
-                list.Add(new Pair(pair.Order, CloneOnce(pair.Value, cloneCache)));
-            }
-
-            foreach (var (key, original) in source.dictionary)
-            {
-                dictionary.Add(key, CloneOnce(original, cloneCache));
-            }
-        }
-
-        // --------------------------------------------------------------------------------------------
-        /// <summary>
-        /// reference 단위 cache로 단 한 번만 Clone하고, 동일 reference 재방문 시 캐시된 복제를 반환한다.
-        /// </summary>
-        // --------------------------------------------------------------------------------------------
-        private static TValue CloneOnce(TValue value, Dictionary<TValue, TValue> cache)
-        {
-            if (value == null) return null;
-
-            if (cache.TryGetValue(value, out var cached))
-            {
-                return cached;
-            }
-
-            var cloned = value is IDeepCloneable<TValue> cloneable ? cloneable.Clone() : value;
-
-            cache[value] = cloned;
-
-            return cloned;
-        }
-
-    #endregion
 
     }
 }

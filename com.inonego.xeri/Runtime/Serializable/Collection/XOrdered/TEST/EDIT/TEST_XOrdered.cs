@@ -1,19 +1,19 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XOrdered.cs
-수정일 : 2026-05-08
+수정일 : 2026-09-18
 
 # 설명
 XOrdered<TOrder, TValue> 및 XOrdered<TOrder, TKey, TValue>의 핵심 기능 테스트.
-Add / Remove / Contains / Clear / 중복 Order / 인덱서 / Deconstruct / IReadOnlyList / IReadOnlyDictionary / AsKeyed / 직렬화 / 복제.
+Add / Remove / Contains / Clear / 중복 Order / 인덱서 / Deconstruct / IReadOnlyList / IReadOnlyDictionary / AsKeyed / 직렬화.
 
 # 테스트 구성
  E:  XOrdered<TOrder, TValue> 기본 기능 (Add/Remove/Contains/Clear/중복 Order/인덱서/Deconstruct)
  I:  XOrdered<TOrder, TValue> 인터페이스 (IReadOnlyList)
- S:  XOrdered<TOrder, TValue> 직렬화/복제
+ S:  XOrdered<TOrder, TValue> 직렬화
  P:  XOrdered<TOrder, TValue> 스트레스 (대량 데이터)
  KE: XOrdered<TOrder, TKey, TValue> 기본 기능 (Add/Remove/ContainsKey/TryGetValue/인덱서/AsKeyed/Deconstruct/중복 Key 예외)
  KI: XOrdered<TOrder, TKey, TValue> 인터페이스 (IReadOnlyList / IReadOnlyDictionary)
- KS: XOrdered<TOrder, TKey, TValue> 직렬화/복제 (cross-reference 보존, 중복 Value 단일 복제)
+ KS: XOrdered<TOrder, TKey, TValue> 직렬화
  KP: XOrdered<TOrder, TKey, TValue> 스트레스 (대량 데이터)
 ========================================================================= BLOCK_HEADER_END */
 
@@ -78,32 +78,6 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
             }
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// <br/> 깊은 복제(IDeepCloneable)를 구현한 테스트용 Value 클래스.
-        /// <br/> Clone 시 내용 복사 + 새 인스턴스 생성을 검증하는 데 사용.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Serializable]
-        private class TestCloneableElement : IDeepCloneable<TestCloneableElement>
-        {
-            [SerializeField]
-            public string Name;
-
-            public TestCloneableElement() {}
-
-            public TestCloneableElement(string name)
-            {
-                Name = name;
-            }
-
-            public TestCloneableElement @new() => new();
-
-            public void CloneFrom(TestCloneableElement source)
-            {
-                Name = source.Name;
-            }
-        }
 
     #endregion
 
@@ -286,34 +260,6 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
 
     #endregion
 
-    #region S-2: Clone
-
-        [Test]
-        public void TEST_XOrdered_Clone_독립_인스턴스()
-        {
-            var original = new XOrdered<int, TestElement>();
-
-            original.Add(10, new TestElement("First"));
-            original.Add(20, new TestElement("Second"));
-            original.Add(30, new TestElement("Third"));
-
-            var cloned = original.Clone();
-
-            Assert.AreEqual(original.Count, cloned.Count);
-
-            for (int i = 0; i < original.Count; i++)
-            {
-                Assert.AreEqual(original[i].Value.Name, cloned[i].Value.Name);
-                Assert.AreEqual(original[i].Order,      cloned[i].Order);
-            }
-
-            cloned.Add(40, new TestElement("Fourth"));
-
-            Assert.AreEqual(4, cloned.Count);
-            Assert.AreEqual(3, original.Count);
-        }
-
-    #endregion
 
     #region P-1: 대량 데이터 스트레스
 
@@ -681,97 +627,8 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
 
     #endregion
 
-    #region KS-2: Clone 기본
 
-        [Test]
-        public void TEST_XOrdered_Keyed_Clone_독립_인스턴스()
-        {
-            var original = new XOrdered<int, string, TestElement>();
 
-            original.Add(10, "key1", new TestElement("First"));
-            original.Add(20, "key2", new TestElement("Second"));
-            original.Add(30, "key3", new TestElement("Third"));
-
-            var cloned = original.Clone();
-
-            Assert.AreEqual(original.Count, cloned.Count);
-
-            for (int i = 0; i < original.Count; i++)
-            {
-                Assert.AreEqual(original[i].Value.Name, cloned[i].Value.Name);
-                Assert.AreEqual(original[i].Order,      cloned[i].Order);
-            }
-
-            Assert.IsTrue(cloned.ContainsKey("key1"));
-            Assert.IsTrue(cloned.ContainsKey("key2"));
-            Assert.IsTrue(cloned.ContainsKey("key3"));
-            Assert.AreEqual("First",  cloned["key1"].Name);
-            Assert.AreEqual("Second", cloned["key2"].Name);
-            Assert.AreEqual("Third",  cloned["key3"].Name);
-
-            cloned.Add(40, "key4", new TestElement("Fourth"));
-
-            Assert.AreEqual(4, cloned.Count);
-            Assert.AreEqual(3, original.Count);
-            Assert.IsTrue(cloned.ContainsKey("key4"));
-            Assert.IsFalse(original.ContainsKey("key4"));
-        }
-
-    #endregion
-
-    #region KS-3: Clone CrossReference 보존
-
-        [Test]
-        public void TEST_XOrdered_Keyed_Clone_CrossReference_보존()
-        {
-            var original = new XOrdered<int, string, TestCloneableElement>();
-
-            original.Add(10, "key1", new TestCloneableElement("First"));
-            original.Add(20, "key2", new TestCloneableElement("Second"));
-
-            var cloned = original.Clone();
-
-            // 핵심: cloned 안에서 list[i].Value와 dictionary[key]는 동일 인스턴스
-            Assert.AreSame(cloned[0].Value, cloned["key1"]);
-            Assert.AreSame(cloned[1].Value, cloned["key2"]);
-
-            // 깊은 복제: 원본과 복제본은 다른 인스턴스
-            Assert.AreNotSame(original[0].Value, cloned[0].Value);
-            Assert.AreNotSame(original[1].Value, cloned[1].Value);
-
-            // 내용은 동일
-            Assert.AreEqual("First",  cloned[0].Value.Name);
-            Assert.AreEqual("Second", cloned[1].Value.Name);
-        }
-
-    #endregion
-
-    #region KS-4: Clone 중복 Value 단일 복제
-
-        [Test]
-        public void TEST_XOrdered_Keyed_Clone_중복_Value_단일_복제()
-        {
-            var shared = new TestCloneableElement("Shared");
-
-            var original = new XOrdered<int, string, TestCloneableElement>();
-
-            original.Add(10, "key1", shared);
-            original.Add(20, "key2", shared);
-
-            var cloned = original.Clone();
-
-            // 동일 reference가 두 번 등장해도 cloned에서는 단일 복제 인스턴스로 통일됨
-            Assert.AreSame(cloned[0].Value, cloned[1].Value);
-            Assert.AreSame(cloned[0].Value, cloned["key1"]);
-            Assert.AreSame(cloned[0].Value, cloned["key2"]);
-
-            // 원본과는 다른 인스턴스
-            Assert.AreNotSame(shared, cloned[0].Value);
-
-            Assert.AreEqual("Shared", cloned[0].Value.Name);
-        }
-
-    #endregion
 
     #region KP-1: 대량 데이터 스트레스
 

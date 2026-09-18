@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : _LambdaModifier.cs
-수정일 : 2026-05-02
+수정일 : 2026-09-18
 
 # 설명
 임의의 Func<T, T> 람다를 적용하는 IModifier<T> 제네릭 구현.
@@ -55,24 +55,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        public IModifier<T> @new() => new LambdaModifier<T>();
-
-        // -----------------------------------------------------------------
-        /// <summary>
-        /// source 의 람다 참조를 그대로 복사한다(얕은 복제).
-        /// </summary>
-        // -----------------------------------------------------------------
-        public void CloneFrom(IModifier<T> source)
-        {
-            if (source is LambdaModifier<T> other)
-            {
-                lambda = other.lambda;
-            }
-        }
-
-    #endregion
 
     }
 }

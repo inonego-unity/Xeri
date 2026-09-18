@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : StringModifier.cs
-수정일 : 2026-05-02
+수정일 : 2026-09-18
 
 # 설명
 string 값에 SET 연산을 적용하는 IModifier<string> 구현.
@@ -81,20 +81,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        public IModifier<string> @new() => new StringModifier();
-
-        public void CloneFrom(IModifier<string> source)
-        {
-            if (source is StringModifier other)
-            {
-                operation = other.operation;
-                value     = other.value;
-            }
-        }
-
-    #endregion
 
     }
 }

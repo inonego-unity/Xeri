@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BooleanModifier.cs
-수정일 : 2026-05-02
+수정일 : 2026-09-18
 
 # 설명
 bool 값에 SET / AND / OR / XOR 논리 연산을 적용하는 IModifier<bool> 구현.
@@ -91,20 +91,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        public IModifier<bool> @new() => new BooleanModifier();
-
-        public void CloneFrom(IModifier<bool> source)
-        {
-            if (source is BooleanModifier other)
-            {
-                operation = other.operation;
-                value     = other.value;
-            }
-        }
-
-    #endregion
 
     }
 }

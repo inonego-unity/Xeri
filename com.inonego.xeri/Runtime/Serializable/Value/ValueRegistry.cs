@@ -1,13 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ValueRegistry.cs
-수정일 : 2026-08-31
+수정일 : 2026-09-18
 
 # 설명
 이름 붙은 string/int/float/flag 값을 하나의 직렬화 가능한 Registry로 관리하고 runtime 변경을 알린다.
 
 # 제약사항
 하나의 Key는 하나의 값 타입에만 속하며 구조화된 도메인 State를 대신하지 않는다.
-CloneFrom은 상태 복제 과정에서 변경 이벤트를 발행하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -24,7 +23,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class ValueRegistry : IDeepCloneable<ValueRegistry>
+    public class ValueRegistry
     {
 
     #region 필드
@@ -334,55 +333,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 빈 ValueRegistry 인스턴스를 생성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public ValueRegistry @new() => new ValueRegistry();
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// source의 모든 값을 변경 알림 없이 복제한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void CloneFrom(ValueRegistry source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            // 복제는 runtime mutation이 아니므로 공개 Clear 경로를 거치지 않는다.
-            valSs.Clear();
-            valIs.Clear();
-            valFs.Clear();
-            valFlags.Clear();
-
-            foreach (var (key, value) in source.valSs)
-            {
-                valSs.Add(key, value);
-            }
-
-            foreach (var (key, value) in source.valIs)
-            {
-                valIs.Add(key, value);
-            }
-
-            foreach (var (key, value) in source.valFs)
-            {
-                valFs.Add(key, value);
-            }
-
-            foreach (var key in source.valFlags)
-            {
-                valFlags.Add(key);
-            }
-        }
-
-    #endregion
 
     }
 }

@@ -1,10 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : IModifier.cs
-수정일 : 2026-05-02
+수정일 : 2026-09-18
 
 # 설명
 값을 수정하는 수정자 인터페이스.
-IDeepCloneable<IModifier<T>>를 상속하여 깊은 복제를 지원한다.
 ========================================================================= BLOCK_HEADER_END */
 
 namespace inonego.Xeri.Serializable
@@ -14,7 +13,7 @@ namespace inonego.Xeri.Serializable
     /// 값을 수정하는 수정자 인터페이스.
     /// </summary>
     // ============================================================
-    public interface IModifier<T> : IDeepCloneable<IModifier<T>>
+    public interface IModifier<T>
     {
         // ------------------------------------------------------------
         /// <summary>

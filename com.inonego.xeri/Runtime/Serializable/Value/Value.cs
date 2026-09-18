@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Value.cs
-수정일 : 2026-04-29
+수정일 : 2026-09-18
 
 # 설명
 단일 값을 관리하며 변경 이벤트를 발행하는 제네릭 클래스.
@@ -23,7 +23,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class Value<T> : IValue<T>, IDeepCloneable<Value<T>>
+    public class Value<T> : IValue<T>
     {
         protected static readonly EqualityComparer<T> comparer = EqualityComparer<T>.Default;
 
@@ -110,31 +110,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 빈 새 인스턴스를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public Value<T> @new() => new Value<T>();
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// source의 값을 this에 복사한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void CloneFrom(Value<T> source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException($"Value<T>.CloneFrom()의 인자가 null입니다.");
-            }
-
-            @base = source.@base;
-        }
-
-    #endregion
 
     #region 암시적 변환
 

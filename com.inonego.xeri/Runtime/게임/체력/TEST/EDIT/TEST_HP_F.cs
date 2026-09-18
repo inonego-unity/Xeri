@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_HP_F.cs
-수정일 : 2026-05-08
+수정일 : 2026-09-18
 
 # 설명
 HP_F (float 기반 체력) 유닛 테스트.
@@ -9,7 +9,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 # 테스트 구성
  E: 기본 기능 (생성/상태 전환/힐·데미지/MaxValue/Ratio)
  V: 이벤트 (OnValueChange/OnMaxValueChange/OnStateChange/OnHeal/OnDamage)
- U: 유틸리티 (CloneFrom / CalculateApplyAmount)
+ U: 유틸리티 (CalculateApplyAmount)
 ========================================================================= BLOCK_HEADER_END */
 
 using NUnit;
@@ -282,29 +282,8 @@ namespace inonego.Xeri.TEST.Game._HP
 
     #endregion
 
-    #region U-1: CloneFrom
 
-        [Test]
-        public void TEST_HP_F_CloneFrom_상태_복사()
-        {
-            var original = new HP_F();
-            original.MaxValue = 100f;
-            original.MakeAlive();
-            original.Value = 75f;
-
-            var clone = original.@new();
-            clone.CloneFrom(original);
-
-            Assert.AreEqual(original.Current,  clone.Current);
-            Assert.AreEqual(original.Value,    clone.Value);
-            Assert.AreEqual(original.MaxValue, clone.MaxValue);
-            Assert.AreEqual(original.Ratio,    clone.Ratio);
-            Assert.AreNotSame(original, clone);
-        }
-
-    #endregion
-
-    #region U-2: CalculateApplyAmount
+    #region U-1: CalculateApplyAmount
 
         [Test]
         public void TEST_HP_F_CalculateApplyAmount_비율_타입별()

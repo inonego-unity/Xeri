@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : NumericFModifier.cs
-수정일 : 2026-05-02
+수정일 : 2026-09-18
 
 # 설명
 float 값에 SET / ADD / SUB / MUL / DIV 수치 연산을 적용하는 IModifier<float> 구현.
@@ -85,20 +85,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        public IModifier<float> @new() => new NumericFModifier();
-
-        public void CloneFrom(IModifier<float> source)
-        {
-            if (source is NumericFModifier other)
-            {
-                operation = other.operation;
-                value     = other.value;
-            }
-        }
-
-    #endregion
 
     }
 }

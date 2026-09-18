@@ -62,10 +62,6 @@ Runtime collection 복원
 
 정렬 순서가 필요하면 `AsKeyed()` 또는 기본 순회를 사용합니다. `Keys`와 `Values`는 내부 dictionary 순서이므로 정렬 순서를 의미하지 않습니다.
 
-## 복제와 참조 동일성
-
-Key 기반 `XOrdered`의 깊은 복제는 reference cache를 사용해 list와 dictionary가 같은 복제 인스턴스를 계속 가리키도록 합니다.
-
 ## 선택 기준
 
 - 일반 key/value lookup + Unity 직렬화가 필요하면 `XDictionary_*`를 사용합니다.

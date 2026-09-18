@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Entity.cs
-수정일 : 2026-07-29
+수정일 : 2026-09-18
 
 # 설명
 EntityBase 추상 클래스 유닛 테스트.
@@ -10,7 +10,6 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
 # 테스트 구성
  E: 기본 기능 (생성/HP 노출/IReadOnlyEntity 노출)
  S: 스폰 상태 (자동 디스폰/제거 시 HP 보존/키 자동 처리)
- C: 복제 (CloneFrom)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -55,16 +54,6 @@ namespace inonego.Xeri.TEST.Game._Entity
             public HP_I       InternalHP    => hp;
             public Value<int> InternalGroup => group;
 
-            // 자식이 자기 데이터(HP·Group) 깊은 복제 책임 — 베이스는 키·스폰만 처리
-            public override void CloneFrom(EntityBase source)
-            {
-                base.CloneFrom(source);
-
-                if (source is TestEntity src)
-                {
-                    group.CloneFrom(src.group);
-                }
-            }
         }
 
         // ------------------------------------------------------------
@@ -208,25 +197,6 @@ namespace inonego.Xeri.TEST.Game._Entity
 
     #endregion
 
-    #region C-1: CloneFrom 깊은 복제
-
-        [Test]
-        public void TEST_Entity_CloneFrom_Group_깊은_복제_미스폰()
-        {
-            var src = new TestEntity();
-            src.InternalGroup.Base = 4;
-
-            var clone = new TestEntity();
-            clone.CloneFrom(src);
-
-            Assert.AreEqual(src.Group.Base, clone.Group.Base);
-            Assert.AreNotSame(src.Group, clone.Group);
-
-            // CloneFrom은 Registry 실행 상태를 복제하지 않는다.
-            Assert.AreEqual(SpawnState.Despawned, clone.SpawnState);
-        }
-
-    #endregion
 
     }
 

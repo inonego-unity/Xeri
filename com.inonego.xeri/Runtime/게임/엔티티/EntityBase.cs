@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntityBase.cs
-수정일 : 2026-08-29
+수정일 : 2026-09-18
 
 # 설명
 엔티티 추상 베이스 클래스.
@@ -23,7 +23,7 @@ namespace inonego.Xeri.Game
     /// </summary>
     // ============================================================
     [Serializable]
-    public abstract class EntityBase : IEntity, IDeepCloneableFrom<EntityBase>
+    public abstract class EntityBase : IEntity
     {
 
     #region 키 설정
@@ -335,35 +335,6 @@ namespace inonego.Xeri.Game
 
     #endregion
 
-    #region 깊은 복사
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// 파생 클래스의 영속 데이터 복제 전에 Registry 소유 상태를 초기화한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        public virtual void CloneFrom(EntityBase source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            if (spawnState != SpawnState.Despawned)
-            {
-                throw new InvalidOperationException
-                (
-                    $"Despawned 상태의 Entity에만 복제할 수 있습니다. 현재 상태: {spawnState}"
-                );
-            }
-
-            // 독립 복제 객체가 원본 Registry의 key와 콜백을 소유하지 않도록 런타임 상태를 초기화한다.
-            ClearKey();
-            spawnState          = SpawnState.Despawned;
-            despawnFromRegistry = null;
-        }
-
-    #endregion
 
     #region 이벤트 핸들러
 

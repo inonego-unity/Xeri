@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : RangeValue.cs
-수정일 : 2026-04-29
+수정일 : 2026-09-18
 
 # 설명
 값을 [Min, Max] 범위로 제한해 관리하는 클래스.
@@ -23,7 +23,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class RangeValue<T> : Value<T>, IRangeValue<T>, IDeepCloneable<RangeValue<T>>
+    public class RangeValue<T> : Value<T>, IRangeValue<T>
     where T : struct, IComparable<T>
     {
 
@@ -117,33 +117,6 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 복제
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 빈 새 인스턴스를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public new RangeValue<T> @new() => new RangeValue<T>();
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// source의 값과 범위를 this에 복사한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void CloneFrom(RangeValue<T> source)
-        {
-            if (source == null)
-            {
-                throw new ArgumentNullException($"RangeValue<T>.CloneFrom()의 인자가 null입니다.");
-            }
-
-            base.CloneFrom(source);
-
-            range.CloneFrom(source.range);
-        }
-
-    #endregion
 
     #region 암시적 변환
 
