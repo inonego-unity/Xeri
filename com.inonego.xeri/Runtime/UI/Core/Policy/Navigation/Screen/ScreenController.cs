@@ -448,7 +448,7 @@ namespace inonego.Xeri.UI
 
                 driver.SetInteractable(false);
                 session.Alpha = driver.Alpha;
-                session.Alpha.Apply(0.0f);
+                session.Alpha.Set(0.0f);
             }
             catch (Exception exception)
             {
@@ -632,7 +632,7 @@ namespace inonego.Xeri.UI
 
                     try
                     {
-                        session.Alpha.Apply(1.0f);
+                        session.Alpha.Set(1.0f);
                     }
                     catch (Exception applyException)
                     {
@@ -666,7 +666,7 @@ namespace inonego.Xeri.UI
 
             try
             {
-                session.Alpha.Apply(1.0f);
+                session.Alpha.Set(1.0f);
             }
             catch (Exception exception)
             {
@@ -819,7 +819,7 @@ namespace inonego.Xeri.UI
             {
                 try
                 {
-                    session.Alpha.Apply(0.0f);
+                    session.Alpha.Set(0.0f);
                 }
                 catch (Exception exception)
                 {
@@ -848,7 +848,7 @@ namespace inonego.Xeri.UI
 
                 try
                 {
-                    session.Alpha.Apply(0.0f);
+                    session.Alpha.Set(0.0f);
                 }
                 catch (Exception applyException)
                 {
@@ -897,7 +897,7 @@ namespace inonego.Xeri.UI
 
                     try
                     {
-                        session.Alpha.Apply(0.0f);
+                        session.Alpha.Set(0.0f);
                     }
                     catch (Exception applyException)
                     {
@@ -1218,7 +1218,7 @@ namespace inonego.Xeri.UI
             try
             {
                 session.Resources.Instance.Driver.SetInteractable(false);
-                session.Alpha.Apply(0.0f);
+                session.Alpha.Set(0.0f);
             }
             catch (Exception exception)
             {

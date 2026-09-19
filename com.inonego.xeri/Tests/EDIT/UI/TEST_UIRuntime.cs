@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UIRuntime.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-19
 
 # 설명
 UIRuntime의 혼합 Layer Profile, 롤백, Scene 중복 구성과 초기화·종료 실패 정리를 검증한다.
@@ -242,6 +242,7 @@ namespace inonego.Xeri.TEST.UI._Game
             /// </summary>
             // ------------------------------------------------------------
             public PresentationVisibility Visibility { get; }
+
 
             // ------------------------------------------------------------
             /// <summary>

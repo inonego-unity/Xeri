@@ -2,7 +2,7 @@
 파일명 : PresentationTransitionParams.cs
 수정일 : 2026-09-17
 # 설명
-Presentation Transition Target과 시작·종료 값, 시간 정책을 불변 호출 인자로 묶는다.
+float 값 Setter와 시작·종료 값, 시간 정책을 Presentation Transition 호출 인자로 묶는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -28,7 +28,7 @@ namespace inonego.Xeri.UI
         /// 진행 값을 적용할 Target.
         /// </summary>
         // ------------------------------------------------------------
-        public IPresentationTransitionTarget Target { get; }
+        public IValueSetter<float> Target { get; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -69,7 +69,7 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         public PresentationTransitionParams
         (
-            IPresentationTransitionTarget target,
+            IValueSetter<float> target,
             float startValue,
             float endValue,
             float duration,

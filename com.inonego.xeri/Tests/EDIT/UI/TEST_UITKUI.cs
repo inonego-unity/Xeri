@@ -141,7 +141,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 Action<Exception> onFailed
             )
             {
-                parameters.Target.Apply(parameters.EndValue);
+                parameters.Target.Set(parameters.EndValue);
                 var handle = new PresentationTransitionHandle(null);
                 handle.Complete();
                 onCompleted?.Invoke();
@@ -622,7 +622,7 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.AreEqual(0.25f, driver.Alpha.Base);
 
             driver.Visibility.Set(true);
-            driver.Alpha.Apply(0.75f);
+            driver.Alpha.Set(0.75f);
 
             Assert.IsTrue(driver.Visibility.Base);
             Assert.AreEqual(0.75f, driver.Alpha.Base);
@@ -646,7 +646,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
             screenDriver.Visibility.Set(false);
             screenDriver.SetInteractable(false);
-            screenDriver.Alpha.Apply(0.25f);
+            screenDriver.Alpha.Set(0.25f);
             modalDriver.SetTop(true);
 
             Assert.AreEqual(DisplayStyle.None, screen.style.display.value);

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PresentationHandles.cs
-수정일 : 2026-09-18
+수정일 : 2026-09-19
 
 # 설명
 Modal·Drag Visual·Alpha·Visibility·Overlay의 해제와 UGUI 초기 표시 계약을 검증한다.
@@ -666,49 +666,82 @@ namespace inonego.Xeri.TEST.UI._Game
                 NumericFOperation.MUL,
                 1.0f
             );
-            var lease = alpha.AcquireModifier("a", modifier);
+            alpha.AddModifier("a", modifier);
 
             modifier.Value = 0.5f;
 
             Assert.AreEqual(0.5f, alpha.Modified);
             Assert.AreEqual(0.5f, target.Alpha);
 
-            lease.Dispose();
+            Assert.IsTrue(alpha.RemoveModifier("a"));
 
             Assert.AreEqual(1.0f, alpha.Modified);
             Assert.AreEqual(1.0f, target.Alpha);
         }
 
-        // --------------------------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 다중 Target Alpha Modifier가 각 Target을 자동 갱신하고 Dispose 시 복원하는지 검증한다.
+        /// <br/> Composite Alpha의 Base·Modified 결과를 계산한다.
+        /// <br/> 계산 결과가 child local Modified와 곱셈 합성되는지 검증한다.
         /// </summary>
-        // --------------------------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
-        public void TEST_PresentationAlphaModifier_다중Target_자동반영과Dispose복원()
+        public void TEST_PresentationAlpha_Composite_BaseModified와ChildModified_곱셈합성()
         {
-            var firstTarget = new TestAlphaTarget(1.0f);
-            var secondTarget = new TestAlphaTarget(1.0f);
+            var firstTarget = new TestAlphaTarget(0.5f);
+            var secondTarget = new TestAlphaTarget(0.5f);
             var first = new PresentationAlpha(firstTarget);
             var second = new PresentationAlpha(secondTarget);
-            var modifier = new PresentationAlphaModifier
+            var childModifier = new NumericFModifier
             (
-                "a",
                 NumericFOperation.MUL,
-                1.0f
+                0.5f
+            );
+            var groupModifier = new NumericFModifier
+            (
+                NumericFOperation.MUL,
+                0.5f
+            );
+            var group = new PresentationGroup
+            (
+                new IPresentation[]
+                {
+                    new Presentation(first),
+                    new Presentation(second),
+                }
             );
 
-            modifier.Add(first);
-            modifier.Add(second);
-            modifier.Apply(0.25f);
+            first.AddModifier("child", childModifier);
+            group.Alpha.Set(0.8f);
+            group.Alpha.AddModifier("fade", groupModifier);
+            group.Apply();
 
-            Assert.AreEqual(0.25f, firstTarget.Alpha);
-            Assert.AreEqual(0.25f, secondTarget.Alpha);
+            Assert.AreEqual(0.8f, group.Alpha.Base);
+            Assert.AreEqual(0.4f, group.Alpha.Modified);
+            Assert.AreEqual(0.5f, first.Base);
+            Assert.AreEqual(0.25f, first.Modified);
+            Assert.AreEqual(1, first.Modifiers.Count);
+            Assert.AreEqual(0.1f, firstTarget.Alpha);
+            Assert.AreEqual(0.2f, secondTarget.Alpha);
 
-            modifier.Dispose();
+            Assert.IsTrue(group.Alpha.RemoveModifier("fade"));
 
-            Assert.AreEqual(1.0f, firstTarget.Alpha);
-            Assert.AreEqual(1.0f, secondTarget.Alpha);
+            Assert.AreEqual(0.8f, group.Alpha.Modified);
+            Assert.AreEqual(0.1f, firstTarget.Alpha);
+            Assert.AreEqual(0.2f, secondTarget.Alpha);
+
+            group.Apply();
+
+            Assert.AreEqual(0.2f, firstTarget.Alpha);
+            Assert.AreEqual(0.4f, secondTarget.Alpha);
+            Assert.AreEqual(0.5f, first.Base);
+            Assert.AreEqual(0.25f, first.Modified);
+            Assert.AreEqual(1, first.Modifiers.Count);
+
+            group.Clear();
+
+            Assert.AreEqual(0.2f, firstTarget.Alpha);
+            Assert.AreEqual(0.4f, secondTarget.Alpha);
         }
 
     #endregion
@@ -726,16 +759,24 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var target = new TestVisibilityTarget(true);
             var visibility = new PresentationVisibility(target);
-            var firstHide = visibility.AcquireModifier(false);
-            var secondHide = visibility.AcquireModifier(false);
+            visibility.AddModifier
+            (
+                "first",
+                new BooleanModifier(BooleanOperation.AND, false)
+            );
+            visibility.AddModifier
+            (
+                "second",
+                new BooleanModifier(BooleanOperation.AND, false)
+            );
 
             Assert.IsFalse(target.IsVisible);
 
-            firstHide.Dispose();
+            Assert.IsTrue(visibility.RemoveModifier("first"));
 
             Assert.IsFalse(target.IsVisible);
 
-            secondHide.Dispose();
+            Assert.IsTrue(visibility.RemoveModifier("second"));
 
             Assert.IsTrue(target.IsVisible);
             Assert.IsTrue(visibility.Modified);
@@ -752,7 +793,11 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             var target = new TestVisibilityTarget(true);
             var visibility = new PresentationVisibility(target);
-            var hide = visibility.AcquireModifier(false);
+            visibility.AddModifier
+            (
+                "hide",
+                new BooleanModifier(BooleanOperation.AND, false)
+            );
 
             visibility.Set(false);
             visibility.Set(true);
@@ -760,20 +805,20 @@ namespace inonego.Xeri.TEST.UI._Game
             Assert.IsFalse(target.IsVisible);
             Assert.IsFalse(visibility.Modified);
 
-            hide.Dispose();
+            Assert.IsTrue(visibility.RemoveModifier("hide"));
 
             Assert.IsTrue(target.IsVisible);
             Assert.IsTrue(visibility.Modified);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 서로 다른 Group이 같은 Presentation을 숨겨도
-        /// <br/> 각 Group Lease가 모두 해제될 때까지 숨김을 유지한다.
+        /// <br/> 같은 Presentation이 서로 다른 Tree에 동시에 포함될 수 있다.
+        /// <br/> backend 결과는 마지막으로 Apply한 Tree 경로를 기준으로 계산한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
-        public void TEST_PresentationGroup_겹친GroupHide_모든Lease해제후복원()
+        public void TEST_PresentationGroup_여러Tree_마지막ApplyTree기준으로합성()
         {
             var target = new TestVisibilityTarget(true);
             var presentation = new Presentation(visibilityTarget: target);
@@ -791,14 +836,209 @@ namespace inonego.Xeri.TEST.UI._Game
                     presentation,
                 }
             );
-            var firstHide = firstGroup.AcquireVisibilityModifier(false);
-            var secondHide = secondGroup.AcquireVisibilityModifier(false);
+            firstGroup.Visibility.Set(false);
+            secondGroup.Visibility.Set(true);
 
-            firstHide.Dispose();
+            firstGroup.Apply();
             Assert.IsFalse(target.IsVisible);
 
-            secondHide.Dispose();
+            secondGroup.Apply();
             Assert.IsTrue(target.IsVisible);
+
+            firstGroup.Apply();
+            Assert.IsFalse(target.IsVisible);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> Group Apply는 현재 Member만 순회한다.
+        /// <br/> topology 변경 자체는 backend를 수정하지 않는지 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationGroup_TreeApply_GroupModified_현재Member만합성()
+        {
+            var firstTarget = new TestAlphaTarget(1.0f);
+            var secondTarget = new TestAlphaTarget(1.0f);
+            var first = new Presentation(alphaTarget: firstTarget);
+            var second = new Presentation(alphaTarget: secondTarget);
+            var group = new PresentationGroup
+            (
+                new[]
+                {
+                    first,
+                }
+            );
+            var modifier = new NumericFModifier(NumericFOperation.MUL, 0.5f);
+
+            group.Alpha.Set(0.8f);
+            group.Alpha.AddModifier("fade", modifier);
+            group.Apply();
+
+            Assert.AreEqual(0.8f, group.Alpha.Base);
+            Assert.AreEqual(0.4f, group.Alpha.Modified);
+            Assert.AreEqual(1.0f, first.Alpha.Base);
+            Assert.AreEqual(1.0f, first.Alpha.Modified);
+            Assert.AreEqual(0.4f, firstTarget.Alpha);
+            Assert.AreEqual(1.0f, secondTarget.Alpha);
+
+            Assert.IsTrue(group.Add(second));
+            Assert.AreEqual(1.0f, secondTarget.Alpha);
+
+            group.Apply();
+            Assert.AreEqual(0.4f, secondTarget.Alpha);
+
+            Assert.IsTrue(group.Remove(first));
+            Assert.AreEqual(0.4f, firstTarget.Alpha);
+
+            modifier.Value = 0.25f;
+            Assert.AreEqual(0.2f, group.Alpha.Modified);
+            Assert.AreEqual(0.4f, firstTarget.Alpha);
+            Assert.AreEqual(0.4f, secondTarget.Alpha);
+
+            group.Apply();
+
+            Assert.AreEqual(0.4f, firstTarget.Alpha);
+            Assert.AreEqual(0.2f, secondTarget.Alpha);
+
+            Assert.IsTrue(group.Alpha.RemoveModifier("fade"));
+            Assert.AreEqual(0.2f, secondTarget.Alpha);
+
+            group.Apply();
+            Assert.AreEqual(0.8f, secondTarget.Alpha);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// 중첩 Group Apply는 부모에서 자식으로 Alpha 곱셈과 Visibility AND를 전달한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationGroup_중첩Composite_Alpha곱셈과VisibilityAND()
+        {
+            var alphaTarget = new TestAlphaTarget(0.8f);
+            var visibilityTarget = new TestVisibilityTarget(true);
+            var leaf = new Presentation(alphaTarget, visibilityTarget);
+            var childGroup = new PresentationGroup
+            (
+                new[]
+                {
+                    leaf,
+                }
+            );
+            var rootGroup = new PresentationGroup
+            (
+                new[]
+                {
+                    childGroup,
+                }
+            );
+
+            childGroup.Alpha.Set(0.5f);
+            rootGroup.Alpha.Set(0.5f);
+            childGroup.Visibility.Set(false);
+            rootGroup.Apply();
+
+            Assert.AreEqual(0.2f, alphaTarget.Alpha);
+            Assert.IsFalse(visibilityTarget.IsVisible);
+
+            childGroup.Visibility.Set(true);
+            Assert.IsFalse(visibilityTarget.IsVisible);
+
+            rootGroup.Apply();
+            Assert.IsTrue(visibilityTarget.IsVisible);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Group Apply는 one-shot Tree 평가다.
+        /// <br/> 이후 leaf local 변경은 backend를 다시 쓰고 재Apply 시 Tree 결과로 돌아간다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationGroup_Apply이후Leaf변경_재Apply전까지Local값적용()
+        {
+            var target = new TestAlphaTarget(1.0f);
+            var leaf = new Presentation(alphaTarget: target);
+            var group = new PresentationGroup
+            (
+                new[]
+                {
+                    leaf,
+                }
+            );
+            group.Alpha.Set(0.5f);
+
+            group.Apply();
+            Assert.AreEqual(0.5f, target.Alpha);
+
+            leaf.Alpha.Set(0.8f);
+
+            Assert.AreEqual(0.8f, leaf.Alpha.Base);
+            Assert.AreEqual(0.8f, leaf.Alpha.Modified);
+            Assert.AreEqual(0.8f, target.Alpha);
+
+            group.Apply();
+
+            Assert.AreEqual(0.4f, target.Alpha);
+            Assert.AreEqual(0.8f, leaf.Alpha.Base);
+            Assert.AreEqual(0.8f, leaf.Alpha.Modified);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// Presentation Group Composite에 자기 자신 또는 간접 순환을 추가하지 못하게 한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationGroup_Composite순환참조_거부()
+        {
+            var first = new PresentationGroup();
+            var second = new PresentationGroup();
+
+            Assert.Throws<InvalidOperationException>(() => first.Add(first));
+            Assert.IsTrue(first.Add(second));
+            Assert.Throws<InvalidOperationException>(() => second.Add(first));
+
+            Assert.AreEqual(1, first.Count);
+            Assert.AreEqual(0, second.Count);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// 하나의 Apply Tree 안에서 같은 Presentation이 두 경로에 있으면 적용을 거부한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        [Test]
+        public void TEST_PresentationGroup_한Tree내중복Presentation_Apply거부()
+        {
+            var target = new TestAlphaTarget(1.0f);
+            var leaf = new Presentation(alphaTarget: target);
+            var firstBranch = new PresentationGroup
+            (
+                new[]
+                {
+                    leaf,
+                }
+            );
+            var secondBranch = new PresentationGroup
+            (
+                new[]
+                {
+                    leaf,
+                }
+            );
+            var root = new PresentationGroup
+            (
+                new IPresentation[]
+                {
+                    firstBranch,
+                    secondBranch,
+                }
+            );
+
+            Assert.Throws<InvalidOperationException>(root.Apply);
+            Assert.AreEqual(1.0f, target.Alpha);
         }
 
         // ----------------------------------------------------------------------

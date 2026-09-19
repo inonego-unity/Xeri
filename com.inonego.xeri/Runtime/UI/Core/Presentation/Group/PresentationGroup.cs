@@ -1,9 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationGroup.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-19
+
 # 설명
-서로 다른 UI hierarchy와 backend에 있는 Presentation을 비소유 논리 그룹으로 묶는다.
-Group operation은 획득 시점의 현재 Member에 동일한 Alpha·Visibility contribution을 적용한다.
+여러 IPresentation을 재사용 가능한 Composite Tree로 묶는다.
+Apply는 현재 Tree를 한 번 평가하며 parent 누적 Alpha와 Visibility를 root에서 leaf까지 전달한다.
+
+# 특이사항, 제약사항
+Group은 reactive binding이나 parent subscription을 만들지 않는다.
+Member의 Base, Modified, Modifier는 변경하지 않는다.
+같은 Presentation은 여러 Group에 포함될 수 있지만 한 Apply Tree 안에서는 한 번만 등장해야 한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -13,38 +19,53 @@ using System.Collections.ObjectModel;
 
 using inonego;
 using inonego.Xeri;
-using inonego.Xeri.Serializable;
+using inonego.Xeri.Primitive;
 
 namespace inonego.Xeri.UI
 {
-    // ======================================================================
+    // ================================================================================
     /// <summary>
-    /// 여러 Presentation에 같은 표현 상태 operation을 적용하는 비소유 논리 그룹.
+    /// Presentation Tree topology와 one-shot top-down 합성 적용을 관리하는 Group.
     /// </summary>
-    // ======================================================================
-    [Serializable]
-    public sealed class PresentationGroup
+    // ================================================================================
+    public sealed class PresentationGroup :
+        IPresentation,
+        IValueSetter<float>
     {
 
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Group에 연결된 Presentation 목록.
+        /// 현재 Tree의 직접 Member 목록.
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyList<IPresentation> Members => readOnlyMembers;
 
-        private readonly ReadOnlyCollection<IPresentation> readOnlyMembers = null;
+        private readonly ReadOnlyCollection<IPresentation> readOnlyMembers;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Group Member 수.
+        /// 현재 직접 Member 수.
         /// </summary>
         // ------------------------------------------------------------
         public int Count => members.Count;
 
-        private readonly List<IPresentation> members = new List<IPresentation>();
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Group 경로에 적용되는 local Alpha State.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PresentationAlpha Alpha { get; } = new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Group 경로에 적용되는 local Visibility State.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PresentationVisibility Visibility { get; } = new();
+
+        private readonly List<IPresentation> members = new();
 
     #endregion
 
@@ -52,7 +73,7 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 빈 Presentation Group을 생성한다.
+        /// Member가 없는 identity Presentation Group을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
         public PresentationGroup() : base()
@@ -62,7 +83,7 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 초기 Member를 가진 Presentation Group을 생성한다.
+        /// 지정한 Presentation들을 직접 Member로 가지는 Group을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
         public PresentationGroup(IEnumerable<IPresentation> presentations) : this()
@@ -80,11 +101,11 @@ namespace inonego.Xeri.UI
 
     #endregion
 
-    #region Member 구성
+    #region Member
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Presentation을 Group에 한 번 추가한다.
+        /// Presentation을 직접 Tree Member로 추가한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool Add(IPresentation presentation)
@@ -94,7 +115,27 @@ namespace inonego.Xeri.UI
                 throw new ArgumentNullException(nameof(presentation));
             }
 
-            if (members.Contains(presentation)) return false;
+            if (ReferenceEquals(this, presentation))
+            {
+                throw new InvalidOperationException
+                (
+                    "Presentation Group은 자기 자신을 Member로 가질 수 없습니다."
+                );
+            }
+
+            if (IndexOfReference(presentation) >= 0) return false;
+
+            if
+            (
+                presentation is PresentationGroup group &&
+                group.Contains(this)
+            )
+            {
+                throw new InvalidOperationException
+                (
+                    "Presentation Group에 순환 Tree를 구성할 수 없습니다."
+                );
+            }
 
             members.Add(presentation);
             return true;
@@ -102,19 +143,23 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Presentation을 Group에서 제거한다.
+        /// Presentation을 직접 Tree Member에서 제거한다.
         /// </summary>
         // ------------------------------------------------------------
         public bool Remove(IPresentation presentation)
         {
             if (presentation == null) return false;
 
-            return members.Remove(presentation);
+            var index = IndexOfReference(presentation);
+            if (index < 0) return false;
+
+            members.RemoveAt(index);
+            return true;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 모든 Group Member 연결을 제거한다.
+        /// 모든 직접 Member를 Tree에서 제거한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Clear()
@@ -124,150 +169,287 @@ namespace inonego.Xeri.UI
 
     #endregion
 
-    #region Alpha operation
+    #region Tree 적용
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이 Group을 Root로 Alpha 곱셈과 Visibility AND 합성을 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Apply()
+        {
+            ValidateTree();
+
+            var visited = new HashSet<IPresentation>
+            (
+                ReferenceEqualityComparer<IPresentation>.Instance
+            );
+            List<Exception> errors = null;
+
+            ApplyTree
+            (
+                this,
+                parentAlpha: 1.0f,
+                parentVisibility: true,
+                visited,
+                ref errors
+            );
+
+            if (errors != null)
+            {
+                throw new AggregateException
+                (
+                    "Presentation Tree 적용이 실패했습니다.",
+                    errors
+                );
+            }
+        }
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 현재 Alpha-capable Member에 같은 Numeric Modifier를 연결한다.
-        /// <br/> 반환된 Modifier 자체를 Transition Target으로 사용할 수 있다.
+        /// 현재 Presentation 경로의 누적값을 계산하고 leaf backend까지 순회 적용한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public PresentationAlphaModifier AcquireAlphaModifier
+        private static void ApplyTree
         (
-            string key,
-            NumericFOperation operation,
-            float initialValue,
-            int order = 0
+            IPresentation presentation,
+            float parentAlpha,
+            bool parentVisibility,
+            ISet<IPresentation> visited,
+            ref List<Exception> errors
         )
         {
-            var modifier = new PresentationAlphaModifier
-            (
-                key,
-                operation,
-                initialValue,
-                order
-            );
-
-            try
+            if (!visited.Add(presentation))
             {
-                for (var index = 0; index < members.Count; index++)
-                {
-                    var alpha = members[index].Alpha;
-                    if (alpha == null) continue;
+                throw new InvalidOperationException
+                (
+                    "하나의 Presentation Tree 안에 같은 Presentation이 두 번 포함되어 있습니다."
+                );
+            }
 
-                    modifier.Add(alpha);
-                }
+            var alpha = presentation.Alpha;
+            var visibility = presentation.Visibility;
 
-                if (!modifier.HasTargets)
+            if (presentation is PresentationGroup group)
+            {
+                var nextAlpha = parentAlpha * (alpha?.Modified ?? 1.0f);
+                var nextVisibility = parentVisibility && (visibility?.Modified ?? true);
+
+                for (var index = 0; index < group.members.Count; index++)
                 {
-                    throw new InvalidOperationException
+                    ApplyTree
                     (
-                        "Presentation Group에 Alpha를 지원하는 Member가 없습니다."
+                        group.members[index],
+                        nextAlpha,
+                        nextVisibility,
+                        visited,
+                        ref errors
                     );
                 }
 
-                return modifier;
+                return;
             }
-            catch
+
+            if (alpha != null)
             {
-                modifier.Dispose();
-                throw;
+                try
+                {
+                    alpha.ApplyInherited(parentAlpha);
+                }
+                catch (Exception exception)
+                {
+                    errors ??= new List<Exception>();
+                    errors.Add(exception);
+                }
+            }
+
+            if (visibility != null)
+            {
+                try
+                {
+                    visibility.ApplyInherited(parentVisibility);
+                }
+                catch (Exception exception)
+                {
+                    errors ??= new List<Exception>();
+                    errors.Add(exception);
+                }
             }
         }
 
     #endregion
 
-    #region Visibility operation
+    #region IValueSetter
 
-        // --------------------------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 현재 Visibility-capable Member에 같은 scoped Visibility Modifier를 적용한다.
+        /// Transition 값을 Group local Alpha에 설정하고 현재 Tree를 적용한다.
         /// </summary>
-        // --------------------------------------------------------------------------------
-        public Lease AcquireVisibilityModifier(bool visible)
+        // ----------------------------------------------------------------------
+        void IValueSetter<float>.Set(float value)
         {
-            var leases = new List<Lease>();
+            Alpha.Set(value);
+            Apply();
+        }
 
-            try
+    #endregion
+
+    #region 검증
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이 Group을 Root로 현재 Composite topology 전체를 검증한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ValidateTree()
+        {
+            var visited = new HashSet<IPresentation>
+            (
+                ReferenceEqualityComparer<IPresentation>.Instance
+            );
+
+            ValidateTree(this, visited);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 한 Apply Tree 안의 중복 reference와 leaf backend 유효성을 재귀 검증한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static void ValidateTree
+        (
+            IPresentation presentation,
+            ISet<IPresentation> visited
+        )
+        {
+            if (!visited.Add(presentation))
             {
-                for (var index = 0; index < members.Count; index++)
-                {
-                    var visibility = members[index].Visibility;
-                    if (visibility == null) continue;
+                throw new InvalidOperationException
+                (
+                    "Presentation Composite는 하나의 Apply 기준에서 Tree여야 합니다."
+                );
+            }
 
-                    leases.Add(visibility.AcquireModifier(visible));
-                }
-
-                if (leases.Count == 0)
+            if (presentation is PresentationGroup group)
+            {
+                if (group.members.Count == 0)
                 {
                     throw new InvalidOperationException
                     (
-                        "Presentation Group에 Visibility를 지원하는 Member가 없습니다."
+                        "적용할 Presentation Group에 Member가 없습니다."
+                    );
+                }
+
+                for (var index = 0; index < group.members.Count; index++)
+                {
+                    ValidateTree(group.members[index], visited);
+                }
+
+                return;
+            }
+
+            var alpha = presentation.Alpha;
+            var visibility = presentation.Visibility;
+            var hasTarget = false;
+
+            if (alpha != null)
+            {
+                hasTarget = true;
+
+                if (!alpha.IsValid)
+                {
+                    throw new InvalidOperationException
+                    (
+                        "Presentation Alpha Target이 유효하지 않습니다."
                     );
                 }
             }
-            catch (Exception exception)
+
+            if (visibility != null)
             {
-                var errors = ReleaseLeases(leases);
+                hasTarget = true;
 
-                if (errors.Count == 0)
+                if (!visibility.IsValid)
                 {
-                    throw;
+                    throw new InvalidOperationException
+                    (
+                        "Presentation Visibility Target이 유효하지 않습니다."
+                    );
                 }
-
-                errors.Insert(0, exception);
-                throw new AggregateException
-                (
-                    "Presentation Group Visibility 획득과 롤백이 실패했습니다.",
-                    errors
-                );
             }
 
-            return new Lease(() => ReleaseVisibilityLeases(leases));
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Visibility Override Lease를 역순 반환하고 정리 실패를 집계한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void ReleaseVisibilityLeases(List<Lease> leases)
-        {
-            var errors = ReleaseLeases(leases);
-
-            if (errors.Count > 0)
+            if (!hasTarget)
             {
-                throw new AggregateException
+                throw new InvalidOperationException
                 (
-                    "Presentation Group Visibility 반환이 실패했습니다.",
-                    errors
+                    "Presentation에 적용 가능한 State Target이 없습니다."
                 );
             }
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Lease 목록을 역순으로 한 번 반환하고 발생한 오류를 수집한다.
+        /// 이 Group 하위 topology에 지정한 Presentation reference가 있는지 확인한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static List<Exception> ReleaseLeases(List<Lease> leases)
+        // ----------------------------------------------------------------------
+        private bool Contains(IPresentation target)
         {
-            var errors = new List<Exception>();
+            var visited = new HashSet<IPresentation>
+            (
+                ReferenceEqualityComparer<IPresentation>.Instance
+            );
 
-            for (var index = leases.Count - 1; index >= 0; index--)
+            return Contains(this, target, visited);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 지정한 Presentation부터 reference 기반 하위 포함 여부를 재귀 탐색한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static bool Contains
+        (
+            IPresentation presentation,
+            IPresentation target,
+            ISet<IPresentation> visited
+        )
+        {
+            if (ReferenceEquals(presentation, target)) return true;
+            if (!visited.Add(presentation)) return false;
+            if (presentation is not PresentationGroup group) return false;
+
+            for (var index = 0; index < group.members.Count; index++)
             {
-                try
+                if
+                (
+                    Contains
+                    (
+                        group.members[index],
+                        target,
+                        visited
+                    )
+                )
                 {
-                    leases[index]?.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    errors.Add(exception);
+                    return true;
                 }
             }
 
-            leases.Clear();
-            return errors;
+            return false;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 직접 Member 목록에서 동일 reference의 인덱스를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private int IndexOfReference(IPresentation presentation)
+        {
+            for (var index = 0; index < members.Count; index++)
+            {
+                if (ReferenceEquals(members[index], presentation)) return index;
+            }
+
+            return -1;
         }
 
     #endregion

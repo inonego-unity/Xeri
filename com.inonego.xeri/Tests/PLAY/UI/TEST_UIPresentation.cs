@@ -37,6 +37,7 @@ namespace inonego.Xeri.TEST.UI._Game
 {
     using inonego;
     using inonego.Xeri;
+    using inonego.Xeri.Primitive;
     using inonego.Xeri.UI;
 
     // ============================================================
@@ -243,15 +244,8 @@ namespace inonego.Xeri.TEST.UI._Game
         /// DOTween이 적용한 Presentation 값을 기록하는 테스트 Target.
         /// </summary>
         // ============================================================
-        private sealed class TestTransitionTarget : IPresentationTransitionTarget
+        private sealed class TestTransitionTarget : IValueSetter<float>
         {
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 테스트 수명 동안 Target은 유효하다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public bool IsValid => true;
-
             // ------------------------------------------------------------
             /// <summary>
             /// 마지막으로 적용된 진행 값.
@@ -264,7 +258,7 @@ namespace inonego.Xeri.TEST.UI._Game
             /// Transition 진행 값을 기록한다.
             /// </summary>
             // ------------------------------------------------------------
-            public void Apply(float value)
+            public void Set(float value)
             {
                 Value = value;
             }
@@ -289,7 +283,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 Action<Exception> onFailed
             )
             {
-                parameters.Target.Apply(parameters.EndValue);
+                parameters.Target.Set(parameters.EndValue);
                 var handle = new PresentationTransitionHandle(null);
                 handle.Complete();
                 onCompleted?.Invoke();
@@ -1223,10 +1217,10 @@ namespace inonego.Xeri.TEST.UI._Game
 
                 screen.Visibility.Set(true);
                 screen.SetInteractable(true);
-                screen.Alpha.Apply(0.5f);
+                screen.Alpha.Set(0.5f);
                 modal.SetTop(true);
                 fade.SetColor(Color.black);
-                fade.Alpha.Apply(1.0f);
+                fade.Alpha.Set(1.0f);
                 yield return null;
 
                 Assert.IsTrue(canvas.overrideSorting);
@@ -1443,10 +1437,10 @@ namespace inonego.Xeri.TEST.UI._Game
                 var fade = new UITKSceneFadeDriver(fadeRoot);
                 screen.Visibility.Set(true);
                 screen.SetInteractable(true);
-                screen.Alpha.Apply(0.6f);
+                screen.Alpha.Set(0.6f);
                 modal.SetTop(true);
                 fade.SetColor(Color.black);
-                fade.Alpha.Apply(1.0f);
+                fade.Alpha.Set(1.0f);
                 focus.Select(button);
                 yield return null;
 

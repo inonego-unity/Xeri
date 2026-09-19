@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ScreenController.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-19
 
 # 설명
 Screen 수명·상태 훅 정리, Focus 복원과 닫기 입력 장벽 계약을 검증한다.
@@ -85,7 +85,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 Action<Exception> onFailed
             )
             {
-                parameters.Target.Apply(parameters.EndValue);
+                parameters.Target.Set(parameters.EndValue);
                 var handle = new PresentationTransitionHandle(null);
                 handle.Complete();
                 onCompleted?.Invoke();
@@ -195,7 +195,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
                 if (completed)
                 {
-                    request.Params.Target.Apply(request.Params.EndValue);
+                    request.Params.Target.Set(request.Params.EndValue);
                 }
 
                 request.Completed?.Invoke();
@@ -386,6 +386,8 @@ namespace inonego.Xeri.TEST.UI._Game
             public bool IsValid => true;
             public PresentationAlpha Alpha { get; }
             public PresentationVisibility Visibility { get; }
+
+
             public object DefaultFocus { get; }
             public bool IsInteractable { get; private set; }
             public bool IsVisible { get; private set; } = true;

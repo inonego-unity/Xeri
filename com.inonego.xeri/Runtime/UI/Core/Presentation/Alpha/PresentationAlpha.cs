@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PresentationAlpha.cs
-수정일 : 2026-09-18
+수정일 : 2026-09-19
+
 # 설명
-Presentation의 자체 Alpha와 순서화된 Modifier를 합성해 단일 backend Target에 적용한다.
-MValue의 Modified 변경을 구독해 Base와 Modifier 변화를 backend에 즉시 반영한다.
-Base 전환과 외부 Modifier가 같은 실제 Alpha를 직접 덮어쓰지 않도록 최종 작성 경계를 제공한다.
+Presentation의 local Alpha State를 기존 MValue<float>로 관리한다.
+local Modified 변경은 직접 연결된 backend에 반영하며 Composite 누적 Alpha는 State에 저장하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -17,40 +17,24 @@ using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri.UI
 {
-    // ================================================================================
+    // ======================================================================
     /// <summary>
-    /// Presentation Base Alpha와 외부 Modifier를 합성해 실제 표시 Target에 적용한다.
+    /// MValue 기반 local Alpha State와 선택적 backend Target을 연결한다.
     /// </summary>
-    // ================================================================================
-    [Serializable]
-    public sealed class PresentationAlpha : IPresentationTransitionTarget
+    // ======================================================================
+    public sealed class PresentationAlpha : MValue<float>
     {
 
     #region 필드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Modifier 적용 전 Presentation 자체 Alpha.
-        /// </summary>
-        // ------------------------------------------------------------
-        public float Base => alpha.Base;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 모든 Modifier를 적용한 최종 Presentation Alpha.
-        /// </summary>
-        // ------------------------------------------------------------
-        public float Modified => Mathf.Clamp01(alpha.Modified);
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 최종 Alpha를 적용할 backend Target이 현재 유효한지 여부.
+        /// 직접 연결된 backend Target이 현재 적용 가능한지 여부.
         /// </summary>
         // ------------------------------------------------------------
         public bool IsValid => target != null && target.IsValid;
 
         private readonly IPresentationAlphaTarget target = null;
-        private readonly MValue<float> alpha = new MValue<float>(1.0f);
 
     #endregion
 
@@ -58,134 +42,145 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 실제 Alpha backend의 현재값을 초기 Base Alpha로 연결한다.
+        /// Alpha identity 값 1을 Base로 가지는 local State를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public PresentationAlpha(IPresentationAlphaTarget target) : base()
+        public PresentationAlpha() : base(1.0f)
         {
-            this.target = target ?? throw new ArgumentNullException(nameof(target));
-
-            if (!target.IsValid)
-            {
-                throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
-            }
-
-            alpha.OnModifiedChange += HandleModifiedChange;
-            alpha.Set(Mathf.Clamp01(target.Alpha), invokeEvent: false);
-            ApplyCurrent();
+            // NONE
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 실제 Alpha backend와 명시적 초기 Base Alpha를 연결한다.
+        /// backend의 현재 Alpha를 Base로 사용하는 local State를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PresentationAlpha(IPresentationAlphaTarget target) :
+            base(RequireTarget(target).Alpha)
+        {
+            this.target = target;
+            ApplyLocal();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 Base Alpha로 backend local State를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
         public PresentationAlpha
         (
             IPresentationAlphaTarget target,
             float baseAlpha
-        ) : base()
+        ) :
+        base(baseAlpha)
         {
-            this.target = target ?? throw new ArgumentNullException(nameof(target));
-
-            if (!target.IsValid)
-            {
-                throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
-            }
-
-            alpha.OnModifiedChange += HandleModifiedChange;
-            alpha.Set(Mathf.Clamp01(baseAlpha), invokeEvent: false);
-            ApplyCurrent();
+            this.target = RequireTarget(target);
+            ApplyLocal();
         }
 
     #endregion
 
-    #region Modifier 연결
+    #region MValue
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 지정 key와 순서로 외부 Alpha Modifier를 등록하고 최종값을 즉시 반영한다.
+        /// Alpha Base를 0~1 범위로 제한한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        public Lease AcquireModifier
-        (
-            string key,
-            IModifier<float> modifier,
-            int order = 0
-        )
+        // ------------------------------------------------------------
+        protected override void ProcessBase(in float prev, ref float next)
         {
-            if (string.IsNullOrWhiteSpace(key))
-            {
-                throw new ArgumentException("Presentation Alpha Modifier Key가 비어 있습니다.", nameof(key));
-            }
-
-            if (modifier == null)
-            {
-                throw new ArgumentNullException(nameof(modifier));
-            }
-
-            alpha.AddModifier(key, modifier, order);
-
-            return new Lease(() => RemoveModifier(key));
+            next = Mathf.Clamp01(next);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 합성된 Alpha를 backend에 명시적으로 다시 적용한다.
+        /// local Modified 갱신을 직접 연결된 backend에 즉시 반영한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void ApplyCurrent()
+        protected override void OnModifiedUpdated
+        (
+            in float prev,
+            in float next
+        )
         {
+            ApplyLocal();
+        }
+
+    #endregion
+
+    #region 적용
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Tree에서 전달한 parent Alpha와 local Modified를 곱해 backend에 적용한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal void ApplyInherited(float parentAlpha)
+        {
+            if (target == null) return;
+
             if (!target.IsValid)
             {
-                throw new InvalidOperationException("Presentation Alpha Target이 유효하지 않습니다.");
+                throw new InvalidOperationException
+                (
+                    "Presentation Alpha Target이 유효하지 않습니다."
+                );
+            }
+
+            target.SetAlpha
+            (
+                Mathf.Clamp01(parentAlpha * Modified)
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// local Modified 값을 직접 연결된 Alpha backend에 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyLocal()
+        {
+            if (target == null) return;
+
+            if (!target.IsValid)
+            {
+                throw new InvalidOperationException
+                (
+                    "Presentation Alpha Target이 유효하지 않습니다."
+                );
             }
 
             target.SetAlpha(Modified);
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 지정 key의 Alpha Modifier를 제거하고 최종값을 즉시 반영한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void RemoveModifier(string key)
-        {
-            alpha.RemoveModifier(key);
-        }
-
     #endregion
 
-    #region IPresentationTransitionTarget
+    #region 검증
 
-        // --------------------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// Transition 진행값을 Base Alpha로 적용하고 Modifier 합성 결과를 backend에 반영한다.
+        /// Alpha backend Target이 존재하고 현재 적용 가능한지 검증한다.
         /// </summary>
-        // --------------------------------------------------------------------------------
-        public void Apply(float value)
-        {
-            alpha.Set(Mathf.Clamp01(value));
-        }
-
-    #endregion
-
-    #region Backend 적용
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// Modified 변경 시 유효한 Presentation backend에 최신 Alpha를 적용한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        private void HandleModifiedChange
+        // ------------------------------------------------------------
+        private static IPresentationAlphaTarget RequireTarget
         (
-            object _,
-            ValueChangeEventArgs<float> e
+            IPresentationAlphaTarget target
         )
         {
-            if (!target.IsValid) return;
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
 
-            target.SetAlpha(Mathf.Clamp01(e.Current));
+            if (!target.IsValid)
+            {
+                throw new InvalidOperationException
+                (
+                    "Presentation Alpha Target이 유효하지 않습니다."
+                );
+            }
+
+            return target;
         }
 
     #endregion

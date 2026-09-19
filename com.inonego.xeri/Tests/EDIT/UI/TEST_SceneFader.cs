@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_SceneFader.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-19
 
 # 설명
 SceneFader의 안정 상태, 완료 정리 실패와 Transition 시작 실패 롤백을 검증한다.
@@ -83,6 +83,8 @@ namespace inonego.Xeri.TEST.UI._Game
         {
             public PresentationAlpha Alpha { get; }
             public PresentationVisibility Visibility => null;
+
+
             public Color Color { get; private set; }
             public bool FailNextApply { get; set; }
             public int ApplyCount { get; private set; }
@@ -159,7 +161,7 @@ namespace inonego.Xeri.TEST.UI._Game
                 Action<Exception> onFailed
             )
             {
-                parameters.Target.Apply(parameters.EndValue);
+                parameters.Target.Set(parameters.EndValue);
                 var handle = new PresentationTransitionHandle(null);
                 handle.Complete();
                 onCompleted?.Invoke();
@@ -266,7 +268,7 @@ namespace inonego.Xeri.TEST.UI._Game
 
                 if (completed)
                 {
-                    request.Params.Target.Apply(request.Params.EndValue);
+                    request.Params.Target.Set(request.Params.EndValue);
                 }
 
                 request.Completed?.Invoke();

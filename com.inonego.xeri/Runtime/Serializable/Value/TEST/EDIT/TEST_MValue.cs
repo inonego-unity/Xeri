@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MValue.cs
-수정일 : 2026-09-18
+수정일 : 2026-09-19
 
 # 설명
 MValue<T>와 built-in Modifier의 값 계산, 변경 전파와 구독 lifecycle을 검증한다.
@@ -34,6 +34,65 @@ namespace inonego.Xeri.TEST.Serializable._Value
     // ============================================================
     public class TEST_MValue
     {
+
+    #region 테스트 헬퍼
+
+        // ============================================================
+        /// <summary>
+        /// Modified 내부 hook 호출 내용을 기록하는 테스트 전용 MValue.
+        /// </summary>
+        // ============================================================
+        private sealed class TestHookMValue : MValue<int>
+        {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 내부 hook이 호출된 횟수.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int HookCount { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 마지막 hook이 받은 이전 Modified 값.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int Previous { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 마지막 hook이 받은 현재 Modified 값.
+            /// </summary>
+            // ------------------------------------------------------------
+            public int Current { get; private set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 초기 Base 값을 가진 테스트 MValue를 생성한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public TestHookMValue(int value) : base(value)
+            {
+                // NONE
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Modified 내부 hook 호출 인자를 기록한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            protected override void OnModifiedUpdated
+            (
+                in int prev,
+                in int next
+            )
+            {
+                HookCount++;
+                Previous = prev;
+                Current = next;
+            }
+        }
+
+    #endregion
 
     #region E-1: 기본 생성
 
@@ -135,7 +194,38 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-3: 암시적 변환
+    #region E-3: silent 변경 hook
+
+        [Test]
+        public void TEST_MValue_invokeEventFalse_내부Hook호출_외부이벤트억제()
+        {
+            var value = new TestHookMValue(10);
+            var eventCount = 0;
+            value.OnModifiedChange += (_, _) => eventCount++;
+
+            value.Set(20, invokeEvent: false);
+
+            Assert.AreEqual(1, value.HookCount);
+            Assert.AreEqual(10, value.Previous);
+            Assert.AreEqual(20, value.Current);
+            Assert.AreEqual(0, eventCount);
+
+            value.AddModifier
+            (
+                "add",
+                new NumericIModifier(NumericIOperation.ADD, 5),
+                invokeEvent: false
+            );
+
+            Assert.AreEqual(2, value.HookCount);
+            Assert.AreEqual(20, value.Previous);
+            Assert.AreEqual(25, value.Current);
+            Assert.AreEqual(0, eventCount);
+        }
+
+    #endregion
+
+    #region E-4: 암시적 변환
 
         [Test]
         public void TEST_MValue_암시적_변환_Modified_반환()
@@ -153,7 +243,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-4: OnModifiedChange 강제 발화
+    #region E-5: OnModifiedChange 강제 발화
 
         [Test]
         public void TEST_MValue_InvokeOnModifiedChange_강제_발화()

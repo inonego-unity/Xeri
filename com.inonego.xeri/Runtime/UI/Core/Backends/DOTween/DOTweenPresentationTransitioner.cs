@@ -52,16 +52,11 @@ namespace inonego.Xeri.UI
                 throw new ObjectDisposedException(nameof(DOTweenPresentationTransitioner));
             }
 
-            if (!parameters.Target.IsValid)
-            {
-                throw new InvalidOperationException("Presentation Transition Target이 유효하지 않습니다.");
-            }
-
-            parameters.Target.Apply(parameters.StartValue);
+            parameters.Target.Set(parameters.StartValue);
 
             if (parameters.Duration <= 0.0f)
             {
-                parameters.Target.Apply(parameters.EndValue);
+                parameters.Target.Set(parameters.EndValue);
 
                 var immediate = new PresentationTransitionHandle(null);
                 immediate.Complete();
@@ -96,7 +91,7 @@ namespace inonego.Xeri.UI
 
                 try
                 {
-                    parameters.Target.Apply(next);
+                    parameters.Target.Set(next);
                 }
                 catch (Exception exception)
                 {
@@ -127,7 +122,7 @@ namespace inonego.Xeri.UI
                 {
                     try
                     {
-                        parameters.Target.Apply(parameters.EndValue);
+                        parameters.Target.Set(parameters.EndValue);
                     }
                     catch (Exception exception)
                     {

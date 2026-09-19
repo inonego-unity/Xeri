@@ -227,7 +227,7 @@ namespace inonego.Xeri.UI
                 }
 
                 // 새 Fade 수명은 투명 상태에서 시작하고 이후 Transition이 Base Alpha를 소유한다.
-                alpha.Apply(0.0f);
+                alpha.Set(0.0f);
                 presentationInitialized = true;
             }
             catch (Exception exception)
@@ -265,7 +265,7 @@ namespace inonego.Xeri.UI
             Action<Exception> onFailed
         )
         {
-            alpha.Apply(startValue);
+            alpha.Set(startValue);
 
             var parameters = new PresentationTransitionParams
             (
@@ -414,7 +414,7 @@ namespace inonego.Xeri.UI
             {
                 try
                 {
-                    alpha.Apply(stableAlpha);
+                    alpha.Set(stableAlpha);
                 }
                 catch (Exception exception)
                 {

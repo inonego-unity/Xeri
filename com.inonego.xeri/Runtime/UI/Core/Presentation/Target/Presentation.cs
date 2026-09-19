@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Presentation.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-19
 # 설명
 기존 UI backend Target을 Xeri Presentation State에 연결하는 기본 Presentation 구현이다.
 Alpha와 Visibility는 서로 독립 capability이며 제공된 Target에 대해서만 생성한다.
@@ -16,7 +16,6 @@ namespace inonego.Xeri.UI
     /// <br/> Presentation State에 연결하는 기본 Presentation.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class Presentation : IPresentation
     {
 
@@ -39,6 +38,51 @@ namespace inonego.Xeri.UI
     #endregion
 
     #region 생성자
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기존 Alpha State를 하나의 Presentation leaf로 묶는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Presentation(PresentationAlpha alpha) :
+            this(alpha, null)
+        {
+            // NONE
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기존 Visibility State를 하나의 Presentation leaf로 묶는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Presentation(PresentationVisibility visibility) :
+            this(null, visibility)
+        {
+            // NONE
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 기존 Alpha·Visibility State를 하나의 Presentation leaf로 묶는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public Presentation
+        (
+            PresentationAlpha alpha,
+            PresentationVisibility visibility
+        ) : base()
+        {
+            if (alpha == null && visibility == null)
+            {
+                throw new ArgumentException
+                (
+                    "Presentation에는 하나 이상의 State가 필요합니다."
+                );
+            }
+
+            Alpha = alpha;
+            Visibility = visibility;
+        }
 
         // --------------------------------------------------------------------------------
         /// <summary>

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKPresentation.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-19
 # 설명
 기존 VisualElement를 Xeri Presentation State에 연결한다.
 Visual Tree hierarchy는 소유하지 않으며 opacity와 display 표현 상태만 제어한다.

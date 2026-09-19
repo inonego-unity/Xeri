@@ -70,18 +70,66 @@ ModalSession modal = context.Modals.Open
 `ModalSession`을 해제하면 현재 항목을 닫고 이전 Modal을 top으로 복원한 뒤 전달받은 소유 수명을
 역순으로 해제한다.
 
-### Visibility
+### Presentation State와 Composite Tree
 
-Visibility는 전역 Controller가 아니라 각 `PresentationVisibility`가 자신의 Base 상태와 scoped
-Modifier를 합성한다. 여러 독립적인 hide가 겹치면 하나라도 남아 있는 동안 숨김이 유지된다.
+`PresentationAlpha`와 `PresentationVisibility`는 기존 `MValue<T>`를 직접 사용한다.
+각 State의 `Base → Modifier pipeline → Modified`는 local state이며 Tree topology를 저장하지 않는다.
 
-```csharp
-var presentation = new UITKPresentation(root);
-Lease hidden = presentation.Visibility.AcquireModifier(false);
+```text
+Local Alpha
+Base → Modifiers → Modified
+
+Local Visibility
+Base → Modifiers → Modified
 ```
 
-Base 상태를 바꾸더라도 활성 hide Modifier가 우회되지 않으며, 마지막 hide Lease를 해제하면 최신
-Base 상태가 다시 적용된다. 여러 Presentation에 같은 요청을 적용하려면 `PresentationGroup`을 사용한다.
+`PresentationGroup`은 State graph가 아니라 `IPresentation` Member Tree만 소유한다.
+Alpha와 Visibility의 identity 값은 각각 `1.0f`, `true`다.
+
+```csharp
+var group = new PresentationGroup
+(
+    new[]
+    {
+        first,
+        second,
+    }
+);
+
+group.Alpha.Set(0.5f);
+group.Visibility.Set(true);
+
+group.Alpha.AddModifier
+(
+    "fade",
+    new NumericFModifier(NumericFOperation.MUL, 0.5f)
+);
+
+group.Apply();
+```
+
+`Apply()`는 선택한 Group을 Root로 현재 Tree를 한 번 평가하는 명시적 operation이다.
+Group은 reactive binding이나 active parent 관계를 만들지 않으며 parent 누적값을 child에 전달한다.
+
+```text
+nextAlpha      = parentAlpha × current.Alpha.Modified
+nextVisibility = parentVisibility AND current.Visibility.Modified
+```
+
+leaf에 도착하면 누적값과 leaf local `Modified`를 합성해 backend에 기록한다.
+Group은 child의 `Base`, `Modified`, Modifier 목록을 변경하지 않는다.
+
+같은 Presentation이나 Group은 서로 다른 Composite Tree에 여러 번 포함될 수 있다.
+각 `Apply()`는 호출한 Tree만 기준으로 계산하므로 backend 결과는 마지막으로 적용한 Tree에 의해 결정된다.
+반대로 하나의 Apply Tree 안에서 같은 Presentation reference가 두 경로에 중복되면 Tree가 아니므로 거부한다.
+
+`Add`, `Remove`, `Clear`는 topology만 변경하며 backend를 자동 갱신하거나 복원하지 않는다.
+또한 `Apply()` 뒤 leaf의 local `Base`나 Modifier가 바뀌면 그 leaf는 자기 local `Modified`를 backend에 다시 적용할 수 있다.
+이전 Tree 결과를 계속 유지해야 하는 runtime 수명은 소유자가 필요한 시점에 같은 Tree를 다시 `Apply()`한다.
+복원이 필요한 runtime 수명은 identity State를 설정한 뒤 `Apply()`하고 topology를 해제한다.
+
+Modifier 자체의 등록과 제거는 기존 `MValue<T>.AddModifier/RemoveModifier`를 그대로 사용하며
+Presentation 전용 Modifier host나 registration Lease를 추가하지 않는다.
 
 ### Drag Visual
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValue.cs
-수정일 : 2026-09-18
+수정일 : 2026-09-19
 
 # 설명
 Order 순서로 적용되는 IModifier<T> 목록을 가지는 Modifiable Value.
@@ -9,6 +9,7 @@ Modifier의 내부 상태 변경을 구독해 Modified 캐시를 자동 갱신�
 # 특이사항, 제약사항
 Modified 캐시는 runtime derived state이며 Base와 Modifier 변경 시 내부에서 즉시 갱신한다.
 동일 Modifier 인스턴스가 여러 Key로 등록되어도 변경 이벤트는 한 번만 구독한다.
+invokeEvent는 외부 이벤트만 제어하며 derived type의 Modified 갱신 hook은 항상 실행한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -74,7 +75,7 @@ namespace inonego.Xeri.Serializable
 
         public MValue(T value) : base(value)
         {
-            UpdateModified(invokeEvent: false);
+            UpdateModified(invokeEvent: false, invokeHook: false);
         }
 
     #endregion
@@ -86,7 +87,7 @@ namespace inonego.Xeri.Serializable
         /// 수정자를 모두 적용한 값을 다시 계산해 cached 에 반영한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void UpdateModified(bool invokeEvent = true)
+        private void UpdateModified(bool invokeEvent = true, bool invokeHook = true)
         {
             var prev = cached;
             var next = Modify(Base);
@@ -95,11 +96,26 @@ namespace inonego.Xeri.Serializable
 
             cached = next;
 
+            if (invokeHook)
+            {
+                OnModifiedUpdated(in prev, in next);
+            }
+
             if (invokeEvent)
             {
                 InvokeOnModifiedChange(prev);
             }
         }
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Modified가 갱신된 뒤 외부 이벤트와 무관하게 호출되는 내부 hook.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected virtual void OnModifiedUpdated(in T prev, in T next)
+        {
+            // NONE
+        }
+
 
         // --------------------------------------------------------------------------------
         /// <summary>
@@ -312,7 +328,7 @@ namespace inonego.Xeri.Serializable
         public void OnAfterDeserialize()
         {
             ResubscribeModifiers();
-            UpdateModified(invokeEvent: false);
+            UpdateModified(invokeEvent: false, invokeHook: false);
         }
 
     #endregion

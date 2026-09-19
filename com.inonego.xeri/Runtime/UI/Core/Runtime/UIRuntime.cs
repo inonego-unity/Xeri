@@ -611,7 +611,7 @@ namespace inonego.Xeri.UI
                 }
                 else
                 {
-                    alpha.Apply(0.0f);
+                    alpha.Set(0.0f);
                 }
             }
             catch (Exception exception)
