@@ -360,5 +360,5 @@ UI 동작, 검색, 필터, 컬럼, 정렬, preview, 취소 처리는 공통 Pick
 
 ## 관련 문서
 
-- [Xeri UI](../README.md)
+- [UI Utilities](../README.md)
 - [Picker 검증 지침](../../../Documentation~/maintainers/picker-validation.md)

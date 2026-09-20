@@ -115,17 +115,3 @@
     href: modules/utility/timer.md
   - name: Paging
     href: modules/utility/paging.md
-- name: UI Core
-  items:
-  - name: 설정과 시작
-    href: modules/ui-core/setup.md
-  - name: 구조와 수명
-    href: modules/ui-core/architecture.md
-  - name: Screen과 입력
-    href: modules/ui-core/screens.md
-  - name: 표시와 배치
-    href: modules/ui-core/presentation.md
-  - name: 구현과 문제 해결
-    href: modules/ui-core/troubleshooting.md
-- name: 유지보수
-  href: maintainers/index.md

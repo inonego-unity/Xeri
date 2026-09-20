@@ -2,7 +2,7 @@
 
 **Xeri**는 Unity 프로젝트에서 반복되는 Runtime 구조와 생명주기 문제를 공통 계약으로 분리하는 모듈형 프레임워크입니다.
 
-게임마다 달라지는 규칙과 콘텐츠는 프로젝트에 남기고, 여러 프로젝트에서 반복되는 **초기화, 소유권, 데이터 접근, UI, 재생, 직렬화, 작업 상태와 게임 Runtime 기반 기능**을 재사용 가능한 형태로 제공합니다.
+게임마다 달라지는 규칙과 콘텐츠는 프로젝트에 남기고, 여러 프로젝트에서 반복되는 **초기화, 소유권, 데이터 접근, 재생, 직렬화, 작업 상태와 게임 Runtime 기반 기능**을 재사용 가능한 형태로 제공합니다.
 
 > Unity 6 · UPM package · Runtime-first modular framework
 
@@ -13,9 +13,9 @@ Unity 프로젝트가 커질수록 기능 자체보다 다음과 같은 경계�
 - 누가 Runtime 객체를 만들고 언제 해제하는가
 - Scene 전환 전후의 초기화 순서를 어떻게 보장하는가
 - 파일, 메모리, Resources, Addressables 차이를 소비 코드에서 어떻게 숨기는가
-- Screen, Modal, Overlay와 Focus/Input 수명을 어떻게 일관되게 관리하는가
 - 게임 도메인 로직과 범용 Entity/State/HP/AI 기반을 어떻게 분리하는가
-- 저장 가능한 상태와 화면 표시 상태를 어디까지 나눌 것인가
+- 저장 가능한 상태와 Runtime 상태를 어디까지 나눌 것인가
+- 반복되는 작업 실행·추적·재생 수명을 어떻게 일관되게 관리할 것인가
 
 Xeri는 이 문제들을 하나의 거대한 Manager로 통합하지 않고, 책임별 작은 계약과 Runtime으로 나누는 방향을 취합니다.
 
@@ -24,9 +24,9 @@ Xeri는 이 문제들을 하나의 거대한 Manager로 통합하지 않고, 책
 Xeri의 공통 설계 기준은 다음과 같습니다.
 
 - **명시적 소유권** — `Acquire ↔ Release`, `Register ↔ Unregister`, `Bind ↔ Unbind`처럼 시작과 종료를 짝으로 표현합니다.
-- **프로젝트 정책 분리** — Xeri는 범용 Runtime 계약을 제공하고, 실제 게임 규칙은 Adapter/Service/Presenter 계층에 둡니다.
+- **프로젝트 정책 분리** — Xeri는 범용 Runtime 계약을 제공하고, 실제 게임 규칙은 Adapter/Service 계층에 둡니다.
 - **완전 구성 후 공개** — Registry나 Current Context에는 필요한 구성이 끝난 객체만 노출합니다.
-- **Backend 분리** — 외부 데이터 접근, UI, Playback 등은 구체 공급 경로나 표시 backend와 상위 소비 코드를 분리합니다.
+- **Backend 분리** — 외부 데이터 접근, Playback 등은 구체 공급 경로와 상위 소비 코드를 분리합니다.
 - **작은 모듈 조합** — 모든 기능을 하나의 전역 Runtime에 넣지 않고 필요한 시스템만 선택해서 사용합니다.
 
 ## 주요 모듈
@@ -36,17 +36,17 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 | **Core** | Bootstrapper, Lease, Singleton, 공통 primitive와 lifecycle 계약 |
 | **Serializable** | Unity 직렬화 보조 컬렉션, serializer, `MValue`, managed reference |
 | **Game** | Entity, Spawn, State Machine, HP, AI Group, Board, Zone, Use/Reaction |
-| **UI** | Game UI, Drag & Drop, Picker, Bar |
+| **UI Utilities** | Drag & Drop, Picker |
 | **Playback** | Cue, Playback lifecycle, Unity Audio |
 | **Tracking** | resolve → transition → commit 반복 갱신과 Lease 수명 |
 | **Rendering** | 대량 Mesh instance batch와 runtime instancing |
 | **Generation** | 결정적 Seed/Random과 생성 결과 validation |
 | **Utility** | GameObject Provider, Pool, Timer, Paging 등 독립 보조 기능 |
 
-## 확장 패키지
+## Xeri Ecosystem
 
 - **Xeri Fabric** — IO, Data, Localization, Workspace Runtime은 [Xeri Fabric Documentation](https://inonego-unity.github.io/Xeri-Fabric/)에서 제공합니다.
-- **Xeri Shell** — Window, Tray, View Session과 tool-style UI shell은 [Xeri Shell Documentation](https://inonego-unity.github.io/Xeri-Shell/)에서 제공합니다.
+- **Xeri UI** — application UI lifecycle, Window, Tray와 Bar는 [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
 
 ## 빠른 시작
 
@@ -81,12 +81,11 @@ Manual은 개념과 실제 사용법을 설명하고, 사이트의 **API Referen
 
 ```text
 UniXeri/
-├─ com.inonego.xeri/          Base Unity Package
+├─ com.inonego.xeri/
 │  ├─ Runtime/
 │  ├─ Editor/
-│  ├─ Samples~/
 │  ├─ Tests/
 │  └─ Documentation~/
-├─ Docs/                      문서 작성·유지보수 자료
+├─ Docs/
 └─ README.md
 ```

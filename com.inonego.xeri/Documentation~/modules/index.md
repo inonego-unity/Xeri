@@ -10,7 +10,7 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 | Rendering | [README](../../Runtime/Rendering/README.md) | Runtime rendering 보조 기능 |
 | Serializable | [README](../../Runtime/Serializable/README.md) | Unity 직렬화 보조 타입과 serializer |
 | Tracking | [README](../../Runtime/Tracking/README.md) | 값 resolve·transition·commit 추적 |
-| UI | [README](../../Runtime/UI/README.md) | UI Core, Drag & Drop, Picker, Bar |
+| UI Utilities | [README](../../Runtime/UI/README.md) | Drag & Drop, Picker |
 | Game | [README](../../Runtime/게임/README.md) | Entity, Spawn, State, HP, AI 등 |
 | Generation | [README](../../Runtime/생성/README.md) | seed, random, validation |
 | Utility | [README](../../Runtime/유틸리티/README.md) | pooling, timer, paging, logging 등 |
@@ -26,12 +26,11 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 - Game: [Entity와 Spawn 수명](game/entity-lifecycle.md), [State Machine](game/state-machine.md), [Board](game/board.md), [Controller](game/controller.md), [HP](game/hp.md), [Physics Query](game/physics-query.md), [AI Group](game/ai-group.md), [Use](game/use.md), [Reaction](game/reaction.md), [Zone Graph](game/zone-graph.md), [Level](game/level.md)
 - Generation: [Generation](generation/generation.md)
 - Utility: [GameObject Provider](utility/game-object-provider.md), [Object Pooling](utility/pooling.md), [Timer](utility/timer.md), [Paging](utility/paging.md)
-- UI Core: [설정과 시작](game-ui/setup.md), [구조와 수명](game-ui/architecture.md), [Screen과 입력](game-ui/screens.md), [표시와 배치](game-ui/presentation.md)
+- UI Utilities: [Drag & Drop](../../Runtime/UI/Drag_Drop/README.md), [Picker](../../Runtime/UI/Picker/README.md)
+- Application UI: [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)
 
 ## 읽는 순서
 
 처음 Xeri를 프로젝트에 연결하는 중이라면 [어떤 모듈을 선택할까](../getting-started/choosing-modules.md)와 [프로젝트 통합 패턴](../concepts/integration-patterns.md)을 먼저 확인합니다.
-
-특정 시스템을 이해하려면 해당 모듈 문서에서 `왜 필요한가`, `언제 사용하는가`, `기본 사용`과 책임 경계를 확인하고, 실제 구현 절차가 필요하면 [사용 가이드](../guides/index.md)로 이동합니다.
 
 여러 모듈에 공통으로 적용되는 수명 규칙은 [소유권과 수명](../concepts/ownership-and-lifetime.md), 전체 설계는 [Xeri 구조](../concepts/architecture.md)를 기준으로 합니다.

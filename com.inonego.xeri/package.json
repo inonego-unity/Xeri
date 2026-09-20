@@ -2,18 +2,11 @@
   "name": "com.inonego.xeri",
   "version": "0.0.1",
   "displayName": "Xeri",
-  "description": "xeri",
+  "description": "Modular runtime framework and foundation package for Unity.",
   "unity": "6000.0",
   "author": {
     "name": "inonego"
   },
-  "samples": [
-    {
-      "displayName": "UI Core Validation",
-      "description": "UI Core validation scene with its local HTML and CSS visual reference.",
-      "path": "Samples~/GameUIValidation"
-    }
-  ],
   "dependencies": {
     "com.unity.addressables": "2.8.0",
     "com.unity.inputsystem": "1.18.0",

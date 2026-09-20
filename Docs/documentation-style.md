@@ -27,10 +27,10 @@ Xeri 문서는 다음 네 종류로 구분한다.
 ## 제목과 용어
 
 - 제품명은 `Xeri`로 통일한다. `UniXeri`는 저장소나 경로의 고유 이름을 가리킬 때만 사용한다.
-- 문서 제목은 `# Xeri Serializable`, `# Xeri UI Core`처럼 대상이 바로 드러나게 작성한다.
+- 문서 제목은 `# Xeri Serializable`, `# Xeri Drag & Drop`처럼 대상이 바로 드러나게 작성한다.
 - 섹션 제목은 `개요`, `책임 범위`, `핵심 개념`, `구조`, `기본 사용`처럼 한글을 우선한다.
 - `Runtime`, `Context`, `Lease`, `Handle`, `Screen`처럼 코드와 직접 대응하는 용어는 억지로 번역하지 않는다.
-- public 타입, 멤버, 파일명은 백틱으로 감싼다. 예: `GameUIRuntime`, `AcquireProfile()`.
+- public 타입, 멤버, 파일명은 백틱으로 감싼다. 예: `TrackingController`, `Track()`.
 - 같은 개념에 서로 다른 한글·영문 표현을 혼용하지 않는다.
 
 ## 내용 작성 원칙

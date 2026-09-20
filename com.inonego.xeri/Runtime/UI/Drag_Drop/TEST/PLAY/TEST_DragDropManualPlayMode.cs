@@ -15,6 +15,7 @@ UGUI / Runtime UI Toolkit DragDrop 을 PlayMode 화면에서 직접 드래그해
 
 using System;
 using System.Collections;
+using System.Reflection;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -209,10 +210,20 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             uitkRoot.SetActive(false);
             var renderer = uitkRoot.AddComponent<PanelRenderer>();
             renderer.panelSettings = panelSettings;
-            var layer = uitkRoot.AddComponent<UITKLayerPanel>();
-            layer.SetActive(true);
+            uitkRoot.SetActive(true);
 
-            var root = layer.Root;
+            var rootProperty = typeof(PanelRenderer).GetProperty
+            (
+                "rootVisualElement",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+            );
+            var root = rootProperty?.GetValue(renderer) as VisualElement;
+
+            if (root == null)
+            {
+                throw new MissingReferenceException("PanelRenderer Root를 찾을 수 없습니다.");
+            }
+
             root.style.flexGrow = 1f;
             root.style.backgroundColor = new Color(0.05f, 0.05f, 0.05f, 0.9f);
 

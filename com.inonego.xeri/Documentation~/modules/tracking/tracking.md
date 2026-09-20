@@ -72,7 +72,7 @@ Lease를 해제하면 Binding의 마지막 적용 상태를 먼저 종료하고 
 - GameObject 파괴: Controller와 모든 Binding 종료
 - `UsesUnscaledTime`: 전이에 `Time.unscaledDeltaTime` 사용
 
-UI Core World Marker처럼 특정 수명 객체에 Tracking을 종속시킬 때는 반환된 Lease를 해당 Session이나 Presenter가 소유합니다.
+특정 수명 객체에 Tracking을 종속시킬 때는 반환된 Lease를 해당 객체의 소유자가 함께 보관하고 해제합니다.
 
 ## 제약과 주의사항
 
@@ -84,5 +84,4 @@ UI Core World Marker처럼 특정 수명 객체에 Tracking을 종속시킬 때�
 ## 관련 문서
 
 - [Tracking 모듈](../../../Runtime/Tracking/README.md)
-- [UI Core 표시와 배치](../game-ui/presentation.md)
 - [소유권과 수명](../../concepts/ownership-and-lifetime.md)

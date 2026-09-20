@@ -36,11 +36,12 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | 상호작용 후보 선택과 사용 전달 | Game / Use |
 | Signal → Guard → Action 연결 | Game / Reaction |
 | AI 판단 대상 수명 경계 | Game / AI Group + Brain |
+
 ## UI와 표현
 
 | 필요 | 모듈 |
 |---|---|
-| 게임 Screen/Modal/Overlay/Focus/Input Runtime | UI Core |
+| Screen/Modal/Presentation/Focus/Window/Tray | [Xeri UI](https://github.com/inonego-unity/Xeri-UI) |
 | UGUI/UITK 공통 Drag & Drop | UI / Drag & Drop |
 | 검색·필터·테이블 선택 UI | UI / Picker |
 | 월드 값을 화면 위치로 반복 반영 | Tracking |
@@ -54,12 +55,9 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | 재현 가능한 procedural generation Seed | Generation |
 | 생성 결과 Warning/Error 검증 | Generation Validation |
 
-## Utility를 먼저 쓰지 말아야 하는 경우
-
-새 기능이 명확한 상태, 소유권, lifecycle을 갖는다면 단순히 여러 곳에서 쓴다는 이유로 Utility에 넣지 않습니다. Xeri의 기존 모듈 계약에 자연스럽게 들어가는지 먼저 확인합니다.
-
 ## 다음 단계
 
 1. [첫 설정](first-setup.md)에서 프로젝트 통합 방식을 정합니다.
 2. [Runtime 모듈](../modules/index.md)에서 선택한 시스템의 개념과 계약을 읽습니다.
-3. 실제 작업은 해당 시스템의 [사용 가이드](../guides/index.md)를 따릅니다.
+3. Application UI가 필요하면 Xeri UI package를 설치합니다.
+4. 실제 작업은 해당 시스템의 [사용 가이드](../guides/index.md)를 따릅니다.

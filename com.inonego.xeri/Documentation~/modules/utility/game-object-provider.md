@@ -4,13 +4,13 @@
 
 ## 왜 필요한가
 
-상위 UI/Presentation 시스템이 Prefab Instantiate와 Addressables Instantiate 차이를 직접 알게 되면 공급 방식이 바뀔 때 호출 코드까지 바뀝니다. Provider는 획득과 반환을 같은 backend 경계로 묶어 상위 시스템이 "GameObject 하나를 빌리고 돌려준다"는 계약만 보게 합니다.
+상위 Runtime 시스템이 Prefab Instantiate와 Addressables Instantiate 차이를 직접 알게 되면 공급 방식이 바뀔 때 호출 코드까지 바뀝니다. Provider는 획득과 반환을 같은 backend 경계로 묶어 상위 시스템이 "GameObject 하나를 빌리고 돌려준다"는 계약만 보게 합니다.
 
 ## 언제 사용하는가
 
 - 같은 상위 기능에서 Prefab/Addressables 공급 방식을 교체할 수 있어야 할 때
 - 생성 위치 Parent와 반환 backend를 한 객체로 캡슐화하고 싶을 때
-- Overlay/Window/Profile 같은 시스템이 구체 Instantiate 방식을 몰라야 할 때
+- Entity, playback host, runtime service 같은 상위 기능이 구체 Instantiate 방식을 몰라야 할 때
 
 프로젝트 도메인 초기화까지 자동으로 해주는 factory가 필요하다면 Provider 위에 별도 Adapter/Factory를 두는 편이 낫습니다.
 
@@ -62,7 +62,7 @@ Provider가 반환하는 객체의 활성 상태는 공급 원본과 구현 계�
 `Release()` 호출과 함께 호출자의 반환 책임은 종료됩니다. 반환 중 예외가 발생하더라도 같은 인스턴스를 재시도하는 일반 계약은 아닙니다.
 ## 사용 경계
 
-UI Core Profile, Overlay, Window 등 상위 시스템이 GameObject 생성 방식을 알 필요가 없을 때 Provider를 주입합니다.
+상위 Runtime 시스템이 GameObject 생성 방식을 알 필요가 없을 때 Provider를 주입합니다.
 
 ```text
 상위 시스템

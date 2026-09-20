@@ -1,8 +1,8 @@
 # Xeri 문서
 
-Xeri는 Unity 프로젝트에서 반복되는 Runtime 수명, 데이터 접근, UI, 게임 객체, 재생과 직렬화 문제를 독립 모듈과 명시적인 계약으로 다루는 프레임워크입니다.
+Xeri는 Unity 프로젝트에서 반복되는 Runtime 수명, 데이터 접근, 게임 객체, 재생과 직렬화 문제를 독립 모듈과 명시적인 계약으로 다루는 foundation framework입니다.
 
-이 문서는 단순한 타입 목록보다 **왜 이 기능이 존재하는지, 언제 선택해야 하는지, 어떻게 프로젝트 코드와 조합하는지**를 설명하는 것을 목표로 합니다.
+Application UI lifecycle, Window, Tray와 Bar는 별도 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/) package가 담당합니다.
 
 ## 처음이라면
 
@@ -21,18 +21,11 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | 시작 순서를 구성한다 | [Bootstrapper](modules/core/bootstrapper.md) |
 | 작업 실행과 Undo/Redo history를 관리한다 | [Commanding과 DoSession](modules/commanding/do-session.md) |
 | Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |
-| Screen/Modal/Overlay UI를 운영한다 | [UI Core 설정과 시작](modules/ui-core/setup.md) |
+| Screen/Modal/Window UI를 운영한다 | [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/) |
+| UGUI/UITK Drag & Drop을 구성한다 | [UI Utilities](../Runtime/UI/README.md) |
 | Audio/VFX Cue를 공통 재생한다 | [Playback Cue](modules/playback/cue.md) |
 | 결정적 procedural generation을 만든다 | [Generation](modules/generation/generation.md) |
 | 반복 객체의 반환 수명을 관리한다 | [Object Pooling](modules/utility/pooling.md) |
-## 문서 구분
-
-- **Getting Started**: 설치, 첫 조립, 모듈 선택처럼 처음 시작할 때 필요한 문서
-- **개념 문서**: 여러 모듈에 공통으로 적용되는 구조, 소유권, 통합 규칙
-- **모듈 문서**: 각 시스템이 무엇이고 왜 필요한지, 언제 사용하고 어떤 계약을 제공하는지 설명
-- **사용 가이드**: 특정 작업을 실제 코드와 순서로 완료하는 절차
-- **유지보수 문서**: 내부 구현, 테스트, 확장 시 지켜야 하는 구조
-- **API Reference**: 향후 DocFX가 public API와 XML documentation에서 생성할 상세 멤버 문서
 
 ## 프로젝트와 Xeri의 경계
 

@@ -26,10 +26,10 @@ Project Adapter / Source / Driver / Handler
 
 | 영역 | 확장 계약 예 |
 |---|---|
-| UI Core | `IScreenSource`, `IScreenDriver`, `IPresentationLayerDriver` |
+| Drag & Drop | `IDropRule`, `IDropResolver`, `IDragCoordinateProvider` |
 | Playback | `ICuePlayer`, `ICueBinding` |
 
-세부 계약은 각 모듈 README와 API Reference를 기준으로 확인합니다.
+Application UI의 Screen/Presentation/Window 계약은 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
 
 ## 관련 문서
 
