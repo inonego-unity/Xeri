@@ -28,6 +28,8 @@ Project Adapter / Source / Driver / Handler
 |---|---|
 | UI Core | `IScreenSource`, `IScreenDriver`, `IPresentationLayerDriver` |
 | Playback | `ICuePlayer`, `ICueBinding` |
+| Game Entity | `ISpawnRegistryBinding<TKey,T>`, `IEntityActorFactory` |
+| Game Presentation | `IEntityPresentationProvider<TEntityActor,TEntity>` |
 
 세부 계약은 각 모듈 README와 API Reference를 기준으로 확인합니다.
 

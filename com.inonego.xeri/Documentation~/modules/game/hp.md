@@ -1,18 +1,7 @@
 # HP
 
-Xeri HP는 int/float 계열 값을 공통 `INumeric` 계약으로 다루는 체력 모델입니다. 현재 값, 최대값, 생존 상태와 Heal/Damage 이벤트를 하나의 상태 경계로 관리합니다.
-
-## 왜 필요한가
-
-체력 값과 생존 상태를 별도 필드로 관리하면 `HP == 0`인데 Alive인 상태처럼 모순이 생길 수 있습니다. Xeri HP는 값 범위, Alive/Dead 전이, Heal/Damage 이벤트를 같은 모델에서 처리해 상위 Entity나 UI가 하나의 일관된 상태를 관찰하게 합니다.
-
-## 언제 사용하는가
-
-- 현재/최대 체력과 생존 상태를 함께 관리할 때
-- damage/heal 이벤트와 값 변경 이벤트를 구분해 소비해야 할 때
-- int와 float HP 구현을 같은 계약으로 다루고 싶을 때
-
-체력이 단순 표시값이고 Alive/Dead lifecycle과 연결되지 않는다면 일반 `Value<T>`가 더 단순할 수 있습니다.
+Xeri HP는 int/float 계열 값을 공통 `INumeric` 계약으로 다루는 체력 모델입니다.
+현재값, 최대값, Alive/Dead 상태와 Heal/Damage 이벤트를 하나의 상태 경계로 관리합니다.
 
 ## 기본 사용
 
@@ -27,8 +16,6 @@ float ratio = hp.Ratio;
 hp.ApplyHeal(10);
 ```
 
-`EntityBase`와 함께 사용하면 HP가 Dead로 전환될 때 Registry Despawn 요청으로 연결됩니다.
-
 ## 상태 모델
 
 ```text
@@ -36,19 +23,20 @@ Value > 0  ↔ Alive
 Value == 0 ↔ Dead
 ```
 
-`Value`가 0 경계를 넘으면 상태가 자동으로 전환됩니다. `MakeAlive()`와 `MakeDead()`를 직접 호출하면 기본적으로 값도 각각 `MaxValue`와 0으로 맞춥니다.
+`Value`가 0 경계를 넘으면 상태가 자동 전환됩니다.
+`MakeAlive()`와 `MakeDead()`는 기본적으로 값도 각각 `MaxValue`와 0으로 맞춥니다.
 
 ## 값과 최대값
-
-- `Value`: 항상 0~`MaxValue` 범위로 clamp
-- `MaxValue`: 항상 0 이상
+- `Value`: 0~`MaxValue` 범위로 clamp
+- `MaxValue`: 0 이상
 - `Ratio`: `Value / MaxValue`, MaxValue가 0이면 0
 
 MaxValue를 현재 Value보다 작게 낮추면 Value도 새 최대값으로 조정됩니다.
 
 ## Heal과 Damage
 
-`ApplyHeal()`과 `ApplyDamage()`는 Dead 상태에서는 동작하지 않습니다. 음수와 0 amount도 적용하지 않습니다.
+`ApplyHeal()`과 `ApplyDamage()`는 Dead 상태에서는 동작하지 않습니다.
+음수와 0 amount도 적용하지 않습니다.
 
 ```text
 ApplyDamage
@@ -57,7 +45,6 @@ ApplyDamage
 → OnDamage
 ```
 
-`CalculateApplyAmount()`는 현재값, 최대값, 손실값 중 하나를 기준으로 비율 amount를 계산합니다.
 ## 이벤트
 
 - `OnValueChange`
@@ -66,19 +53,36 @@ ApplyDamage
 - `OnHeal`
 - `OnDamage`
 
-상태 자동 전환과 값 변경 이벤트는 같은 변경에서 함께 발생할 수 있으므로 구독자는 각각 독립된 의미로 처리합니다.
+상태 전환과 값 변경 이벤트는 같은 변경에서 함께 발생할 수 있으므로 구독자는 각각 독립된 의미로 처리합니다.
+## Entity와 조합
 
-## Entity 연동
+HP는 Entity Core의 필수 책임이 아닙니다.
+HP가 필요한 Entity는 `IReadOnlyHPOwner/IHPOwner` 또는 generic capability를 구현해 기존 HP 객체를 제공합니다.
 
-`EntityBase`는 Spawned 상태에서 HP 상태 변경을 구독하고 `Dead`로 전환되면 `DespawnReason.Dead`로 Registry에 디스폰을 요청합니다.
+```text
+EntityBase
+├─ Key / HasKey
+├─ SpawnState
+└─ lifecycle
 
-따라서 Entity에서 HP를 사용할 때는 HP의 생존 상태와 Entity Spawn lifecycle을 별도 상태로 취급하되, 사망 전환 시 Registry 소유권 해제로 연결된다는 점을 고려합니다.
+optional:
+IReadOnlyHPOwner / IHPOwner
+└─ HP
+```
+
+HP Dead와 Entity Despawn은 서로 다른 lifecycle입니다.
+Xeri Core는 Dead 상태를 자동으로 Registry Despawn에 연결하지 않습니다.
+게임 규칙상 필요하면 runtime binding/composition에서 `OnStateChange`를 구독해 `DespawnReason.Dead` 같은 정책으로 연결합니다.
+
+이 분리를 통해 HP 없는 Entity와, HP가 Dead여도 논리 Entity 수명을 유지하는 정책을 모두 지원할 수 있습니다.
 
 ## 책임 범위
 
-HP는 값·상태·적용 이벤트만 소유합니다. 방어력, 피해 타입, 무적 시간, 공격 판정과 같은 전투 정책은 consumer가 Damage amount를 계산하기 전에 처리합니다.
+HP는 값·상태·Heal/Damage 이벤트만 소유합니다.
+방어력, 피해 타입, 무적 시간, 공격 판정, Entity 제거 정책은 상위 gameplay/runtime composition이 소유합니다.
 
 ## 관련 문서
 
 - [Entity와 Spawn 수명](entity-lifecycle.md)
+- [Entity Registry 구현하기](../../guides/game/create-entity-registry.md)
 - [Xeri Game](../../../Runtime/게임/README.md)

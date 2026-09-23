@@ -30,6 +30,8 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | 필요 | 모듈 |
 |---|---|
 | 객체 등록과 Spawn/Despawn 수명 | Game / Entity + Spawn |
+| 논리 Entity와 Scene Actor 0..N 관계 | Game / Entity Actor |
+| Actor와 Presentation create/rollback/release 조립 | Game / EntityActorRuntime + Presentation |
 | 단순 FSM | Game / State Machine |
 | HP와 Alive/Dead 상태 | Game / HP |
 | 2D/3D 보드 배치 | Game / Board |

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : IReadOnlyHP.cs
-수정일 : 2026-05-07
+수정일 : 2026-09-22
 
 # 설명
 HP 읽기 전용 뷰 인터페이스 모음.
@@ -9,8 +9,6 @@ HP 읽기 전용 뷰 인터페이스 모음.
 - IReadOnlyHP<TValue>    : 값까지 포함.
 - IReadOnlyHP_I / _F     : int / float 특화 별칭.
 ========================================================================= BLOCK_HEADER_END */
-
-using System;
 
 namespace inonego.Xeri.Game
 {
@@ -90,14 +88,14 @@ namespace inonego.Xeri.Game
         /// 힐이 적용되었을 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        event EventHandler<HPApplyEventArgs<TValue>> OnHeal;
+        event HPApplyEventHandler<TValue> OnHeal;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 데미지가 적용되었을 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        event EventHandler<HPApplyEventArgs<TValue>> OnDamage;
+        event HPApplyEventHandler<TValue> OnDamage;
 
     #endregion
 

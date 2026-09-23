@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MockHP_IF.cs
-수정일 : 2026-05-07
+수정일 : 2026-09-22
 
 # 설명
 값 직접 설정 및 이벤트 수동 발화가 가능한 HP Mock 추상 클래스 및 구현체.
@@ -55,14 +55,14 @@ namespace inonego.Xeri.Game
         /// 힐이 적용되었을 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event EventHandler<HPApplyEventArgs<TValue>> OnHeal = null;
+        public event HPApplyEventHandler<TValue> OnHeal = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 데미지가 적용되었을 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event EventHandler<HPApplyEventArgs<TValue>> OnDamage = null;
+        public event HPApplyEventHandler<TValue> OnDamage = null;
 
     #endregion
 

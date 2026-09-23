@@ -1,22 +1,22 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : IEntityView.cs
-수정일 : 2026-07-28
+파일명 : IEntityActor.cs
+수정일 : 2026-10-03
 
 # 설명
-Entity 모델을 Unity View로 표현하기 위한 인터페이스 모음.
+Entity 모델을 Unity Actor로 표현하기 위한 인터페이스 모음.
 
-- IReadOnlyEntityView : 외부 노출용. Entity·Key를 읽기 전용으로 노출한다.
-- IEntityView         : 시스템 내부용. 변경 가능한 Entity 노출을 제공한다.
+- IReadOnlyEntityActor : 외부 노출용. Entity·Key·binding 상태를 읽기 전용으로 노출한다.
+- IEntityActor         : 시스템 내부용. 변경 가능한 Entity 노출을 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 namespace inonego.Xeri.Game
 {
     // ============================================================
     /// <summary>
-    /// Entity View 읽기 전용 인터페이스.
+    /// Entity Actor 읽기 전용 인터페이스.
     /// </summary>
     // ============================================================
-    public interface IReadOnlyEntityView : IKeyable<ulong>
+    public interface IReadOnlyEntityActor : IKeyable<ulong>
     {
         // ------------------------------------------------------------
         /// <summary>
@@ -24,14 +24,21 @@ namespace inonego.Xeri.Game
         /// </summary>
         // ------------------------------------------------------------
         IReadOnlyEntity Entity { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Actor가 Entity에 연결되어 있는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        bool IsBound { get; }
     }
 
     // ============================================================
     /// <summary>
-    /// Entity View 시스템 내부 인터페이스.
+    /// Entity Actor 시스템 내부 인터페이스.
     /// </summary>
     // ============================================================
-    public interface IEntityView : IReadOnlyEntityView
+    public interface IEntityActor : IReadOnlyEntityActor
     {
         // ------------------------------------------------------------
         /// <summary>

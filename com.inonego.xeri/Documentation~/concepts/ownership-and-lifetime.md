@@ -32,6 +32,8 @@ Dispose / Release / Close
 - 종료 순서가 중요한 경우 소비자를 먼저 종료하고 기반 리소스를 나중에 종료합니다.
 - 실제 계약이 재시도를 요구하지 않는 `Dispose` 실패를 임의의 복구 상태 머신으로 확장하지 않습니다.
 - Addressables처럼 외부 release가 필요한 값은 값과 수명 책임을 분리하지 않습니다.
+- Registry relation과 pooled object를 함께 반환할 때는 live relation을 먼저 제거하고 object/pool release를 나중에 수행합니다.
+- 여러 subsystem을 조립한 transaction은 commit 전 실패와 정상 terminal release를 구분합니다. Actor의 경우 `EntityActorRuntime.Rollback`은 `SpawnRollback` 의미로 정리하고, 정상 `Release`는 caller가 전달한 `DespawnReason`을 유지합니다.
 
 ## 관련 문서
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : EntitySpawnRegistry.cs
-수정일 : 2026-08-29
+수정일 : 2026-09-21
 
 # 설명
 엔티티 전용 스폰 레지스트리 베이스·구현체.
@@ -18,11 +18,11 @@ using UnityEngine;
 
 namespace inonego.Xeri.Game
 {
-    // ======================================================================
+    // ============================================================
     /// <summary>
     /// 엔티티 스폰 레지스트리 베이스. 키 생성기와 스폰 전 키 부여를 담당한다.
     /// </summary>
-    // ======================================================================
+    // ============================================================
     [Serializable]
     public abstract class EntitySpawnRegistryBase<TEntity> : SpawnRegistryBase<ulong, TEntity>
     where TEntity : class, IEntity
@@ -49,7 +49,10 @@ namespace inonego.Xeri.Game
         /// 기본 생성자. IncreKeyGenerator 를 사용한다.
         /// </summary>
         // ------------------------------------------------------------
-        public EntitySpawnRegistryBase() : base() {}
+        public EntitySpawnRegistryBase() : base()
+        {
+            // NONE
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -64,30 +67,6 @@ namespace inonego.Xeri.Game
             }
 
             this.keyGenerator = keyGenerator;
-        }
-
-    #endregion
-
-    #region 등록 런타임 연결
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// Registry가 Entity의 Spawned 소유 관계를 확정할 때 Entity 내부 연결을 구성한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        protected override void OnRegistrationAttached(TEntity entity)
-        {
-            entity.OnRegistrationAttached();
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// Registry가 Entity의 Spawned 소유 관계를 해제할 때 Entity 내부 연결을 정리한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        protected override void OnRegistrationDetached(TEntity entity, DespawnReason reason)
-        {
-            entity.OnRegistrationDetached(reason);
         }
 
     #endregion
@@ -226,7 +205,10 @@ namespace inonego.Xeri.Game
         /// 파생 클래스가 Init 전에 수행할 작업을 정의하는 훅.
         /// </summary>
         // ------------------------------------------------------------
-        protected virtual void OnInit(TEntity spawnable, TParam param) {}
+        protected virtual void OnInit(TEntity spawnable, TParam param)
+        {
+            // NONE
+        }
 
     #endregion
 

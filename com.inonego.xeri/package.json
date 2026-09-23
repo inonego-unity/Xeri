@@ -2,7 +2,7 @@
   "name": "com.inonego.xeri",
   "version": "0.0.1",
   "displayName": "Xeri",
-  "description": "xeri",
+  "description": "Modular Unity runtime contracts for lifecycle, entity/actor/presentation orchestration, UI, playback, serialization, generation, and utility systems.",
   "unity": "6000.0",
   "author": {
     "name": "inonego"

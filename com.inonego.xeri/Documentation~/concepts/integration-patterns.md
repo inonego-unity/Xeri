@@ -41,7 +41,29 @@ Load / Validate / Compose
 Register / Publish
 ```
 
-실패하면 이미 획득한 `Lease`, Handle, View, Source를 역순으로 정리하고 외부에는 준비되지 않은 상태를 노출하지 않습니다.
+실패하면 이미 획득한 `Lease`, Handle, Actor, Presentation, Source를 역순으로 정리하고 외부에는 준비되지 않은 상태를 노출하지 않습니다.
+
+Game Actor처럼 여러 subsystem이 한 사용 단위를 이루는 경우에도 각 subsystem의 primitive를 없애지 않고 상위 transaction이 조립합니다.
+
+```text
+EntityActorRuntime.Create
+→ EntityActorController.Create
+→ EntityActorController.Attach
+→ EntityPresentationCoordinator.CreateForActor
+→ project setup / Activate
+→ commit
+
+pre-commit 실패
+→ EntityActorRuntime.Rollback
+
+owner migration
+→ EntityActorRuntime.Transfer
+
+terminal release
+→ EntityActorRuntime.Release
+```
+
+persistent Actor state와 gameplay policy는 프로젝트에 남기고 Xeri transaction은 live object 수명만 관리합니다.
 
 ## 안정 ID와 Key를 사용한다
 
@@ -58,6 +80,8 @@ Register / Publish
 | `GenerationSeed`의 결정적 파생 | 실제 생성 알고리즘과 stable key 체계 |
 | `TrackingBinding`의 resolve/commit 수명 | 무엇을 추적하고 어떤 좌표계로 변환할지 |
 | `EntitySpawnRegistry`의 Spawn/Despawn 계약 | 구체 Entity 생성과 외부 자원 해제 방식 |
+| `EntityActorController`의 Entity → Actor 0..N 관계 | 어떤 Entity에 언제 Actor를 materialize할지 |
+| `EntityActorRuntime`의 Actor + Presentation transaction | Actor state apply, Activate, AI/Control, gameplay commit 정책 |
 ## 관련 문서
 
 - [Xeri 구조](architecture.md)

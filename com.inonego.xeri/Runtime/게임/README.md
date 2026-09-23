@@ -1,6 +1,6 @@
 # Xeri Game
 
-Xeri Game은 게임 Runtime에서 반복되는 Entity, Spawn, State, HP, AI, Zone, Board와 controller 기반 기능을 제공합니다.
+Xeri Game은 게임 Runtime에서 반복되는 Entity, Spawn, Actor, Presentation, State, HP, AI, Zone, Board와 controller 기반 기능을 제공합니다.
 
 ## 개요
 
@@ -13,6 +13,8 @@ Entity Key/Spawn, HP, FSM, AI Group, Board, Use/Reaction 같은 게임 Runtime �
 ## 언제 사용하는가
 
 - 논리 Entity의 Spawn/Despawn과 중앙 조회가 필요할 때
+- 논리 Entity와 Scene Actor 수명을 분리하고 Entity → Actor 0..N 관계를 관리할 때
+- Actor 생성/반환을 Presentation Provider transaction과 함께 rollback 가능한 단위로 조립할 때
 - 단순 FSM, HP, Level 같은 재사용 상태 모델이 필요할 때
 - AI 판단 대상 수명, Zone topology, Board 배치 같은 기반 모델이 필요할 때
 - 상호작용 탐색/입력과 실제 Action 실행을 분리하고 싶을 때
@@ -21,11 +23,11 @@ Entity Key/Spawn, HP, FSM, AI Group, Board, Use/Reaction 같은 게임 Runtime �
 
 ## 어디서 시작하는가
 
-객체 lifecycle이면 [Entity와 Spawn](../../Documentation~/modules/game/entity-lifecycle.md), 상태 전이면 [State Machine](../../Documentation~/modules/game/state-machine.md), 상호작용이면 [Use](../../Documentation~/modules/game/use.md) + [Reaction](../../Documentation~/modules/game/reaction.md), AI 집단 판단이면 [AI Group과 Brain](../../Documentation~/modules/game/ai-group.md)에서 시작합니다. 실제 조립 절차는 [Game 사용 가이드](../../Documentation~/guides/index.md)의 해당 항목을 따릅니다.
+객체 lifecycle이면 [Entity와 Spawn](../../Documentation~/modules/game/entity-lifecycle.md), Scene Actor까지 필요하면 [Entity Actor Runtime 조립하기](../../Documentation~/guides/game/compose-entity-actor-runtime.md), 상태 전이면 [State Machine](../../Documentation~/modules/game/state-machine.md), 상호작용이면 [Use](../../Documentation~/modules/game/use.md) + [Reaction](../../Documentation~/modules/game/reaction.md), AI 집단 판단이면 [AI Group과 Brain](../../Documentation~/modules/game/ai-group.md)에서 시작합니다.
 
 ## 주요 영역
 
-- `엔티티`: Entity key, view, presentation과 registry 연결
+- `엔티티`: Entity identity/lifecycle, Entity → Actor 0..N, Actor → Presentation 0..N, Actor runtime transaction
 - `스폰`: spawn/despawn 상태와 registry
 - `상태`: 상태 머신과 상태 계약
 - `체력`: HP 상태와 변경 이벤트
@@ -51,11 +53,12 @@ Entity Key/Spawn, HP, FSM, AI Group, Board, Use/Reaction 같은 게임 Runtime �
 
 ## 소유권과 수명
 
-Entity/Spawn 계열은 registry가 등록 상태와 key를 관리합니다. 개별 Entity는 registry lifecycle과 자신의 HP/Group 같은 Runtime 상태의 경계를 구분해야 합니다.
+Entity/Spawn 계열은 registry가 등록 상태와 key를 관리합니다. Actor 계열은 논리 Entity와 별도 Scene lifetime을 가지며 `EntityActorController`가 live Actor object를, `EntityActorRuntime`이 Presentation Coordinator와의 create/rollback/release 순서를 조립합니다. HP Dead, Actor 제거, persistent state 보존 여부는 서로 다른 정책 축으로 유지합니다.
 
 ## 관련 문서
 
 - [Entity와 Spawn 수명](../../Documentation~/modules/game/entity-lifecycle.md)
+- [Entity Actor Runtime 조립하기](../../Documentation~/guides/game/compose-entity-actor-runtime.md)
 - [State Machine](../../Documentation~/modules/game/state-machine.md)
 - [Board](../../Documentation~/modules/game/board.md)
 - [Game Controller](../../Documentation~/modules/game/controller.md)

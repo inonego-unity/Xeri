@@ -25,6 +25,8 @@
     href: guides/core/add-bootstrapper-module.md
   - name: Entity Registry 구현하기
     href: guides/game/create-entity-registry.md
+  - name: Entity Actor Runtime 조립하기
+    href: guides/game/compose-entity-actor-runtime.md
   - name: State Machine 구성하기
     href: guides/game/create-state-machine.md
   - name: Use와 Reaction 연결하기

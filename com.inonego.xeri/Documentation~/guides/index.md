@@ -9,6 +9,7 @@
 ## 게임 Runtime
 
 - [Entity Registry 구현하기](game/create-entity-registry.md)
+- [Entity Actor Runtime 조립하기](game/compose-entity-actor-runtime.md)
 - [State Machine 구성하기](game/create-state-machine.md)
 - [Use와 Reaction 연결하기](game/connect-use-and-reaction.md)
 

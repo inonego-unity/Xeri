@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : HP.cs
-수정일 : 2026-09-18
+수정일 : 2026-09-22
 
 # 설명
 제너릭 체력(HP) 추상 클래스 및 관련 열거형·구조체 정의.
@@ -28,6 +28,13 @@ namespace inonego.Xeri.Game
     /// </summary>
     // ============================================================
     public enum HPApplyRatioType { ByValue, ByMaxValue, ByMissingValue }
+
+    // ============================================================
+    /// <summary>
+    /// 체력 적용(힐/데미지) 이벤트 핸들러.
+    /// </summary>
+    // ============================================================
+    public delegate void HPApplyEventHandler<TValue>(object sender, HPApplyEventArgs<TValue> e);
 
     // ============================================================
     /// <summary>
@@ -78,14 +85,14 @@ namespace inonego.Xeri.Game
         /// 힐이 적용되었을 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event EventHandler<HPApplyEventArgs<TValue>> OnHeal = null;
+        public event HPApplyEventHandler<TValue> OnHeal = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 데미지가 적용되었을 때 호출된다.
         /// </summary>
         // ------------------------------------------------------------
-        public event EventHandler<HPApplyEventArgs<TValue>> OnDamage = null;
+        public event HPApplyEventHandler<TValue> OnDamage = null;
 
     #endregion
 

@@ -57,9 +57,11 @@ Create → Load → Validate → Compose → Register
 - Generation: 같은 Seed에서 같은 결과가 재현되는지 확인
 - UI: Screen 하나를 열고 닫으며 Acquire/Release 대칭 확인
 - Tracking: 하나의 Binding을 등록하고 Lease 해제 시 clear되는지 확인
+- Game Entity/Actor: Entity 하나를 Spawn한 뒤 Actor Create → project setup → Release 또는 Rollback이 대칭인지 확인
 
 ## 관련 문서
 
 - [모듈 선택 가이드](choosing-modules.md)
 - [Xeri 통합 패턴](../concepts/integration-patterns.md)
 - [소유권과 수명](../concepts/ownership-and-lifetime.md)
+- [Entity Actor Runtime 조립하기](../guides/game/compose-entity-actor-runtime.md)
