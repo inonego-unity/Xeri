@@ -2,11 +2,10 @@
  * Keep concrete colors, spacing, type, and fixed layout sizes here so a host can
  * replace this file or override the same variables from a higher-level theme.
  */
-:root {
+.xeri-picker {
     /* Unity dark palette */
     --xeri-picker-color-window: #2b2b2b;
     --xeri-picker-color-panel: #323232;
-    --xeri-picker-color-panel-low: #242424;
     --xeri-picker-color-panel-lower: #1f1f1f;
     --xeri-picker-color-image-panel: #26282c;
     --xeri-picker-color-control: #383838;
@@ -27,15 +26,10 @@
     --xeri-picker-color-accent-pressed: #294b69;
     --xeri-picker-color-accent-border: #557595;
     --xeri-picker-color-green: #3e694f;
-    --xeri-picker-color-green-hover: #507b60;
-    --xeri-picker-color-green-pressed: #2f503c;
     --xeri-picker-color-green-border: #5c8265;
     --xeri-picker-color-orange: #715c3c;
-    --xeri-picker-color-orange-hover: #826b48;
-    --xeri-picker-color-orange-pressed: #59482f;
     --xeri-picker-color-orange-border: #8c744f;
     --xeri-picker-color-gray-blue: #545962;
-    --xeri-picker-color-gray-blue-hover: #666b75;
     --xeri-picker-color-gray-blue-border: #727986;
 
     /* Table */
@@ -69,7 +63,6 @@
     --xeri-picker-preview-image-size: 56px;
     --xeri-picker-preview-desc-height: 62px;
     --xeri-picker-toolbar-search-height: 22px;
-    --xeri-picker-toolbar-search-row-height: 24px;
     --xeri-picker-filter-chip-height: 22px;
     --xeri-picker-row-height: 30px;
     --xeri-picker-table-image-size: 22px;

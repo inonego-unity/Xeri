@@ -8,8 +8,16 @@
 
 | 영역 | 역할 | 문서 |
 |---|---|---|
+| Common | PagedListChrome 셸, SearchPagedList 검색·페이지 상태, PaginationBar 표시 | 아래 공통 목록 UI |
 | Drag & Drop | backend 공통 drag/drop 상태와 UGUI/UITK adapter | [README](Drag_Drop/README.md) |
 | Picker | UI Toolkit 기반 선택 UI와 table/filter/paging | [README](Picker/README.md) |
+
+## 공통 목록 UI
+
+Runtime/UI/Common은 Picker와 Collection Editor에서 재사용하는 목록 UI만 소유합니다.
+PagedListChrome은 UXML/USS 레이아웃과 요소 삽입 지점을 제공하고 검색·선택·직렬화 정책은 소유하지 않습니다.
+검색·필터·정렬·페이지 상태는 SearchPagedList<T>, 페이지 이동 버튼은 PaginationBar가 담당합니다.
+Picker의 선택·필터 동작과 Collection Editor의 Undo·Mutation은 각각의 Session/Model에 남깁니다.
 
 ## Drag & Drop
 

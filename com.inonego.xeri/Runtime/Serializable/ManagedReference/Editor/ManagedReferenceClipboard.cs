@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ManagedReferenceClipboard.cs
-수정일 : 2026-08-04
+수정일 : 2026-10-18
 
 # 설명
 SerializeReference picker의 독립 값 복사와 동일 serialized root 내 Link 복사를 관리한다.
@@ -18,13 +18,14 @@ using UnityEngine.Serialization;
 
 namespace inonego.Xeri.Serializable.Editor
 {
-    // ============================================================
+    // ================================================================================
     /// <summary>
     /// managed-reference 값과 동일 root identity의 Editor clipboard를 제공한다.
     /// </summary>
-    // ============================================================
+    // ================================================================================
     internal static class ManagedReferenceClipboard
     {
+
     #region 내부 데이터
 
         private static ValueEntry valueEntry = null;
@@ -59,7 +60,7 @@ namespace inonego.Xeri.Serializable.Editor
                 valueEntry = new ValueEntry
                 (
                     value.GetType(),
-                    SerializeRuntimeType(value)
+                    ManagedReferenceValueSerializer.Serialize(value)
                 );
                 reason = null;
                 return true;
@@ -96,7 +97,11 @@ namespace inonego.Xeri.Serializable.Editor
                 // multi-object 편집도 각 host에 독립 deserialization 결과를 대입해야 shared object가 되지 않는다.
                 targetProperty.managedReferenceValue = valueEntry.Type == null
                     ? null
-                    : DeserializeRuntimeType(valueEntry.Type, valueEntry.Payload);
+                    : ManagedReferenceValueSerializer.Deserialize
+                    (
+                        valueEntry.Type,
+                        valueEntry.Payload
+                    );
                 targetObject.ApplyModifiedProperties();
             }
 
@@ -176,11 +181,11 @@ namespace inonego.Xeri.Serializable.Editor
             return true;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 현재 managed-reference identity를 같은 serialized root 전용 Link로 복사한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         public static bool TryCopyAsLink(SerializedProperty property, out string reason)
         {
             if (!CanCopyAsLink(property, out reason))
@@ -270,34 +275,6 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 기존 ISerializer generic Serialize 메서드를 실제 runtime type으로 호출한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static string SerializeRuntimeType(object value)
-        {
-            var serialize = typeof(ISerializer)
-                .GetMethod(nameof(ISerializer.Serialize))
-                .MakeGenericMethod(value.GetType());
-
-            return (string)serialize.Invoke(UnityJsonSerializer.Default, new[] { value });
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 기존 ISerializer generic Deserialize 메서드를 실제 runtime type으로 호출한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static object DeserializeRuntimeType(Type type, string payload)
-        {
-            var deserialize = typeof(ISerializer)
-                .GetMethod(nameof(ISerializer.Deserialize))
-                .MakeGenericMethod(type);
-
-            return deserialize.Invoke(UnityJsonSerializer.Default, new object[] { payload });
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// property가 managed-reference인지 확인하고 현재 값을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -327,6 +304,7 @@ namespace inonego.Xeri.Serializable.Editor
         // ============================================================
         private sealed class ValueEntry
         {
+
         #region 필드
 
             // ------------------------------------------------------------
@@ -359,15 +337,17 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
         #endregion
+
         }
 
-        // ============================================================
+        // ================================================================================
         /// <summary>
         /// 동일 serialized root에만 다시 연결할 수 있는 managed-reference identity를 보관한다.
         /// </summary>
-        // ============================================================
+        // ================================================================================
         private sealed class LinkEntry
         {
+
         #region 필드
 
             // ------------------------------------------------------------
@@ -408,8 +388,10 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
         #endregion
+
         }
 
     #endregion
+
     }
 }

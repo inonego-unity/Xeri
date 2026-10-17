@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerTableBinder.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-18
 
 # 설명
 Picker MultiColumnListView의 column, row, selection, double click, sorting 입력을 관리한다.
@@ -63,44 +63,73 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public void Refresh()
         {
-            RefreshPageItems();
+            var pageChanged = RefreshPageItems();
 
             if (!ReferenceEquals(listView.itemsSource, pageItems))
             {
                 listView.itemsSource = pageItems;
+                pageChanged = true;
             }
 
-            listView.Rebuild();
+            // 선택만 바뀌었다면 가상화된 cell을 다시 생성하지 않는다.
+            if (pageChanged)
+            {
+                listView.Rebuild();
+            }
+
             emptyLabel.style.display = pageItems.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
 
-            if (session.CurrentEntry == null)
+            var index = session.CurrentEntry == null
+                ? -1
+                : pageItems.IndexOf(session.CurrentEntry);
+            if (listView.selectedIndex == index)
             {
-                listView.ClearSelection();
                 return;
             }
 
-            var index = pageItems.IndexOf(session.CurrentEntry);
             if (index >= 0)
             {
                 listView.SetSelection(index);
-                return;
             }
-
-            listView.ClearSelection();
+            else
+            {
+                listView.ClearSelection();
+            }
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// session page 결과를 table용 buffer에 복사한다.
+        /// 실제 페이지 구성이나 순서가 바뀐 경우에만 table buffer를 갱신한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void RefreshPageItems()
+        private bool RefreshPageItems()
         {
+            var entries = session.PageEntries;
+            var changed = pageItems.Count != entries.Count;
+            if (!changed)
+            {
+                for (var index = 0; index < entries.Count; index++)
+                {
+                    if (!ReferenceEquals(pageItems[index], entries[index]))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!changed)
+            {
+                return false;
+            }
+
             pageItems.Clear();
-            foreach (var entry in session.PageEntries)
+            foreach (var entry in entries)
             {
                 pageItems.Add(entry);
             }
+
+            return true;
         }
 
         // ------------------------------------------------------------

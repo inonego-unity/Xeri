@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerView.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-24
 
 # 설명
 Picker session을 표시하고 Resources 기반 UXML/USS를 적용하는 root VisualElement.
@@ -10,6 +10,10 @@ using System;
 
 using UnityEngine;
 using UnityEngine.UIElements;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.UI.Picker
 {
@@ -25,9 +29,8 @@ namespace inonego.Xeri.UI.Picker
 
         private readonly PickerSession<TEntry, TValue> session;
         private readonly PickerPreviewBinder<TEntry, TValue> previewBinder;
-        private readonly PickerToolbarBinder<TEntry, TValue> toolbarBinder;
+        private readonly PickerFilterBinder<TEntry, TValue> filterBinder;
         private readonly PickerTableBinder<TEntry, TValue> tableBinder;
-        private readonly PickerFooterBinder<TEntry, TValue> footerBinder;
 
     #endregion
 
@@ -66,12 +69,51 @@ namespace inonego.Xeri.UI.Picker
 
             focusable = true;
             AddToClassList("xeri-picker-host");
+            AddToClassList("xeri-picker");
             if (layout == null)
             {
                 throw new ArgumentNullException(nameof(layout));
             }
 
-            layout.CloneTree(this);
+            var content = new VisualElement();
+            layout.CloneTree(content);
+
+            var chrome = new PagedListChrome();
+            Add(chrome);
+            chrome.PaginationHost.Add
+            (
+                new PaginationBar
+                (
+                    session.Paginator,
+                    session.MoveFirst,
+                    session.MovePrev,
+                    session.MoveNext,
+                    session.MoveLast
+                )
+            );
+
+            var preview = content.Q<VisualElement>("preview-pane");
+            var search = content.Q<VisualElement>("search-field");
+            var filters = content.Q<VisualElement>("filter-chip-container");
+            var table = content.Q<VisualElement>("table-pane");
+            if (preview == null || search == null || filters == null || table == null)
+            {
+                throw new InvalidOperationException("PickerView 전용 콘텐츠 UXML이 올바르지 않습니다.");
+            }
+
+            chrome.HeaderHost.Add(preview);
+            chrome.SearchHost.Add(search);
+            if (session.Filters.Count > 0)
+            {
+                chrome.AddToolbarExtra(filters);
+                filterBinder = new PickerFilterBinder<TEntry, TValue>(session, this);
+            }
+
+            chrome.ContentHost.Add(table);
+            search.RegisterCallback<ChangeEvent<string>>
+            (
+                evt => session.SetSearchText(evt.newValue)
+            );
 
             if (themeStyle != null)
             {
@@ -90,11 +132,8 @@ namespace inonego.Xeri.UI.Picker
                 previewBinder = new PickerPreviewBinder<TEntry, TValue>(session, this);
             }
 
-            toolbarBinder = new PickerToolbarBinder<TEntry, TValue>(session, this);
-            tableBinder   = new PickerTableBinder<TEntry, TValue>(session, this);
-            footerBinder  = new PickerFooterBinder<TEntry, TValue>(session, this);
+            tableBinder = new PickerTableBinder<TEntry, TValue>(session, this);
 
-            session.Changed += HandleSessionChanged;
             RegisterCallback<KeyDownEvent>(HandleKeyDown, TrickleDown.TrickleDown);
             RegisterCallback<AttachToPanelEvent>(HandleAttached);
             RegisterCallback<DetachFromPanelEvent>(HandleDetached);
@@ -114,9 +153,8 @@ namespace inonego.Xeri.UI.Picker
         private void Refresh()
         {
             previewBinder?.Refresh();
-            toolbarBinder?.Refresh();
+            filterBinder?.Refresh();
             tableBinder?.Refresh();
-            footerBinder?.Refresh();
         }
 
         // ------------------------------------------------------------
@@ -219,6 +257,9 @@ namespace inonego.Xeri.UI.Picker
         // --------------------------------------------------------------------------------
         private void HandleAttached(AttachToPanelEvent evt)
         {
+            session.Changed -= HandleSessionChanged;
+            session.Changed += HandleSessionChanged;
+            Refresh();
             schedule.Execute(Focus);
         }
 

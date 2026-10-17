@@ -40,6 +40,10 @@ Picker는 다음 책임을 공통으로 처리합니다.
 
 ## 기본 구조
 
+PickerView는 PagedListChrome의 Preview·Search·Content 영역에 Picker 전용 UXML을 배치합니다.
+필터가 없는 Picker에서는 추가 필터 행을 표시하지 않습니다.
+Chrome은 레이아웃만 담당하며 선택 정책은 PickerSession, 테이블 바인딩은 PickerTableBinder가 소유합니다.
+
 Picker는 두 타입을 기준으로 동작합니다.
 
 ```csharp

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValue.cs
-수정일 : 2026-09-19
+수정일 : 2026-10-21
 
 # 설명
 Order 순서로 적용되는 IModifier<T> 목록을 가지는 Modifiable Value.
@@ -13,8 +13,13 @@ invokeEvent는 외부 이벤트만 제어하며 derived type의 Modified 갱신 
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
 
 namespace inonego.Xeri.Serializable
 {
@@ -39,7 +44,7 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public IReadOnlyXOrdered<int, string, IModifier<T>> Modifiers => modifiers;
 
-        [SerializeField, HideInInspector]
+        [SerializeField]
         private XOrdered<int, string, IModifier<T>> modifiers = new();
 
         // ------------------------------------------------------------
@@ -51,6 +56,25 @@ namespace inonego.Xeri.Serializable
 
         [NonSerialized]
         private T cached;
+
+        private HashSet<IModifier<T>> SubscribedModifiers
+        {
+            get
+            {
+                subscribedModifiers ??= new
+                (
+                    ReferenceEqualityComparer<IModifier<T>>.Instance
+                );
+
+                return subscribedModifiers;
+            }
+        }
+
+        [NonSerialized]
+        private HashSet<IModifier<T>> subscribedModifiers = new
+        (
+            ReferenceEqualityComparer<IModifier<T>>.Instance
+        );
 
     #endregion
 
@@ -68,11 +92,21 @@ namespace inonego.Xeri.Serializable
 
     #region 생성자
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// MValue 인스턴스를 초기화한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public MValue() : this(default)
         {
             // NONE
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// MValue 인스턴스를 초기화한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public MValue(T value) : base(value)
         {
             UpdateModified(invokeEvent: false, invokeHook: false);
@@ -106,6 +140,7 @@ namespace inonego.Xeri.Serializable
                 InvokeOnModifiedChange(prev);
             }
         }
+
         // ------------------------------------------------------------
         /// <summary>
         /// Modified가 갱신된 뒤 외부 이벤트와 무관하게 호출되는 내부 hook.
@@ -137,6 +172,11 @@ namespace inonego.Xeri.Serializable
         {
             foreach (var entry in modifiers)
             {
+                if (entry.Value == null)
+                {
+                    continue;
+                }
+
                 value = entry.Value.Modify(value);
             }
 
@@ -179,7 +219,7 @@ namespace inonego.Xeri.Serializable
 
         // ------------------------------------------------------------
         /// <summary>
-        /// IKeyable<string> 을 구현한 수정자를 자기 키로 추가한다.
+        /// <c>IKeyable&lt;string&gt;</c> 을 구현한 수정자를 자기 키로 추가한다.
         /// </summary>
         // ------------------------------------------------------------
         public void AddModifier<TModifier>(TModifier modifier, int order = 0, bool invokeEvent = true)
@@ -195,7 +235,7 @@ namespace inonego.Xeri.Serializable
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 수정자가 IKeyable<string> 을 구현하면 자기 키로 추가한다. 아니면 예외.
+        /// 수정자가 <c>IKeyable&lt;string&gt;</c> 을 구현하면 자기 키로 추가한다. 아니면 예외.
         /// </summary>
         // ----------------------------------------------------------------------
         public void AddModifier(IModifier<T> modifier, int order = 0, bool invokeEvent = true)
@@ -225,10 +265,8 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public bool RemoveModifier(string key, bool invokeEvent = true)
         {
-            if (!modifiers.TryGetEntry(key, out var entry)) return false;
             if (!modifiers.Remove(key)) return false;
 
-            entry.Value.OnChange -= HandleModifierChange;
             ResubscribeModifiers();
 
             UpdateModified(invokeEvent);
@@ -262,6 +300,11 @@ namespace inonego.Xeri.Serializable
         // ----------------------------------------------------------------------
         private void SubscribeModifier(IModifier<T> modifier)
         {
+            if (modifier == null || !SubscribedModifiers.Add(modifier))
+            {
+                return;
+            }
+
             modifier.OnChange -= HandleModifierChange;
             modifier.OnChange += HandleModifierChange;
         }
@@ -273,10 +316,12 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         private void UnsubscribeModifiers()
         {
-            foreach (var entry in modifiers)
+            foreach (var modifier in SubscribedModifiers)
             {
-                entry.Value.OnChange -= HandleModifierChange;
+                modifier.OnChange -= HandleModifierChange;
             }
+
+            SubscribedModifiers.Clear();
         }
 
         // ------------------------------------------------------------
@@ -286,6 +331,8 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         private void ResubscribeModifiers()
         {
+            UnsubscribeModifiers();
+
             foreach (var entry in modifiers)
             {
                 SubscribeModifier(entry.Value);
@@ -349,6 +396,9 @@ namespace inonego.Xeri.Serializable
 
     #region Object 오버라이드
 
+        // ------------------------------------------------------------
+        /// <inheritdoc />
+        // ------------------------------------------------------------
         public override bool Equals(object obj)
         {
             if (obj is MValue<T> other)
@@ -358,8 +408,14 @@ namespace inonego.Xeri.Serializable
             return false;
         }
 
+        // ------------------------------------------------------------
+        /// <inheritdoc />
+        // ------------------------------------------------------------
         public override int GetHashCode() => Modified.GetHashCode();
 
+        // ------------------------------------------------------------
+        /// <inheritdoc />
+        // ------------------------------------------------------------
         public override string ToString() => $"{Modified}({Base})";
 
     #endregion

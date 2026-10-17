@@ -14,7 +14,7 @@
     color: var(--xeri-picker-color-text);
 }
 
-.xeri-picker-host--dropdown .xeri-picker {
+.xeri-picker-host--dropdown.xeri-picker {
     border-top-width: 1px;
     border-right-width: 1px;
     border-bottom-width: 1px;
@@ -189,9 +189,8 @@
     color: var(--xeri-picker-color-text-dim);
 }
 
-/* Toolbar */
-.xeri-picker__toolbar {
-    flex-shrink: 0;
+/* Toolbar: 공통 배치는 PagedListChrome.uss에서 소유한다. */
+.xeri-picker .xeri-paged-list__toolbar {
     align-items: stretch;
     padding-left: var(--xeri-picker-space-md);
     padding-right: var(--xeri-picker-space-md);
@@ -389,11 +388,9 @@
     color: var(--xeri-picker-color-text-dim);
 }
 
-/* Footer */
-.xeri-picker__footer {
+/* Footer: 구조와 기본 정렬은 공통 USS에서 소유한다. */
+.xeri-picker .xeri-paged-list__footer {
     height: var(--xeri-picker-footer-height);
-    flex-direction: row;
-    align-items: stretch;
     padding-left: var(--xeri-picker-space-md);
     padding-right: var(--xeri-picker-space-md);
     border-top-width: 1px;
@@ -401,61 +398,43 @@
     background-color: var(--xeri-picker-color-panel);
 }
 
-.xeri-picker__count-label {
-    flex-grow: 1;
-    height: 100%;
-    -unity-text-align: middle-left;
+.xeri-picker .xeri-pagination__count-label {
     font-size: var(--xeri-picker-font-xs);
     color: var(--xeri-picker-color-text-muted);
 }
 
-.xeri-picker__page-controls {
-    height: 100%;
-    flex-direction: row;
-}
-
-.xeri-picker__page-button {
+.xeri-picker .xeri-pagination__button {
     width: var(--xeri-picker-page-button-width);
-    height: 100%;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    border-radius: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
     background-color: var(--xeri-picker-color-control);
     border-color: var(--xeri-picker-color-border-light);
     color: var(--xeri-picker-color-text-muted);
 }
 
-.xeri-picker__page-button:hover {
+.xeri-picker .xeri-pagination__button:hover {
     background-color: var(--xeri-picker-color-control-hover);
     color: var(--xeri-picker-color-text);
 }
 
-.xeri-picker__page-button:active {
+.xeri-picker .xeri-pagination__button:active {
     background-color: var(--xeri-picker-color-accent);
     border-color: var(--xeri-picker-color-accent-border);
     color: var(--xeri-picker-color-text-accent);
 }
 
-.xeri-picker__page-button:disabled {
+.xeri-picker .xeri-pagination__button:disabled {
     background-color: var(--xeri-picker-color-panel);
     border-color: var(--xeri-picker-color-border);
     color: var(--xeri-picker-color-text-dim);
 }
 
-.xeri-picker__page-label {
+.xeri-picker .xeri-pagination__page-label {
     width: var(--xeri-picker-page-label-width);
-    height: 100%;
-    -unity-text-align: middle-center;
     font-size: var(--xeri-picker-font-xs);
     color: var(--xeri-picker-color-text);
 }
 
 /* Dropdown footer */
-.xeri-picker-host--dropdown .xeri-picker__count-label {
+.xeri-picker-host--dropdown .xeri-pagination__count-label {
     min-width: 0;
     flex-shrink: 1;
     white-space: nowrap;
@@ -463,16 +442,16 @@
     text-overflow: ellipsis;
 }
 
-.xeri-picker-host--dropdown .xeri-picker__page-controls {
+.xeri-picker-host--dropdown .xeri-pagination__controls {
     flex-shrink: 0;
 }
 
-.xeri-picker-host--dropdown .xeri-picker__page-button {
+.xeri-picker-host--dropdown .xeri-pagination__button {
     width: 28px;
     min-width: 28px;
 }
 
-.xeri-picker-host--dropdown .xeri-picker__page-label {
+.xeri-picker-host--dropdown .xeri-pagination__page-label {
     width: 38px;
     min-width: 38px;
 }

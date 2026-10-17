@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="paged-list-root" class="xeri-paged-list__root">
+        <ui:VisualElement name="paged-list-header" class="xeri-paged-list__header" />
+        <ui:VisualElement name="paged-list-toolbar" class="xeri-paged-list__toolbar">
+            <ui:VisualElement name="paged-list-toolbar-row" class="xeri-paged-list__toolbar-row">
+                <ui:VisualElement name="paged-list-search" class="xeri-paged-list__search-host" />
+                <ui:VisualElement name="paged-list-toolbar-actions" class="xeri-paged-list__toolbar-actions" />
+            </ui:VisualElement>
+            <ui:VisualElement name="paged-list-toolbar-extra" class="xeri-paged-list__toolbar-extra" />
+        </ui:VisualElement>
+        <ui:VisualElement name="paged-list-content" class="xeri-paged-list__content" />
+        <ui:VisualElement name="paged-list-status" class="xeri-paged-list__status" />
+        <ui:VisualElement name="paged-list-footer" class="xeri-paged-list__footer">
+            <ui:VisualElement name="paged-list-pagination" class="xeri-paged-list__pagination" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

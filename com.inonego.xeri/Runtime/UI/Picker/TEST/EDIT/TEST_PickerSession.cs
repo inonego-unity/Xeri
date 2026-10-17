@@ -1,13 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerSession.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-24
 
 # 설명
-Picker session의 검색, 필터, 정렬, 페이징, 현재 선택, 확정 선택 상태 전이 테스트.
+PickerSession의 후보 캐시, 검색, 페이지 이동과 현재 선택 확정을 검증한다.
 
 # 테스트 구성
- S: Session
- C: Column Sorting
+ S: 세션 초기화와 선택·페이지 이동
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -29,7 +28,7 @@ namespace inonego.Xeri.TEST.UI._Picker
     /// Picker session 테스트 클래스.
     /// </summary>
     // ============================================================
-    public class TEST_PickerSession
+    public partial class TEST_PickerSession
     {
 
     #region 헬퍼
@@ -52,7 +51,105 @@ namespace inonego.Xeri.TEST.UI._Picker
 
     #endregion
 
-    #region S-1: Session
+    #region S-1: 후보 캐시와 초기 페이지
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 불변 후보는 Entry를 공유하고 선택 상태는 분리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PickerSession_불변후보표시캐시_재사용()
+        {
+            var builds = 0;
+            Func<Entry, string> getName = entry =>
+            {
+                builds++;
+                return entry.Name;
+            };
+            var entries = new[]
+            {
+                new Entry
+                {
+                    ID = "1",
+                    Name = "ALPHA",
+                },
+                new Entry
+                {
+                    ID = "2",
+                    Name = "BETA",
+                },
+            };
+            var spec = PickerSpec<Entry, string>
+                .Create("타입 선택")
+                .Value(entry => entry.ID)
+                .Label(getName)
+                .CacheImmutableEntries()
+                .Build();
+
+            var first = new PickerSession<Entry, string>(
+                spec, entries, null, _ => { }, 5
+            );
+            var second = new PickerSession<Entry, string>(
+                spec, entries, null, _ => { }, 5
+            );
+
+            Assert.AreEqual(entries.Length, builds);
+            Assert.AreSame(first.PageEntries[0], second.PageEntries[0]);
+
+            first.SetSearchText("BETA");
+            Assert.AreEqual(1, first.FilteredCount);
+            Assert.AreEqual(2, second.FilteredCount);
+
+            var changedSource = new[]
+            {
+                new Entry
+                {
+                    ID = "3",
+                    Name = "GAMMA",
+                },
+            };
+            var third = new PickerSession<Entry, string>(
+                spec, changedSource, null, _ => { }, 5
+            );
+            Assert.AreEqual("GAMMA", third.PageEntries[0].Label);
+            Assert.AreEqual(3, builds);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 일반 Picker는 기존처럼 바뀐 원본 데이터를 매번 평가한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PickerSession_기본모드_가변데이터재평가()
+        {
+            var entries = new[]
+            {
+                new Entry
+                {
+                    ID = "1",
+                    Name = "BEFORE",
+                },
+            };
+            var spec = PickerSpec<Entry, string>
+                .Create("가변 데이터")
+                .Value(entry => entry.ID)
+                .Label(entry => entry.Name)
+                .Build();
+
+            var first = new PickerSession<Entry, string>(
+                spec, entries, null, _ => { }, 5
+            );
+            entries[0].Name = "AFTER";
+            var second = new PickerSession<Entry, string>(
+                spec, entries, null, _ => { }, 5
+            );
+
+            Assert.AreEqual("BEFORE", first.PageEntries[0].Label);
+            Assert.AreEqual("AFTER", second.PageEntries[0].Label);
+            Assert.AreNotSame(first.PageEntries[0], second.PageEntries[0]);
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -150,11 +247,10 @@ namespace inonego.Xeri.TEST.UI._Picker
             Assert.AreEqual("GAMMA", session.PageEntries[0].Label);
         }
 
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// 다음 페이지 이동은 이동한 페이지의 첫 entry를 현재 entry로 설정한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
+
+    #endregion
+
+#region S-2: 페이지 경계와 선택 이동
         [Test]
         public void TEST_PickerSession_MoveNext_다음페이지_첫항목_선택()
         {
@@ -370,154 +466,6 @@ namespace inonego.Xeri.TEST.UI._Picker
 
             Assert.AreEqual("1", selectedValue);
             Assert.AreEqual(1, eventCount);
-        }
-
-    #endregion
-
-    #region C-1: Column Sorting
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// int column은 숫자 값 기준으로 정렬된다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_PickerSession_ColumnSorting_IntColumn_DefaultSorter_숫자순_정렬()
-        {
-            var spec = PickerSpec<Entry, string>
-                .Create("행 선택")
-                .Value(entry => entry.Name)
-                .Label(entry => entry.Name)
-                .Column("점수", entry => entry.Score, PickerColumnOptions.Fixed(70f))
-                .Build();
-
-            var entries = new[]
-            {
-                new Entry
-                {
-                    Name = "A",
-                    Score = 10,
-                },
-                new Entry
-                {
-                    Name = "B",
-                    Score = 2,
-                },
-            };
-
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("점수", true);
-
-            Assert.AreEqual("B", session.PageEntries[0].Label);
-            Assert.AreEqual("A", session.PageEntries[1].Label);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// float column은 숫자 값 기준으로 정렬된다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_PickerSession_ColumnSorting_FloatColumn_DefaultSorter_숫자순_정렬()
-        {
-            var spec = PickerSpec<Entry, string>
-                .Create("행 선택")
-                .Value(entry => entry.Name)
-                .Label(entry => entry.Name)
-                .Column("가중치", entry => entry.Weight, PickerColumnOptions.Fixed(80f))
-                .Build();
-
-            var entries = new[]
-            {
-                new Entry
-                {
-                    Name = "A",
-                    Weight = 10.5f,
-                },
-                new Entry
-                {
-                    Name = "B",
-                    Weight = 2.25f,
-                },
-            };
-
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("가중치", true);
-
-            Assert.AreEqual("B", session.PageEntries[0].Label);
-            Assert.AreEqual("A", session.PageEntries[1].Label);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// string column은 문자열 값 기준으로 정렬된다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_PickerSession_ColumnSorting_StringColumn_DefaultSorter_문자열순_정렬()
-        {
-            var spec = PickerSpec<Entry, string>
-                .Create("행 선택")
-                .Value(entry => entry.Name)
-                .Label(entry => entry.Name)
-                .Column("코드", entry => entry.Code, PickerColumnOptions.Flexible())
-                .Build();
-
-            var entries = new[]
-            {
-                new Entry
-                {
-                    Name = "B",
-                    Code = "B-001",
-                },
-                new Entry
-                {
-                    Name = "A",
-                    Code = "A-001",
-                },
-            };
-
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("코드", true);
-
-            Assert.AreEqual("A", session.PageEntries[0].Label);
-            Assert.AreEqual("B", session.PageEntries[1].Label);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 정렬 불가 column의 정렬 요청은 표시 순서를 바꾸지 않는다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void TEST_PickerSession_ColumnSorting_NonSortableColumn_SetSort_무시()
-        {
-            var spec = PickerSpec<Entry, string>
-                .Create("행 선택")
-                .Value(entry => entry.Name)
-                .Label(entry => entry.Name)
-                .Column("썸네일", entry => entry.Thumbnail, PickerColumnOptions.Fixed(48f, sortable: false, searchable: false))
-                .Build();
-
-            var entries = new[]
-            {
-                new Entry
-                {
-                    Name = "B",
-                    Thumbnail = new object(),
-                },
-                new Entry
-                {
-                    Name = "A",
-                    Thumbnail = new object(),
-                },
-            };
-
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("썸네일", true);
-
-            Assert.AreEqual("B", session.PageEntries[0].Label);
-            Assert.AreEqual("A", session.PageEntries[1].Label);
         }
 
     #endregion

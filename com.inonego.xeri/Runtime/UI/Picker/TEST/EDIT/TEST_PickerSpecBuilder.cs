@@ -5,8 +5,10 @@
 # 설명
 PickerSpec builder가 entry, column, tag, filter 계약을 구성하는지 검증한다.
 
+=========================================================================
+
 # 테스트 구성
- B: Builder
+ B: Picker 설정 생성 계약
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -50,7 +52,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
     #endregion
 
-    #region B-1: Builder
+    #region B-1: 선택 도구 설정 생성
 
         // ------------------------------------------------------------
         /// <summary>

@@ -1,0 +1,109 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : PagedListChrome.uss
+수정일 : 2026-10-18
+
+# 설명
+Picker와 Collection Editor가 공유하는 검색·목록·하단 페이지네이션의 레이아웃 스타일.
+색상과 좁은 화면 변형은 각 호스트의 USS에서 소유한다.
+========================================================================= BLOCK_HEADER_END */
+
+/* 공통 셸 */
+.xeri-paged-list {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.xeri-paged-list__root {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.xeri-paged-list__header {
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.xeri-paged-list__toolbar {
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.xeri-paged-list__toolbar-row {
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+}
+
+.xeri-paged-list__search-host {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 36px;
+}
+
+.xeri-paged-list__toolbar-actions {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.xeri-paged-list__toolbar-extra {
+    flex-shrink: 0;
+}
+
+.xeri-paged-list__content {
+    flex-grow: 1;
+    min-width: 0;
+    position: relative;
+}
+
+.xeri-paged-list__status {
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.xeri-paged-list__footer {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.xeri-paged-list__pagination {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+/* 기존 공통 페이지네이션 */
+.xeri-pagination {
+    flex-direction: row;
+    align-items: stretch;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.xeri-pagination__count-label {
+    flex-grow: 1;
+    height: 100%;
+    -unity-text-align: middle-left;
+}
+
+.xeri-pagination__controls {
+    flex-direction: row;
+    height: 100%;
+}
+
+.xeri-pagination__button {
+    height: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-radius: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+}
+
+.xeri-pagination__page-label {
+    height: 100%;
+    -unity-text-align: middle-center;
+}
