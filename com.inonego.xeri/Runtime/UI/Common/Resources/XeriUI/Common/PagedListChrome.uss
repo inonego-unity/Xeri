@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PagedListChrome.uss
-수정일 : 2026-10-18
+수정일 : 2026-10-25
 
 # 설명
 Picker와 Collection Editor가 공유하는 검색·목록·하단 페이지네이션의 레이아웃 스타일.
@@ -101,6 +101,23 @@ Picker와 Collection Editor가 공유하는 검색·목록·하단 페이지네�
     border-radius: 0;
     border-top-width: 0;
     border-bottom-width: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 페이지 버튼의 Lucide 아이콘은 테마별 텍스트 색상을 사용한다. */
+.xeri-pagination__button .unity-button__image {
+    width: 14px;
+    height: 14px;
+    min-width: 14px;
+    min-height: 14px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    align-self: center;
+    margin: 0;
+    padding: 0;
+    --unity-image-size: scale-to-fit;
+    --unity-image-tint-color: var(--unity-colors-default-text);
 }
 
 .xeri-pagination__page-label {

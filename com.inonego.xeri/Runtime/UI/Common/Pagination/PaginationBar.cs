@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PaginationBar.cs
-수정일 : 2026-09-24
+수정일 : 2026-10-26
 
 # 설명
 IReadOnlyPaginator 상태와 first/prev/next/last control을 표시하는 공통 UI Toolkit pagination bar.
@@ -69,13 +69,13 @@ namespace inonego.Xeri.UI
             firstButton = CreateButton
             (
                 "first-page-button",
-                "◀◀",
+                "chevrons-left",
                 moveFirst ?? throw new ArgumentNullException(nameof(moveFirst))
             );
             prevButton = CreateButton
             (
                 "prev-page-button",
-                "◀",
+                "chevron-left",
                 movePrev ?? throw new ArgumentNullException(nameof(movePrev))
             );
 
@@ -88,13 +88,13 @@ namespace inonego.Xeri.UI
             nextButton = CreateButton
             (
                 "next-page-button",
-                "▶",
+                "chevron-right",
                 moveNext ?? throw new ArgumentNullException(nameof(moveNext))
             );
             lastButton = CreateButton
             (
                 "last-page-button",
-                "▶▶",
+                "chevrons-right",
                 moveLast ?? throw new ArgumentNullException(nameof(moveLast))
             );
 
@@ -145,14 +145,14 @@ namespace inonego.Xeri.UI
         private static Button CreateButton
         (
             string name,
-            string text,
+            string iconName,
             Action onClick
         )
         {
             var button = new Button(onClick)
             {
                 name = name,
-                text = text,
+                iconImage = XeriIcon.LoadBackground(iconName),
             };
 
             button.AddToClassList("xeri-pagination__button");
