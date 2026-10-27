@@ -4,7 +4,7 @@
 
 Unity UI Toolkit 기반 단일 선택 UI입니다.
 호출자는 `PickerSpec<TEntry, TValue>`로 데이터 표시 규칙을 만들고 `Picker.Show(...)`로
-modal window 또는 호출 위치에 연결된 dropdown을 엽니다.
+독립 modal window를, `Picker.ShowPopup(...)`으로 호출 요소에 붙는 팝업을 엽니다.
 
 ## 왜 필요한가
 
@@ -14,7 +14,7 @@ Inspector, EditorWindow, 도구 UI마다 검색·필터·정렬·paging·취소 
 
 - 많은 후보 중 하나를 검색·필터·정렬해서 선택해야 할 때
 - 원본 `TEntry`와 최종 반환 `TValue`를 분리해야 할 때
-- modal과 특정 control에 붙는 dropdown을 같은 spec으로 재사용할 때
+- modal과 특정 control에 붙는 팝업을 같은 spec으로 재사용할 때
 - 여러 도메인 Picker를 공통 UI 위의 얇은 facade로 만들고 싶을 때
 
 후보가 몇 개뿐이고 단순 PopupField로 충분하면 Picker까지 사용할 필요는 없습니다.
@@ -103,12 +103,13 @@ Picker.Show
 );
 ```
 
-위 호출은 modal window를 엽니다. Inspector field나 toolbar처럼 특정 control에서 선택을
-시작했다면, 같은 `PickerSpec`과 callback에 해당 control의 화면 좌표 `Rect`를 전달합니다.
-이 경우에만 Picker가 해당 위치에 연결된 dropdown으로 표시됩니다.
+위 호출은 독립 modal window를 엽니다. Inspector field나 toolbar처럼 특정 control에서 선택을
+시작했다면, 같은 `PickerSpec`과 callback으로 `Picker.ShowPopup(...)`에 해당 control의
+`VisualElement`를 앵커로 전달합니다. 이 경우 Picker가 그 요소 아래(공간이 부족하면 위)에 붙는
+팝업으로 표시되고, 화면 좌표 변환·모니터 경계 처리·바깥 클릭 닫기는 공통 팝업 호스트가 맡습니다.
 
 ```csharp
-Picker.Show
+Picker.ShowPopup
 (
    spec,
    students,
@@ -117,7 +118,7 @@ Picker.Show
    {
       currentStudentID = selectedID;
    },
-   rect: buttonScreenRect,
+   anchor: pickerButton,
    onCanceled: () =>
    {
       Debug.Log("선택 없이 닫힘");

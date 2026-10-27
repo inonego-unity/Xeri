@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerTableBinder.cs
-수정일 : 2026-10-18
+수정일 : 2026-10-28
 
 # 설명
 Picker MultiColumnListView의 column, row, selection, double click, sorting 입력을 관리한다.
@@ -58,7 +58,7 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// table 표시 목록과 선택 상태를 갱신한다.
+        /// 현재 페이지의 표시 목록과 선택 상태를 갱신한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Refresh()
@@ -296,6 +296,28 @@ namespace inonego.Xeri.UI.Picker
             element.EnableInClassList("xeri-picker__table-cell--odd", index % 2 != 0);
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UI Toolkit 선택 collection에서 picker entry만 추출한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static PickerEntry<TEntry, TValue> GetFirstEntry(IEnumerable<object> items)
+        {
+            foreach (var item in items)
+            {
+                if (item is PickerEntry<TEntry, TValue> entry)
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+    #endregion
+
+    #region 이벤트 핸들러
+
         // ----------------------------------------------------------------------
         /// <summary>
         /// table 클릭 직후 keyboard shortcut이 이어서 동작하도록 focus를 확보한다.
@@ -354,24 +376,6 @@ namespace inonego.Xeri.UI.Picker
                 session.SetSort(columnID, sortedColumn.direction == SortDirection.Ascending);
                 return;
             }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// UI Toolkit 선택 collection에서 picker entry만 추출한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static PickerEntry<TEntry, TValue> GetFirstEntry(IEnumerable<object> items)
-        {
-            foreach (var item in items)
-            {
-                if (item is PickerEntry<TEntry, TValue> entry)
-                {
-                    return entry;
-                }
-            }
-
-            return null;
         }
 
     #endregion

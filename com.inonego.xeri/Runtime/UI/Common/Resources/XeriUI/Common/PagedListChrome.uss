@@ -1,11 +1,34 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PagedListChrome.uss
-수정일 : 2026-10-25
+수정일 : 2026-10-28
 
 # 설명
-Picker와 Collection Editor가 공유하는 검색·목록·하단 페이지네이션의 레이아웃 스타일.
-색상과 좁은 화면 변형은 각 호스트의 USS에서 소유한다.
+Picker와 Collection Editor의 검색·목록·페이지 이동 영역에 적용할 공통 USS.
+페이지네이터의 버튼·필드 외형과 가용 폭에 따른 줄 배치를 정의한다.
 ========================================================================= BLOCK_HEADER_END */
+
+/* 페이지네이터 테마와 규격 */
+.xeri-pagination {
+    --xeri-pagination-control-height: 23px;
+    --xeri-pagination-field-height: 21px;
+    --xeri-pagination-button-width: 25px;
+    --xeri-pagination-field-width: 40px;
+    --xeri-pagination-separator-width: 14px;
+    --xeri-pagination-icon-size: 11px;
+    --xeri-pagination-page-gap: 4px;
+    --xeri-pagination-field-padding: 4px;
+    --xeri-pagination-count-gap: 8px;
+    --xeri-pagination-text-size: 11px;
+    --xeri-pagination-small-text-size: 10px;
+
+    --xeri-pagination-button-border: rgba(127,127,127,0.18);
+    --xeri-pagination-button-background: rgba(127,127,127,0.07);
+    --xeri-pagination-button-hover: rgba(127,127,127,0.18);
+    --xeri-pagination-button-active: rgba(95,147,199,0.24);
+    --xeri-pagination-field-border: rgba(127,127,127,0.27);
+    --xeri-pagination-field-background: rgba(0,0,0,0.12);
+    --xeri-pagination-readonly-border: rgba(127,127,127,0.12);
+}
 
 /* 공통 셸 */
 .xeri-paged-list {
@@ -73,44 +96,82 @@ Picker와 Collection Editor가 공유하는 검색·목록·하단 페이지네�
     min-width: 0;
 }
 
-/* 기존 공통 페이지네이션 */
+/* 넓은 영역에서는 왼쪽 개수 정보와 오른쪽 이동 버튼을 한 줄로 표시한다. */
 .xeri-pagination {
-    flex-direction: row;
-    align-items: stretch;
+    flex-direction: row-reverse;
+    align-items: center;
     flex-grow: 1;
     min-width: 0;
 }
 
 .xeri-pagination__count-label {
     flex-grow: 1;
-    height: 100%;
+    flex-shrink: 1;
+    min-width: 0;
+    height: var(--xeri-pagination-control-height);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--xeri-pagination-small-text-size);
+    opacity: 0.72;
+    padding-right: var(--xeri-pagination-count-gap);
     -unity-text-align: middle-left;
 }
 
 .xeri-pagination__controls {
     flex-direction: row;
-    height: 100%;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: var(--xeri-pagination-control-height);
 }
 
 .xeri-pagination__button {
+    width: var(--xeri-pagination-button-width);
+    min-width: var(--xeri-pagination-button-width);
     height: 100%;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    min-height: var(--xeri-pagination-control-height);
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
     border-radius: 0;
     border-top-width: 0;
     border-bottom-width: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-color: var(--xeri-pagination-button-border);
+    background-color: var(--xeri-pagination-button-background);
+    color: var(--unity-colors-default-text);
     align-items: center;
     justify-content: center;
+    font-size: var(--xeri-pagination-small-text-size);
+}
+
+/* 처음·이전, 다음·마지막 버튼은 연속된 이동 컨트롤로 표시한다. */
+.xeri-pagination__controls > #prev-page-button,
+.xeri-pagination__controls > #last-page-button {
+    border-left-width: 0;
+}
+
+.xeri-pagination__button:hover {
+    background-color: var(--xeri-pagination-button-hover);
+}
+
+.xeri-pagination__button:active {
+    background-color: var(--xeri-pagination-button-active);
+}
+
+.xeri-pagination__button:disabled {
+    background-color: transparent;
+    opacity: 0.36;
 }
 
 /* 페이지 버튼의 Lucide 아이콘은 테마별 텍스트 색상을 사용한다. */
 .xeri-pagination__button .unity-button__image {
-    width: 14px;
-    height: 14px;
-    min-width: 14px;
-    min-height: 14px;
+    width: var(--xeri-pagination-icon-size);
+    height: var(--xeri-pagination-icon-size);
+    min-width: var(--xeri-pagination-icon-size);
+    min-height: var(--xeri-pagination-icon-size);
     flex-grow: 0;
     flex-shrink: 0;
     align-self: center;
@@ -120,7 +181,75 @@ Picker와 Collection Editor가 공유하는 검색·목록·하단 페이지네�
     --unity-image-tint-color: var(--unity-colors-default-text);
 }
 
-.xeri-pagination__page-label {
+.xeri-pagination__page {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
     height: 100%;
+    margin-left: var(--xeri-pagination-page-gap);
+    margin-right: var(--xeri-pagination-page-gap);
+}
+
+.xeri-pagination__page-field {
+    width: var(--xeri-pagination-field-width);
+    min-width: var(--xeri-pagination-field-width);
+    height: var(--xeri-pagination-field-height);
+    min-height: var(--xeri-pagination-field-height);
+    margin: 0;
+    padding: 0;
+    flex-grow: 0;
+    flex-shrink: 0;
+    font-size: var(--xeri-pagination-text-size);
+}
+
+.xeri-pagination__page-field .unity-base-field__label {
+    display: none;
+}
+
+.xeri-pagination__page-field .unity-base-field__input,
+.xeri-pagination__page-field .unity-text-input {
+    height: var(--xeri-pagination-field-height);
+    min-height: var(--xeri-pagination-field-height);
+    min-width: 0;
+    margin: 0;
+    padding-left: var(--xeri-pagination-field-padding);
+    padding-right: var(--xeri-pagination-field-padding);
+    background-color: var(--xeri-pagination-field-background);
+    border-color: var(--xeri-pagination-field-border);
     -unity-text-align: middle-center;
+}
+
+/* 전체 페이지 수는 편집할 수 없는 보조 값으로 표시한다. */
+.xeri-pagination__page-field--readonly .unity-base-field__input,
+.xeri-pagination__page-field--readonly .unity-text-input {
+    background-color: transparent;
+    border-color: var(--xeri-pagination-readonly-border);
+}
+
+.xeri-pagination__page-separator {
+    width: var(--xeri-pagination-separator-width);
+    min-width: var(--xeri-pagination-separator-width);
+    height: var(--xeri-pagination-field-height);
+    flex-shrink: 0;
+    font-size: var(--xeri-pagination-text-size);
+    opacity: 0.85;
+    -unity-text-align: middle-center;
+}
+
+/* 좁은 영역에서는 페이지 이동을 위, 결과 개수를 아래에 둔다. */
+.xeri-pagination--compact {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.xeri-pagination--compact .xeri-pagination__controls {
+    align-self: center;
+}
+
+.xeri-pagination--compact .xeri-pagination__count-label {
+    flex-grow: 0;
+    width: 100%;
+    height: 14px;
+    min-height: 14px;
+    margin-top: 2px;
 }

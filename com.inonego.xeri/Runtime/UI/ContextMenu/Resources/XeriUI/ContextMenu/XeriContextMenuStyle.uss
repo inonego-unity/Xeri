@@ -1,0 +1,166 @@
+.xeri-context-menu {
+    /* 색상 */
+    --xeri-context-menu-color-background: #353535;
+    --xeri-context-menu-color-border: #181818;
+    --xeri-context-menu-color-text: #e8e8e8;
+    --xeri-context-menu-color-muted: #bcbcbc;
+    --xeri-context-menu-color-selection: #3b68a0;
+    --xeri-context-menu-color-hover: #414e61;
+    --xeri-context-menu-color-selection-text: #ffffff;
+    --xeri-context-menu-color-divider: rgba(200, 200, 200, 0.22);
+
+    /* 글꼴·보조 요소 크기. 메뉴 폭·행 높이·여백은 C#의 XeriContextMenuMetrics가 적용한다. */
+    --xeri-context-menu-shortcut-width: 60px;
+    --xeri-context-menu-indicator-width: 12px;
+    --xeri-context-menu-indicator-height: 16px;
+    --xeri-context-menu-font-label: 12px;
+    --xeri-context-menu-font-hint: 11px;
+
+    position: absolute;
+    flex-direction: column;
+    background-color: var(--xeri-context-menu-color-background);
+    border-color: var(--xeri-context-menu-color-border);
+}
+
+/* 항목 */
+.xeri-context-menu__action {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+    padding-left: 22px;
+    padding-right: 8px;
+    border-width: 0;
+    border-radius: 0;
+    background-color: transparent;
+    -unity-text-align: middle-left;
+}
+
+.xeri-context-menu__action:hover {
+    background-color: var(--xeri-context-menu-color-hover);
+}
+
+.xeri-context-menu__action:focus,
+.xeri-context-menu__action:disabled:hover {
+    background-color: transparent;
+}
+
+.xeri-context-menu__action--active,
+.xeri-context-menu__action--active:hover,
+.xeri-context-menu__action--active:focus {
+    background-color: var(--xeri-context-menu-color-selection);
+}
+
+.xeri-context-menu__action:disabled {
+    opacity: 0.42;
+}
+
+.xeri-context-menu__label {
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -unity-text-align: middle-left;
+    font-size: var(--xeri-context-menu-font-label);
+    color: var(--xeri-context-menu-color-text);
+}
+
+.xeri-context-menu__shortcut {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: var(--xeri-context-menu-shortcut-width);
+    min-width: var(--xeri-context-menu-shortcut-width);
+    -unity-text-align: middle-right;
+    font-size: var(--xeri-context-menu-font-hint);
+    color: var(--xeri-context-menu-color-muted);
+}
+
+.xeri-context-menu__shortcut--submenu {
+    width: var(--xeri-context-menu-indicator-width);
+    min-width: var(--xeri-context-menu-indicator-width);
+}
+
+.xeri-context-menu__label-row {
+    margin: 0;
+    padding-left: 22px;
+    padding-right: 8px;
+    border-width: 0;
+    background-color: transparent;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -unity-text-align: middle-left;
+    font-size: var(--xeri-context-menu-font-label);
+    color: var(--xeri-context-menu-color-muted);
+}
+
+.xeri-context-menu__separator {
+    height: 1px;
+    margin-left: 3px;
+    margin-right: 3px;
+    background-color: var(--xeri-context-menu-color-divider);
+}
+
+/* 라이트 테마 */
+.xeri-context-menu--light {
+    --xeri-context-menu-color-background: #f6f6f6;
+    --xeri-context-menu-color-border: #a0a0a0;
+    --xeri-context-menu-color-text: #232323;
+    --xeri-context-menu-color-muted: #5a5a5a;
+    --xeri-context-menu-color-hover: #dee7f1;
+    --xeri-context-menu-color-divider: rgba(0, 0, 0, 0.19);
+}
+
+.xeri-context-menu--light .xeri-context-menu__action--active .xeri-context-menu__label,
+.xeri-context-menu--light .xeri-context-menu__action--active .xeri-context-menu__shortcut {
+    color: var(--xeri-context-menu-color-selection-text);
+}
+
+/* 확장 밀도 */
+.xeri-context-menu--expanded {
+    --xeri-context-menu-shortcut-width: 76px;
+}
+
+.xeri-context-menu--expanded .xeri-context-menu__action,
+.xeri-context-menu--expanded .xeri-context-menu__label-row {
+    padding-left: 17px;
+    padding-right: 10px;
+}
+
+.xeri-context-menu--expanded .xeri-context-menu__separator {
+    margin-left: 7px;
+    margin-right: 7px;
+}
+
+.xeri-context-menu--expanded .xeri-context-menu__check,
+.xeri-context-menu--expanded .xeri-context-menu__icon {
+    left: 2px;
+    top: 6px;
+}
+/* 스크롤·아이콘 */
+.xeri-context-menu__scroll {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.xeri-context-menu__check,
+.xeri-context-menu__icon {
+    display: none;
+    position: absolute;
+    left: 6px;
+    top: 3px;
+    width: var(--xeri-context-menu-indicator-width);
+    height: var(--xeri-context-menu-indicator-height);
+    -unity-text-align: middle-center;
+}
+
+.xeri-context-menu__check {
+    font-size: var(--xeri-context-menu-font-hint);
+    color: var(--xeri-context-menu-color-text);
+}
+
+.xeri-context-menu__action--active .xeri-context-menu__check {
+    color: var(--xeri-context-menu-color-selection-text);
+}

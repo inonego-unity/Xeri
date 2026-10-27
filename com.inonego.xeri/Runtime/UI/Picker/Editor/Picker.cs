@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Picker.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-28
 # 설명
-Picker 선택 UI를 모달 또는 dropdown으로 여는 Editor 전용 공개 진입점.
+Picker 선택 UI를 독립 모달 창 또는 앵커에 붙는 팝업으로 여는 Editor 전용 공개 진입점.
 
 # 특이사항
-PickerWindow는 Unity EditorWindow 호스트이고, 이 타입이 소비자가 선택할 표시 방식을 결정한다.
+Show 계열은 PickerWindow 모달 창을, ShowPopup은 공통 팝업 호스트의 팝업을 열며 소비자가 표시 방식을 고른다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -13,6 +13,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
+using UnityEngine.UIElements;
 
 using inonego;
 using inonego.Xeri;
@@ -82,39 +83,39 @@ namespace inonego.Xeri.Editor.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// rect 기준으로 Picker dropdown window를 표시한다.
+        /// 앵커 요소에 붙는 Picker 팝업을 표시한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static PickerWindow Show<TEntry, TValue>
+        public static void ShowPopup<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             TValue currentValue,
             Action<TValue> onSelected,
-            Rect rect,
+            VisualElement anchor,
             int pageSize = defaultPageSize
         )
         {
-            return Show(spec, entries, currentValue, onSelected, rect, null, pageSize);
+            ShowPopup(spec, entries, currentValue, onSelected, anchor, null, pageSize);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 취소 callback을 포함해 rect 기준으로 Picker dropdown window를 표시한다.
+        /// 취소 callback을 포함해 앵커 요소에 붙는 Picker 팝업을 표시한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        public static PickerWindow Show<TEntry, TValue>
+        // ------------------------------------------------------------
+        public static void ShowPopup<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             TValue currentValue,
             Action<TValue> onSelected,
-            Rect rect,
+            VisualElement anchor,
             Action onCanceled,
             int pageSize = defaultPageSize
         )
         {
-            return PickerWindow.OpenDropdown
+            PickerPopup.Open
             (
                 spec,
                 entries,
@@ -122,7 +123,7 @@ namespace inonego.Xeri.Editor.Picker
                 onSelected,
                 onCanceled,
                 pageSize,
-                rect
+                anchor
             );
         }
 
@@ -142,21 +143,21 @@ namespace inonego.Xeri.Editor.Picker
             return Show(spec, entries, default, onSelected, pageSize);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 현재 선택값 없이 rect 기준으로 Picker dropdown window를 표시한다.
+        /// 현재 선택값 없이 앵커 요소에 붙는 Picker 팝업을 표시한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        public static PickerWindow Show<TEntry, TValue>
+        // ------------------------------------------------------------
+        public static void ShowPopup<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             Action<TValue> onSelected,
-            Rect rect,
+            VisualElement anchor,
             int pageSize = defaultPageSize
         )
         {
-            return Show(spec, entries, default, onSelected, rect, pageSize);
+            ShowPopup(spec, entries, default, onSelected, anchor, pageSize);
         }
 
         // ----------------------------------------------------------------------
@@ -179,20 +180,20 @@ namespace inonego.Xeri.Editor.Picker
         // ------------------------------------------------------------
         /// <summary>
         /// <br/> 현재 선택값 없이 취소 callback을 포함해
-        /// <br/> rect 기준으로 Picker dropdown window를 표시한다.
+        /// <br/> 앵커 요소에 붙는 Picker 팝업을 표시한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static PickerWindow Show<TEntry, TValue>
+        public static void ShowPopup<TEntry, TValue>
         (
             PickerSpec<TEntry, TValue> spec,
             IReadOnlyList<TEntry> entries,
             Action<TValue> onSelected,
-            Rect rect,
+            VisualElement anchor,
             Action onCanceled,
             int pageSize = defaultPageSize
         )
         {
-            return Show(spec, entries, default, onSelected, rect, onCanceled, pageSize);
+            ShowPopup(spec, entries, default, onSelected, anchor, onCanceled, pageSize);
         }
 
     #endregion

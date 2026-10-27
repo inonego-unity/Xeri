@@ -14,7 +14,7 @@
     color: var(--xeri-picker-color-text);
 }
 
-.xeri-picker-host--dropdown.xeri-picker {
+.xeri-picker-host--popup.xeri-picker {
     border-top-width: 1px;
     border-right-width: 1px;
     border-bottom-width: 1px;
@@ -390,68 +390,12 @@
 
 /* Footer: 구조와 기본 정렬은 공통 USS에서 소유한다. */
 .xeri-picker .xeri-paged-list__footer {
-    height: var(--xeri-picker-footer-height);
+    min-height: 28px;
     padding-left: var(--xeri-picker-space-md);
     padding-right: var(--xeri-picker-space-md);
+    padding-top: 2px;
+    padding-bottom: 2px;
     border-top-width: 1px;
     border-top-color: var(--xeri-picker-color-border);
     background-color: var(--xeri-picker-color-panel);
-}
-
-.xeri-picker .xeri-pagination__count-label {
-    font-size: var(--xeri-picker-font-xs);
-    color: var(--xeri-picker-color-text-muted);
-}
-
-.xeri-picker .xeri-pagination__button {
-    width: var(--xeri-picker-page-button-width);
-    background-color: var(--xeri-picker-color-control);
-    border-color: var(--xeri-picker-color-border-light);
-    color: var(--xeri-picker-color-text-muted);
-}
-
-.xeri-picker .xeri-pagination__button:hover {
-    background-color: var(--xeri-picker-color-control-hover);
-    color: var(--xeri-picker-color-text);
-}
-
-.xeri-picker .xeri-pagination__button:active {
-    background-color: var(--xeri-picker-color-accent);
-    border-color: var(--xeri-picker-color-accent-border);
-    color: var(--xeri-picker-color-text-accent);
-}
-
-.xeri-picker .xeri-pagination__button:disabled {
-    background-color: var(--xeri-picker-color-panel);
-    border-color: var(--xeri-picker-color-border);
-    color: var(--xeri-picker-color-text-dim);
-}
-
-.xeri-picker .xeri-pagination__page-label {
-    width: var(--xeri-picker-page-label-width);
-    font-size: var(--xeri-picker-font-xs);
-    color: var(--xeri-picker-color-text);
-}
-
-/* Dropdown footer */
-.xeri-picker-host--dropdown .xeri-pagination__count-label {
-    min-width: 0;
-    flex-shrink: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.xeri-picker-host--dropdown .xeri-pagination__controls {
-    flex-shrink: 0;
-}
-
-.xeri-picker-host--dropdown .xeri-pagination__button {
-    width: 28px;
-    min-width: 28px;
-}
-
-.xeri-picker-host--dropdown .xeri-pagination__page-label {
-    width: 38px;
-    min-width: 38px;
 }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerSession.cs
-수정일 : 2026-10-24
+수정일 : 2026-10-28
 
 # 설명
 PickerSession의 후보 캐시, 검색, 페이지 이동과 현재 선택 확정을 검증한다.
@@ -87,10 +87,12 @@ namespace inonego.Xeri.TEST.UI._Picker
                 .CacheImmutableEntries()
                 .Build();
 
-            var first = new PickerSession<Entry, string>(
+            var first = new PickerSession<Entry, string>
+            (
                 spec, entries, null, _ => { }, 5
             );
-            var second = new PickerSession<Entry, string>(
+            var second = new PickerSession<Entry, string>
+            (
                 spec, entries, null, _ => { }, 5
             );
 
@@ -109,7 +111,8 @@ namespace inonego.Xeri.TEST.UI._Picker
                     Name = "GAMMA",
                 },
             };
-            var third = new PickerSession<Entry, string>(
+            var third = new PickerSession<Entry, string>
+            (
                 spec, changedSource, null, _ => { }, 5
             );
             Assert.AreEqual("GAMMA", third.PageEntries[0].Label);
@@ -138,11 +141,13 @@ namespace inonego.Xeri.TEST.UI._Picker
                 .Label(entry => entry.Name)
                 .Build();
 
-            var first = new PickerSession<Entry, string>(
+            var first = new PickerSession<Entry, string>
+            (
                 spec, entries, null, _ => { }, 5
             );
             entries[0].Name = "AFTER";
-            var second = new PickerSession<Entry, string>(
+            var second = new PickerSession<Entry, string>
+            (
                 spec, entries, null, _ => { }, 5
             );
 
@@ -247,12 +252,12 @@ namespace inonego.Xeri.TEST.UI._Picker
             Assert.AreEqual("GAMMA", session.PageEntries[0].Label);
         }
 
-
     #endregion
 
-#region S-2: 페이지 경계와 선택 이동
+    #region S-2: 페이지 경계와 선택 이동
+
         [Test]
-        public void TEST_PickerSession_MoveNext_다음페이지_첫항목_선택()
+        public void TEST_PickerSession_NavigatePage_Next_다음페이지_첫항목_선택()
         {
             var spec = PickerSpec<Entry, string>
                 .Create("항목 선택")
@@ -286,7 +291,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
             var session = new PickerSession<Entry, string>(spec, entries, "1", _ => { }, 2);
 
-            session.MoveNext();
+            session.NavigatePage(new PageNavigationRequest(PageNavigationKind.Next));
 
             Assert.AreEqual(1, session.PageIndex);
             Assert.AreEqual("GAMMA", session.CurrentEntry.Label);
@@ -298,7 +303,7 @@ namespace inonego.Xeri.TEST.UI._Picker
         /// </summary>
         // ----------------------------------------------------------------------
         [Test]
-        public void TEST_PickerSession_MovePrev_이전페이지_마지막항목_선택()
+        public void TEST_PickerSession_NavigatePage_Previous_이전페이지_마지막항목_선택()
         {
             var spec = PickerSpec<Entry, string>
                 .Create("항목 선택")
@@ -332,7 +337,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
             var session = new PickerSession<Entry, string>(spec, entries, "4", _ => { }, 2);
 
-            session.MovePrev();
+            session.NavigatePage(new PageNavigationRequest(PageNavigationKind.Previous));
 
             Assert.AreEqual(0, session.PageIndex);
             Assert.AreEqual("BETA", session.CurrentEntry.Label);
@@ -428,6 +433,53 @@ namespace inonego.Xeri.TEST.UI._Picker
 
             Assert.AreEqual(0, session.PageIndex);
             Assert.AreEqual("BETA", session.CurrentEntry.Label);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 경계 이동은 선택을 유지하고 직접 입력은 첫 항목을 선택한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_PickerSession_NavigatePage_경계와_직접입력_선택정책()
+        {
+            var spec = PickerSpec<Entry, string>
+                .Create("항목 선택")
+                .Value(entry => entry.ID)
+                .Label(entry => entry.Name)
+                .Build();
+
+            var entries = new[]
+            {
+                new Entry
+                {
+                    ID = "1",
+                    Name = "ALPHA",
+                },
+                new Entry
+                {
+                    ID = "2",
+                    Name = "BETA",
+                },
+                new Entry
+                {
+                    ID = "3",
+                    Name = "GAMMA",
+                },
+            };
+
+            var session = new PickerSession<Entry, string>(spec, entries, "2", _ => { }, 2);
+            var blocked = session.NavigatePage(new PageNavigationRequest(PageNavigationKind.Previous));
+
+            Assert.IsFalse(blocked.ShouldApply);
+            Assert.AreEqual("BETA", session.CurrentEntry.Label);
+
+            var direct = session.NavigatePage(new PageNavigationRequest(PageNavigationKind.Direct, 0));
+
+            Assert.IsTrue(direct.ShouldApply);
+            Assert.AreEqual(0, direct.SelectedIndex);
+            Assert.AreEqual(PageScrollAnchor.Start, direct.ScrollAnchor);
+            Assert.AreEqual("ALPHA", session.CurrentEntry.Label);
         }
 
         // ----------------------------------------------------------------------

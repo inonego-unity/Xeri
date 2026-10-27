@@ -1,0 +1,3 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="popup-frame" class="xeri-popup-frame" picking-mode="Ignore" />
+</ui:UXML>

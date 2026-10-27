@@ -25,6 +25,13 @@ namespace inonego.Xeri.UI
     #region 필드
 
         private const string layoutPath = "XeriUI/Common/PagedListChrome";
+        private BaseListView pageListView;
+        private ScrollView pageScrollView;
+        private PageScrollAnchor? pendingScrollAnchor;
+
+    #endregion
+
+    #region 프로퍼티
 
         // ------------------------------------------------------------
         /// <summary>
@@ -112,11 +119,12 @@ namespace inonego.Xeri.UI
             PaginationHost = Require("paged-list-pagination");
 
             ToolbarExtraHost.style.display = DisplayStyle.None;
+            RegisterCallback<DetachFromPanelEvent>(HandleDetached);
         }
 
     #endregion
 
-    #region 메서드
+    #region 공개 메서드
 
         // ------------------------------------------------------------
         /// <summary>
@@ -131,6 +139,88 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 공통 페이지 스크롤에 사용할 목록과 레이아웃 이벤트를 연결한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void BindPageListView(BaseListView listView)
+        {
+            if (listView == null)
+            {
+                throw new ArgumentNullException(nameof(listView));
+            }
+
+            if (pageListView != null)
+            {
+                throw new InvalidOperationException("페이지 목록은 한 번만 연결할 수 있습니다.");
+            }
+
+            var scrollView = listView.Q<ScrollView>()
+                ?? throw new InvalidOperationException("페이지 목록의 ScrollView를 찾을 수 없습니다.");
+
+            pageListView = listView;
+            pageScrollView = scrollView;
+            pageScrollView.contentContainer.RegisterCallback<GeometryChangedEvent>(HandlePageGeometryChanged);
+            pageScrollView.contentViewport.RegisterCallback<GeometryChangedEvent>(HandlePageGeometryChanged);
+            pageListView.RegisterCallback<WheelEvent>(HandlePageWheel, TrickleDown.TrickleDown);
+            pageListView.RegisterCallback<PointerDownEvent>(HandlePagePointerDown, TrickleDown.TrickleDown);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 페이지 목록과 연결된 스크롤 이벤트를 해제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void UnbindPageListView()
+        {
+            CancelPageScroll();
+            if (pageListView == null) return;
+
+            pageScrollView.contentContainer.UnregisterCallback<GeometryChangedEvent>(HandlePageGeometryChanged);
+            pageScrollView.contentViewport.UnregisterCallback<GeometryChangedEvent>(HandlePageGeometryChanged);
+            pageListView.UnregisterCallback<WheelEvent>(HandlePageWheel, TrickleDown.TrickleDown);
+            pageListView.UnregisterCallback<PointerDownEvent>(HandlePagePointerDown, TrickleDown.TrickleDown);
+            pageListView = null;
+            pageScrollView = null;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 페이지의 시작 또는 끝 경계로 목록을 스크롤한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ScrollToPageBoundary(PageScrollAnchor anchor)
+        {
+            if (pageListView == null)
+            {
+                throw new InvalidOperationException("페이지 목록이 연결되지 않았습니다.");
+            }
+
+            if (pageListView.itemsSource == null || pageListView.itemsSource.Count == 0)
+            {
+                pendingScrollAnchor = null;
+                return;
+            }
+
+            pendingScrollAnchor = anchor;
+            ApplyPageScroll(anchor);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 목록 데이터가 다시 구성될 때 이전 스크롤 요청을 취소한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CancelPageScroll()
+        {
+            pendingScrollAnchor = null;
+        }
+
+    #endregion
+
+    #region 비공개 메서드
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 이름으로 공통 레이아웃 필수 영역을 확인한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -138,6 +228,73 @@ namespace inonego.Xeri.UI
         {
             return this.Q<VisualElement>(name)
                 ?? throw new InvalidOperationException($"PagedListChrome의 {name} 요소가 없습니다.");
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 페이지의 스크롤을 시작 또는 끝에 맞춘다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ApplyPageScroll(PageScrollAnchor anchor)
+        {
+            if (pageListView.panel == null) return;
+            var count = pageListView.itemsSource?.Count ?? 0;
+            if (count == 0) return;
+
+            pageListView.ScrollToItem(anchor == PageScrollAnchor.Start ? 0 : count - 1);
+
+            var offset = pageScrollView.scrollOffset;
+            offset.y = anchor == PageScrollAnchor.Start
+                ? 0f
+                : Mathf.Max(0f, pageScrollView.verticalScroller.highValue);
+            pageScrollView.scrollOffset = offset;
+        }
+
+    #endregion
+
+    #region 이벤트 핸들러
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 사용자 휠 스크롤이 시작되면 대기 중인 자동 스크롤을 취소한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandlePageWheel(WheelEvent evt)
+        {
+            CancelPageScroll();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 사용자가 목록을 직접 조작하면 대기 중인 자동 스크롤을 취소한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandlePagePointerDown(PointerDownEvent evt)
+        {
+            CancelPageScroll();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 셸이 패널에서 분리되면 예약된 스크롤 요청을 취소한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleDetached(DetachFromPanelEvent evt)
+        {
+            CancelPageScroll();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 목록의 가상화 레이아웃이 변경되면 요청한 경계 위치를 확정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandlePageGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (!pendingScrollAnchor.HasValue) return;
+
+            ApplyPageScroll(pendingScrollAnchor.Value);
+            pendingScrollAnchor = null;
         }
 
     #endregion
