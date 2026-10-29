@@ -1,0 +1,22 @@
+.xeri-severity-indicator {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    min-height: 16px;
+    padding: 2px;
+    flex-shrink: 0;
+    align-self: center;
+    --unity-image-size: scale-to-fit;
+}
+
+.xeri-severity-indicator--error {
+    --unity-image-tint-color: rgb(221,91,91);
+}
+
+.xeri-severity-indicator--warning {
+    --unity-image-tint-color: rgb(222,161,63);
+}
+
+.xeri-severity-indicator--info {
+    --unity-image-tint-color: rgb(125,177,221);
+}
