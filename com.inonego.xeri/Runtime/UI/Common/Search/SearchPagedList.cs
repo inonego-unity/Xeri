@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SearchPagedList.cs
-수정일 : 2026-09-29
+수정일 : 2026-10-25
 
 # 설명
 검색 문자열, 추가 filter, 정렬, Paginator를 한 흐름으로 묶는 공통 목록 상태 모델.
 Picker와 Collection Editor가 동일한 search → filter → sort → page slice 구현을 재사용한다.
+검색어가 비어 있으면 항목별 검색 문자열 생성을 생략한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -29,8 +30,6 @@ namespace inonego.Xeri.UI
 
         private readonly List<T> filteredItems = new();
         private readonly List<T> pageItems = new();
-        private readonly Paginator paginator;
-        private string searchText = string.Empty;
 
         private readonly IReadOnlyList<T> source;
         private readonly Func<T, string> searchTextSelector;
@@ -57,6 +56,7 @@ namespace inonego.Xeri.UI
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyPaginator Paginator => paginator;
+        private readonly Paginator paginator;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -64,6 +64,7 @@ namespace inonego.Xeri.UI
         /// </summary>
         // ------------------------------------------------------------
         public string SearchText => searchText;
+        private string searchText = string.Empty;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -129,15 +130,10 @@ namespace inonego.Xeri.UI
 
             filteredItems.Clear();
 
+            var hasSearch = !string.IsNullOrWhiteSpace(searchText);
             foreach (var item in source)
             {
-                var indexedText = searchTextSelector(item);
-                var matchesSearch = SearchTextUtility.Matches
-                (
-                    indexedText,
-                    searchText
-                );
-                if (!matchesSearch)
+                if (hasSearch && !SearchTextUtility.Matches(searchTextSelector(item), searchText))
                 {
                     continue;
                 }

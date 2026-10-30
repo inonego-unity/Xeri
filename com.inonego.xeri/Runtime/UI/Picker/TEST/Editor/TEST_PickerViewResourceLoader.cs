@@ -1,12 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerViewResourceLoader.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-24
 
 # 설명
 Picker UXML/USS Resources loader 계약 테스트.
 
+=========================================================================
+
 # 테스트 구성
- A: Asset Loader
+ A: Picker UI 자원 불러오기
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEngine;
@@ -30,7 +32,7 @@ namespace inonego.Xeri.TEST.UI._Picker
     public class TEST_PickerViewResourceLoader
     {
 
-    #region A-1: Asset Loader
+    #region A-1: 자원 불러오기
 
         // ------------------------------------------------------------
         /// <summary>
@@ -52,7 +54,16 @@ namespace inonego.Xeri.TEST.UI._Picker
             Assert.NotNull(root.Q<VisualElement>("search-field"));
             Assert.NotNull(root.Q<MultiColumnListView>("entry-table"));
             Assert.NotNull(root.Q<Label>("empty-label"));
-            Assert.NotNull(root.Q<Button>("first-page-button"));
+            Assert.NotNull(root.Q<VisualElement>("filter-chip-container"));
+
+            var chromeLayout = Resources.Load<VisualTreeAsset>("XeriUI/Common/PagedListChrome");
+            var chromeStyle = Resources.Load<StyleSheet>("XeriUI/Common/PagedListChrome");
+            Assert.NotNull(chromeLayout);
+            Assert.NotNull(chromeStyle);
+
+            var chrome = chromeLayout.CloneTree();
+            Assert.NotNull(chrome.Q<VisualElement>("paged-list-search"));
+            Assert.NotNull(chrome.Q<VisualElement>("paged-list-pagination"));
         }
 
     #endregion

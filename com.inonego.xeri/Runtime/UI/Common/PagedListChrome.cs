@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PagedListChrome.cs
-수정일 : 2026-10-18
+수정일 : 2026-10-25
 
 # 설명
 Picker와 Collection Editor가 공유하는 검색·콘텐츠·페이지네이션 UI의 배치 셸.
-호스트별 편집 정책은 소유하지 않으며 각 영역에 View 콘텐츠를 삽입한다.
+호스트별 편집 정책은 소유하지 않으며 공통 UXML·USS를 캐싱해 재사용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -25,6 +25,8 @@ namespace inonego.Xeri.UI
     #region 필드
 
         private const string layoutPath = "XeriUI/Common/PagedListChrome";
+        private static VisualTreeAsset layoutAsset;
+        private static StyleSheet styleAsset;
         private BaseListView pageListView;
         private ScrollView pageScrollView;
         private PageScrollAnchor? pendingScrollAnchor;
@@ -93,22 +95,17 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         public PagedListChrome()
         {
-            var layout = Resources.Load<VisualTreeAsset>(layoutPath);
-            var stylesheet = Resources.Load<StyleSheet>(layoutPath);
-            if (layout == null || stylesheet == null)
-            {
-                throw new InvalidOperationException("PagedListChrome UXML/USS를 로드할 수 없습니다.");
-            }
+            EnsureResourcesLoaded();
 
             AddToClassList("xeri-paged-list");
-            layout.CloneTree(this);
+            layoutAsset.CloneTree(this);
             var template = this.Q<TemplateContainer>();
             if (template != null)
             {
                 template.style.flexGrow = 1;
             }
 
-            styleSheets.Add(stylesheet);
+            styleSheets.Add(styleAsset);
 
             HeaderHost = Require("paged-list-header");
             SearchHost = Require("paged-list-search");
@@ -218,6 +215,29 @@ namespace inonego.Xeri.UI
     #endregion
 
     #region 비공개 메서드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 공통 UXML과 USS를 한 번 로드해 모든 셸에서 재사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void EnsureResourcesLoaded()
+        {
+            if (layoutAsset == null)
+            {
+                layoutAsset = Resources.Load<VisualTreeAsset>(layoutPath);
+            }
+
+            if (styleAsset == null)
+            {
+                styleAsset = Resources.Load<StyleSheet>(layoutPath);
+            }
+
+            if (layoutAsset == null || styleAsset == null)
+            {
+                throw new InvalidOperationException("PagedListChrome UXML/USS를 로드할 수 없습니다.");
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>

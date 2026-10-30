@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ManagedReferenceClipboard.cs
-수정일 : 2026-10-18
+수정일 : 2026-10-17
 
 # 설명
 SerializeReference picker의 독립 값 복사와 동일 serialized root 내 Link 복사를 관리한다.
@@ -305,39 +305,30 @@ namespace inonego.Xeri.Serializable.Editor
         private sealed class ValueEntry
         {
 
-        #region 필드
-
             // ------------------------------------------------------------
             /// <summary>
-            /// 복사한 값의 실제 runtime type.
+            /// 관리 참조 항목의 실제 타입을 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public Type Type { get; }
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 기존 serializer가 생성한 payload.
+            /// 참조 복원에 필요한 직렬화 페이로드를 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public string Payload { get; }
-
-        #endregion
-
-        #region 생성자
 
             // ------------------------------------------------------------
             /// <summary>
             /// 값 clipboard 항목을 생성한다.
             /// </summary>
             // ------------------------------------------------------------
-            public ValueEntry(Type type, string payload) : base()
+            public ValueEntry(Type type, string payload)
             {
-                Type    = type;
+                Type = type;
                 Payload = payload;
             }
-
-        #endregion
-
         }
 
         // ================================================================================
@@ -348,47 +339,43 @@ namespace inonego.Xeri.Serializable.Editor
         private sealed class LinkEntry
         {
 
-        #region 필드
-
             // ------------------------------------------------------------
             /// <summary>
-            /// managed-reference를 소유하는 Unity serialized root.
+            /// 참조가 속한 Unity 객체를 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public UnityEngine.Object Root { get; }
 
             // ------------------------------------------------------------
             /// <summary>
-            /// root 내에서 Unity가 부여한 managed-reference ID.
+            /// 관리 참조의 식별자를 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public long Id { get; }
 
             // ------------------------------------------------------------
             /// <summary>
-            /// ID 재사용을 방지하기 위해 함께 검증하는 원본 object identity.
+            /// 관리 참조의 실제 객체를 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public object Reference { get; }
-
-        #endregion
-
-        #region 생성자
 
             // ------------------------------------------------------------
             /// <summary>
             /// Link clipboard 항목을 생성한다.
             /// </summary>
             // ------------------------------------------------------------
-            public LinkEntry(UnityEngine.Object root, long id, object reference) : base()
+            public LinkEntry
+            (
+                UnityEngine.Object root,
+                long id,
+                object reference
+            )
             {
-                Root      = root;
-                Id        = id;
+                Root = root;
+                Id = id;
                 Reference = reference;
             }
-
-        #endregion
-
         }
 
     #endregion
