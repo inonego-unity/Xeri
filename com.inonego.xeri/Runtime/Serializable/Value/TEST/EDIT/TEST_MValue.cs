@@ -1,19 +1,20 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MValue.cs
-수정일 : 2026-09-19
+수정일 : 2026-10-30
 
 # 설명
 MValue<T>와 built-in Modifier의 값 계산, 변경 전파와 구독 lifecycle을 검증한다.
 
 # 테스트 구성
- E: 기본 기능 (생성/Base 변경/암시적 변환/이벤트)
+ E: 기본 값·동기 이벤트·무통지 갱신·내부 hook·값 표현
  M: Modifier 등록·순서·자동 변경 전파·구독 lifecycle
- S: 직렬화 후 runtime state 재구성
+ S: 직렬화 라운드트립 및 변경 확정·구독 복구
  D: Modifier 연산
  X: 예외 처리 (키 없음/null 인자)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Reflection;
 
 using UnityEngine;
 
@@ -35,7 +36,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
     public class TEST_MValue
     {
 
-    #region 테스트 헬퍼
+    #region 헬퍼
 
         // ============================================================
         /// <summary>
@@ -67,6 +68,13 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
             // ------------------------------------------------------------
             /// <summary>
+            /// Hook 예외 후 Runtime 상태가 유지되는지 검증하는 설정.
+            /// </summary>
+            // ------------------------------------------------------------
+            public bool ThrowOnUpdate { get; set; }
+
+            // ------------------------------------------------------------
+            /// <summary>
             /// 초기 Base 값을 가진 테스트 MValue를 생성한다.
             /// </summary>
             // ------------------------------------------------------------
@@ -89,6 +97,11 @@ namespace inonego.Xeri.TEST.Serializable._Value
                 HookCount++;
                 Previous = prev;
                 Current = next;
+
+                if (ThrowOnUpdate)
+                {
+                    throw new InvalidOperationException("테스트 Hook 예외");
+                }
             }
         }
 
@@ -121,7 +134,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-2: Base 변경 시 Modified 갱신 및 이벤트
+    #region E-2: Base와 Modified 갱신 및 통지
 
         [Test]
         public void TEST_MValue_Base_변경시_Modified_갱신_및_이벤트()
@@ -192,9 +205,45 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.IsFalse(modifiedChangeFired);
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Base 이벤트 구독자는 이미 계산된 Modified를 읽으며 변경 순서가 유지된다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_Base이벤트_발생시_Modified_확정상태()
+        {
+            var value = new MValue<int>(10);
+            value.AddModifier("add", new NumericIModifier(NumericIOperation.ADD, 5), invokeEvent: false);
+
+            var baseEventCount = 0;
+            var modifiedEventCount = 0;
+            value.OnBaseChange += (_, args) =>
+            {
+                Assert.AreEqual(10, args.Previous);
+                Assert.AreEqual(20, args.Current);
+                Assert.AreEqual(20, value.Base);
+                Assert.AreEqual(25, value.Modified);
+                Assert.AreEqual(0, modifiedEventCount);
+                baseEventCount++;
+            };
+            value.OnModifiedChange += (_, args) =>
+            {
+                Assert.AreEqual(15, args.Previous);
+                Assert.AreEqual(25, args.Current);
+                Assert.AreEqual(1, baseEventCount);
+                modifiedEventCount++;
+            };
+
+            value.Set(20);
+
+            Assert.AreEqual(1, baseEventCount);
+            Assert.AreEqual(1, modifiedEventCount);
+        }
+
     #endregion
 
-    #region E-3: silent 변경 hook
+    #region E-3: 무통지 갱신 및 내부 hook
 
         [Test]
         public void TEST_MValue_invokeEventFalse_내부Hook호출_외부이벤트억제()
@@ -225,7 +274,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-4: 암시적 변환
+    #region E-4: 암시적 변환 및 값 표현
 
         [Test]
         public void TEST_MValue_암시적_변환_Modified_반환()
@@ -241,26 +290,63 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(15, direct);
         }
 
-    #endregion
-
-    #region E-5: OnModifiedChange 강제 발화
-
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 MValue 타입은 Modified를 비교하되 다른 파생 타입은 구별한다.
+        /// </summary>
+        // ------------------------------------------------------------
         [Test]
-        public void TEST_MValue_InvokeOnModifiedChange_강제_발화()
+        public void TEST_MValue_동일타입Modified동등성_파생타입구별()
         {
-            var value = new MValue<int>(5);
-            ValueChangeEventArgs<int> fired = default;
-            value.OnModifiedChange += (_, e) => fired = e;
+            var first = new MValue<int>(10);
+            first.AddModifier
+            (
+                "set",
+                new NumericIModifier(NumericIOperation.SET, 100),
+                invokeEvent: false
+            );
 
-            value.InvokeOnModifiedChange(previousValue: 8);
+            var second = new MValue<int>(20);
+            second.AddModifier
+            (
+                "set",
+                new NumericIModifier(NumericIOperation.SET, 100),
+                invokeEvent: false
+            );
 
-            Assert.AreEqual(8, fired.Previous);
-            Assert.AreEqual(5, fired.Current);
+            var derived = new TestHookMValue(100);
+
+            Assert.IsTrue(first.Equals(second));
+            Assert.AreEqual(first.GetHashCode(), second.GetHashCode());
+            Assert.IsTrue(first.Equals(100));
+
+            Assert.IsFalse(first.Equals(derived));
+            Assert.IsFalse(derived.Equals(first));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Modified가 null인 경우에도 Object 연산이 예외 없이 동작한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_참조형Null_해시문자열안전()
+        {
+            var value = new MValue<string>(null);
+
+            Assert.AreEqual(0, value.GetHashCode());
+            Assert.IsTrue(value.Equals(new MValue<string>(null)));
+            Assert.AreEqual("()", value.ToString());
+
+            value.Set("ready");
+
+            Assert.AreEqual("ready".GetHashCode(), value.GetHashCode());
+            Assert.AreEqual("ready(ready)", value.ToString());
         }
 
     #endregion
 
-    #region M-1: AddModifier / RemoveModifier
+    #region M-1: Modifier 추가·제거
 
         [Test]
         public void TEST_MValue_AddRemoveModifier_명시키()
@@ -304,7 +390,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region M-2: ClearModifiers
+    #region M-2: 전체 제거
 
         [Test]
         public void TEST_MValue_ClearModifiers_전체_제거()
@@ -327,7 +413,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region M-3: Order 적용 순서
+    #region M-3: 적용 순서
 
         [Test]
         public void TEST_MValue_Order_오름차순_적용()
@@ -359,7 +445,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region M-4: Modifier 상태 변경 자동 갱신
+    #region M-4: 자동 갱신 및 구독 수명
 
         [Test]
         public void TEST_MValue_Modifier_상태변경_자동갱신_및_이벤트()
@@ -516,7 +602,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region S-1: 직렬화 후 runtime state 재구성
+    #region S-1: JSON 라운드트립
 
         [Test]
         public void TEST_MValue_JSON_직렬화_캐시와구독_재구성()
@@ -546,7 +632,247 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region D-1: BooleanModifier
+    #region S-2: 직렬화 변경 확정·구독 복구
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Modifier 직렬화 변경은 이전 스냅샷으로 캐시·hook·이벤트를 복구한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_Modifier_직렬화변경_스냅샷중복통지없음()
+        {
+            var value = new TestHookMValue(10);
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+            value.AddModifier("add", modifier, invokeEvent: false);
+
+            var previous = (value.Base, value.Modified);
+            // Unity SerializedProperty 변경을 재현하기 위해 직접 직렬화 필드를 쓴다.
+            var field = typeof(NumericIModifier).GetField("value", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field);
+            field.SetValue(modifier, 7);
+            value.OnAfterDeserialize();
+
+            var eventCount = 0;
+            ValueChangeEventArgs<int> lastEvent = default;
+            value.OnModifiedChange += (_, args) =>
+            {
+                eventCount++;
+                lastEvent = args;
+            };
+
+            value.FinalizeSerializedChange(previous.Base, previous.Modified);
+            value.FinalizeSerializedChange(value.Base, value.Modified);
+
+            Assert.AreEqual(17, value.Modified);
+            Assert.AreEqual(1, eventCount);
+            Assert.AreEqual(15, lastEvent.Previous);
+            Assert.AreEqual(17, lastEvent.Current);
+            Assert.AreEqual(2, value.HookCount);
+
+            modifier.Value = 8;
+            Assert.AreEqual(18, value.Modified);
+            Assert.AreEqual(2, eventCount);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Base 직렬화 변경이 미확정인 상태에서 Modifier 이벤트가 먼저 발생해도
+        /// <br/> 이전 확정 값을 보존하고 Base와 Modified를 한 번씩 순서대로 통지한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_BaseModifier_직렬화일괄변경_변경누락없음()
+        {
+            var value = new MValue<int>(10);
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+            value.AddModifier("add", modifier, invokeEvent: false);
+
+            var baseEvents = 0;
+            var modifiedEvents = 0;
+            var eventOrder = string.Empty;
+            ValueChangeEventArgs<int> baseChange = default;
+            ValueChangeEventArgs<int> modifiedChange = default;
+
+            value.OnBaseChange += (_, args) =>
+            {
+                baseEvents++;
+                baseChange = args;
+                eventOrder += "Base";
+            };
+            value.OnModifiedChange += (_, args) =>
+            {
+                modifiedEvents++;
+                modifiedChange = args;
+                eventOrder += "Modified";
+            };
+
+            // Base와 Modifier를 하나의 직렬화 편집으로 확정한다.
+            var previous = (value.Base, value.Modified);
+            var field = typeof(Value<int>).GetField("base", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field);
+            field.SetValue(value, 20);
+
+            var modifierField = typeof(NumericIModifier).GetField
+            (
+                "value", BindingFlags.Instance | BindingFlags.NonPublic
+            );
+            Assert.IsNotNull(modifierField);
+            modifierField.SetValue(modifier, 7);
+            value.FinalizeSerializedChange(previous.Base, previous.Modified);
+
+            Assert.AreEqual(20, value.Base);
+            Assert.AreEqual(27, value.Modified);
+            Assert.AreEqual(1, baseEvents);
+            Assert.AreEqual(1, modifiedEvents);
+            Assert.AreEqual("BaseModified", eventOrder);
+            Assert.AreEqual(10, baseChange.Previous);
+            Assert.AreEqual(20, baseChange.Current);
+            Assert.AreEqual(15, modifiedChange.Previous);
+            Assert.AreEqual(27, modifiedChange.Current);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Modified가 동일해도 미확정 Base 변경은 누락 없이 통지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_Modified동일_직렬화Base변경_이벤트유지()
+        {
+            var value = new MValue<int>(10);
+            var modifier = new NumericIModifier(NumericIOperation.ADD, 5);
+            value.AddModifier("add", modifier, order: 0, invokeEvent: false);
+            value.AddModifier
+            (
+                "set",
+                new NumericIModifier(NumericIOperation.SET, 100),
+                order: 1, invokeEvent: false
+            );
+
+            var baseEvents = 0;
+            var modifiedEvents = 0;
+            ValueChangeEventArgs<int> baseChange = default;
+            value.OnBaseChange += (_, args) =>
+            {
+                baseEvents++;
+                baseChange = args;
+            };
+            value.OnModifiedChange += (_, _) => modifiedEvents++;
+
+            var previous = (value.Base, value.Modified);
+            var field = typeof(Value<int>).GetField("base", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field);
+            field.SetValue(value, 20);
+
+            var modifierField = typeof(NumericIModifier).GetField
+            (
+                "value", BindingFlags.Instance | BindingFlags.NonPublic
+            );
+            Assert.IsNotNull(modifierField);
+            modifierField.SetValue(modifier, 7);
+            value.FinalizeSerializedChange(previous.Base, previous.Modified);
+
+            Assert.AreEqual(20, value.Base);
+            Assert.AreEqual(100, value.Modified);
+            Assert.AreEqual(1, baseEvents);
+            Assert.AreEqual(0, modifiedEvents);
+            Assert.AreEqual(10, baseChange.Previous);
+            Assert.AreEqual(20, baseChange.Current);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 직렬화된 Modifier 구조 변경이 결과값을 유지해도 구독은 정확히 교체한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_Modifier구조_직렬화변경_구독복구()
+        {
+            var value = new MValue<int>(10);
+            var original = new NumericIModifier(NumericIOperation.ADD, 5);
+            value.AddModifier("a", original, invokeEvent: false);
+
+            var field = typeof(MValue<int>).GetField("modifiers", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field);
+            var collection = (XOrdered<int, string, IModifier<int>>)field.GetValue(value);
+            var added = new NumericIModifier(NumericIOperation.ADD, 0);
+
+            var eventCount = 0;
+            value.OnModifiedChange += (_, _) => eventCount++;
+
+            var previous = (value.Base, value.Modified);
+            collection.Add(1, "zero", added);
+            value.FinalizeSerializedChange(previous.Base, previous.Modified);
+
+            Assert.AreEqual(15, value.Modified);
+            Assert.AreEqual(0, eventCount);
+
+            added.Value = 2;
+            Assert.AreEqual(17, value.Modified);
+            Assert.AreEqual(1, eventCount);
+
+            previous = (value.Base, value.Modified);
+            collection.Remove("a");
+            value.FinalizeSerializedChange(previous.Base, previous.Modified);
+            Assert.AreEqual(12, value.Modified);
+            Assert.AreEqual(2, eventCount);
+
+            original.Value = 9;
+            Assert.AreEqual(12, value.Modified);
+            Assert.AreEqual(2, eventCount);
+        }
+
+    #endregion
+
+    #region S-3: 직렬화 재계산 예외
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 직렬화 변경 확정 중 Modifier가 실패해도 마지막으로 확정된 캐시는 유지한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_직렬화재계산실패_수정값캐시유지()
+        {
+            var shouldThrow = false;
+            var value = new MValue<int>(10);
+            value.AddModifier
+            (
+                "lambda",
+                new LambdaModifier<int>
+                (
+                    current => shouldThrow
+                        ? throw new InvalidOperationException("테스트 계산 예외")
+                        : current + 5
+                ),
+                invokeEvent: false
+            );
+
+            var previous = (Base: value.Base, Modified: value.Modified);
+            value.Set(20, invokeEvent: false);
+
+            Assert.AreEqual(25, value.Modified);
+
+            shouldThrow = true;
+
+            Assert.Throws<InvalidOperationException>
+            (
+                () => value.FinalizeSerializedChange(previous.Base, previous.Modified)
+            );
+
+            Assert.AreEqual(20, value.Base);
+            Assert.AreEqual(25, value.Modified);
+
+            shouldThrow = false;
+            value.FinalizeSerializedChange(value.Base, value.Modified);
+
+            Assert.AreEqual(25, value.Modified);
+        }
+
+    #endregion
+
+    #region D-1: Boolean Modifier
 
         [Test]
         public void TEST_MValue_BooleanModifier_모든_Operation()
@@ -580,7 +906,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region D-2: NumericModifier
+    #region D-2: Numeric Modifier
 
         [Test]
         public void TEST_MValue_NumericFModifier_모든_Operation()
@@ -590,6 +916,19 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(5f, new NumericFModifier(NumericFOperation.SUB, 5f ).Modify(10f));
             Assert.AreEqual(50f, new NumericFModifier(NumericFOperation.MUL, 5f ).Modify(10f));
             Assert.AreEqual(2f, new NumericFModifier(NumericFOperation.DIV, 5f ).Modify(10f));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// int와 float의 0 나눗셈은 수정자를 건너뛰고 입력을 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_NumericModifier_DIV0은_원래값유지()
+        {
+            Assert.AreEqual(10, new NumericIModifier(NumericIOperation.DIV, 0).Modify(10));
+            Assert.AreEqual(10f, new NumericFModifier(NumericFOperation.DIV, 0f).Modify(10f));
+            Assert.IsFalse(float.IsNaN(new NumericFModifier(NumericFOperation.DIV, 0f).Modify(10f)));
         }
 
         [Test]
@@ -604,7 +943,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region D-3: StringModifier
+    #region D-3: String Modifier
 
         [Test]
         public void TEST_MValue_StringModifier_SET()
@@ -614,7 +953,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region D-4: LambdaModifier
+    #region D-4: Lambda Modifier
 
         [Test]
         public void TEST_MValue_LambdaModifier_적용()
@@ -662,7 +1001,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region X-1: AddModifier 키 없음 예외
+    #region X-1: Keyable 계약
 
         [Test]
         public void TEST_MValue_AddModifier_키없음_ArgumentException()
@@ -677,7 +1016,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region X-2: AddModifier null 예외
+    #region X-2: Null 인자
 
         [Test]
         public void TEST_MValue_AddModifier_Null_ArgumentNullException()
@@ -685,6 +1024,53 @@ namespace inonego.Xeri.TEST.Serializable._Value
             var value = new MValue<int>(10);
 
             Assert.Throws<ArgumentNullException>(() => value.AddModifier("a", null));
+        }
+
+    #endregion
+
+    #region X-3: 내부 hook 예외 후 상태 정합성
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Hook 예외는 그대로 전파하되 Base·Modified는 갱신된 상태로 유지한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_Hook예외_캐시유지_다음변경정상통지()
+        {
+            var value = new TestHookMValue(10)
+            {
+                ThrowOnUpdate = true
+            };
+
+            var baseCount = 0;
+            var modifiedCount = 0;
+            ValueChangeEventArgs<int> modifiedChange = default;
+
+            value.OnBaseChange += (_, _) => baseCount++;
+            value.OnModifiedChange += (_, args) =>
+            {
+                modifiedCount++;
+                modifiedChange = args;
+            };
+
+            Assert.Throws<InvalidOperationException>(() => value.Set(20));
+
+            Assert.AreEqual(20, value.Base);
+            Assert.AreEqual(20, value.Modified);
+            Assert.AreEqual(0, baseCount);
+            Assert.AreEqual(0, modifiedCount);
+            Assert.AreEqual(1, value.HookCount);
+
+            value.ThrowOnUpdate = false;
+            value.Set(30);
+
+            Assert.AreEqual(30, value.Base);
+            Assert.AreEqual(30, value.Modified);
+            Assert.AreEqual(1, baseCount);
+            Assert.AreEqual(1, modifiedCount);
+            Assert.AreEqual(20, modifiedChange.Previous);
+            Assert.AreEqual(30, modifiedChange.Current);
         }
 
     #endregion

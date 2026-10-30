@@ -1,14 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_RangeValue.cs
-수정일 : 2026-05-08
+수정일 : 2026-10-30
 
 # 설명
 RangeValue<T>의 핵심 기능 테스트.
 
 # 테스트 구성
  E: 기본 기능 (생성/범위 설정/값 제한/비교/ToString)
- S: 직렬화 (JSON 라운드트립 + 핸들러 복원)
- V: 이벤트 (Base/Range 변경 이벤트, InvokeOnRangeChange 강제 발화)
+ S: 직렬화 (JSON 라운드트립·Base Clamp·변경 확정)
+ V: 이벤트 (Base·Range 변경 및 Range 구독 수명)
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -21,6 +21,8 @@ using NUnit.Framework;
 namespace inonego.Xeri.TEST.Serializable._Value
 {
 
+    using inonego;
+    using inonego.Xeri;
     using inonego.Xeri.Primitive;
     using inonego.Xeri.Serializable;
 
@@ -48,7 +50,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-2: 범위 설정 및 값 제한
+    #region E-2: 범위 설정 및 Clamp
 
         [Test]
         public void TEST_RangeValue_범위_설정_및_값_제한()
@@ -149,7 +151,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region V-1: Base / Range 변경 이벤트
+    #region V-1: Base·Range 변경 이벤트
 
         [Test]
         public void TEST_RangeValue_Base_및_Range_이벤트()
@@ -233,26 +235,67 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.IsFalse(valueChangeEventFired);
         }
 
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 무통지 Range 변경도 Base를 즉시 Clamp하되 이벤트는 발생하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_RangeValue_Range무통지변경_Base즉시보정()
+        {
+            var value = new RangeValue<int>(5, new Range<int>(0, 10));
+            var baseCount = 0;
+            var rangeCount = 0;
+            value.OnBaseChange += (_, _) => baseCount++;
+            value.Range.OnBaseChange += (_, _) => rangeCount++;
+
+            value.Range.Set(new Range<int>(7, 9), invokeEvent: false);
+
+            Assert.AreEqual(7, value.Base);
+            Assert.AreEqual(0, baseCount);
+            Assert.AreEqual(0, rangeCount);
+        }
     #endregion
 
-    #region V-2: InvokeOnRangeChange 강제 발화
+    #region V-2: Range 구독 수명
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Range 인스턴스 교체 후 이전 인스턴스의 내부 구독을 해제한다.
+        /// </summary>
+        // ------------------------------------------------------------
         [Test]
-        public void TEST_RangeValue_InvokeOnRangeChange_강제_발화()
+        public void TEST_RangeValue_Range교체_이전구독해제()
         {
-            var rv = new RangeValue<int>(5, new Range<int>(0, 10));
-            ValueChangeEventArgs<Range<int>> fired = default;
-            rv.Range.OnBaseChange += (_, e) => fired = e;
+            var value = new RangeValue<int>(5, new Range<int>(0, 10));
+            var original = value.Range;
+            var replacement = new Value<Range<int>>(new Range<int>(0, 10));
+            var field = typeof(RangeValue<int>).GetField
+            (
+                "range", System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic
+            );
+            Assert.IsNotNull(field);
+            field.SetValue(value, replacement);
+            value.OnAfterDeserialize();
 
-            rv.InvokeOnRangeChange(previousRange: new Range<int>(0, 20));
+            var baseChanges = 0;
+            value.OnBaseChange += (_, _) => baseChanges++;
+            original.Set(new Range<int>(7, 9));
 
-            Assert.AreEqual(new Range<int>(0, 20), fired.Previous);
-            Assert.AreEqual(new Range<int>(0, 10), fired.Current);
+            Assert.AreEqual(5, value.Base);
+            Assert.AreEqual(0, baseChanges);
+
+            replacement.Set(new Range<int>(7, 9));
+
+            Assert.AreEqual(7, value.Base);
+            Assert.AreEqual(1, baseChanges);
         }
 
     #endregion
 
-    #region S-1: JSON 직렬화
+    #region S-1: JSON 라운드트립
 
         [Test]
         public void TEST_RangeValue_JSON_직렬화_라운드트립()
@@ -273,19 +316,65 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(originalRangeValue.Max, deserializedRangeValue.Max, "최대값이 올바르게 복원되어야 합니다");
 
             // ------------------------------------------------------------
-            // 역직렬화 후 생성자 호출 여부 확인 - OnRangeChange 핸들러 등록 확인
+            // 역직렬화 콜백이 Range의 내부 변경 구독을 복구하는지 확인한다.
             // ------------------------------------------------------------
-            // Range를 Base 범위 밖으로 변경하여 Base가 재적용되도록 함
-            // 역직렬화 시 생성자가 호출되었다면 OnRangeChange 핸들러가 등록되어 Base가 조정될 것
+            // 범위 밖 Base에 새 Range를 적용하면 현재 Min으로 보정되어야 한다.
             deserializedRangeValue.Range.Base = (60, 120);
 
             Assert.AreEqual
             (
                 60, deserializedRangeValue.Base,
-                "역직렬화 후 생성자가 호출되었다면 OnRangeChange 핸들러가 등록되어 " +
-                "Min(60)이 현재값(50)보다 크면 Base가 Min으로 조정되어야 합니다. " +
-                "이렇지 않다면 생성자가 호출되지 않아 OnRangeChange가 등록되지 않았을 수 있습니다."
+                "역직렬화된 Range의 내부 변경 구독이 복구되고 Base가 Min으로 보정되어야 합니다."
             );
+        }
+
+    #endregion
+
+    #region S-2: 직렬화 변경 확정
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Range 복원 후 Base를 먼저 보정하고 변경을 한 번씩 통지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_RangeValue_직렬화복원_BaseRange_일괄통지()
+        {
+            var value = new RangeValue<int>(5, new Range<int>(0, 10));
+            var previous = (Base: value.Base, Range: value.Range.Base);
+            var baseField = typeof(Value<int>).GetField
+            (
+                "base", System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic
+            );
+            var rangeField = typeof(Value<Range<int>>).GetField
+            (
+                "base", System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic
+            );
+            Assert.IsNotNull(baseField);
+            Assert.IsNotNull(rangeField);
+
+            baseField.SetValue(value, 5);
+            rangeField.SetValue(value.Range, new Range<int>(7, 9));
+            value.OnAfterDeserialize();
+
+            var events = new System.Collections.Generic.List<string>();
+            value.OnBaseChange += (_, e) => events.Add($"B:{e.Previous}->{e.Current}");
+            value.Range.OnBaseChange += (_, e) => events.Add($"R:{e.Previous}->{e.Current}");
+
+            value.FinalizeSerializedChange(previous.Base, previous.Range);
+            value.FinalizeSerializedChange(value.Base, value.Range.Base);
+
+            CollectionAssert.AreEqual
+            (
+                new[]
+                {
+                    "B:5->7", "R:(0 - 10)->(7 - 9)"
+                },
+                events
+            );
+            Assert.AreEqual(7, value.Base);
         }
 
     #endregion
