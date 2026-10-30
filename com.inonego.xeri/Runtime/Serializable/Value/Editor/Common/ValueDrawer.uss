@@ -1,5 +1,29 @@
 /* ValueDrawer / RangeValueDrawer / MValueDrawer 공용 스타일 */
 
+/* ─── UXML 공통 행과 필드 배치 ─── */
+.xeri-value-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.xeri-value-base-field {
+    flex-grow: 1;
+}
+
+.xeri-mvalue-base-field {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+}
+
+.xeri-value-spacer {
+    flex-shrink: 0;
+}
+
+.xeri-range-min-field {
+    margin-right: 4px;
+}
+
 /* ─── 값 필드 공용: disabled 시 회색 제거 (border는 inline style로 직접 관리) ─── */
 .xeri-set-field.unity-disabled,
 .xeri-set-field .unity-disabled {

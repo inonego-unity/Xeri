@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ValueDrawer.cs
-수정일 : 2026-05-03
+수정일 : 2026-10-30
 
 # 설명
 Value<T> 전용 UI Toolkit PropertyDrawer.
@@ -10,8 +10,7 @@ Inspector에서 [Field Name | Base | 현재값 필드 | ☐] 1행 레이아웃�
 int·float 타입만 지원하며 그 외는 기본 PropertyField로 폴백한다.
 
 # 특이사항
-Undo 복원 시 backing field는 C++ 직렬화로 이미 복원된다.
-lastKnownBase 캐시로 복원 여부를 감지해 InvokeOnBaseChange로 이벤트를 강제 발화한다.
+Undo 복원 시 공통 ValueSerializationTracker가 이전 상태를 비교하고 통지한다.
 편집 모드(FieldEditor.IsEditing) 중에는 필드 갱신을 억제해 입력 중인 값을 보호한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -37,7 +36,7 @@ namespace inonego.Xeri
     public class ValueDrawer : PropertyDrawer
     {
 
-    #region 메서드
+    #region GUI 생성 및 동기화
 
         // ------------------------------------------------------------
         /// <summary>
@@ -52,11 +51,20 @@ namespace inonego.Xeri
             var instance = SerializedPropertyHelper.GetTargetObject(property);
 
             if (instance is Value<int> intValue)
-                return CreateGUI(property, so, target, baseProp, intValue,
-                                 new IntegerField(), p => p.intValue);
+            {
+                return CreateGUI
+                (
+                    property, so, target, baseProp, intValue, new IntegerField()
+                );
+            }
+
             if (instance is Value<float> floatValue)
-                return CreateGUI(property, so, target, baseProp, floatValue,
-                                 new FloatField(), p => p.floatValue);
+            {
+                return CreateGUI
+                (
+                    property, so, target, baseProp, floatValue, new FloatField()
+                );
+            }
 
             return new PropertyField(property);
         }
@@ -66,75 +74,70 @@ namespace inonego.Xeri
         /// int·float 공통 1행 레이아웃을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static VisualElement CreateGUI<T>(
-            SerializedProperty property,
-            SerializedObject so,
-            UnityEngine.Object target,
-            SerializedProperty baseProp,
-            Value<T> instance,
-            BaseField<T> setField,
-            Func<SerializedProperty, T> readProp
-        ) where T : struct
+        private static VisualElement CreateGUI<T>
+        (
+            SerializedProperty property, SerializedObject so,
+            UnityEngine.Object target, SerializedProperty baseProp,
+            Value<T> instance, BaseField<T> setField
+        )
+        where T : struct
         {
-            var root          = new VisualElement();
-            var lastKnownBase = instance.Base;
+            var root = ValueDrawerHelper.CreateRoot();
+            var ownerPath = property.propertyPath;
 
-            ValueDrawerHelper.ApplyStylesheet(root);
+            // 동일한 값은 여러 Inspector에서도 하나의 직렬화 스냅샷을 공유한다.
+            ValueSerializationTracker.Observe(target, ownerPath, instance);
 
-            // [fieldLabel] [Base] [setField] [editToggle]
-            var row        = ValueDrawerHelper.CreateRow();
-            var fieldLabel = ValueDrawerHelper.CreateFieldLabel(property.displayName);
-            var editToggle = ValueDrawerHelper.CreateEditToggle();
+            Value<T> ResolveInstance() => ValueDrawerHelper.ResolveInstance<Value<T>>(so, ownerPath);
 
+            // UXML의 [fieldLabel] [editToggle] 사이에 타입별 Base 입력 필드를 연결한다.
+            var row        = root.Q<VisualElement>("value-base-row");
+            var fieldLabel = root.Q<Label>("value-field-label");
+            var editToggle = root.Q<Toggle>("value-base-toggle");
+
+            fieldLabel.text = property.displayName;
             setField.label = "Base";
-            setField.style.flexGrow = 1;
             setField.AddToClassList("xeri-set-field");
+            setField.AddToClassList("xeri-value-base-field");
             setField.SetValueWithoutNotify(instance.Base);
 
-            row.Add(fieldLabel);
-            row.Add(setField);
-            row.Add(editToggle);
-            root.Add(row);
+            row.Insert(1, setField);
 
             // 토글·PointerDown·FocusIn 이벤트 등록 및 편집 모드 상태 관리
-            T GetBase() => instance.Base;
+            T GetBase() => ResolveInstance()?.Base ?? default;
 
             void OnApply()
             {
-                Undo.RecordObject(target, "Set Value");
-                instance.Set(setField.value, invokeEvent: true);
-                lastKnownBase = instance.Base;
-                EditorUtility.SetDirty(target);
-                so.Update();
+                ValueDrawerHelper.ApplyBaseValue(so, target, ResolveInstance(), setField.value, "Set Value");
             }
 
             var editor = new ValueDrawerHelper.FieldEditor<T>(editToggle, setField, GetBase, OnApply);
 
-            // Undo 감지 — Undo 시 C++ 직렬화로 backing field가 복원된 뒤 콜백이 발화됨
-            // instance.Base == baseProp.value (둘 다 복원됨) → Set() 호출 시 prev==next → 이벤트 미발화
-            // lastKnownBase 캐시와 비교해 실제 변경 여부를 감지하고 이벤트를 강제 발화
+            // 직렬화 복원은 공통 추적기에서 비교하고 일반 이벤트는 기준 상태만 갱신한다.
             void OnBasePropChanged(SerializedProperty _)
             {
-                var restored = readProp(baseProp);
+                var current = ResolveInstance();
+                if (current == null) return;
 
-                if (!EqualityComparer<T>.Default.Equals(lastKnownBase, restored))
-                {
-                    instance.InvokeOnBaseChange(lastKnownBase);
-                    lastKnownBase = restored;
-                }
-
+                ValueSerializationTracker.FinalizeSerializedChange(target, ownerPath, current);
                 if (!editor.IsEditing)
-                    setField.SetValueWithoutNotify(restored);
+                {
+                    setField.SetValueWithoutNotify(current.Base);
+                }
             }
 
             root.TrackPropertyValue(baseProp, OnBasePropChanged);
+
             root.Bind(so);
 
             // 50ms 폴링 — Play Mode에서 외부 수정을 실시간 반영
             void Tick()
             {
-                if (!editor.IsEditing)
-                    setField.SetValueWithoutNotify(instance.Base);
+                var current = ResolveInstance();
+                if (!editor.IsEditing && current != null)
+                {
+                    setField.SetValueWithoutNotify(current.Base);
+                }
             }
 
             ValueDrawerHelper.StartPolling(root, Tick);

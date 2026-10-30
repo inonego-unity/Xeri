@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : RangeValueDrawer.cs
-수정일 : 2026-05-03
+수정일 : 2026-10-30
 
 # 설명
 RangeValue<T> 전용 UI Toolkit PropertyDrawer.
@@ -11,8 +11,7 @@ Inspector에서 2행 레이아웃을 렌더링한다.
 int·float 타입만 지원하며 그 외는 기본 PropertyField로 폴백한다.
 
 # 특이사항
-Undo 복원 시 backing field는 C++ 직렬화로 이미 복원된다.
-lastKnownBase / lastKnownRange 캐시로 복원 여부를 감지해 InvokeOn* 메서드로 이벤트를 강제 발화한다.
+Undo 복원 시 공통 ValueSerializationTracker에서 Base와 Range를 함께 확정한다.
 Base 행은 FieldEditor<T>로 편집 모드를 관리한다.
 Range 해제(Apply) 시 min > max면 체크 상태를 유지하고 적용을 중단한다.
 min > max 검증이 필요하므로 Range 행은 FieldEditor<T>를 사용하지 않고 로컬 함수로 관리한다.
@@ -42,7 +41,7 @@ namespace inonego.Xeri
     public class RangeValueDrawer : PropertyDrawer
     {
 
-    #region 메서드
+    #region GUI 생성 및 동기화
 
         // ------------------------------------------------------------
         /// <summary>
@@ -62,17 +61,26 @@ namespace inonego.Xeri
             var instance = SerializedPropertyHelper.GetTargetObject(property);
 
             if (instance is RangeValue<int> intValue)
-                return CreateGUI(property, so, target, baseProp, minProp, maxProp, intValue,
-                                 new IntegerField(),
-                                 CreateRangeSubField<int, IntegerField>("Min", intValue.Min),
-                                 CreateRangeSubField<int, IntegerField>("Max", intValue.Max),
-                                 p => p.intValue);
+            {
+                return CreateGUI
+                (
+                    property, so, target, baseProp, minProp, maxProp, intValue,
+                    new IntegerField(),
+                    CreateRangeSubField<int, IntegerField>("Min", intValue.Min),
+                    CreateRangeSubField<int, IntegerField>("Max", intValue.Max)
+                );
+            }
+
             if (instance is RangeValue<float> floatValue)
-                return CreateGUI(property, so, target, baseProp, minProp, maxProp, floatValue,
-                                 new FloatField(),
-                                 CreateRangeSubField<float, FloatField>("Min", floatValue.Min),
-                                 CreateRangeSubField<float, FloatField>("Max", floatValue.Max),
-                                 p => p.floatValue);
+            {
+                return CreateGUI
+                (
+                    property, so, target, baseProp, minProp, maxProp, floatValue,
+                    new FloatField(),
+                    CreateRangeSubField<float, FloatField>("Min", floatValue.Min),
+                    CreateRangeSubField<float, FloatField>("Max", floatValue.Max)
+                );
+            }
 
             return new PropertyField(property);
         }
@@ -83,7 +91,7 @@ namespace inonego.Xeri
         /// </summary>
         // ------------------------------------------------------------
         private static TField CreateRangeSubField<T, TField>(string fieldLabel, T initialValue)
-            where TField : BaseField<T>, new()
+        where TField : BaseField<T>, new()
         {
             var field = new TField();
             field.label = fieldLabel;
@@ -95,12 +103,12 @@ namespace inonego.Xeri
             return field;
         }
 
-        // -----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// <br/> int·float 공통 2행 레이아웃을 반환한다.
-        /// <br/> 타입별 차이(필드 종류, readProp)만 인자로 주입받는다.
+        /// <br/> 타입별 필드 종류만 인자로 전달한다.
         /// </summary>
-        // -----------------------------------------------------------------------
+        // ------------------------------------------------------------
         private static VisualElement CreateGUI<T>
         (
             SerializedProperty property,
@@ -112,55 +120,47 @@ namespace inonego.Xeri
             RangeValue<T> instance,
             BaseField<T> setBaseField,
             BaseField<T> setMinField,
-            BaseField<T> setMaxField,
-            Func<SerializedProperty, T> readProp
+            BaseField<T> setMaxField
         ) where T : struct, IComparable<T>
         {
-            var root           = new VisualElement();
-            var lastKnownBase  = instance.Base;
-            var lastKnownRange = new Range<T>(instance.Min, instance.Max);
+            var root = ValueDrawerHelper.CreateRoot(includeRange: true);
+            var ownerPath = property.propertyPath;
             var isEditingRange = false;
 
-            ValueDrawerHelper.ApplyStylesheet(root);
+            ValueSerializationTracker.Observe(target, ownerPath, instance);
 
-            // Row 1: [fieldLabel] [Base] [setBaseField] [editToggleBase]
-            var row1           = ValueDrawerHelper.CreateRow();
-            var fieldLabel     = ValueDrawerHelper.CreateFieldLabel(property.displayName);
-            var editToggleBase = ValueDrawerHelper.CreateEditToggle();
+            RangeValue<T> ResolveInstance() => ValueDrawerHelper.ResolveInstance<RangeValue<T>>(so, ownerPath);
 
+            // UXML 기본 행에 Base 필드를 연결한다.
+            var row1           = root.Q<VisualElement>("value-base-row");
+            var fieldLabel     = root.Q<Label>("value-field-label");
+            var editToggleBase = root.Q<Toggle>("value-base-toggle");
+
+            fieldLabel.text = property.displayName;
             setBaseField.label = "Base";
-            setBaseField.style.flexGrow = 1;
             setBaseField.AddToClassList("xeri-set-field");
+            setBaseField.AddToClassList("xeri-value-base-field");
             setBaseField.SetValueWithoutNotify(instance.Base);
 
-            row1.Add(fieldLabel);
-            row1.Add(setBaseField);
-            row1.Add(editToggleBase);
-            root.Add(row1);
+            row1.Insert(1, setBaseField);
 
-            // Row 2: [spacer] [Range] [setMinField] [setMaxField] [editToggleRange]
-            var row2            = ValueDrawerHelper.CreateRow();
-            var editToggleRange = ValueDrawerHelper.CreateEditToggle();
+            // UXML Range 행의 spacer와 두 값 필드를 연결한다.
+            var row2            = root.Q<VisualElement>("value-range-row");
+            var editToggleRange = root.Q<Toggle>("value-range-toggle");
+            var spacer          = root.Q<VisualElement>("value-range-spacer");
 
-            setMinField.style.marginRight = 4;
+            ValueDrawerHelper.BindSpacer(spacer, fieldLabel);
+            setMinField.AddToClassList("xeri-range-min-field");
 
-            row2.Add(ValueDrawerHelper.CreateSpacer(fieldLabel));
-            row2.Add(ValueDrawerHelper.CreateRowLabel("Range"));
-            row2.Add(setMinField);
-            row2.Add(setMaxField);
-            row2.Add(editToggleRange);
-            root.Add(row2);
+            row2.Insert(2, setMinField);
+            row2.Insert(3, setMaxField);
 
             // Base 편집 모드 — FieldEditor<T>로 이벤트 등록 일괄 처리
-            T GetBase() => instance.Base;
+            T GetBase() => ResolveInstance()?.Base ?? default;
 
             void OnBaseApply()
             {
-                Undo.RecordObject(target, "Set Base");
-                instance.Set(setBaseField.value, invokeEvent: true);
-                lastKnownBase = instance.Base;
-                EditorUtility.SetDirty(target);
-                so.Update();
+                ValueDrawerHelper.ApplyBaseValue(so, target, ResolveInstance(), setBaseField.value, "Set Base");
             }
 
             var baseEditor = new ValueDrawerHelper.FieldEditor<T>
@@ -174,8 +174,11 @@ namespace inonego.Xeri
                 if (isEditingRange) return;
                 isEditingRange = true;
                 editToggleRange.SetValueWithoutNotify(true);
-                setMinField.SetValueWithoutNotify(instance.Min);
-                setMaxField.SetValueWithoutNotify(instance.Max);
+                var current = ResolveInstance();
+                if (current == null) return;
+
+                setMinField.SetValueWithoutNotify(current.Min);
+                setMaxField.SetValueWithoutNotify(current.Max);
                 ValueDrawerHelper.SetFieldBorder(setMinField, true);
                 ValueDrawerHelper.SetFieldBorder(setMaxField, true);
             }
@@ -194,8 +197,10 @@ namespace inonego.Xeri
 
                 var newRange = new Range<T>(minValue, maxValue);
                 Undo.RecordObject(target, "Set Range");
-                instance.Range.Set(newRange, invokeEvent: true);
-                lastKnownRange = newRange;
+                var current = ResolveInstance();
+                if (current == null) return;
+
+                current.Range.Set(newRange, invokeEvent: true);
                 EditorUtility.SetDirty(target);
                 so.Update();
 
@@ -207,8 +212,14 @@ namespace inonego.Xeri
 
             void OnRangeToggleChanged(ChangeEvent<bool> evt)
             {
-                if (evt.newValue) EnterRangeEditMode();
-                else              ExitRangeEditMode();
+                if (evt.newValue)
+                {
+                    EnterRangeEditMode();
+                }
+                else
+                {
+                    ExitRangeEditMode();
+                }
             }
 
             // Min·Max 레이블 드래그 또는 포커스 시 Range 편집 모드 자동 진입
@@ -223,62 +234,53 @@ namespace inonego.Xeri
             setMinField.RegisterCallback<FocusInEvent>(OnMinFocusIn);
             setMaxField.RegisterCallback<FocusInEvent>(OnMaxFocusIn);
 
-            // Undo 감지 - base
-            void OnBasePropChanged(SerializedProperty _)
+            // 외부 변경은 하나의 Runtime 스냅샷을 기준으로 복원한다.
+            void ReconcileCurrent()
             {
-                var restored = readProp(baseProp);
+                var current = ResolveInstance();
+                if (current == null) return;
 
-                if (!EqualityComparer<T>.Default.Equals(lastKnownBase, restored))
+                // Unity는 Min·Max를 각각 통지할 수 있으므로 유효한 상태만 확정한다.
+                if (current.Min.CompareTo(current.Max) > 0)
                 {
-                    instance.InvokeOnBaseChange(lastKnownBase);
-                    lastKnownBase = restored;
+                    return;
                 }
 
+                ValueSerializationTracker.FinalizeSerializedChange(target, ownerPath, current);
                 if (!baseEditor.IsEditing)
-                    setBaseField.SetValueWithoutNotify(restored);
-            }
-
-            root.TrackPropertyValue(baseProp, OnBasePropChanged);
-
-            // Undo 감지 - range
-            // min·max가 별개 prop이므로 두 콜백이 연달아 발화될 수 있음
-            // Equals 체크로 중복 발화를 방지하고 min > max 복원은 무시
-            void OnRangePropChanged(SerializedProperty _)
-            {
-                var restoredMin = readProp(minProp);
-                var restoredMax = readProp(maxProp);
-                if (Comparer<T>.Default.Compare(restoredMin, restoredMax) > 0) return;
-
-                var restoredRange = new Range<T>(restoredMin, restoredMax);
-
-                if (!lastKnownRange.Equals(restoredRange))
                 {
-                    instance.InvokeOnRangeChange(lastKnownRange);
-                    lastKnownRange = restoredRange;
+                    setBaseField.SetValueWithoutNotify(current.Base);
                 }
 
                 if (!isEditingRange)
                 {
-                    setMinField.SetValueWithoutNotify(restoredMin);
-                    setMaxField.SetValueWithoutNotify(restoredMax);
+                    setMinField.SetValueWithoutNotify(current.Min);
+                    setMaxField.SetValueWithoutNotify(current.Max);
                 }
             }
 
-            root.TrackPropertyValue(minProp, OnRangePropChanged);
-            root.TrackPropertyValue(maxProp, OnRangePropChanged);
+            // Min/Max에 별도 트래킹 콜백이 오더라도 공통 상태는 한 번만 소비한다.
+            root.TrackPropertyValue(baseProp, _ => ReconcileCurrent());
+            root.TrackPropertyValue(minProp, _ => ReconcileCurrent());
+            root.TrackPropertyValue(maxProp, _ => ReconcileCurrent());
 
             root.Bind(so);
 
             // 50ms 폴링 — Play Mode에서 외부 수정을 실시간 반영
             void Tick()
             {
+                var current = ResolveInstance();
+                if (current == null) return;
+
                 if (!baseEditor.IsEditing)
-                    setBaseField.SetValueWithoutNotify(instance.Base);
+                {
+                    setBaseField.SetValueWithoutNotify(current.Base);
+                }
 
                 if (!isEditingRange)
                 {
-                    setMinField.SetValueWithoutNotify(instance.Min);
-                    setMaxField.SetValueWithoutNotify(instance.Max);
+                    setMinField.SetValueWithoutNotify(current.Min);
+                    setMaxField.SetValueWithoutNotify(current.Max);
                 }
             }
 

@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="value-base-row" class="xeri-value-row">
+        <ui:Label name="value-field-label" class="unity-base-field__label" />
+        <ui:Toggle name="value-base-toggle" text="" class="xeri-edit-toggle" />
+    </ui:VisualElement>
+    <ui:VisualElement name="value-range-row" class="xeri-value-row">
+        <ui:VisualElement name="value-range-spacer" class="xeri-value-spacer" />
+        <ui:Label text="Range" class="xeri-row-label" />
+        <ui:Toggle name="value-range-toggle" text="" class="xeri-edit-toggle" />
+    </ui:VisualElement>
+</ui:UXML>
