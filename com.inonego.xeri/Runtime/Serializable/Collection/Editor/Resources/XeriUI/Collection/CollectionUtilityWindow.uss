@@ -1,0 +1,31 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : CollectionUtilityWindow.uss
+수정일 : 2026-10-31
+
+# 설명
+Collection 보조 입력 창의 공통 여백과 인덱스 이동 창의 안내·명령 배치를 정의한다.
+========================================================================= BLOCK_HEADER_END */
+
+.xeri-collection-utility {
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.xeri-collection-utility--move-index {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.xeri-collection-utility__range-label {
+    margin-bottom: 6px;
+}
+
+.xeri-collection-utility__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 10px;
+}

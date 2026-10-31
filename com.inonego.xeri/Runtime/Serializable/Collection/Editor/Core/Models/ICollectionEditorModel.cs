@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ICollectionEditorModel.cs
-수정일 : 2026-10-29
+수정일 : 2026-10-31
 
 # 설명
 CollectionEditorView가 사용하는 직렬화 컬렉션 편집 모델 계약을 정의한다.
-Model이 source row 해석, type-aware Add 대상, validation, mutation 및 invariant 복구를 소유한다.
+Model이 행 식별, 타입별 추가, 검증, 변경 확정과 Runtime 정규화를 소유한다.
 편집창 수명과 검색 표시 문자열은 View 책임으로 유지한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -26,6 +26,30 @@ namespace inonego.Xeri.Serializable.Editor
         Default,
         ReplaceOnly,
         ReadOnly,
+    }
+
+    // ============================================================
+    /// <summary>
+    /// 행 명령의 성공 여부와 최종 선택 가능한 위치를 분리한다.
+    /// </summary>
+    // ============================================================
+    internal readonly struct CollectionRowCommandResult
+    {
+        public bool Succeeded { get; }
+        public int RowIndex { get; }
+
+        private CollectionRowCommandResult(bool succeeded, int rowIndex)
+        {
+            Succeeded = succeeded;
+            RowIndex = rowIndex;
+        }
+
+        public static CollectionRowCommandResult Success(int rowIndex)
+        {
+            return new CollectionRowCommandResult(true, rowIndex);
+        }
+
+        public static CollectionRowCommandResult Failure => new CollectionRowCommandResult(false, -1);
     }
 
     // ============================================================
@@ -94,9 +118,16 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         IReadOnlyList<CollectionColumnSpec> Columns { get; }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 컬렉션의 세션 변경 세대를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        ulong Revision { get; }
+
     #endregion
 
-    #region 메서드
+    #region 조회
 
         // ------------------------------------------------------------
         /// <summary>
@@ -161,6 +192,10 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         bool TryGetManagedReferenceAddTarget(out string columnID, out Type declaredType);
 
+    #endregion
+
+    #region 검증
+
         // ------------------------------------------------------------
         /// <summary>
         /// 지정한 행의 검증 메시지를 반환한다.
@@ -170,24 +205,35 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 무효한 직렬화 행의 원본 인덱스를 일괄 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        IReadOnlyList<int> GetInvalidRowIndices();
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 확정된 행 또는 적용 전 후보 값에 대한 진단과 처리 정책을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
         CollectionValidationResult Validate(CollectionValidationContext context);
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 새 항목을 추가한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        int Add(Action<int> initialize = null);
+    #endregion
+
+    #region 행 명령
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정한 항목을 복제한다.
+        /// 항목을 추가하고 성공 여부와 선택 가능한 위치를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        int DuplicateAt(int sourceIndex);
+        CollectionRowCommandResult Add(Action<int> initialize = null);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 항목을 복제하고 성공 여부와 선택 가능한 위치를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        CollectionRowCommandResult DuplicateAt(int sourceIndex);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -205,10 +251,10 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 항목을 지정한 위치로 이동한다.
+        /// 항목을 이동하고 정규화 후 확인된 행 인덱스를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        void Move(int sourceIndex, int destinationIndex);
+        int Move(int sourceIndex, int destinationIndex);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -216,6 +262,17 @@ namespace inonego.Xeri.Serializable.Editor
         /// </summary>
         // ------------------------------------------------------------
         bool TryPasteAt(int sourceIndex, out int resolvedIndex, out string reason);
+
+    #endregion
+
+    #region 변경 상태 동기화
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Model 외부에서 관찰한 직렬화 변경을 변경 세대에 반영한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        void ObserveExternalChange();
 
         // ------------------------------------------------------------
         /// <summary>
@@ -230,6 +287,10 @@ namespace inonego.Xeri.Serializable.Editor
         /// </summary>
         // ------------------------------------------------------------
         void RestoreSerializedState();
+
+    #endregion
+
+    #region 변경 확정
 
         // ------------------------------------------------------------
         /// <summary>

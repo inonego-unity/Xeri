@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializedListEditorModel.cs
-수정일 : 2026-10-21
+수정일 : 2026-11-01
 
 # 설명
 CollectionEditorAttribute가 붙은 List<T>와 1차원 배열을 1열 Collection Editor로 노출한다.
@@ -45,6 +45,9 @@ namespace inonego.Xeri.Serializable.Editor
         /// <inheritdoc />
         public override bool CanReorder => true;
 
+        /// <inheritdoc />
+        protected override bool PreservesRowIndicesOnCommit => true;
+
         // ------------------------------------------------------------
         /// <summary>
         /// 중복 항목을 허용하지 않는 목록인지 반환한다.
@@ -55,6 +58,7 @@ namespace inonego.Xeri.Serializable.Editor
         private readonly Type elementType;
         private readonly bool isManagedReference;
         private readonly Func<object, object, bool> equals;
+        private readonly IEqualityComparer<object> itemComparer;
 
     #endregion
 
@@ -86,7 +90,8 @@ namespace inonego.Xeri.Serializable.Editor
 
             this.unique = unique;
             this.elementType = elementType;
-            equals = CreateEquality(elementType ?? typeof(object));
+            itemComparer = CreateBoxedComparer(elementType ?? typeof(object));
+            equals = itemComparer.Equals;
             this.isManagedReference = isManagedReference;
 
             columns = new[]
@@ -161,6 +166,27 @@ namespace inonego.Xeri.Serializable.Editor
             return string.Empty;
         }
 
+        /// <inheritdoc />
+        public override IReadOnlyList<int> GetInvalidRowIndices()
+        {
+            var indices = new List<int>();
+            if (!unique)
+            {
+                return indices;
+            }
+
+            var seen = new HashSet<object>(itemComparer);
+            for (var index = 0; index < Count; index++)
+            {
+                if (!seen.Add(GetElementObject(index)))
+                {
+                    indices.Add(index);
+                }
+            }
+
+            return indices;
+        }
+
         private SerializedProperty GetListProperty()
         {
             var property = GetCollectionProperty();
@@ -177,10 +203,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         private object GetElementObject(int sourceIndex)
         {
-            return GetPropertyValue
-            (
-                GetCellProperty(sourceIndex, valueColumnID)
-            );
+            return SerializedPropertyHelper.GetValue(GetCellProperty(sourceIndex, valueColumnID));
         }
 
     #endregion
@@ -188,7 +211,7 @@ namespace inonego.Xeri.Serializable.Editor
     #region 행 변경
 
         /// <inheritdoc />
-        public override int Add(Action<int> initialize = null)
+        public override CollectionRowCommandResult Add(Action<int> initialize = null)
         {
             return AddDefaultRow
             (
@@ -200,7 +223,7 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override int DuplicateAt(int sourceIndex)
+        public override CollectionRowCommandResult DuplicateAt(int sourceIndex)
         {
             return DuplicateRow
             (
@@ -234,9 +257,9 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override void Move(int sourceIndex, int destinationIndex)
+        public override int Move(int sourceIndex, int destinationIndex)
         {
-            MoveRow
+            return MoveRow
             (
                 GetListProperty,
                 sourceIndex,
@@ -244,6 +267,10 @@ namespace inonego.Xeri.Serializable.Editor
                 "컬렉션 항목 이동"
             );
         }
+
+    #endregion
+
+    #region 변경 확정
 
         /// <inheritdoc />
         protected override void CommitSerializedChanges(bool recordUndo)

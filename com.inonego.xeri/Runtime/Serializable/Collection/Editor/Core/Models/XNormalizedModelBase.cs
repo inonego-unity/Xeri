@@ -4,7 +4,7 @@
 
 # 설명
 Runtime 정규화로 직렬화 행 구조를 복원하는 Collection Editor Model의 공통 변경 처리를 제공한다.
-항목 추가·복제·삭제 후 Runtime 정규화를 실행하며, 수동 행 재정렬은 허용하지 않는다.
+항목 변경 후 Runtime 정규화를 실행하며, 수동 행 이동은 컬렉션별 정책에 따라 허용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -102,7 +102,7 @@ namespace inonego.Xeri.Serializable.Editor
     #region 행 변경
 
         /// <inheritdoc />
-        public override int Add(Action<int> initialize = null)
+        public override CollectionRowCommandResult Add(Action<int> initialize = null)
         {
             return AddDefaultRow
             (
@@ -114,7 +114,7 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override int DuplicateAt(int sourceIndex)
+        public override CollectionRowCommandResult DuplicateAt(int sourceIndex)
         {
             return DuplicateRow
             (
@@ -149,13 +149,28 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Runtime 정규화로 결정되는 행 순서는 수동 변경하지 않는다.
+        /// 행 이동 후 Runtime 정규화를 실행하고 최종 위치를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public override void Move(int sourceIndex, int destinationIndex)
+        public override int Move(int sourceIndex, int destinationIndex)
         {
-            // NONE
+            if (!CanReorder)
+            {
+                return -1;
+            }
+
+            return MoveRow
+            (
+                GetBackingList,
+                sourceIndex,
+                destinationIndex,
+                $"{entryUndoName} 항목 이동"
+            );
         }
+
+    #endregion
+
+    #region 변경 확정
 
         // ----------------------------------------------------------------------
         /// <summary>

@@ -22,6 +22,9 @@ namespace inonego.Xeri.Serializable.Editor
 
         /// <inheritdoc />
         public override bool CanReorder => true;
+
+        /// <inheritdoc />
+        protected override bool PreservesRowIndicesOnCommit => true;
         /// <inheritdoc />
         public override string Description => "위에서 아래로 처리하며, 새 항목은 맨 뒤에 추가됩니다.";
 

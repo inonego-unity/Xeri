@@ -110,7 +110,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// <br/> 기존 항목·파생 타입·일반 Collection Editor 생성 정책은 유지한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public override int Add(Action<int> initialize = null)
+        public override CollectionRowCommandResult Add(Action<int> initialize = null)
         {
             if (initialize == null)
             {

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PagedListChrome.cs
-수정일 : 2026-10-25
+수정일 : 2026-10-31
 
 # 설명
 Picker와 Collection Editor가 공유하는 검색·콘텐츠·페이지네이션 UI의 배치 셸.
@@ -102,7 +102,7 @@ namespace inonego.Xeri.UI
             var template = this.Q<TemplateContainer>();
             if (template != null)
             {
-                template.style.flexGrow = 1;
+                template.AddToClassList("xeri-paged-list__template");
             }
 
             styleSheets.Add(styleAsset);

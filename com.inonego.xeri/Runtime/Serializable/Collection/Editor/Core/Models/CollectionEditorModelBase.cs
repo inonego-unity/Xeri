@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorModelBase.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-01
 
 # 설명
-Collection Editor Model이 공통으로 사용하는 SerializedObject, property path, label과 mutation helper를 제공한다.
-구체 Model은 collection별 행 구조, 검증과 변경 정책을 정의한다. 검색 문자열 구성과 창 수명 관리는 UI 계층이 담당한다.
+Collection Editor Model의 직렬화 편집, 변경 확정 및 Runtime 동기화를 관리한다.
+구체 Model은 컬렉션별 행 구조·검증·정규화를 정의하고 View는 화면 표시와 창 수명을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -28,17 +28,6 @@ namespace inonego.Xeri.Serializable.Editor
     internal abstract class CollectionEditorModelBase : ICollectionEditorModel
     {
 
-    #region 이벤트
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 확정된 컬렉션 변경을 같은 대상의 에디터에 전달한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal static event Action<UnityEngine.Object, string, string> Committed;
-
-    #endregion
-
     #region 상태
 
         // ------------------------------------------------------------
@@ -61,8 +50,15 @@ namespace inonego.Xeri.Serializable.Editor
         /// </summary>
         // ------------------------------------------------------------
         public string Label { get; }
-        private uint committedHash;
-        private int committedContentFingerprint;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 대상과 컬렉션 경로를 편집하는 Model이 공유하는 변경 세대.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ulong Revision => RevisionTracker.Get(SerializedObject.targetObject, CollectionPropertyPath);
+
+        private SerializedPropertySnapshot committedSnapshot;
         private bool isCommitting;
 
         // ------------------------------------------------------------
@@ -71,6 +67,13 @@ namespace inonego.Xeri.Serializable.Editor
         /// </summary>
         // ------------------------------------------------------------
         protected virtual bool ReordersRowsOnCommit(string propertyPath) => false;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 변경 확정 후 원래 행 인덱스를 그대로 사용할 수 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected virtual bool PreservesRowIndicesOnCommit => false;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -109,6 +112,17 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
+    #region 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 확정된 컬렉션 변경을 같은 대상의 에디터에 전달한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal static event Action<UnityEngine.Object, string, string> Committed;
+
+    #endregion
+
     #region 생성자
 
         // ------------------------------------------------------------
@@ -126,8 +140,7 @@ namespace inonego.Xeri.Serializable.Editor
             SerializedObject = property.serializedObject;
             CollectionPropertyPath = property.propertyPath;
             Label = property.displayName;
-            committedHash = property.contentHash;
-            committedContentFingerprint = ComputeContentFingerprint(property);
+            CaptureCommittedSnapshot();
         }
 
     #endregion
@@ -174,7 +187,7 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public virtual object GetRowIdentity(int sourceIndex)
         {
-            return GetPropertyValue(GetRowProperty(sourceIndex));
+            return SerializedPropertyHelper.GetValue(GetRowProperty(sourceIndex));
         }
 
         // ------------------------------------------------------------
@@ -245,6 +258,10 @@ namespace inonego.Xeri.Serializable.Editor
             return false;
         }
 
+    #endregion
+
+    #region 검증
+
         // ------------------------------------------------------------
         /// <summary>
         /// 지정한 행의 유효성 검사 메시지를 반환한다.
@@ -301,30 +318,28 @@ namespace inonego.Xeri.Serializable.Editor
             return result;
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 비교/validation에 사용할 현재 SerializedProperty 값을 반환한다.
+        /// 무효한 직렬화 행을 수집한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        protected static object GetPropertyValue(SerializedProperty property)
+        // ------------------------------------------------------------
+        public virtual IReadOnlyList<int> GetInvalidRowIndices()
         {
-            if (property == null)
+            var indices = new List<int>();
+            for (var index = 0; index < Count; index++)
             {
-                return null;
+                if (Validate(CollectionValidationContext.ForRow(index)).IsRowInvalid)
+                {
+                    indices.Add(index);
+                }
             }
 
-            if (property.propertyType == SerializedPropertyType.ManagedReference)
-            {
-                return property.managedReferenceValue;
-            }
-
-            if (property.propertyType == SerializedPropertyType.ObjectReference)
-            {
-                return property.objectReferenceValue;
-            }
-
-            return SerializedPropertyHelper.GetTargetObject(property);
+            return indices;
         }
+
+    #endregion
+
+    #region 타입 해석
 
         // ------------------------------------------------------------
         /// <summary>
@@ -347,27 +362,13 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// runtime의 typed comparer를 boxed validation 값에 연결한다.
+        /// 런타임 컬렉션의 typed comparer를 일괄 검증에 사용한다.
         /// </summary>
         // ------------------------------------------------------------
-        protected static Func<object, object, bool> CreateEquality(Type type, object comparer = null)
+        protected static IEqualityComparer<object> CreateBoxedComparer(Type type, object comparer = null)
         {
-            var method = typeof(CollectionEditorModelBase).GetMethod(nameof(CreateTypedEquality), BindingFlags.NonPublic | BindingFlags.Static);
-            var arguments = new object[1];
-            arguments[0] = comparer;
-            return (Func<object, object, bool>)method.MakeGenericMethod(type)
-                .Invoke(null, arguments);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// generic equality를 validation delegate로 만든다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static Func<object, object, bool> CreateTypedEquality<T>(object comparer)
-        {
-            var typed = comparer as IEqualityComparer<T> ?? EqualityComparer<T>.Default;
-            return (left, right) => typed.Equals(left == null ? default : (T)left, right == null ? default : (T)right);
+            var adapter = typeof(BoxedEqualityComparer<>).MakeGenericType(type);
+            return (IEqualityComparer<object>)Activator.CreateInstance(adapter, comparer);
         }
 
     #endregion
@@ -376,17 +377,17 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 항목을 추가하고 생성된 행 인덱스를 반환한다.
+        /// 항목 추가의 성공 여부와 최종 선택 가능한 위치를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public abstract int Add(Action<int> initialize = null);
+        public abstract CollectionRowCommandResult Add(Action<int> initialize = null);
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정한 행을 복제하고 새 행 인덱스를 반환한다.
+        /// 행 복제의 성공 여부와 최종 선택 가능한 위치를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public abstract int DuplicateAt(int sourceIndex);
+        public abstract CollectionRowCommandResult DuplicateAt(int sourceIndex);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -404,10 +405,10 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 행을 지정한 인덱스로 이동한다.
+        /// 행을 이동하고 변경 확정 후 확인된 인덱스를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public abstract void Move(int sourceIndex, int destinationIndex);
+        public abstract int Move(int sourceIndex, int destinationIndex);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -443,7 +444,7 @@ namespace inonego.Xeri.Serializable.Editor
             resolvedIndex = CommitRowChanges(sourceIndex);
             // 순서가 유지되는 컬렉션에서는 값이 중복되어 identity 조회가
             // 모호해져도 실제 붙여넣은 위치를 그대로 선택할 수 있다.
-            if (resolvedIndex < 0 && CanReorder && sourceIndex < Count)
+            if (resolvedIndex < 0 && PreservesRowIndicesOnCommit && sourceIndex < Count)
             {
                 resolvedIndex = sourceIndex;
             }
@@ -453,7 +454,17 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
-    #region 상태 동기화와 변경 확정
+    #region 변경 상태 동기화
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 외부 직렬화 변경을 같은 컬렉션을 보는 모든 Model에 알린다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void ObserveExternalChange()
+        {
+            RevisionTracker.Advance(SerializedObject.targetObject, CollectionPropertyPath);
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -463,20 +474,34 @@ namespace inonego.Xeri.Serializable.Editor
         public void Synchronize()
         {
             SerializedObject.UpdateIfRequiredOrScript();
-            CaptureCommittedState();
+            CaptureCommittedSnapshot();
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// Undo/Redo에서 복원된 소유자 상태를 정리한 뒤 Model 스냅샷을 갱신한다.
+        /// Undo/Redo에서 복원된 소유자 상태를 정리한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public void RestoreSerializedState()
         {
             SerializedObject.UpdateIfRequiredOrScript();
             RestoreOwner();
-            CaptureCommittedState();
+            CaptureCommittedSnapshot();
         }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 동등한 바인딩 통지를 걸러낼 확정 상태를 보관한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void CaptureCommittedSnapshot()
+        {
+            SerializedPropertySnapshot.TryCreate(GetCollectionProperty(), out committedSnapshot, out _);
+        }
+
+    #endregion
+
+    #region 변경 확정
 
         // ------------------------------------------------------------
         /// <summary>
@@ -493,9 +518,7 @@ namespace inonego.Xeri.Serializable.Editor
                 return false;
             }
 
-            var collection = GetCollectionProperty();
-            if (collection == null || collection.contentHash == committedHash
-                && ComputeContentFingerprint(collection) == committedContentFingerprint)
+            if (committedSnapshot?.Matches(GetCollectionProperty()) == true)
             {
                 return false;
             }
@@ -517,9 +540,7 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            var collection = GetCollectionProperty();
-            if (collection == null || collection.contentHash == committedHash
-                && ComputeContentFingerprint(collection) == committedContentFingerprint)
+            if (committedSnapshot?.Matches(GetCollectionProperty()) == true)
             {
                 return;
             }
@@ -619,10 +640,11 @@ namespace inonego.Xeri.Serializable.Editor
 
                 RefreshOwner();
                 SerializedObject.Update();
-                CaptureCommittedState();
+                CaptureCommittedSnapshot();
 
                 foreach (var target in SerializedObject.targetObjects)
                 {
+                    RevisionTracker.Advance(target, CollectionPropertyPath);
                     EditorUtility.SetDirty(target);
                     Committed?.Invoke(target, CollectionPropertyPath, ReordersRowsOnCommit(propertyPath) ? null : propertyPath);
                 }
@@ -635,48 +657,16 @@ namespace inonego.Xeri.Serializable.Editor
             }
         }
 
-        private void CaptureCommittedState()
-        {
-            var collection = GetCollectionProperty();
-            if (collection != null)
-            {
-                committedHash = collection.contentHash;
-                committedContentFingerprint = ComputeContentFingerprint(collection);
-            }
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// 중첩 SerializeReference 필드를 포함한 현재 직렬화 상태를 비교한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        private static int ComputeContentFingerprint(SerializedProperty root)
-        {
-            var iterator = root.Copy();
-            var end = root.GetEndProperty();
-            var fingerprint = 17;
-            do
-            {
-                unchecked
-                {
-                    fingerprint = fingerprint * 31 + iterator.contentHash.GetHashCode();
-                }
-            }
-            while (iterator.Next(true) && !SerializedProperty.EqualContents(iterator, end));
-
-            return fingerprint;
-        }
-
     #endregion
 
     #region 행 작업 공통 구현
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 기본값 row를 지정 위치 또는 끝에 추가하고 collection 변경을 commit한다.
+        /// 기본값 행을 추가하고 성공 여부와 선택 가능한 위치를 반환한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        protected int AddDefaultRow
+        // ------------------------------------------------------------
+        protected CollectionRowCommandResult AddDefaultRow
         (
             Func<SerializedProperty> getArray, int? insertIndex, string undoName,
             Action<int> initialize = null
@@ -697,19 +687,22 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 SerializedObject.Update();
                 Debug.LogException(exception);
-                return -1;
+                return CollectionRowCommandResult.Failure;
             }
 
             var resolved = CommitRowChanges(index);
-            return resolved >= 0 ? resolved : (CanReorder ? Math.Min(index, Count - 1) : -1);
+            var rowIndex = resolved >= 0
+                ? resolved
+                : (PreservesRowIndicesOnCommit ? Math.Min(index, Count - 1) : -1);
+            return CollectionRowCommandResult.Success(rowIndex);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// source row snapshot을 지정 위치 또는 끝에 독립 복제하고 변경을 commit한다.
+        /// 행의 독립 스냅샷을 복제하고 성공 여부와 선택 가능한 위치를 반환한다.
         /// </summary>
-        // ----------------------------------------------------------------------
-        protected int DuplicateRow
+        // ------------------------------------------------------------
+        protected CollectionRowCommandResult DuplicateRow
         (
             Func<SerializedProperty> getArray, int sourceIndex, int? insertIndex,
             string undoName, string logName
@@ -717,7 +710,7 @@ namespace inonego.Xeri.Serializable.Editor
         {
             if (sourceIndex < 0 || sourceIndex >= Count)
             {
-                return -1;
+                return CollectionRowCommandResult.Failure;
             }
 
             SerializedObject.UpdateIfRequiredOrScript();
@@ -727,7 +720,7 @@ namespace inonego.Xeri.Serializable.Editor
             if (!isCreated)
             {
                 Debug.LogWarning($"{logName} 복제 실패: {reason}");
-                return -1;
+                return CollectionRowCommandResult.Failure;
             }
 
             Undo.RecordObjects(SerializedObject.targetObjects, undoName);
@@ -742,11 +735,14 @@ namespace inonego.Xeri.Serializable.Editor
                 // 아직 Apply하지 않은 SerializedObject 변경은 전체 폐기한다.
                 SerializedObject.Update();
                 Debug.LogWarning($"{logName} 복제 적용 실패: {reason}");
-                return -1;
+                return CollectionRowCommandResult.Failure;
             }
 
             var resolved = CommitRowChanges(index);
-            return resolved >= 0 ? resolved : (CanReorder ? Math.Min(index, Count - 1) : -1);
+            var rowIndex = resolved >= 0
+                ? resolved
+                : (PreservesRowIndicesOnCommit ? Math.Min(index, Count - 1) : -1);
+            return CollectionRowCommandResult.Success(rowIndex);
         }
 
         // ------------------------------------------------------------
@@ -815,18 +811,20 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정 row를 이동하고 collection 변경을 commit한다.
+        /// 행을 이동하고 정규화 후 확인된 인덱스를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        protected void MoveRow(Func<SerializedProperty> getArray, int sourceIndex, int destinationIndex, string undoName)
+        protected int MoveRow(Func<SerializedProperty> getArray, int sourceIndex, int destinationIndex, string undoName)
         {
-            if (sourceIndex < 0
-                || destinationIndex < 0
-                || sourceIndex >= Count
-                || destinationIndex >= Count
-                || sourceIndex == destinationIndex)
+            if (sourceIndex < 0 || destinationIndex < 0
+                || sourceIndex >= Count || destinationIndex >= Count)
             {
-                return;
+                return -1;
+            }
+
+            if (sourceIndex == destinationIndex)
+            {
+                return sourceIndex;
             }
 
             Undo.RecordObjects(SerializedObject.targetObjects, undoName);
@@ -834,7 +832,8 @@ namespace inonego.Xeri.Serializable.Editor
 
             getArray().MoveArrayElement(sourceIndex, destinationIndex);
 
-            CommitRowChanges();
+            var resolved = CommitRowChanges(destinationIndex);
+            return resolved >= 0 ? resolved : (PreservesRowIndicesOnCommit ? destinationIndex : -1);
         }
 
         // ----------------------------------------------------------------------

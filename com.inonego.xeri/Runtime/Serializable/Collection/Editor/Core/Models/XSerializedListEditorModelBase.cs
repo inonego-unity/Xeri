@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XSerializedListEditorModelBase.cs
-수정일 : 2026-10-21
+수정일 : 2026-11-01
 
 # 설명
 serialized 필드 하나를 backing list로 사용하는 Xeri collection Editor Model의 공통 조작을 제공한다.
@@ -48,6 +48,13 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 새 항목을 삽입할 기본 위치를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected virtual int? InsertIndex => null;
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 항목 추가 작업에 사용할 Undo 이름을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -69,6 +76,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// </summary>
         // ------------------------------------------------------------
         protected readonly Func<object, object, bool> elementEquals;
+        protected readonly IEqualityComparer<object> elementComparer;
 
     #endregion
 
@@ -105,11 +113,12 @@ namespace inonego.Xeri.Serializable.Editor
                 out isManagedReference
             );
 
-            elementEquals = CreateEquality
+            elementComparer = CreateBoxedComparer
             (
                 elementType ?? typeof(object),
                 instance?.GetType().GetProperty("Comparer")?.GetValue(instance)
             );
+            elementEquals = elementComparer.Equals;
             _ = GetSerializedList();
         }
 
@@ -140,10 +149,7 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         protected object GetElementObject(int sourceIndex)
         {
-            return GetPropertyValue
-            (
-                GetCellProperty(sourceIndex, valueColumnID)
-            );
+            return SerializedPropertyHelper.GetValue(GetCellProperty(sourceIndex, valueColumnID));
         }
 
         /// <inheritdoc />
@@ -176,10 +182,40 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
+    #region 타입 해석
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// XHashSet/XQueue/XStack 변형에서 element 타입과 SerializeReference 여부를 해석한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private static void ResolveElementMetadata
+        (
+            Type collectionType,
+            out Type resolvedElementType,
+            out bool resolvedManagedReference
+        )
+        {
+            var type = FindCollectionType
+            (
+                collectionType,
+                typeof(XHashSet_R<>), typeof(XHashSet_V<>),
+                typeof(XQueue_R<>), typeof(XQueue_V<>),
+                typeof(XStack_R<>), typeof(XStack_V<>)
+            );
+            resolvedElementType = type?.GetGenericArguments()[0];
+            var definition = type?.GetGenericTypeDefinition();
+            resolvedManagedReference = definition == typeof(XHashSet_R<>)
+                || definition == typeof(XQueue_R<>)
+                || definition == typeof(XStack_R<>);
+        }
+
+    #endregion
+
     #region 행 변경
 
         /// <inheritdoc />
-        public override int Add(Action<int> initialize = null)
+        public override CollectionRowCommandResult Add(Action<int> initialize = null)
         {
             return AddDefaultRow
             (
@@ -191,7 +227,7 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override int DuplicateAt(int sourceIndex)
+        public override CollectionRowCommandResult DuplicateAt(int sourceIndex)
         {
             return DuplicateRow
             (
@@ -225,14 +261,14 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override void Move(int sourceIndex, int destinationIndex)
+        public override int Move(int sourceIndex, int destinationIndex)
         {
             if (!CanReorder)
             {
-                return;
+                return -1;
             }
 
-            MoveRow
+            return MoveRow
             (
                 GetSerializedList,
                 sourceIndex,
@@ -241,57 +277,14 @@ namespace inonego.Xeri.Serializable.Editor
             );
         }
 
+    #endregion
+
+    #region 변경 확정
+
         /// <inheritdoc />
         protected override void CommitSerializedChanges(bool recordUndo)
         {
             UpdateRuntimeCollection();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 새 항목을 삽입할 기본 위치를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected virtual int? InsertIndex => null;
-
-        // --------------------------------------------------------------------------------
-        /// <summary>
-        /// XHashSet/XQueue/XStack 변형에서 element 타입과 SerializeReference 여부를 해석한다.
-        /// </summary>
-        // --------------------------------------------------------------------------------
-        private static void ResolveElementMetadata
-        (
-            Type collectionType,
-            out Type resolvedElementType,
-            out bool resolvedManagedReference
-        )
-        {
-            resolvedElementType = null;
-            resolvedManagedReference = false;
-
-            for (var type = collectionType; type != null; type = type.BaseType)
-            {
-                if (!type.IsGenericType)
-                {
-                    continue;
-                }
-
-                var definition = type.GetGenericTypeDefinition();
-                var isReference = definition == typeof(XHashSet_R<>)
-                    || definition == typeof(XQueue_R<>)
-                    || definition == typeof(XStack_R<>);
-                var isValue = definition == typeof(XHashSet_V<>)
-                    || definition == typeof(XQueue_V<>)
-                    || definition == typeof(XStack_V<>);
-                if (!isReference && !isValue)
-                {
-                    continue;
-                }
-
-                resolvedElementType = type.GetGenericArguments()[0];
-                resolvedManagedReference = isReference;
-                return;
-            }
         }
 
     #endregion

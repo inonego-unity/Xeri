@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PagedListChrome.uss
-수정일 : 2026-10-28
+수정일 : 2026-10-31
 
 # 설명
 Picker와 Collection Editor의 검색·목록·페이지 이동 영역에 적용할 공통 USS.
@@ -31,6 +31,10 @@ Picker와 Collection Editor의 검색·목록·페이지 이동 영역에 적용
 }
 
 /* 공통 셸 */
+.xeri-paged-list__template {
+    flex-grow: 1;
+}
+
 .xeri-paged-list {
     flex-grow: 1;
     min-width: 0;

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XPriorityQueueEditorModel.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-01
 
 # 설명
 XPriorityQueue의 serialized heap을 Element/Priority table로 노출한다.
@@ -121,21 +121,6 @@ namespace inonego.Xeri.Serializable.Editor
             return rows;
         }
 
-        private int CompareRows(int left, int right)
-        {
-            var result = comparePriority
-            (
-                GetPropertyValue(GetCellProperty(right, priorityFieldName)),
-                GetPropertyValue(GetCellProperty(left, priorityFieldName))
-            );
-            return result != 0 ? result : left.CompareTo(right);
-        }
-
-        private static Comparison<object> CreatePriorityComparison<T>()
-        {
-            return (left, right) => Comparer<T>.Default.Compare((T)left, (T)right);
-        }
-
         /// <inheritdoc />
         public override bool TryGetManagedReferenceAddTarget
         (
@@ -146,6 +131,25 @@ namespace inonego.Xeri.Serializable.Editor
             columnID = elementFieldName;
             declaredType = elementType;
             return declaredType != null;
+        }
+
+    #endregion
+
+    #region 표시 순서
+
+        private int CompareRows(int left, int right)
+        {
+            var result = comparePriority
+            (
+                SerializedPropertyHelper.GetValue(GetCellProperty(right, priorityFieldName)),
+                SerializedPropertyHelper.GetValue(GetCellProperty(left, priorityFieldName))
+            );
+            return result != 0 ? result : left.CompareTo(right);
+        }
+
+        private static Comparison<object> CreatePriorityComparison<T>()
+        {
+            return (left, right) => Comparer<T>.Default.Compare((T)left, (T)right);
         }
 
     #endregion

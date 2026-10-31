@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XDictionaryEditorModel.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-01
 
 # 설명
 XDictionary의 serialized pair list를 Key/Value table로 노출한다.
@@ -108,16 +108,14 @@ namespace inonego.Xeri.Serializable.Editor
                 : null;
 
             var runtimeComparer = instance?.GetType().GetProperty("Comparer")?.GetValue(instance);
-            var adapterType = typeof(BoxedKeyComparer<>).MakeGenericType(keyType ?? typeof(object));
-            keyComparer = (IEqualityComparer<object>)Activator.CreateInstance(adapterType, runtimeComparer);
+            keyComparer = CreateBoxedComparer(keyType ?? typeof(object), runtimeComparer);
             keyEquals = keyComparer.Equals;
 
-            ResolveManagedReferenceColumns
-            (
-                instance?.GetType(),
-                out keyIsManagedReference,
-                out valueIsManagedReference
-            );
+            var definition = collectionType?.GetGenericTypeDefinition();
+            keyIsManagedReference = definition == typeof(XDictionary_RR<,>)
+                || definition == typeof(XDictionary_RV<,>);
+            valueIsManagedReference = definition == typeof(XDictionary_RR<,>)
+                || definition == typeof(XDictionary_VR<,>);
 
             columns = new[]
             {
@@ -196,6 +194,31 @@ namespace inonego.Xeri.Serializable.Editor
             declaredType = null;
             return false;
         }
+
+        private SerializedProperty GetSerializedList()
+        {
+            var root = GetCollectionProperty();
+            var list = root?.FindPropertyRelative(serializedFieldName);
+
+            if (list == null || !list.isArray)
+            {
+                throw new InvalidOperationException
+                (
+                    "XDictionary의 직렬화 목록을 찾을 수 없습니다."
+                );
+            }
+
+            return list;
+        }
+
+        private object GetKeyObject(int sourceIndex)
+        {
+            return SerializedPropertyHelper.GetValue(GetCellProperty(sourceIndex, keyFieldName));
+        }
+
+    #endregion
+
+    #region 검증
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -307,97 +330,22 @@ namespace inonego.Xeri.Serializable.Editor
         /// Null 및 중복 Key를 runtime Comparer 기준으로 한 번의 순회에서 확인한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public bool HasInvalidRows()
+        public override IReadOnlyList<int> GetInvalidRowIndices()
         {
+            var indices = new List<int>();
             var seen = new HashSet<object>(keyComparer);
             for (var index = Count - 1; index >= 0; index--)
             {
                 var key = GetKeyObject(index);
                 if (key == null || !seen.Add(key))
                 {
-                    return true;
+                    indices.Add(index);
                 }
             }
 
-            return false;
+            indices.Reverse();
+            return indices;
         }
-
-        private SerializedProperty GetSerializedList()
-        {
-            var root = GetCollectionProperty();
-            var list = root?.FindPropertyRelative(serializedFieldName);
-
-            if (list == null || !list.isArray)
-            {
-                throw new InvalidOperationException
-                (
-                    "XDictionary의 직렬화 목록을 찾을 수 없습니다."
-                );
-            }
-
-            return list;
-        }
-
-        private object GetKeyObject(int sourceIndex)
-        {
-            return GetPropertyValue
-            (
-                GetCellProperty(sourceIndex, keyFieldName)
-            );
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// RR/RV/VR/VV 변형에서 Key/Value의 SerializeReference 여부를 해석한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        private static void ResolveManagedReferenceColumns
-        (
-            Type collectionType,
-            out bool keyManagedReference,
-            out bool valueManagedReference
-        )
-        {
-            keyManagedReference = false;
-            valueManagedReference = false;
-
-            for (var type = collectionType; type != null; type = type.BaseType)
-            {
-                if (!type.IsGenericType)
-                {
-                    continue;
-                }
-
-                var definition = type.GetGenericTypeDefinition();
-                if (definition == typeof(XDictionary_RR<,>))
-                {
-                    keyManagedReference = true;
-                    valueManagedReference = true;
-                    return;
-                }
-
-                if (definition == typeof(XDictionary_RV<,>))
-                {
-                    keyManagedReference = true;
-                    return;
-                }
-
-                if (definition == typeof(XDictionary_VR<,>))
-                {
-                    valueManagedReference = true;
-                    return;
-                }
-
-                if (definition == typeof(XDictionary_VV<,>))
-                {
-                    return;
-                }
-            }
-        }
-
-    #endregion
-
-    #region 행 변경
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -427,41 +375,12 @@ namespace inonego.Xeri.Serializable.Editor
             return string.Empty;
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 검증된 Key를 타입에 맞는 전체 값 교체로 확정한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public int ReplaceKey(int sourceIndex, object key)
-        {
-            var reason = ValidateKeyReplacement(key, sourceIndex);
-            if (!string.IsNullOrEmpty(reason))
-            {
-                throw new InvalidOperationException(reason);
-            }
+    #endregion
 
-            Undo.RecordObjects(SerializedObject.targetObjects, "XDictionary 키 변경");
-            SerializedObject.Update();
-            var property = GetCellProperty(sourceIndex, keyFieldName);
-            var path = property.propertyPath;
-            if (property.propertyType == SerializedPropertyType.ManagedReference)
-            {
-                property.managedReferenceValue = key;
-            }
-            else if (property.propertyType == SerializedPropertyType.ObjectReference)
-            {
-                property.objectReferenceValue = (UnityEngine.Object)key;
-            }
-            else
-            {
-                property.boxedValue = key;
-            }
-
-            return CommitRowChanges(sourceIndex, path);
-        }
+    #region 행 변경
 
         /// <inheritdoc />
-        public override int Add(Action<int> initialize = null)
+        public override CollectionRowCommandResult Add(Action<int> initialize = null)
         {
             return AddDefaultRow
             (
@@ -473,7 +392,7 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override int DuplicateAt(int sourceIndex)
+        public override CollectionRowCommandResult DuplicateAt(int sourceIndex)
         {
             return DuplicateRow
             (
@@ -507,17 +426,46 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
         /// <inheritdoc />
-        public override void Move(int sourceIndex, int destinationIndex)
+        public override int Move(int sourceIndex, int destinationIndex)
         {
-            // NONE
+            return -1;
         }
 
-        /// <inheritdoc />
-        protected override void CommitSerializedChanges(bool recordUndo)
-        {
-            // Runtime은 null Key를 건너뛰고 유효한 행을 투영하므로 전체 갱신을 중단하지 않는다.
-            UpdateRuntimeCollection();
+    #endregion
 
+    #region Key 교체
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 검증된 Key를 타입에 맞는 전체 값 교체로 확정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public int ReplaceKey(int sourceIndex, object key)
+        {
+            var reason = ValidateKeyReplacement(key, sourceIndex);
+            if (!string.IsNullOrEmpty(reason))
+            {
+                throw new InvalidOperationException(reason);
+            }
+
+            Undo.RecordObjects(SerializedObject.targetObjects, "XDictionary 키 변경");
+            SerializedObject.Update();
+            var property = GetCellProperty(sourceIndex, keyFieldName);
+            var path = property.propertyPath;
+            if (property.propertyType == SerializedPropertyType.ManagedReference)
+            {
+                property.managedReferenceValue = key;
+            }
+            else if (property.propertyType == SerializedPropertyType.ObjectReference)
+            {
+                property.objectReferenceValue = (UnityEngine.Object)key;
+            }
+            else
+            {
+                property.boxedValue = key;
+            }
+
+            return CommitRowChanges(sourceIndex, path);
         }
 
     #endregion
@@ -670,51 +618,6 @@ namespace inonego.Xeri.Serializable.Editor
 
             pair.FindPropertyRelative(keyFieldName).boxedValue = key;
         }
-
-        // ================================================================================
-        /// <summary>
-        /// 원본 Dictionary의 IEqualityComparer와 동일한 Equals/Hash 계약을 사용한다.
-        /// </summary>
-        // ================================================================================
-        private sealed class BoxedKeyComparer<T> : IEqualityComparer<object>
-        {
-            private readonly IEqualityComparer<T> comparer;
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// BoxedKeyComparer 인스턴스를 초기화한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public BoxedKeyComparer(object runtimeComparer)
-            {
-                comparer = runtimeComparer as IEqualityComparer<T> ?? EqualityComparer<T>.Default;
-            }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 두 값의 동등성을 비교한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public new bool Equals(object left, object right)
-            {
-                return comparer.Equals
-                (
-                    left == null ? default : (T)left,
-                    right == null ? default : (T)right
-                );
-            }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 지정한 값의 해시 코드를 계산한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public int GetHashCode(object value)
-            {
-                return value == null ? 0 : comparer.GetHashCode((T)value);
-            }
-        }
-
         private static object GetSimpleKeyValue
         (
             SerializedProperty list,
@@ -723,6 +626,18 @@ namespace inonego.Xeri.Serializable.Editor
         {
             var pair = list.GetArrayElementAtIndex(sourceIndex);
             return pair.FindPropertyRelative(keyFieldName).boxedValue;
+        }
+
+    #endregion
+
+    #region 변경 확정
+
+        /// <inheritdoc />
+        protected override void CommitSerializedChanges(bool recordUndo)
+        {
+            // Runtime은 null Key를 건너뛰고 유효한 행을 투영하므로 전체 갱신을 중단하지 않는다.
+            UpdateRuntimeCollection();
+
         }
 
     #endregion

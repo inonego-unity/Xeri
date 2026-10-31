@@ -1,10 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XHashSetEditorModel.cs
-수정일 : 2026-09-29
+수정일 : 2026-10-31
 
 # 설명
 XHashSet의 serialized row를 편집하고 duplicate validation과 runtime rebuild를 담당한다.
 ========================================================================= BLOCK_HEADER_END */
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 using UnityEditor;
 
@@ -47,7 +51,7 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
-    #region 조회
+    #region 검증
 
         /// <inheritdoc />
         public override string GetRowValidationMessage(int sourceIndex)
@@ -64,6 +68,22 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             return string.Empty;
+        }
+
+        /// <inheritdoc />
+        public override IReadOnlyList<int> GetInvalidRowIndices()
+        {
+            var indices = new List<int>();
+            var seen = new HashSet<object>(elementComparer);
+            for (var index = 0; index < Count; index++)
+            {
+                if (!seen.Add(GetElementObject(index)))
+                {
+                    indices.Add(index);
+                }
+            }
+
+            return indices;
         }
 
     #endregion

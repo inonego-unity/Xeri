@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="editor-shell" class="xeri-collection-editor">
+        <ui:VisualElement name="editor-header" class="xeri-collection-editor__header">
+            <ui:Label name="editor-title" class="xeri-collection-editor__title" />
+            <ui:Label name="editor-caption" class="xeri-collection-editor__caption" />
+        </ui:VisualElement>
+        <ui:ScrollView name="editor-scroll" class="xeri-collection-editor__scroll" mode="Vertical" />
+        <ui:VisualElement name="editor-status" class="xeri-collection-editor__status" />
+        <ui:VisualElement name="editor-footer" class="xeri-collection-editor__footer">
+            <ui:Label name="editor-footnote" class="xeri-collection-editor__footnote" />
+            <ui:Button name="editor-cancel" text="취소" class="xeri-collection-editor__button" />
+            <ui:Button name="editor-apply" text="적용" class="xeri-collection-editor__button xeri-collection-editor__button--primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

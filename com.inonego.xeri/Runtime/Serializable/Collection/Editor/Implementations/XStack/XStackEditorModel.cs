@@ -22,6 +22,9 @@ namespace inonego.Xeri.Serializable.Editor
 
         /// <inheritdoc />
         public override bool CanReorder => true;
+
+        /// <inheritdoc />
+        protected override bool PreservesRowIndicesOnCommit => true;
         /// <inheritdoc />
         public override string Description => "위에서 아래로 꺼내며, 새 항목은 맨 위에 추가됩니다.";
 
@@ -29,6 +32,9 @@ namespace inonego.Xeri.Serializable.Editor
         protected override string AddUndoName => "XStack 항목 추가";
         /// <inheritdoc />
         protected override string RemoveUndoName => "XStack 항목 삭제";
+
+        /// <inheritdoc />
+        protected override int? InsertIndex => 0;
 
     #endregion
 
@@ -44,13 +50,6 @@ namespace inonego.Xeri.Serializable.Editor
         {
             // NONE
         }
-
-    #endregion
-
-    #region 행 변경
-
-        /// <inheritdoc />
-        protected override int? InsertIndex => 0;
 
     #endregion
 

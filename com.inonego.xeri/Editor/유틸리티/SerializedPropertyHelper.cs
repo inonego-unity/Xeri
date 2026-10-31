@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializedPropertyHelper.cs
-수정일 : 2026-10-17
+수정일 : 2026-11-01
 
 # 설명
-SerializedProperty 경로로부터 실제 객체 인스턴스를 얻는다.
+SerializedProperty의 현재 값과 실제 객체 인스턴스를 구분하여 조회한다.
 배열/리스트 요소 경로, UI Toolkit 직계 자식 필드 생성, 타입 기본값 초기화를 지원한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -20,13 +20,13 @@ namespace inonego.Xeri
 {
     // ============================================================
     /// <summary>
-    /// SerializedProperty 리플렉션 헬퍼.
+    /// SerializedProperty 값과 객체 조회 헬퍼.
     /// </summary>
     // ============================================================
     public static class SerializedPropertyHelper
     {
 
-    #region 객체 조회
+    #region 값과 객체 조회
 
         // ------------------------------------------------------------
         /// <summary>
@@ -71,6 +71,38 @@ namespace inonego.Xeri
             }
 
             return obj;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 현재 직렬화된 값을 반환한다.
+        /// <br/> 복합 행의 identity는 원본 객체에서 조회한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static object GetValue(SerializedProperty property)
+        {
+            if (property == null)
+            {
+                return null;
+            }
+
+            if (property.propertyType == SerializedPropertyType.ManagedReference)
+            {
+                return property.managedReferenceValue;
+            }
+
+            if (property.propertyType == SerializedPropertyType.ObjectReference)
+            {
+                return property.objectReferenceValue;
+            }
+
+            if (property.propertyType == SerializedPropertyType.Generic
+                || property.isArray && property.propertyType != SerializedPropertyType.String)
+            {
+                return GetTargetObject(property);
+            }
+
+            return property.boxedValue;
         }
 
     #endregion

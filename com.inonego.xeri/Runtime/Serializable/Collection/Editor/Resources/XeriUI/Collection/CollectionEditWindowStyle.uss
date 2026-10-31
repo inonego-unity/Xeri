@@ -1,0 +1,21 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : CollectionEditWindowStyle.uss
+수정일 : 2026-10-31
+
+# 설명
+Collection 상세 편집 창의 템플릿 확장과 헤더·본문·하단 명령의 스타일을 정의한다.
+========================================================================= BLOCK_HEADER_END */
+
+.xeri-collection-editor-host,
+.xeri-collection-editor-template { flex-grow: 1; }
+.xeri-collection-editor { flex-grow: 1; min-width: 0; background-color: var(--unity-colors-window-background); }
+.xeri-collection-editor__header { flex-shrink: 0; padding-left: 14px; padding-right: 14px; padding-top: 13px; padding-bottom: 11px; border-bottom-width: 1px; border-bottom-color: rgba(127,127,127,0.25); }
+.xeri-collection-editor__title { font-size: 14px; -unity-font-style: bold; -unity-text-align: middle-left; }
+.xeri-collection-editor__caption { font-size: 11px; opacity: 0.77; white-space: normal; margin-top: 5px; }
+.xeri-collection-editor__scroll { flex-grow: 1; min-height: 80px; padding-left: 13px; padding-right: 13px; padding-top: 12px; padding-bottom: 9px; }
+.xeri-collection-editor__scroll .unity-property-field { margin-top: 3px; margin-bottom: 3px; }
+.xeri-collection-editor__status { flex-shrink: 0; padding-left: 13px; padding-right: 13px; padding-bottom: 4px; }
+.xeri-collection-editor__footer { flex-direction: row; align-items: center; min-height: 47px; flex-shrink: 0; padding-left: 14px; padding-right: 14px; padding-top: 8px; padding-bottom: 8px; border-top-width: 1px; border-top-color: rgba(127,127,127,0.25); }
+.xeri-collection-editor__footnote { flex-grow: 1; flex-shrink: 1; min-width: 0; opacity: 0.72; font-size: 10px; white-space: normal; margin-right: 10px; }
+.xeri-collection-editor__button { min-width: 75px; min-height: 26px; margin-left: 6px; padding-left: 11px; padding-right: 11px; -unity-text-align: middle-center; }
+.xeri-collection-editor__button--primary { -unity-font-style: bold; }
