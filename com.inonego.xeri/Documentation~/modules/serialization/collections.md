@@ -1,80 +1,121 @@
 # Serializable Collections
 
-Xeri Serializable Collections는 Unity 직렬화와 일반 컬렉션 API를 함께 사용하기 위한 컬렉션 구현입니다. `XDictionary`, `XOrdered`, `XHashSet`, `XQueue`, `XStack`, `XPriorityQueue`를 제공합니다.
+Xeri Serializable Collections는 Unity 직렬화가 필요한 Dictionary, Set, Queue, Stack, 정렬 컬렉션과 우선순위 큐를 제공합니다. C#에서는 컬렉션 API를 사용하고 Inspector에서는 직렬화된 항목을 편집할 수 있습니다.
 
-## 왜 필요한가
+## 타입 선택
 
-일반 .NET 컬렉션을 그대로 쓰면 Unity Inspector/serialization과 맞지 않는 경우가 있고, `SerializeReference`가 필요한 key/value 조합은 별도 직렬화 표현이 필요합니다. Xeri Collection은 runtime collection API를 유지하면서 Unity가 저장할 표현을 함께 관리합니다.
+| 목적 | 타입 | 주요 API |
+|---|---|---|
+| Key로 Value 조회 | `XDictionary_VV<TKey, TValue>` 등 | `Add`, `Remove`, 인덱서, `TryGetValue` |
+| 중복 없는 값 집합 | `XHashSet_V<T>`, `XHashSet_R<T>` | `Add`, `Remove`, `Contains` |
+| FIFO 큐 | `XQueue_V<T>`, `XQueue_R<T>` | `Enqueue`, `Dequeue`, `Peek` |
+| LIFO 스택 | `XStack_V<T>`, `XStack_R<T>` | `Push`, `Pop`, `Peek` |
+| Order 순서의 항목 | `XOrdered<TOrder, TValue>` | `Add`, `Remove`, 인덱서 |
+| Order와 고유 Key | `XOrdered<TOrder, TKey, TValue>` | `Add`, `ContainsKey`, `TryGetValue`, `TryGetEntry` |
+| 높은 우선순위부터 처리 | `XPriorityQueue<TElement, TPriority>` | `Enqueue`, `Dequeue`, `Peek` |
 
-## 언제 사용하는가
+Unity 직렬화가 필요하지 않다면 기본 .NET 컬렉션이 더 단순합니다.
 
-- Dictionary/Set/Queue 같은 컬렉션을 Unity 직렬화 상태로 보관해야 할 때
-- key/value 중 일부만 `SerializeReference` 다형성을 사용해야 할 때
-- 항상 정렬된 값 목록과 key lookup을 동시에 유지해야 할 때
+## V와 R 직렬화 방식
 
-런타임에서만 존재하고 직렬화할 필요가 없는 컬렉션은 기본 .NET 컬렉션을 사용하는 편이 더 단순합니다.
+`V`는 `[SerializeField]`, `R`은 `[SerializeReference]`를 뜻하며 성능 등급이 아닙니다. 인터페이스나 추상 클래스 같은 다형 관리 참조가 필요한 자리에만 `R`을 선택하세요.
 
-## 기본 사용
+| Dictionary 타입 | Key | Value |
+|---|---|---|
+| `XDictionary_VV<TKey, TValue>` | SerializeField | SerializeField |
+| `XDictionary_VR<TKey, TValue>` | SerializeField | SerializeReference |
+| `XDictionary_RV<TKey, TValue>` | SerializeReference | SerializeField |
+| `XDictionary_RR<TKey, TValue>` | SerializeReference | SerializeReference |
+
+`XHashSet`, `XQueue`, `XStack`에도 각각 `_V<T>`, `_R<T>`가 있습니다. `XOrdered`의 `Value`와 `XPriorityQueue`의 `Element`는 `SerializeReference`이며 클래스 형식을 사용합니다.
+
+## C#에서 사용하기
+
+다음 예제는 `using inonego.Xeri.Serializable;`을 사용합니다.
+
+### Dictionary와 Set
 
 ```csharp
-var values = new XDictionary_VV<string, int>
+var scores = new XDictionary_VV<string, int>
 {
-    ["one"] = 1,
-    ["two"] = 2,
+    ["player"] = 100,
+    ["enemy"] = 30,
 };
+scores["player"] += 10;
 
-var ordered = new XOrdered<int, string>();
-ordered.Add(20, "late");
-ordered.Add(10, "early");
+var tags = new XHashSet_V<string>();
+tags.Add("Boss");
+bool isBoss = tags.Contains("Boss");
 ```
 
-`R`/`V` 변형은 성능 등급이 아니라 **Unity 직렬화 방식**을 의미합니다. 실제 필드가 다형 참조를 필요로 하는 위치에만 `R`을 선택합니다.
+### Queue, Stack, Priority Queue
 
-## 핵심 모델
+```csharp
+var events = new XQueue_V<string>();
+events.Enqueue("Start");
+events.Enqueue("Finish");
+string firstEvent = events.Dequeue(); // "Start"
 
-직렬화 authoritative state는 컬렉션 종류에 따라 다릅니다.
+var history = new XStack_V<string>();
+history.Push("First");
+history.Push("Second");
+string latest = history.Pop(); // "Second"
 
-- `XDictionary` 계열은 Runtime dictionary와 serialized pair 표현을 분리하고 `ISerializationCallbackReceiver`로 동기화합니다.
-- `XOrdered`는 직렬화된 Entry 목록 자체가 authoritative state입니다. 별도 serialization callback으로 정렬이나 상태를 복구하지 않습니다.
-- Keyed `XOrdered`의 lookup만 비직렬화 runtime 파생 상태이며 필요할 때 Entry 목록에서 lazy 구성합니다.
+var tasks = new XPriorityQueue<string, int>();
+tasks.Enqueue("Background", 1);
+tasks.Enqueue("Urgent", 10);
+var next = tasks.Dequeue(); // ("Urgent", 10)
+```
 
-## XDictionary
+`XPriorityQueue`는 **높은 Priority를 먼저** 반환합니다. 빈 큐의 `Peek()`와 `Dequeue()`는 `InvalidOperationException`을 발생시킵니다.
 
-`XDictionaryBase<TKey, TValue, TPair>`는 `Dictionary<TKey, TValue>`를 상속하고 `ISerializationCallbackReceiver`로 직렬화 표현을 동기화합니다.
+### Order를 갖는 컬렉션
 
-키와 값의 직렬화 방식에 따라 네 변형이 있습니다.
+```csharp
+var ordered = new XOrdered<int, string>();
+ordered.Add(20, "Later");
+ordered.Add(10, "Earlier"); // 순회 순서는 Earlier, Later
 
-| 타입 | Key | Value |
-|---|---|---|
-| `XDictionary_RR` | `SerializeReference` | `SerializeReference` |
-| `XDictionary_RV` | `SerializeReference` | `SerializeField` |
-| `XDictionary_VR` | `SerializeField` | `SerializeReference` |
-| `XDictionary_VV` | `SerializeField` | `SerializeField` |
+var keyed = new XOrdered<int, string, string>();
+keyed.Add(20, "music", "Music");
+keyed.Add(10, "sfx", "Sound Effects");
 
-## XOrdered
+if (keyed.TryGetValue("music", out var value))
+{
+    // value == "Music"
+}
+```
 
-`XOrdered<TOrder, TValue>`는 `Order` 오름차순을 유지하는 직렬화 컬렉션입니다.
+`XOrdered`는 Order 오름차순을 유지합니다. 같은 Order는 기존 항목 뒤에 추가합니다. Key가 있는 변형에서 중복 Key를 추가하면 `ArgumentException`이 발생하며, Key는 정렬 기준이 아닙니다.
 
-`XOrdered<TOrder, TKey, TValue>`는 각 Entry가 `Order`, unique `Key`, `Value`를 함께 소유합니다. 직렬화된 Entry 목록이 authoritative state이고, Key lookup은 역직렬화 이후 필요할 때 Entry 목록에서 다시 구성하는 runtime 파생 상태입니다.
+## Inspector에서 사용하기
 
-두 변형 모두 기본 순회와 index 접근이 Order 순서를 따릅니다. 읽기 전용 노출은 `IReadOnlyXOrdered`를 사용하고, Keyed 변형은 `ContainsKey()`, `TryGetValue()`, `TryGetEntry()`로 Key 조회를 제공합니다.
+```csharp
+using UnityEngine;
+using inonego.Xeri.Serializable;
 
-## 선택 기준
+public sealed class CollectionExample : MonoBehaviour
+{
+    [SerializeField] private XDictionary_VV<string, int> scores = new();
+    [SerializeField] private XHashSet_V<string> tags = new();
+    [SerializeField] private XOrdered<int, string> messages = new();
+}
+```
 
-- 일반 key/value lookup + Unity 직렬화가 필요하면 `XDictionary_*`를 사용합니다.
-- 항상 정렬된 값 순서가 필요하면 `XOrdered`를 사용합니다.
-- `SerializeReference`가 필요한 위치만 `R`, 일반 Unity value serialization이면 `V` 변형을 선택합니다.
-- 단순 API 편의 때문에 Xeri collection을 사용하지 말고 Unity 직렬화 요구가 실제로 있는지 먼저 확인합니다.
+위 필드는 Xeri 컬렉션별 PropertyDrawer로 표시됩니다. 검색, 페이지 이동, 값 편집, 행 추가·삭제 등을 사용할 수 있습니다.
 
-## 제약과 주의사항
+일반 `List<T>`와 1차원 배열은 자동 적용되지 않으며 `[CollectionEditor]`로 opt-in합니다. 자세한 사용 방법은 [Collection Editor Inspector 가이드](../../guides/serialization/edit-collections-in-inspector.md)를 참고하세요.
 
-- `XDictionary`는 역직렬화 시 serialized pair 목록을 기준으로 Runtime dictionary를 다시 만듭니다.
-- `XDictionary`의 중복 serialized key는 후행 값이 앞선 값을 덮어씁니다.
-- `XOrdered`는 저장된 Entry 순서를 그대로 신뢰하며 serialization 과정에서 자동 정렬·복구하지 않습니다.
-- Keyed `XOrdered`의 Key lookup은 비직렬화 runtime 파생 상태이며 필요할 때 Entry 목록에서 lazy 구성됩니다.
-- 직렬화 표현과 Runtime collection을 외부에서 별도로 수정하는 구조를 만들지 않습니다.
+## 저장 관련 주의사항
+
+- `XDictionary`, `XHashSet`, `XQueue`, `XStack`은 Runtime 컬렉션 값과 Unity 직렬화 목록을 별도로 관리합니다. Runtime에서 `Add`, `Remove` 등을 호출했다고 해서 변경이 자동으로 Inspector 직렬화 목록에 저장되지는 않습니다.
+- Unity 역직렬화 시 직렬화 목록을 기반으로 Runtime 값을 재구성합니다. Runtime API와 Inspector 변경을 하나의 자동 영속 저장 흐름으로 가정하지 마세요.
+- `XDictionary`는 직렬화 목록의 null Key를 Runtime 재구성 시 무시합니다. Key가 중복되면 **뒤에 기록된 항목의 Value**가 Runtime에서 사용되므로 Inspector 검증 메시지를 확인하세요.
+- `XOrdered`는 API의 `Add`에서 정렬하지만 외부에서 직렬화된 항목을 직접 수정할 경우 자동 정렬을 가정하면 안 됩니다.
+- `XPriorityQueue`의 내부 저장 구조는 Heap입니다. Inspector에서 보는 표시 순서와 실제 저장 순서는 다를 수 있습니다.
 
 ## 관련 문서
 
+- [Collection Editor Inspector 가이드](../../guides/serialization/edit-collections-in-inspector.md)
 - [Serializable Value와 Modifier](value.md)
 - [Serializable 모듈](../../../Runtime/Serializable/README.md)

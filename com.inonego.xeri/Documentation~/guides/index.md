@@ -21,6 +21,7 @@
 ## UI와 데이터 표현
 
 - [MValue로 Modifier 합성하기](serialization/use-mvalue.md)
+- [Collection Editor로 Inspector 항목 편집하기](serialization/edit-collections-in-inspector.md)
 
 ## Utility
 

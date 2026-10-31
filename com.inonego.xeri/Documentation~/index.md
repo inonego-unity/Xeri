@@ -23,6 +23,7 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |
 | Screen/Modal/Window UI를 운영한다 | [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/) |
 | UGUI/UITK Drag & Drop을 구성한다 | [UI Utilities](../Runtime/UI/README.md) |
+| 컬렉션을 Inspector에서 편집한다 | [Collection Editor 가이드](guides/serialization/edit-collections-in-inspector.md) |
 | Audio/VFX Cue를 공통 재생한다 | [Playback Cue](modules/playback/cue.md) |
 | 결정적 procedural generation을 만든다 | [Generation](modules/generation/generation.md) |
 | 반복 객체의 반환 수명을 관리한다 | [Object Pooling](modules/utility/pooling.md) |
@@ -48,4 +49,3 @@ Xeri가 소유하는 범용 lifecycle과 프로젝트가 선택하는 정책을 
 - [전체 Runtime 모듈](modules/index.md)
 - [사용 가이드 전체 목록](guides/index.md)
 - [확장 계약](concepts/extension-contracts.md)
-- [유지보수 문서](maintainers/index.md)

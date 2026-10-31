@@ -52,7 +52,7 @@ SerializedPropertyClipboard는 공통 Editor 테스트 어셈블리에서 별도
 Editor UI 통합: TEST_CollectionEditor
 
 ~~~powershell
-Unity.exe -batchmode -projectPath "<Unity7-TestProject>" -runTests -testPlatform EditMode -testFilter TEST_CollectionEditor -testResults "<Result.xml>" -logFile "<Editor.log>"
+Unity.exe -batchmode -projectPath "<Unity7-TestProject>" -runTests -testPlatform EditMode -testFilter "inonego.Xeri.TEST.Serializable._Collection.TEST_CollectionEditor" -testResults "<Result.xml>" -logFile "<Editor.log>"
 ~~~
 
 EditorWindow.ShowUtility 또는 실제 UI 패널을 사용하는 테스트에는

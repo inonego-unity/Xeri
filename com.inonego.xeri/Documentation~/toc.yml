@@ -37,6 +37,8 @@
     href: guides/tracking/track-ui-element.md
   - name: MValue Modifier 합성하기
     href: guides/serialization/use-mvalue.md
+  - name: Collection Editor로 Inspector 항목 편집하기
+    href: guides/serialization/edit-collections-in-inspector.md
   - name: Pool Lease 사용하기
     href: guides/utility/use-pool-lease.md
   - name: Cue Presenter 구성하기
