@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerTableBinder.cs
-수정일 : 2026-10-28
+수정일 : 2026-10-31
 
 # 설명
-Picker MultiColumnListView의 column, row, selection, double click, sorting 입력을 관리한다.
+Picker MultiColumnListView의 열 폭 정책, 행 바인딩, 선택·정렬 입력을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -13,11 +13,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
+
 namespace inonego.Xeri.UI.Picker
 {
     // ============================================================
     /// <summary>
-    /// Picker MultiColumnListView 바인더.
+    /// Picker 테이블의 행·열 렌더링과 선택·정렬 입력을 연결한다.
     /// </summary>
     // ============================================================
     internal sealed class PickerTableBinder<TEntry, TValue>
@@ -42,7 +46,7 @@ namespace inonego.Xeri.UI.Picker
         /// table binder를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public PickerTableBinder(PickerSession<TEntry, TValue> session, VisualElement root) : base()
+        public PickerTableBinder(PickerSession<TEntry, TValue> session, VisualElement root)
         {
             this.session = session;
             this.root    = root;
@@ -54,7 +58,85 @@ namespace inonego.Xeri.UI.Picker
 
     #endregion
 
-    #region 메서드
+    #region 테이블 구성
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테이블의 기본 동작을 설정하고 열과 입력 이벤트를 연결한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ConfigureListView()
+        {
+            listView.selectionType = SelectionType.Single;
+            listView.focusable = false;
+            listView.fixedItemHeight = 30f;
+            listView.showAlternatingRowBackgrounds = AlternatingRowBackground.None;
+            listView.sortingMode = ColumnSortingMode.Custom;
+            ConfigureColumns();
+
+            listView.RegisterCallback<PointerDownEvent>(HandlePointerDown, TrickleDown.TrickleDown);
+            listView.selectionChanged += HandleSelectionChanged;
+            listView.itemsChosen += HandleItemsChosen;
+            listView.columnSortingChanged += HandleColumnSortingChanged;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표시 열을 생성하고 열 순서에 맞는 초기 가중치를 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ConfigureColumns()
+        {
+            listView.columns.Add
+            (
+                new Column
+                {
+                    name = imageColumnID,
+                    title = string.Empty,
+                    width = 42f,
+                    minWidth = 42f,
+                    maxWidth = 42f,
+                    stretchable = false,
+                    sortable = false,
+                    makeCell = MakeImageCell,
+                    bindCell = BindImageCell,
+                }
+            );
+
+            var stretchWeights = new List<float>(session.Columns.Count + 1);
+            stretchWeights.Add(0f);
+            foreach (var pickerColumn in session.Columns)
+            {
+                var column = pickerColumn;
+                if (column.Options.Visibility == PickerColumnVisibility.Hidden) continue;
+
+                var listColumn = new Column
+                {
+                    name = column.ID,
+                    title = column.Header,
+                    width = column.Options.Layout.Width,
+                    minWidth = column.Options.Layout.MinWidth,
+                    stretchable = column.Options.Layout.Mode == PickerColumnLayoutMode.Flexible,
+                    sortable = column.Options.Sortable,
+                    makeCell = MakeTextCell,
+                    bindCell = (element, index) => BindTextCell(element, index, column),
+                };
+
+                if (column.Options.Layout.MaxWidth > 0f)
+                {
+                    listColumn.maxWidth = column.Options.Layout.MaxWidth;
+                }
+
+                listView.columns.Add(listColumn);
+                stretchWeights.Add(column.Options.Layout.StretchWeight);
+            }
+
+            listView.ApplyColumnSizing(stretchWeights);
+        }
+
+    #endregion
+
+    #region 페이지 동기화
 
         // ------------------------------------------------------------
         /// <summary>
@@ -132,64 +214,9 @@ namespace inonego.Xeri.UI.Picker
             return true;
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// list view 기본 동작과 column을 구성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void ConfigureListView()
-        {
-            listView.selectionType = SelectionType.Single;
-            listView.focusable = false;
-            listView.fixedItemHeight = 30f;
-            listView.showAlternatingRowBackgrounds = AlternatingRowBackground.None;
-            listView.sortingMode = ColumnSortingMode.Custom;
-            listView.RegisterCallback<PointerDownEvent>(HandlePointerDown, TrickleDown.TrickleDown);
-            listView.selectionChanged += HandleSelectionChanged;
-            listView.itemsChosen += HandleItemsChosen;
-            listView.columnSortingChanged += HandleColumnSortingChanged;
+    #endregion
 
-            listView.columns.Add
-            (
-                new Column
-                {
-                    name = imageColumnID,
-                    title = string.Empty,
-                    width = 42f,
-                    minWidth = 42f,
-                    maxWidth = 42f,
-                    stretchable = false,
-                    sortable = false,
-                    makeCell = MakeImageCell,
-                    bindCell = BindImageCell,
-                }
-            );
-
-            foreach (var pickerColumn in session.Columns)
-            {
-                var column = pickerColumn;
-                if (column.Options.Visibility == PickerColumnVisibility.Hidden) continue;
-
-                var listColumn = new Column
-                {
-                    name = column.ID,
-                    title = column.Header,
-                    width = column.Options.Layout.Width,
-                    minWidth = column.Options.Layout.MinWidth,
-                    stretchable = column.Options.Layout.Mode == PickerColumnLayoutMode.Flexible,
-                    sortable = column.Options.Sortable,
-                    makeCell = MakeTextCell,
-                    bindCell = (element, index) => BindTextCell(element, index, column),
-                };
-
-                if (column.Options.Layout.MaxWidth > 0f)
-                {
-                    listColumn.maxWidth = column.Options.Layout.MaxWidth;
-                }
-
-                listView.columns.Add(listColumn);
-            }
-        }
+    #region 셀 생성과 바인딩
 
         // ------------------------------------------------------------
         /// <summary>
@@ -215,20 +242,6 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// text column cell을 생성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static VisualElement MakeTextCell()
-        {
-            var label = new Label();
-            label.AddToClassList("xeri-picker__table-cell");
-            label.AddToClassList("xeri-picker__table-cell-label");
-
-            return label;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// image column cell에 현재 page entry 이미지를 바인딩한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -246,6 +259,20 @@ namespace inonego.Xeri.UI.Picker
             }
 
             image.image = pageItems[index].Image ?? PickerDefaultTextures.GrayChecker;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// text column cell을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static VisualElement MakeTextCell()
+        {
+            var label = new Label();
+            label.AddToClassList("xeri-picker__table-cell");
+            label.AddToClassList("xeri-picker__table-cell-label");
+
+            return label;
         }
 
         // ------------------------------------------------------------
@@ -296,27 +323,9 @@ namespace inonego.Xeri.UI.Picker
             element.EnableInClassList("xeri-picker__table-cell--odd", index % 2 != 0);
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// UI Toolkit 선택 collection에서 picker entry만 추출한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static PickerEntry<TEntry, TValue> GetFirstEntry(IEnumerable<object> items)
-        {
-            foreach (var item in items)
-            {
-                if (item is PickerEntry<TEntry, TValue> entry)
-                {
-                    return entry;
-                }
-            }
-
-            return null;
-        }
-
     #endregion
 
-    #region 이벤트 핸들러
+    #region 사용자 입력과 선택
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -376,6 +385,24 @@ namespace inonego.Xeri.UI.Picker
                 session.SetSort(columnID, sortedColumn.direction == SortDirection.Ascending);
                 return;
             }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UI Toolkit 선택 목록에서 첫 번째 Picker 항목을 찾는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static PickerEntry<TEntry, TValue> GetFirstEntry(IEnumerable<object> items)
+        {
+            foreach (var item in items)
+            {
+                if (item is PickerEntry<TEntry, TValue> entry)
+                {
+                    return entry;
+                }
+            }
+
+            return null;
         }
 
     #endregion
