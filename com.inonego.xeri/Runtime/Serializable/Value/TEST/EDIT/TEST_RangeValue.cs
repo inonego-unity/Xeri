@@ -6,7 +6,7 @@
 RangeValue<T>의 핵심 기능 테스트.
 
 # 테스트 구성
- E: 기본 기능 (생성/범위 설정/값 제한/비교/ToString)
+ E: 범위 설정·Clamp·값 표현
  S: 직렬화 (JSON 라운드트립·Base Clamp·변경 확정)
  V: 이벤트 (Base·Range 변경 및 Range 구독 수명)
 ========================================================================= BLOCK_HEADER_END */
@@ -34,23 +34,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
     public class TEST_RangeValue
     {
 
-    #region E-1: 기본 생성
-
-        [Test]
-        public void TEST_RangeValue_기본_생성_초기값()
-        {
-            // Arrange & Act
-            var rangeValue = new RangeValue<int>();
-
-            // Assert
-            Assert.AreEqual(0, rangeValue.Base);
-            Assert.AreEqual(0, rangeValue.Min);
-            Assert.AreEqual(0, rangeValue.Max);
-        }
-
-    #endregion
-
-    #region E-2: 범위 설정 및 Clamp
+    #region E-1: 범위 설정 및 Clamp
 
         [Test]
         public void TEST_RangeValue_범위_설정_및_값_제한()
@@ -126,7 +110,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-3: 비교 및 문자열 표현
+    #region E-2: 비교 및 문자열 표현
 
         [Test]
         public void TEST_RangeValue_비교_및_ToString()

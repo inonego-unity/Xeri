@@ -1,13 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XOrdered_Serialization.cs
-수정일 : 2026-10-24
+수정일 : 2026-10-31
 
 # 설명
-XOrdered의 JSON 직렬화, 관리 참조 공유와 대량 조회 일관성을 검증한다.
+XOrdered의 JSON 직렬화와 관리 참조 공유를 검증한다.
 
 # 테스트 구성
  S: Unity JSON 직렬화 계약
- P: 대량 데이터 정렬과 조회 일관성
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -127,45 +126,6 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
             Assert.IsTrue(restored.TryGetValue("a", out var first));
             Assert.IsTrue(restored.TryGetValue("b", out var second));
             Assert.AreSame(first, second);
-        }
-
-    #endregion
-
-    #region P-1: 대량 데이터 정렬과 조회 일관성
-
-        [Test]
-        public void TEST_XOrdered_Keyed_대량데이터_정렬과Lookup_일관성()
-        {
-            // Arrange
-            const int testCount = 128;
-            var random = new System.Random(42);
-            var ordered = new XOrdered<int, string, TestElement>();
-            var expected = new Dictionary<string, TestElement>();
-
-            // Act
-            for (var index = 0; index < testCount; index++)
-            {
-                var key = $"key-{index}";
-                var value = new TestElement($"Value-{index}");
-                var order = random.Next(0, 16);
-
-                expected.Add(key, value);
-                ordered.Add(order, key, value);
-            }
-
-            // Assert
-            Assert.AreEqual(testCount, ordered.Count);
-
-            for (var index = 1; index < ordered.Count; index++)
-            {
-                Assert.LessOrEqual(ordered[index - 1].Order, ordered[index].Order);
-            }
-
-            foreach (var pair in expected)
-            {
-                Assert.IsTrue(ordered.TryGetValue(pair.Key, out var value));
-                Assert.AreSame(pair.Value, value);
-            }
         }
 
     #endregion

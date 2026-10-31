@@ -4,7 +4,7 @@
 
 # 설명
 Managed-reference 값을 실제 runtime type 기준으로 직렬화·역직렬화하는 Editor 전용 helper.
-ManagedReferenceClipboard와 Collection item snapshot이 동일한 deep-copy 경로를 재사용한다.
+SerializedPropertyClipboard와 SerializedPropertySnapshot이 동일한 deep-copy 경로를 재사용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;

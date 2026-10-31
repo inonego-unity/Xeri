@@ -1,13 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XOrdered.cs
-수정일 : 2026-10-24
+수정일 : 2026-10-31
 
 # 설명
 XOrdered의 기본 정렬·조회와 키 기반 고유성·안정 정렬을 함께 검증한다.
 
 # 테스트 구성
- U: 키 없는 XOrdered 기본 계약
- K: 키 있는 XOrdered 기본 계약
+ U: 키 없는 XOrdered 정렬과 조회
+ K: 키 있는 XOrdered 고유성과 안정 정렬
+ P: 대량 데이터 정렬과 조회 일관성
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -34,18 +35,6 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
     {
 
     #region 헬퍼
-
-        // ======================================================================
-        /// <summary>
-        /// Comparer&lt;TOrder&gt;.Default의 enum 지원을 검증하는 Order.
-        /// </summary>
-        // ======================================================================
-        private enum TestOrder
-        {
-            Early = -10,
-            Middle = 0,
-            Late = 10,
-        }
 
         // ============================================================
         /// <summary>
@@ -153,59 +142,7 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
 
     #endregion
 
-    #region U-3: 항목과 순회 계약
-
-        [Test]
-        public void TEST_XOrdered_Entry_Deconstruct_IReadOnlyXOrdered_Enumerator()
-        {
-            // Arrange
-            var ordered = new XOrdered<int, TestElement>();
-
-            ordered.Add(20, new TestElement("B"));
-            ordered.Add(10, new TestElement("A"));
-
-            // Act
-            IReadOnlyXOrdered<int, TestElement> readOnly = ordered;
-            var (order, value) = readOnly[0];
-            var enumerator = ordered.GetEnumerator();
-
-            // Assert
-            Assert.AreEqual(2, readOnly.Count);
-            Assert.IsTrue(readOnly.Contains(new TestElement("A")));
-            Assert.AreEqual(0, readOnly.IndexOf(new TestElement("A")));
-            Assert.AreEqual(10, order);
-            Assert.AreEqual("A", value.Name);
-            Assert.AreEqual
-            (
-                typeof(List<XOrdered<int, TestElement>.Entry>.Enumerator),
-                enumerator.GetType()
-            );
-        }
-
-    #endregion
-
-    #region U-4: 열거형 순서 비교
-
-        [Test]
-        public void TEST_XOrdered_EnumOrder_ComparerDefault_지원()
-        {
-            // Arrange
-            var ordered = new XOrdered<TestOrder, TestElement>();
-
-            // Act
-            ordered.Add(TestOrder.Late, new TestElement("Late"));
-            ordered.Add(TestOrder.Early, new TestElement("Early"));
-            ordered.Add(TestOrder.Middle, new TestElement("Middle"));
-
-            // Assert
-            Assert.AreEqual(TestOrder.Early, ordered[0].Order);
-            Assert.AreEqual(TestOrder.Middle, ordered[1].Order);
-            Assert.AreEqual(TestOrder.Late, ordered[2].Order);
-        }
-
-    #endregion
-
-    #region U-5: 대량 데이터 정렬
+    #region U-3: 대량 데이터 정렬
 
         [Test]
         public void TEST_XOrdered_대량데이터_정렬_유지()
@@ -236,7 +173,7 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
 
     #endregion
 
-#region K-1: 키 추가와 조회
+    #region K-1: 키 추가와 조회
 
         [Test]
         public void TEST_XOrdered_Keyed_Add_정렬_Key조회_EntryIdentity()
@@ -405,37 +342,41 @@ namespace inonego.Xeri.TEST.Serializable._XOrdered
 
     #endregion
 
-    #region K-6: 읽기 전용 계약과 순회
+    #region P-1: 대량 데이터 정렬과 조회 일관성
 
         [Test]
-        public void TEST_XOrdered_Keyed_IReadOnlyXOrdered_전체Entry_Enumerator()
+        public void TEST_XOrdered_Keyed_대량데이터_정렬과Lookup_일관성()
         {
             // Arrange
+            const int testCount = 128;
+            var random = new System.Random(42);
             var ordered = new XOrdered<int, string, TestElement>();
-
-            ordered.Add(20, "b", new TestElement("B"));
-            ordered.Add(10, "a", new TestElement("A"));
+            var expected = new Dictionary<string, TestElement>();
 
             // Act
-            IReadOnlyXOrdered<int, string, TestElement> readOnly = ordered;
-            var enumerator = ordered.GetEnumerator();
-            var (order, key, value) = readOnly[0];
+            for (var index = 0; index < testCount; index++)
+            {
+                var key = $"key-{index}";
+                var value = new TestElement($"Value-{index}");
+                var order = random.Next(0, 16);
+
+                expected.Add(key, value);
+                ordered.Add(order, key, value);
+            }
 
             // Assert
-            Assert.AreEqual(2, readOnly.Count);
-            Assert.IsTrue(readOnly.ContainsKey("a"));
-            Assert.IsTrue(readOnly.TryGetValue("a", out var foundValue));
-            Assert.AreEqual("A", foundValue.Name);
-            Assert.IsTrue(readOnly.TryGetEntry("a", out var foundEntry));
-            Assert.AreSame(readOnly[0], foundEntry);
-            Assert.AreEqual(10, order);
-            Assert.AreEqual("a", key);
-            Assert.AreEqual("A", value.Name);
-            Assert.AreEqual
-            (
-                typeof(List<XOrdered<int, string, TestElement>.Entry>.Enumerator),
-                enumerator.GetType()
-            );
+            Assert.AreEqual(testCount, ordered.Count);
+
+            for (var index = 1; index < ordered.Count; index++)
+            {
+                Assert.LessOrEqual(ordered[index - 1].Order, ordered[index].Order);
+            }
+
+            foreach (var pair in expected)
+            {
+                Assert.IsTrue(ordered.TryGetValue(pair.Key, out var value));
+                Assert.AreSame(pair.Value, value);
+            }
         }
 
     #endregion

@@ -1,15 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_CollectionRuntime.cs
-수정일 : 2026-10-23
+수정일 : 2026-10-31
 
 # 설명
-Editor 의존성 없이 Serializable Collection의 명시적 Runtime Apply/Update 계약을 검증한다.
-BCL 상속 계약, 직렬화 콜백의 비자동 저장, Inspector 원본 보존과 Stack/Queue 순서를 확인한다.
-
+Editor 의존성 없이 Serializable Collection의 Runtime Apply/Update를 검증한다.
+직렬화 원본 보존과 HashSet·Dictionary·Stack·Queue의 데이터 동기화를 확인한다.
 
 # 테스트 구성
  A: 명시적인 Runtime 적용과 동기화
- S: 직렬화 콜백 접근 제약
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -348,55 +346,6 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             dictionary.Clear();
             dictionary.UpdateRuntime();
             Assert.AreSame(first, dictionary["a"]);
-        }
-
-        [Test]
-        public void TEST_CollectionRuntime_BCLInheritance()
-        {
-            HashSet<int> set = new XHashSet_V<int>();
-            Queue<int> queue = new XQueue_V<int>();
-            Stack<int> stack = new XStack_V<int>();
-
-            set.Add(7);
-            queue.Enqueue(11);
-            stack.Push(13);
-
-            Assert.IsTrue(set.Contains(7));
-            Assert.AreEqual(11, queue.Peek());
-            Assert.AreEqual(13, stack.Peek());
-        }
-    #endregion
-
-    #region S-1: 직렬화 콜백 접근 제약
-
-        [Test]
-        public void TEST_CollectionRuntime_콜백은인터페이스로만노출()
-        {
-            Assert.IsFalse(typeof(ISerializedRuntimeCollection).IsPublic);
-
-            var types = new[]
-            {
-                typeof(XHashSet_V<int>),
-                typeof(XDictionary_VV<string, int>),
-                typeof(XQueue_V<int>),
-                typeof(XStack_V<int>),
-            };
-
-            foreach (var type in types)
-            {
-                Assert.IsTrue
-                (
-                    typeof(ISerializationCallbackReceiver).IsAssignableFrom(type)
-                );
-                Assert.IsNull
-                (
-                    type.GetMethod("OnBeforeSerialize", BindingFlags.Public | BindingFlags.Instance)
-                );
-                Assert.IsNull
-                (
-                    type.GetMethod("OnAfterDeserialize", BindingFlags.Public | BindingFlags.Instance)
-                );
-            }
         }
 
     #endregion

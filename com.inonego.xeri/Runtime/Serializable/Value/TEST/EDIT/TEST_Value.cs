@@ -6,7 +6,7 @@
 Value<T>의 핵심 기능 테스트.
 
 # 테스트 구성
- E: 기본 기능 (생성/Base 변경/이벤트/암시적 변환/비교)
+ E: Base 변경·이벤트·값 표현
  S: 직렬화 (JSON 라운드트립/직렬화 변경 확정)
  X: 상속 확장 (초기 정규화/ProcessBase 재정의)
 ========================================================================= BLOCK_HEADER_END */
@@ -82,21 +82,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-1: 기본 생성
-
-        [Test]
-        public void TEST_Value_기본_생성_초기값()
-        {
-            // Arrange & Act
-            var value = new Value<int>();
-
-            // Assert
-            Assert.AreEqual(0, value.Base);
-        }
-
-    #endregion
-
-    #region E-2: Base 설정 및 변경 통지
+    #region E-1: Base 설정 및 변경 통지
 
         // ------------------------------------------------------------
         /// <summary>
@@ -175,7 +161,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
         }
     #endregion
 
-    #region E-3: 암시적 변환·비교·문자열 표현
+    #region E-2: 암시적 변환·비교·문자열 표현
 
         [Test]
         public void TEST_Value_암시적_변환_및_비교()

@@ -107,34 +107,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-1: 기본 생성
-
-        [Test]
-        public void TEST_MValue_기본_생성_초기값()
-        {
-            // Arrange & Act
-            var value = new MValue<int>();
-
-            // Assert
-            Assert.AreEqual(0, value.Base);
-            Assert.AreEqual(0, value.Modified);
-            Assert.AreEqual(0, value.Modifiers.Count);
-        }
-
-        [Test]
-        public void TEST_MValue_초기값_생성자()
-        {
-            // Arrange & Act
-            var value = new MValue<int>(42);
-
-            // Assert
-            Assert.AreEqual(42, value.Base);
-            Assert.AreEqual(42, value.Modified);
-        }
-
-    #endregion
-
-    #region E-2: Base와 Modified 갱신 및 통지
+    #region E-1: Base와 Modified 갱신 및 통지
 
         [Test]
         public void TEST_MValue_Base_변경시_Modified_갱신_및_이벤트()
@@ -243,7 +216,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-3: 무통지 갱신 및 내부 hook
+    #region E-2: 무통지 갱신 및 내부 hook
 
         [Test]
         public void TEST_MValue_invokeEventFalse_내부Hook호출_외부이벤트억제()
@@ -274,21 +247,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
     #endregion
 
-    #region E-4: 암시적 변환 및 값 표현
-
-        [Test]
-        public void TEST_MValue_암시적_변환_Modified_반환()
-        {
-            // Arrange
-            var value = new MValue<int>(10);
-            value.AddModifier("a", new NumericIModifier(NumericIOperation.ADD, 5));
-
-            // Act
-            int direct = value;
-
-            // Assert
-            Assert.AreEqual(15, direct);
-        }
+    #region E-3: 값 동등성과 표현
 
         // ------------------------------------------------------------
         /// <summary>

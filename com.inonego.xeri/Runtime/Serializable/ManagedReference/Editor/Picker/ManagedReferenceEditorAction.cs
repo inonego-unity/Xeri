@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ManagedReferenceEditorAction.cs
-수정일 : 2026-10-21
+수정일 : 2026-10-29
 
 # 설명
-SerializeReference Editor에서 공통으로 사용하는 타입 선택, 생성, null 처리와 clipboard action을 제공한다.
-기존 field/cell 편집과 Collection Editor의 type-aware Add가 같은 생성 Picker 흐름을 재사용한다.
+SerializeReference의 구현 형식 선택·생성·참조 비우기·복사·붙여넣기를 공통 제공한다.
+키·값 및 읽기 전용 상태의 변경 허용 여부는 호출자가 지정하고, 생성 Picker는 함께 재사용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -324,7 +324,9 @@ namespace inonego.Xeri.Serializable.Editor
             Action onChanged = null,
             Action chooseType = null,
             Func<bool> canApply = null,
-            VisualElement menuOwner = null
+            VisualElement menuOwner = null,
+            bool canChangeReference = true,
+            bool canChooseType = true
         )
         {
             if (property == null || declaredType == null)
@@ -344,7 +346,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             void ClearReference()
             {
-                if (canApply != null && !canApply())
+                if (!canChangeReference || canApply != null && !canApply())
                 {
                     return;
                 }
@@ -369,7 +371,7 @@ namespace inonego.Xeri.Serializable.Editor
                     firstTarget, firstLocator,
                     current =>
                     {
-                        if (!ManagedReferenceClipboard.TryCopyAsValue(current, out var reason))
+                        if (!SerializedPropertyClipboard.TryCopyValue(current, out var reason))
                         {
                             throw new InvalidOperationException(reason);
                         }
@@ -380,7 +382,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             void PasteValue()
             {
-                if (canApply != null && !canApply())
+                if (!canChangeReference || canApply != null && !canApply())
                 {
                     return;
                 }
@@ -390,7 +392,7 @@ namespace inonego.Xeri.Serializable.Editor
                     targets, locators,
                     current =>
                     {
-                        if (!ManagedReferenceClipboard.TryPasteAsValue(current, declaredType, out var reason))
+                        if (!SerializedPropertyClipboard.TryPasteValue(current, out var reason, declaredType))
                         {
                             throw new InvalidOperationException(reason);
                         }
@@ -406,7 +408,7 @@ namespace inonego.Xeri.Serializable.Editor
                     targets, locators,
                     current =>
                     {
-                        if (!ManagedReferenceClipboard.TryCopyAsLink(current, out var reason))
+                        if (!SerializedPropertyClipboard.TryCopyLink(current, out var reason))
                         {
                             throw new InvalidOperationException(reason);
                         }
@@ -417,7 +419,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             void PasteLink()
             {
-                if (canApply != null && !canApply())
+                if (!canChangeReference || canApply != null && !canApply())
                 {
                     return;
                 }
@@ -427,7 +429,7 @@ namespace inonego.Xeri.Serializable.Editor
                     targets, locators,
                     current =>
                     {
-                        if (!ManagedReferenceClipboard.TryPasteAsLink(current, declaredType, out var reason))
+                        if (!SerializedPropertyClipboard.TryPasteLink(current, declaredType, out var reason))
                         {
                             throw new InvalidOperationException(reason);
                         }
@@ -436,37 +438,36 @@ namespace inonego.Xeri.Serializable.Editor
                 );
             }
 
-            if (chooseType != null)
-            {
-                menu.AddAction("교체할 타입 선택...", chooseType);
-                menu.AddSeparator();
-            }
-
             if (!property.hasMultipleDifferentValues && property.managedReferenceValue != null)
             {
                 menu.AddLabel($"참조 ID: {property.managedReferenceId}");
                 menu.AddSeparator();
             }
 
-            var canClear = property.hasMultipleDifferentValues
-                || property.managedReferenceValue != null;
+            if (chooseType != null)
+            {
+                menu.AddAction("구현 형식 선택...", chooseType, enabled: canChooseType);
+            }
+
+            var canClear = canChangeReference && (property.hasMultipleDifferentValues
+                || property.managedReferenceValue != null);
             menu.AddAction("참조 비우기 (Null)", ClearReference, enabled: canClear);
             menu.AddSeparator();
             menu.AddAction("값으로 복사", CopyValue);
             menu.AddAction
             (
                 "값으로 붙여넣기", PasteValue,
-                enabled: ManagedReferenceClipboard.CanPasteAsValue(property, declaredType, out _)
+                enabled: canChangeReference && SerializedPropertyClipboard.CanPasteValue(property, out _, declaredType)
             );
             menu.AddAction
             (
                 "참조 링크 복사", CopyLink,
-                enabled: ManagedReferenceClipboard.CanCopyAsLink(property, out _)
+                enabled: SerializedPropertyClipboard.CanCopyLink(property, out _)
             );
             menu.AddAction
             (
                 "참조 링크 붙여넣기", PasteLink,
-                enabled: ManagedReferenceClipboard.CanPasteAsLink(property, declaredType, out _)
+                enabled: canChangeReference && SerializedPropertyClipboard.CanPasteLink(property, declaredType, out _)
             );
 
             menu.OpenBelow();

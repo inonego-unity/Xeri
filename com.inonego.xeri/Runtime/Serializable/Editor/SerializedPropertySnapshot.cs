@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializedPropertySnapshot.cs
-수정일 : 2026-10-17
+수정일 : 2026-10-31
 
 # 설명
 SerializedProperty 하나를 Editor session 메모리에서 독립적으로 복원할 수 있는 snapshot으로 캡처한다.
@@ -29,14 +29,14 @@ namespace inonego.Xeri.Serializable.Editor
         {
             // ------------------------------------------------------------
             /// <summary>
-            /// 항목의 이름을 반환한다.
+            /// 스냅샷 항목의 이름을 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public string Name { get; }
 
             // ------------------------------------------------------------
             /// <summary>
-            /// 저장된 프로퍼티 스냅샷을 반환한다.
+            /// 항목에 보관된 SerializedProperty 스냅샷을 반환한다.
             /// </summary>
             // ------------------------------------------------------------
             public SerializedPropertySnapshot Snapshot { get; }
@@ -61,10 +61,12 @@ namespace inonego.Xeri.Serializable.Editor
 
     #region 필드
 
+        public bool IsManagedReference => propertyType == SerializedPropertyType.ManagedReference;
         private readonly SerializedPropertyType propertyType;
         private readonly string serializedType;
         private readonly bool isArray;
         private readonly object boxedValue;
+        public Type ManagedReferenceType => managedReferenceType;
         private readonly Type managedReferenceType;
         private readonly string managedReferencePayload;
         private readonly IReadOnlyList<SerializedPropertySnapshot> arrayItems;
@@ -117,7 +119,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             if (property == null)
             {
-                reason = "복사할 SerializedProperty가 없습니다.";
+                reason = "원본 프로퍼티가 없습니다.";
                 return false;
             }
 
@@ -156,17 +158,27 @@ namespace inonego.Xeri.Serializable.Editor
                 return CreateGeneric(property);
             }
 
-            // Unity 객체는 값을 복제하지 않고 동일한 객체 참조를 보관한다.
-            var value = property.propertyType == SerializedPropertyType.ObjectReference
-                ? property.objectReferenceValue
-                : property.boxedValue;
+            if (property.propertyType == SerializedPropertyType.ObjectReference)
+            {
+                return new SerializedPropertySnapshot
+                (
+                    property.propertyType,
+                    property.type,
+                    isArray: false,
+                    property.objectReferenceValue,
+                    managedReferenceType: null,
+                    managedReferencePayload: null,
+                    arrayItems: null,
+                    children: null
+                );
+            }
 
             return new SerializedPropertySnapshot
             (
                 property.propertyType,
                 property.type,
                 isArray: false,
-                value,
+                property.boxedValue,
                 managedReferenceType: null,
                 managedReferencePayload: null,
                 arrayItems: null,
@@ -277,6 +289,76 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
+    #region 비교
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 캡처한 값이 현재 property와 같은지 직렬화된 필드 단위로 비교한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool Matches(SerializedProperty property)
+        {
+            if (property == null
+                || property.propertyType != propertyType
+                || (property.isArray && property.propertyType != SerializedPropertyType.String) != isArray
+                || !string.Equals(property.type, serializedType, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (isArray)
+            {
+                if (property.arraySize != arrayItems.Count)
+                {
+                    return false;
+                }
+
+                for (var index = 0; index < arrayItems.Count; index++)
+                {
+                    if (!arrayItems[index].Matches(property.GetArrayElementAtIndex(index)))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            if (propertyType == SerializedPropertyType.ManagedReference)
+            {
+                var current = property.managedReferenceValue;
+                return current?.GetType() == managedReferenceType
+                    && string.Equals
+                    (
+                        current == null ? null : ManagedReferenceValueSerializer.Serialize(current),
+                        managedReferencePayload,
+                        StringComparison.Ordinal
+                    );
+            }
+
+            if (propertyType == SerializedPropertyType.Generic)
+            {
+                foreach (var child in children)
+                {
+                    if (!child.Snapshot.Matches(property.FindPropertyRelative(child.Name)))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            if (propertyType == SerializedPropertyType.ObjectReference)
+            {
+                return ReferenceEquals(boxedValue, property.objectReferenceValue);
+            }
+
+            return Equals(boxedValue, property.boxedValue);
+        }
+
+    #endregion
+
     #region 적용
 
         // ------------------------------------------------------------
@@ -284,11 +366,14 @@ namespace inonego.Xeri.Serializable.Editor
         /// snapshot을 destination property에 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool TryApply(SerializedProperty destination, out string reason)
+        public bool TryApply
+        (
+            SerializedProperty destination, out string reason, Type declaredType = null
+        )
         {
             reason = null;
 
-            if (!CanApply(destination, out reason))
+            if (!CanApply(destination, out reason, declaredType))
             {
                 return false;
             }
@@ -310,11 +395,14 @@ namespace inonego.Xeri.Serializable.Editor
         /// destination이 snapshot payload를 받을 수 있는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool CanApply(SerializedProperty destination, out string reason)
+        public bool CanApply
+        (
+            SerializedProperty destination, out string reason, Type declaredType = null
+        )
         {
             if (destination == null)
             {
-                reason = "붙여 넣을 SerializedProperty가 없습니다.";
+                reason = "대상 프로퍼티가 없습니다.";
                 return false;
             }
 
@@ -324,14 +412,15 @@ namespace inonego.Xeri.Serializable.Editor
 
             if (destinationIsArray != isArray
                 || destination.propertyType != propertyType
-                || !string.Equals
-                (
-                    destination.type,
-                    serializedType,
-                    StringComparison.Ordinal
-                ))
+                || propertyType != SerializedPropertyType.ManagedReference
+                    && !string.Equals
+                    (
+                        destination.type,
+                        serializedType,
+                        StringComparison.Ordinal
+                    ))
             {
-                reason = "복사한 항목과 대상 항목의 serialized type이 다릅니다.";
+                reason = "스냅샷과 대상의 직렬화 형식이 다릅니다.";
                 return false;
             }
 
@@ -358,14 +447,12 @@ namespace inonego.Xeri.Serializable.Editor
             if (propertyType == SerializedPropertyType.ManagedReference
                 && managedReferenceType != null)
             {
-                var declaredType = ManagedReferenceTypeCatalog.GetDeclaredReferenceType
-                (
-                    destination
-                );
-                if (declaredType == null
-                    || !declaredType.IsAssignableFrom(managedReferenceType))
+                var targetType = declaredType
+                    ?? ManagedReferenceTypeCatalog.GetDeclaredReferenceType(destination);
+                if (targetType == null
+                    || !targetType.IsAssignableFrom(managedReferenceType))
                 {
-                    reason = "복사한 managed-reference 타입을 대상에 할당할 수 없습니다.";
+                    reason = "복사한 참조 형식을 대상에 사용할 수 없습니다.";
                     return false;
                 }
             }
@@ -430,7 +517,7 @@ namespace inonego.Xeri.Serializable.Editor
                     {
                         throw new InvalidOperationException
                         (
-                            $"Snapshot 필드를 찾을 수 없습니다: {child.Name}"
+                            $"복사한 항목의 필드를 찾을 수 없습니다: {child.Name}"
                         );
                     }
 
@@ -442,11 +529,12 @@ namespace inonego.Xeri.Serializable.Editor
 
             if (propertyType == SerializedPropertyType.ObjectReference)
             {
-                destination.objectReferenceValue = boxedValue as UnityEngine.Object;
-                return;
+                destination.objectReferenceValue = (UnityEngine.Object)boxedValue;
             }
-
-            destination.boxedValue = boxedValue;
+            else
+            {
+                destination.boxedValue = boxedValue;
+            }
         }
 
     #endregion
