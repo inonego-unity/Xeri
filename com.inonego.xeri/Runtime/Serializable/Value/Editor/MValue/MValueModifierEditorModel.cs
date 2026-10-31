@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValueModifierEditorModel.cs
-수정일 : 2026-10-30
+수정일 : 2026-10-31
 
 # 설명
 MValue<T>의 modifiers XOrdered에 owner lifecycle commit을 추가하는 Collection Editor Model.
@@ -32,7 +32,14 @@ namespace inonego.Xeri.Serializable.Editor
         public MValueModifierEditorModel(SerializedProperty modifiersProperty)
             : base(modifiersProperty ?? throw new ArgumentNullException(nameof(modifiersProperty)))
         {
-            // NONE
+            // Modifier의 변경 확정은 Model이 담당하므로 owner의 이전 상태도 먼저 관찰한다.
+            if (TryGetOwner(out var ownerProperty, out var owner))
+            {
+                ValueSerializationTracker.Observe
+                (
+                    SerializedObject.targetObject, ownerProperty.propertyPath, owner
+                );
+            }
         }
 
     #endregion
@@ -160,22 +167,40 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         private void FinalizeOwnerChange()
         {
-            // Apply가 중첩 owner를 교체할 수 있으므로 항상 property path로 다시 찾는다.
-            var lastDot = CollectionPropertyPath.LastIndexOf('.');
-            if (lastDot < 0)
-            {
-                return;
-            }
-
-            var parent = SerializedObject.FindProperty(CollectionPropertyPath[..lastDot]);
-            if (parent != null
-                && SerializedPropertyHelper.GetTargetObject(parent) is MValue<T> currentOwner)
+            if (TryGetOwner(out var ownerProperty, out var owner))
             {
                 ValueSerializationTracker.FinalizeSerializedChange
                 (
-                    SerializedObject.targetObject, parent.propertyPath, currentOwner
+                    SerializedObject.targetObject, ownerProperty.propertyPath, owner
                 );
             }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Apply 이후 소유자가 교체될 수 있으므로 매번 현재 경로에서 조회한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool TryGetOwner(out SerializedProperty ownerProperty, out MValue<T> owner)
+        {
+            ownerProperty = null;
+            owner = null;
+
+            var lastDot = CollectionPropertyPath.LastIndexOf('.');
+            if (lastDot < 0)
+            {
+                return false;
+            }
+
+            ownerProperty = SerializedObject.FindProperty(CollectionPropertyPath[..lastDot]);
+            if (ownerProperty == null
+                || SerializedPropertyHelper.GetTargetObject(ownerProperty) is not MValue<T> resolved)
+            {
+                return false;
+            }
+
+            owner = resolved;
+            return true;
         }
 
     #endregion

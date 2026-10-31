@@ -1,13 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MValueModifierEditorModel.cs
-수정일 : 2026-10-30
+수정일 : 2026-10-31
 
 # 설명
-MValue 전용 Collection Editor Model의 Modifier 진단 계약을 검증한다.
+MValue 전용 Collection Editor Model의 진단과 직렬화 편집 후 변경 통지를 검증한다.
 숫자 DIV 0은 경고만 제공하며 행 삭제나 적용 차단을 요구하지 않는다.
 
 # 테스트 구성
  V: Modifier 행 진단
+ C: 직렬화 편집 후 Modified 변경 통지
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -117,6 +118,60 @@ namespace inonego.Xeri.TEST.Serializable._Value
             finally
             {
                 UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+    #endregion
+
+    #region C-1: 직렬화 Modifier 편집과 변경 통지
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Drawer 없이 Model을 사용해도 Modified의 실제 변경을 통지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValueModifierEditorModel_직렬화Modifier편집_Modified변경통지()
+        {
+            var target = ScriptableObject.CreateInstance<MValueOwner>();
+            try
+            {
+                target.Value.AddModifier
+                (
+                    "add", new NumericIModifier(NumericIOperation.ADD, 5)
+                );
+
+                using var serialized = new SerializedObject(target);
+                var model = new MValueModifierEditorModel<int>
+                (
+                    serialized.FindProperty("Value.modifiers")
+                );
+
+                var eventCount = 0;
+                ValueChangeEventArgs<int> change = default;
+                target.Value.OnModifiedChange += (_, args) =>
+                {
+                    eventCount++;
+                    change = args;
+                };
+
+                var property = model.GetCellProperty(0, "value")
+                    .FindPropertyRelative("value");
+                property.intValue = 7;
+                serialized.ApplyModifiedProperties();
+
+                Assert.IsTrue(model.CommitPropertyChange(property));
+                Assert.AreEqual(17, target.Value.Modified);
+                Assert.AreEqual(1, eventCount);
+                Assert.AreEqual(15, change.Previous);
+                Assert.AreEqual(17, change.Current);
+
+                Assert.IsFalse(model.CommitPropertyChange(model.GetCellProperty(0, "value")));
+                Assert.AreEqual(1, eventCount);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
             }
         }
 
