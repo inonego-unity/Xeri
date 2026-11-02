@@ -39,6 +39,7 @@ namespace inonego.Xeri.UI.Picker
         private Func<TEntry, bool> disabledPredicate = _ => false;
         private Func<TEntry, string> disabledReasonGetter = _ => string.Empty;
         private PickerViewOptions viewOptions = PickerViewOptions.Default();
+        private bool cacheImmutableEntries;
 
     #endregion
 
@@ -115,6 +116,17 @@ namespace inonego.Xeri.UI.Picker
         {
             viewOptions = viewOptions.WithPreview(isVisible);
 
+            return this;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 변경되지 않는 후보 목록의 표시 데이터를 세션 간 재사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public PickerSpecBuilder<TEntry, TValue> CacheImmutableEntries()
+        {
+            cacheImmutableEntries = true;
             return this;
         }
 
@@ -331,7 +343,8 @@ namespace inonego.Xeri.UI.Picker
                 filters,
                 viewOptions,
                 disabledPredicate,
-                disabledReasonGetter
+                disabledReasonGetter,
+                cacheImmutableEntries
             );
         }
 

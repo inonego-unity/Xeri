@@ -2,21 +2,21 @@
   "name": "com.inonego.xeri",
   "version": "0.0.1",
   "displayName": "Xeri",
-  "description": "Modular Unity runtime contracts for lifecycle, entity/actor/presentation orchestration, UI, playback, serialization, generation, and utility systems.",
+  "description": "Modular Unity runtime framework with Entity/Actor/Presentation, serialization, playback, and editor tooling.",
   "unity": "6000.0",
   "author": {
     "name": "inonego"
   },
-  "samples": [
-    {
-      "displayName": "UI Core Validation",
-      "description": "UI Core validation scene with its local HTML and CSS visual reference.",
-      "path": "Samples~/GameUIValidation"
-    }
-  ],
   "dependencies": {
     "com.unity.addressables": "2.8.0",
     "com.unity.inputsystem": "1.18.0",
     "com.unity.ugui": "2.6.0"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Collection Editor Inspector",
+      "description": "Manual Inspector scene for Xeri Serializable Collections and opt-in List/Array editors.",
+      "path": "Samples~/CollectionEditor"
+    }
+  ]
 }

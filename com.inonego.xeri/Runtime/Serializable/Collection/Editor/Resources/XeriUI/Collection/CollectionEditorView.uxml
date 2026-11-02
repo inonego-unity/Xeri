@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <uie:Toolbar name="collection-header" class="xeri-collection__header">
+        <ui:Button name="collection-foldout" class="xeri-collection__foldout-button" />
+        <ui:Label name="collection-title" class="xeri-collection__title" />
+        <ui:Label name="collection-count" class="xeri-collection__count" />
+        <ui:VisualElement name="collection-header-spacer" class="xeri-collection__header-spacer" />
+        <uie:ToolbarButton name="collection-actions" class="xeri-collection__header-button" />
+    </uie:Toolbar>
+    <uie:ToolbarSearchField name="collection-search" class="xeri-collection__search" />
+    <uie:ToolbarButton name="collection-add" class="xeri-collection__add-button" />
+    <ui:VisualElement name="collection-rows-host" class="xeri-collection__rows-host">
+        <ui:Label name="collection-empty" class="xeri-collection__empty" />
+    </ui:VisualElement>
+</ui:UXML>

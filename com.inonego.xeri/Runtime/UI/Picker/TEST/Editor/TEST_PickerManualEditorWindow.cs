@@ -6,11 +6,10 @@
 Picker EditorWindow 선택 UI를 직접 조작해 확인하는 수동 Editor 테스트.
 기본 Picker의 preview overflow와 column layout, ListPicker, DictionaryPicker의 선택과 취소 처리를 직접 확인한다.
 
-# 테스트 구성
- M: 수동 확인
+=========================================================================
 
-# 특이사항
-[Explicit] 과 [Category("Manual")] 로 일반 테스트 실행에서 멈추지 않게 분리한다.
+# 테스트 구성
+ M: 수동 Picker 창과 선택 UI
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -295,7 +294,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
     #endregion
 
-    #region M-1: Picker 수동 확인
+    #region M-1: 수동 Picker 확인
 
         // ------------------------------------------------------------
         /// <summary>

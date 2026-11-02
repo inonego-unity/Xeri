@@ -4,8 +4,7 @@
     "references": [
         "DOTween.Modules",
         "Unity.Addressables",
-        "Unity.ResourceManager",
-        "Unity.InputSystem"
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

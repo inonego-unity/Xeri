@@ -5,8 +5,10 @@
 # 설명
 PickerWindowBridge의 generic 인자 전달과 close/cancel callback wiring 테스트.
 
+=========================================================================
+
 # 테스트 구성
- B: Bridge
+ B: EditorWindow와 Picker 연결 계약
 ========================================================================= BLOCK_HEADER_END */
 
 using NUnit;
@@ -44,7 +46,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
     #endregion
 
-    #region B-1: Bridge
+    #region B-1: 편집창 연결과 콜백
 
         // ----------------------------------------------------------------------
         /// <summary>

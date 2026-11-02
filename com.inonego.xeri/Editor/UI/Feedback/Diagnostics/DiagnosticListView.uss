@@ -1,0 +1,41 @@
+.xeri-feedback-diagnostics {
+    flex-shrink: 0;
+}
+
+.xeri-feedback-diagnostics__scroll {
+    max-height: 80px;
+    min-height: 0;
+}
+
+.xeri-feedback-diagnostics__row {
+    flex-direction: row;
+    align-items: flex-start;
+    min-height: 30px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.xeri-feedback-diagnostics__indicator {
+    width: 14px;
+    min-width: 14px;
+    height: 14px;
+    min-height: 14px;
+    padding: 0;
+    margin-right: 7px;
+}
+
+.xeri-feedback-diagnostics__content {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.xeri-feedback-diagnostics__message {
+    white-space: normal;
+    font-size: 11px;
+}
+
+.xeri-feedback-diagnostics__detail {
+    font-size: 10px;
+    opacity: 0.65;
+}

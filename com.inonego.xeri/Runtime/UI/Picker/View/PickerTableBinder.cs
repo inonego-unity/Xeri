@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerTableBinder.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-31
 
 # 설명
-Picker MultiColumnListView의 column, row, selection, double click, sorting 입력을 관리한다.
+Picker MultiColumnListView의 열 폭 정책, 행 바인딩, 선택·정렬 입력을 관리한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -13,11 +13,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
+
 namespace inonego.Xeri.UI.Picker
 {
     // ============================================================
     /// <summary>
-    /// Picker MultiColumnListView 바인더.
+    /// Picker 테이블의 행·열 렌더링과 선택·정렬 입력을 연결한다.
     /// </summary>
     // ============================================================
     internal sealed class PickerTableBinder<TEntry, TValue>
@@ -42,7 +46,7 @@ namespace inonego.Xeri.UI.Picker
         /// table binder를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public PickerTableBinder(PickerSession<TEntry, TValue> session, VisualElement root) : base()
+        public PickerTableBinder(PickerSession<TEntry, TValue> session, VisualElement root)
         {
             this.session = session;
             this.root    = root;
@@ -54,58 +58,11 @@ namespace inonego.Xeri.UI.Picker
 
     #endregion
 
-    #region 메서드
+    #region 테이블 구성
 
         // ------------------------------------------------------------
         /// <summary>
-        /// table 표시 목록과 선택 상태를 갱신한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void Refresh()
-        {
-            RefreshPageItems();
-
-            if (!ReferenceEquals(listView.itemsSource, pageItems))
-            {
-                listView.itemsSource = pageItems;
-            }
-
-            listView.Rebuild();
-            emptyLabel.style.display = pageItems.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-
-            if (session.CurrentEntry == null)
-            {
-                listView.ClearSelection();
-                return;
-            }
-
-            var index = pageItems.IndexOf(session.CurrentEntry);
-            if (index >= 0)
-            {
-                listView.SetSelection(index);
-                return;
-            }
-
-            listView.ClearSelection();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// session page 결과를 table용 buffer에 복사한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void RefreshPageItems()
-        {
-            pageItems.Clear();
-            foreach (var entry in session.PageEntries)
-            {
-                pageItems.Add(entry);
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// list view 기본 동작과 column을 구성한다.
+        /// 테이블의 기본 동작을 설정하고 열과 입력 이벤트를 연결한다.
         /// </summary>
         // ------------------------------------------------------------
         private void ConfigureListView()
@@ -115,11 +72,21 @@ namespace inonego.Xeri.UI.Picker
             listView.fixedItemHeight = 30f;
             listView.showAlternatingRowBackgrounds = AlternatingRowBackground.None;
             listView.sortingMode = ColumnSortingMode.Custom;
+            ConfigureColumns();
+
             listView.RegisterCallback<PointerDownEvent>(HandlePointerDown, TrickleDown.TrickleDown);
             listView.selectionChanged += HandleSelectionChanged;
             listView.itemsChosen += HandleItemsChosen;
             listView.columnSortingChanged += HandleColumnSortingChanged;
+        }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표시 열을 생성하고 열 순서에 맞는 초기 가중치를 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ConfigureColumns()
+        {
             listView.columns.Add
             (
                 new Column
@@ -136,6 +103,8 @@ namespace inonego.Xeri.UI.Picker
                 }
             );
 
+            var stretchWeights = new List<float>(session.Columns.Count + 1);
+            stretchWeights.Add(0f);
             foreach (var pickerColumn in session.Columns)
             {
                 var column = pickerColumn;
@@ -159,8 +128,95 @@ namespace inonego.Xeri.UI.Picker
                 }
 
                 listView.columns.Add(listColumn);
+                stretchWeights.Add(column.Options.Layout.StretchWeight);
+            }
+
+            listView.ApplyColumnSizing(stretchWeights);
+        }
+
+    #endregion
+
+    #region 페이지 동기화
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 페이지의 표시 목록과 선택 상태를 갱신한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Refresh()
+        {
+            var pageChanged = RefreshPageItems();
+
+            if (!ReferenceEquals(listView.itemsSource, pageItems))
+            {
+                listView.itemsSource = pageItems;
+                pageChanged = true;
+            }
+
+            // 선택만 바뀌었다면 가상화된 cell을 다시 생성하지 않는다.
+            if (pageChanged)
+            {
+                listView.Rebuild();
+            }
+
+            emptyLabel.style.display = pageItems.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+
+            var index = session.CurrentEntry == null
+                ? -1
+                : pageItems.IndexOf(session.CurrentEntry);
+            if (listView.selectedIndex == index)
+            {
+                return;
+            }
+
+            if (index >= 0)
+            {
+                listView.SetSelection(index);
+            }
+            else
+            {
+                listView.ClearSelection();
             }
         }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 실제 페이지 구성이나 순서가 바뀐 경우에만 table buffer를 갱신한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool RefreshPageItems()
+        {
+            var entries = session.PageEntries;
+            var changed = pageItems.Count != entries.Count;
+            if (!changed)
+            {
+                for (var index = 0; index < entries.Count; index++)
+                {
+                    if (!ReferenceEquals(pageItems[index], entries[index]))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            pageItems.Clear();
+            foreach (var entry in entries)
+            {
+                pageItems.Add(entry);
+            }
+
+            return true;
+        }
+
+    #endregion
+
+    #region 셀 생성과 바인딩
 
         // ------------------------------------------------------------
         /// <summary>
@@ -186,20 +242,6 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// text column cell을 생성한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static VisualElement MakeTextCell()
-        {
-            var label = new Label();
-            label.AddToClassList("xeri-picker__table-cell");
-            label.AddToClassList("xeri-picker__table-cell-label");
-
-            return label;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// image column cell에 현재 page entry 이미지를 바인딩한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -217,6 +259,20 @@ namespace inonego.Xeri.UI.Picker
             }
 
             image.image = pageItems[index].Image ?? PickerDefaultTextures.GrayChecker;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// text column cell을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static VisualElement MakeTextCell()
+        {
+            var label = new Label();
+            label.AddToClassList("xeri-picker__table-cell");
+            label.AddToClassList("xeri-picker__table-cell-label");
+
+            return label;
         }
 
         // ------------------------------------------------------------
@@ -266,6 +322,10 @@ namespace inonego.Xeri.UI.Picker
             element.EnableInClassList("xeri-picker__table-cell--even", index % 2 == 0);
             element.EnableInClassList("xeri-picker__table-cell--odd", index % 2 != 0);
         }
+
+    #endregion
+
+    #region 사용자 입력과 선택
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -329,7 +389,7 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// UI Toolkit 선택 collection에서 picker entry만 추출한다.
+        /// UI Toolkit 선택 목록에서 첫 번째 Picker 항목을 찾는다.
         /// </summary>
         // ------------------------------------------------------------
         private static PickerEntry<TEntry, TValue> GetFirstEntry(IEnumerable<object> items)

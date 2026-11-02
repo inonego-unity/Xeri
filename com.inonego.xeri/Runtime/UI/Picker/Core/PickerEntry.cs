@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerEntry.cs
-수정일 : 2026-09-17
+수정일 : 2026-09-24
 
 # 설명
 Picker 내부에서 사용하는 표시 entry 모델.
@@ -12,6 +12,10 @@ using System.Collections.Generic;
 using System.Text;
 
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.UI.Picker
 {
@@ -203,41 +207,24 @@ namespace inonego.Xeri.UI.Picker
         {
             var builder = new StringBuilder();
 
-            AppendSearchPart(builder, Label);
-            AppendSearchPart(builder, Desc);
-            AppendSearchPart(builder, Value?.ToString());
+            SearchTextUtility.Append(builder, Label);
+            SearchTextUtility.Append(builder, Desc);
+            SearchTextUtility.Append(builder, Value?.ToString());
 
             foreach (var tag in Tags)
             {
-                AppendSearchPart(builder, tag.Label);
-                AppendSearchPart(builder, tag.Value);
+                SearchTextUtility.Append(builder, tag.Label);
+                SearchTextUtility.Append(builder, tag.Value);
             }
 
             foreach (var column in Columns)
             {
                 if (!column.Searchable) continue;
 
-                AppendSearchPart(builder, column.DisplayText);
+                SearchTextUtility.Append(builder, column.DisplayText);
             }
 
             return builder.ToString();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 빈 값은 검색 문자열에 포함하지 않고 의미 있는 token만 추가한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static void AppendSearchPart(StringBuilder builder, string value)
-        {
-            if (string.IsNullOrEmpty(value)) return;
-
-            if (builder.Length > 0)
-            {
-                builder.Append(' ');
-            }
-
-            builder.Append(value);
         }
 
         // ------------------------------------------------------------

@@ -269,24 +269,21 @@ namespace inonego.Xeri.UI.DragDrop
             ExecuteEvents.ExecuteHierarchy(parent.gameObject, eventData, callback);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// 드래그 종료 경로에서 반드시 실행할 내부 정리 Callback을 추가한다.
+        /// <br/> 정상 종료와 강제 취소의 공통 종료 경로에서 반드시 실행할 정리 Callback을 등록한다.
+        /// <br/> 반환된 Lease를 해제하면 이후 종료 경로에서 Callback을 호출하지 않는다.
         /// </summary>
-        // ------------------------------------------------------------
-        internal void AddDragEndCleanup(Action cleanup)
+        // --------------------------------------------------------------------------------
+        public Lease RegisterDragEndCleanup(Action cleanup)
         {
-            dragEndCleanup += cleanup;
-        }
+            if (cleanup == null)
+            {
+                throw new ArgumentNullException(nameof(cleanup));
+            }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 드래그 종료 내부 정리 Callback을 제거한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal void RemoveDragEndCleanup(Action cleanup)
-        {
-            dragEndCleanup -= cleanup;
+            dragEndCleanup += cleanup;
+            return new Lease(() => dragEndCleanup -= cleanup);
         }
 
         // ------------------------------------------------------------

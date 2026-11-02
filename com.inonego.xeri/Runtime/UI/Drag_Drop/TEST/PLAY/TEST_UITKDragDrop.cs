@@ -12,6 +12,7 @@ Runtime UI Toolkit DragDrop Manipulator 연결과 예외 종료 상태 테스트
 
 using System;
 using System.Collections;
+using System.Reflection;
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -53,9 +54,21 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
             panelObject.SetActive(false);
             var renderer = panelObject.AddComponent<PanelRenderer>();
             renderer.panelSettings = panelSettings;
-            var layer = panelObject.AddComponent<UITKLayerPanel>();
-            layer.SetActive(true);
-            return layer.Root;
+            panelObject.SetActive(true);
+
+            var rootProperty = typeof(PanelRenderer).GetProperty
+            (
+                "rootVisualElement",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+            );
+            var root = rootProperty?.GetValue(renderer) as VisualElement;
+
+            if (root == null)
+            {
+                throw new MissingReferenceException("PanelRenderer Root를 찾을 수 없습니다.");
+            }
+
+            return root;
         }
 
         // ------------------------------------------------------------

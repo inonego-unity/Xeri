@@ -5,9 +5,11 @@
 # 설명
 Picker entry의 표시 metadata, 검색 텍스트, null 표시 정책 테스트.
 
+=========================================================================
+
 # 테스트 구성
- E: Entry metadata
- N: Null / empty normalization
+ E: Entry 메타데이터
+ N: null 표시값 정규화
 ========================================================================= BLOCK_HEADER_END */
 
 using NUnit;
@@ -43,7 +45,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
     #endregion
 
-    #region E-1: Entry metadata
+    #region E-1: 항목 검색과 메타데이터
 
         // ------------------------------------------------------------
         /// <summary>
@@ -126,7 +128,7 @@ namespace inonego.Xeri.TEST.UI._Picker
 
     #endregion
 
-    #region N-1: Null normalization
+    #region N-1: 빈 값 표시 정규화
 
         // ------------------------------------------------------------
         /// <summary>

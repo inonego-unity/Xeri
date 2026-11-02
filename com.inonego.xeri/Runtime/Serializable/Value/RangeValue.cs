@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : RangeValue.cs
-수정일 : 2026-09-18
+수정일 : 2026-10-29
 
 # 설명
 값을 [Min, Max] 범위로 제한해 관리하는 클래스.
@@ -13,9 +13,12 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Primitive;
+
 namespace inonego.Xeri.Serializable
 {
-    using Primitive; // inonego.Xeri.Primitive
 
     // ============================================================
     /// <summary>
@@ -23,7 +26,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class RangeValue<T> : Value<T>, IRangeValue<T>
+    public class RangeValue<T> : Value<T>, IRangeValue<T>, ISerializationCallbackReceiver
     where T : struct, IComparable<T>
     {
 
@@ -55,39 +58,120 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public T Max => range.Base.Max;
 
+        [NonSerialized]
+        private Value<Range<T>> subscribedRange;
+
     #endregion
 
     #region 생성자
 
-        public RangeValue() : this(default, (default, default)) {}
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기본 범위를 초기화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public RangeValue() : this(default, (default, default))
+        {
+            // NONE
+        }
 
         // ------------------------------------------------------------
         /// <summary>
         /// 초기 값과 범위를 지정해 초기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public RangeValue(T @base, Range<T> range)
+        public RangeValue(T @base, Range<T> range) : base(@base)
         {
-            this.range.Base = range;
-
-            this.@base = @base;
-            ProcessBase(default, ref this.@base);
-
-            this.range.OnBaseChange += OnRangeChange;
+            this.range.Set(range, invokeEvent: false);
+            InitializeBase(@base);
+            BindRange();
         }
 
     #endregion
 
-    #region 이벤트 핸들러
+    #region Range 내부 연동
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 범위가 변경될 때 현재값을 재조정한다.
+        /// Range 공개 이벤트 이전에 Base를 새 범위로 제한한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void OnRangeChange(object sender, ValueChangeEventArgs<Range<T>> e)
+        private void OnRangeApplied(Range<T> previous, Range<T> current, bool invokeEvent)
         {
-            Base = Base;
+            Set(Base, invokeEvent);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Range 교체와 역직렬화 후에도 내부 구독을 하나만 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void BindRange()
+        {
+            range ??= new Value<Range<T>>();
+            if (subscribedRange != null)
+            {
+                subscribedRange.OnBaseApplied -= OnRangeApplied;
+            }
+
+            subscribedRange = range;
+            subscribedRange.OnBaseApplied += OnRangeApplied;
+        }
+
+    #endregion
+
+    #region 직렬화 변경 확정 및 상태 복구
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 직렬화로 적용된 Base·Range 변경과 Base 제한을 확정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void FinalizeSerializedChange(T previousBase, Range<T> previousRange)
+        {
+            BindRange();
+            var currentRange = Range.Base;
+            if (currentRange.Min.CompareTo(currentRange.Max) > 0)
+            {
+                return;
+            }
+
+            var currentBase = currentRange.Clamp(Base);
+            @base = currentBase;
+
+            if (!comparer.Equals(previousBase, currentBase))
+            {
+                PublishSerializedChange(previousBase, currentBase);
+            }
+
+            if (!previousRange.Equals(currentRange))
+            {
+                Range.PublishSerializedChange(previousRange, currentRange);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 역직렬화에서 내부 구독과 Base 제한을 이벤트 없이 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void OnAfterDeserialize()
+        {
+            BindRange();
+            if (range.Base.Min.CompareTo(range.Base.Max) <= 0)
+            {
+                @base = range.Base.Clamp(Base);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 직렬화 전에 수행할 추가 작업은 없다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void OnBeforeSerialize()
+        {
+            // NONE
         }
 
     #endregion
@@ -102,17 +186,6 @@ namespace inonego.Xeri.Serializable
         protected override void ProcessBase(in T prev, ref T next)
         {
             next = range.Base.Clamp(next);
-        }
-
-        // -----------------------------------------------------------------------
-        /// <summary>
-        /// equality check 없이 Range.OnBaseChange를 강제 발화한다.
-        /// Undo 복원 후 backing field가 이미 복원된 상태에서 이벤트를 트리거할 때 사용한다.
-        /// </summary>
-        // -----------------------------------------------------------------------
-        public void InvokeOnRangeChange(Range<T> previousRange)
-        {
-            Range.InvokeOnBaseChange(previousRange);
         }
 
     #endregion
@@ -142,7 +215,7 @@ namespace inonego.Xeri.Serializable
 
         public override bool Equals(object obj)
         {
-            if (obj is RangeValue<T> other)
+            if (obj is RangeValue<T> other && other.GetType() == GetType())
                 return comparer.Equals(@base, other.@base);
             if (obj is T directValue)
                 return comparer.Equals(@base, directValue);

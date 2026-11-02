@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : NumericIModifier.cs
-수정일 : 2026-09-18
+수정일 : 2026-10-29
 
 # 설명
 int 값에 SET / ADD / SUB / MUL / DIV 수치 연산을 적용하는 IModifier<int> 구현.
-Operation 또는 Value가 실제로 변경되면 OnChange를 발행한다.
+DIV 0은 입력 값을 유지하고 Operation 또는 Value가 변경되면 OnChange를 발행한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -115,7 +115,7 @@ namespace inonego.Xeri.Serializable
                 NumericIOperation.ADD => value + this.value,
                 NumericIOperation.SUB => value - this.value,
                 NumericIOperation.MUL => value * this.value,
-                NumericIOperation.DIV => value / this.value,
+                NumericIOperation.DIV => this.value == 0 ? value : value / this.value,
                 _ => value
             };
         }

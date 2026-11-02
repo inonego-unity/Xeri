@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XOrdered.cs
-수정일 : 2026-09-18
+수정일 : 2026-09-29
 
 # 설명
 명시적 Order를 기준으로 항상 정렬 상태를 유지하는 Unity 직렬화 가능 컬렉션을 정의한다.
@@ -26,7 +26,9 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class XOrdered<TOrder, TValue> : IReadOnlyXOrdered<TOrder, TValue>
+    public class XOrdered<TOrder, TValue> :
+        IReadOnlyXOrdered<TOrder, TValue>,
+        ISerializedCollectionNormalizer
     where TOrder : struct
     where TValue : class
     {
@@ -41,22 +43,42 @@ namespace inonego.Xeri.Serializable
         [Serializable]
         public sealed class Entry
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Order 값을 반환하거나 설정한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public TOrder Order => order;
 
             [SerializeField]
             private TOrder order;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 현재 값을 반환한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public TValue Value => value;
 
             [SerializeReference]
             private TValue value;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Entry 인스턴스를 초기화한다.
+            /// </summary>
+            // ------------------------------------------------------------
             internal Entry(TOrder order, TValue value)
             {
                 this.order = order;
                 this.value = value;
             }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Order와 Value를 각각 출력한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public void Deconstruct(out TOrder order, out TValue value)
             {
                 order = Order;
@@ -71,8 +93,18 @@ namespace inonego.Xeri.Serializable
         [SerializeField]
         private List<Entry> entries = new();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 항목 수를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public int Count => entries.Count;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 인덱스의 항목을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public Entry this[int index] => entries[index];
 
     #endregion
@@ -107,6 +139,11 @@ namespace inonego.Xeri.Serializable
             return true;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 Value의 포함 여부를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public bool Contains(TValue value) => IndexOf(value) >= 0;
 
         // ------------------------------------------------------------
@@ -127,11 +164,46 @@ namespace inonego.Xeri.Serializable
             return -1;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 항목을 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public void Clear() => entries.Clear();
 
     #endregion
 
     #region 정렬
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Entry 목록을 Order 기준으로 안정 정렬한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void NormalizeOrder()
+        {
+            var comparer = Comparer<TOrder>.Default;
+
+            for (var index = 1; index < entries.Count; index++)
+            {
+                var entry = entries[index];
+                var insertIndex = index - 1;
+
+                while (insertIndex >= 0
+                    && comparer.Compare(entries[insertIndex].Order, entry.Order) > 0)
+                {
+                    entries[insertIndex + 1] = entries[insertIndex];
+                    insertIndex--;
+                }
+
+                entries[insertIndex + 1] = entry;
+            }
+        }
+
+        void ISerializedCollectionNormalizer.NormalizeSerializedState()
+        {
+            NormalizeOrder();
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -165,6 +237,11 @@ namespace inonego.Xeri.Serializable
 
     #region 열거
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// GetEnumerator 결과를 조회한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public List<Entry>.Enumerator GetEnumerator() => entries.GetEnumerator();
 
         IEnumerator<Entry> IEnumerable<Entry>.GetEnumerator() => entries.GetEnumerator();
@@ -183,7 +260,8 @@ namespace inonego.Xeri.Serializable
     // ================================================================================
     [Serializable]
     public class XOrdered<TOrder, TKey, TValue> :
-        IReadOnlyXOrdered<TOrder, TKey, TValue>
+        IReadOnlyXOrdered<TOrder, TKey, TValue>,
+        ISerializedCollectionNormalizer
     where TOrder : struct
     where TKey : IEquatable<TKey>
     where TValue : class
@@ -199,21 +277,41 @@ namespace inonego.Xeri.Serializable
         [Serializable]
         public sealed class Entry
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Order 값을 반환하거나 설정한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public TOrder Order => order;
 
             [SerializeField]
             private TOrder order;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 직렬화할 키 값을 보관한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public TKey Key => key;
 
             [SerializeField]
             private TKey key;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 현재 값을 반환한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public TValue Value => value;
 
             [SerializeReference]
             private TValue value;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Entry 인스턴스를 초기화한다.
+            /// </summary>
+            // ------------------------------------------------------------
             internal Entry(TOrder order, TKey key, TValue value)
             {
                 this.order = order;
@@ -221,6 +319,11 @@ namespace inonego.Xeri.Serializable
                 this.value = value;
             }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Order, Key, Value를 각각 출력한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public void Deconstruct(out TOrder order, out TKey key, out TValue value)
             {
                 order = Order;
@@ -236,8 +339,18 @@ namespace inonego.Xeri.Serializable
         [SerializeField]
         private List<Entry> entries = new();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 항목 수를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public int Count => entries.Count;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 인덱스의 항목을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public Entry this[int index] => entries[index];
 
     #endregion
@@ -253,7 +366,7 @@ namespace inonego.Xeri.Serializable
         {
             for (var index = 0; index < entries.Count; index++)
             {
-                if (entries[index].Key.Equals(key))
+                if (EqualityComparer<TKey>.Default.Equals(entries[index].Key, key))
                 {
                     throw new ArgumentException($"이미 존재하는 키({key})입니다.", nameof(key));
                 }
@@ -274,7 +387,7 @@ namespace inonego.Xeri.Serializable
         {
             for (var index = 0; index < entries.Count; index++)
             {
-                if (!entries[index].Key.Equals(key)) continue;
+                if (!EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) continue;
 
                 entries.RemoveAt(index);
                 return true;
@@ -283,17 +396,27 @@ namespace inonego.Xeri.Serializable
             return false;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 항목을 제거한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public void Clear() => entries.Clear();
 
     #endregion
 
     #region Key 조회
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 Key의 포함 여부를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public bool ContainsKey(TKey key)
         {
             for (var index = 0; index < entries.Count; index++)
             {
-                if (entries[index].Key.Equals(key)) return true;
+                if (EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) return true;
             }
 
             return false;
@@ -308,7 +431,7 @@ namespace inonego.Xeri.Serializable
         {
             for (var index = 0; index < entries.Count; index++)
             {
-                if (!entries[index].Key.Equals(key)) continue;
+                if (!EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) continue;
 
                 value = entries[index].Value;
                 return true;
@@ -318,11 +441,16 @@ namespace inonego.Xeri.Serializable
             return false;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// TryGetEntry 동작을 시도하고 성공 여부를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public bool TryGetEntry(TKey key, out Entry entry)
         {
             for (var index = 0; index < entries.Count; index++)
             {
-                if (!entries[index].Key.Equals(key)) continue;
+                if (!EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) continue;
 
                 entry = entries[index];
                 return true;
@@ -335,6 +463,36 @@ namespace inonego.Xeri.Serializable
     #endregion
 
     #region 정렬
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 Entry 목록을 Order 기준으로 안정 정렬한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal void NormalizeOrder()
+        {
+            var comparer = Comparer<TOrder>.Default;
+
+            for (var index = 1; index < entries.Count; index++)
+            {
+                var entry = entries[index];
+                var insertIndex = index - 1;
+
+                while (insertIndex >= 0
+                    && comparer.Compare(entries[insertIndex].Order, entry.Order) > 0)
+                {
+                    entries[insertIndex + 1] = entries[insertIndex];
+                    insertIndex--;
+                }
+
+                entries[insertIndex + 1] = entry;
+            }
+        }
+
+        void ISerializedCollectionNormalizer.NormalizeSerializedState()
+        {
+            NormalizeOrder();
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -368,6 +526,11 @@ namespace inonego.Xeri.Serializable
 
     #region 열거
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// GetEnumerator 결과를 조회한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public List<Entry>.Enumerator GetEnumerator() => entries.GetEnumerator();
 
         IEnumerator<Entry> IEnumerable<Entry>.GetEnumerator() => entries.GetEnumerator();

@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Button name="context-menu-action" class="xeri-context-menu__action">
+        <ui:Image name="context-menu-icon" class="xeri-context-menu__icon" />
+        <ui:Label name="context-menu-check" text="✓" class="xeri-context-menu__check" />
+        <ui:Label name="context-menu-label" class="xeri-context-menu__label" />
+        <ui:Label name="context-menu-shortcut" class="xeri-context-menu__shortcut" />
+    </ui:Button>
+</ui:UXML>

@@ -1,8 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerSession.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-28
+
 # 설명
-Picker 실행 단위의 검색, 필터, 정렬, 현재 선택, 페이징 상태를 관리한다.
+Picker 실행 단위의 filter, sort, selection 의미를 관리한다.
+검색과 page slice 상태는 공통 SearchPagedList<T>에 위임한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -11,6 +13,7 @@ using System.Collections.Generic;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.UI;
 using inonego.Xeri.Utility;
 
 namespace inonego.Xeri.UI.Picker
@@ -27,10 +30,10 @@ namespace inonego.Xeri.UI.Picker
 
         private readonly PickerSpec<TEntry, TValue> spec;
         private readonly Action<TValue> onSelected;
-        private readonly List<PickerEntry<TEntry, TValue>> allEntries;
-        private readonly List<PickerEntry<TEntry, TValue>> filteredEntries = new();
+        private readonly IReadOnlyList<PickerEntry<TEntry, TValue>> allEntries;
+        private readonly SearchPagedList<PickerEntry<TEntry, TValue>> searchPagedEntries;
+        private readonly PageNavigationController<PickerEntry<TEntry, TValue>> navigation;
         private readonly Dictionary<string, bool> filterStates = new();
-        private string searchText = string.Empty;
         private string sortColumnID = string.Empty;
         private bool sortAscending = true;
 
@@ -39,9 +42,8 @@ namespace inonego.Xeri.UI.Picker
         /// 현재 페이지에 표시할 entry 목록.
         /// </summary>
         // ------------------------------------------------------------
-        public IReadOnlyList<PickerEntry<TEntry, TValue>> PageEntries => pageEntries;
-
-        private readonly List<PickerEntry<TEntry, TValue>> pageEntries = new();
+        public IReadOnlyList<PickerEntry<TEntry, TValue>> PageEntries
+            => searchPagedEntries.PageItems;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -55,37 +57,35 @@ namespace inonego.Xeri.UI.Picker
         /// filter/search 적용 후 전체 entry 개수.
         /// </summary>
         // ------------------------------------------------------------
-        public int FilteredCount => filteredEntries.Count;
+        public int FilteredCount => searchPagedEntries.FilteredCount;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 읽기 전용 paginator 상태.
         /// </summary>
         // ------------------------------------------------------------
-        public IReadOnlyPaginator Paginator => paginator;
-
-        private readonly Paginator paginator;
+        public IReadOnlyPaginator Paginator => searchPagedEntries.Paginator;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 현재 페이지 index.
         /// </summary>
         // ------------------------------------------------------------
-        public int PageIndex => paginator.PageIndex;
+        public int PageIndex => Paginator.PageIndex;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 현재 페이지 표시 번호.
         /// </summary>
         // ------------------------------------------------------------
-        public int PageNumber => paginator.PageNumber;
+        public int PageNumber => Paginator.PageNumber;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 전체 페이지 개수.
         /// </summary>
         // ------------------------------------------------------------
-        public int PageCount => paginator.PageCount;
+        public int PageCount => Paginator.PageCount;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -135,6 +135,13 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 명시적인 페이지 이동이 목록 상태에 반영된 후 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal event Action<PageNavigationResult> PageNavigated = null;
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 선택이 확정될 때 발생한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -158,10 +165,18 @@ namespace inonego.Xeri.UI.Picker
             int pageSize
         ) : base()
         {
-            this.spec       = spec ?? throw new ArgumentNullException(nameof(spec));
+            this.spec = spec ?? throw new ArgumentNullException(nameof(spec));
             this.onSelected = onSelected ?? (_ => { });
-            paginator       = new Paginator(pageSize);
-            allEntries      = CreateEntries(entries);
+            allEntries = spec.CreateEntries(entries);
+            searchPagedEntries = new SearchPagedList<PickerEntry<TEntry, TValue>>
+            (
+                allEntries,
+                entry => entry.SearchText,
+                pageSize,
+                MatchesFilters,
+                GetComparison
+            );
+            navigation = new PageNavigationController<PickerEntry<TEntry, TValue>>(searchPagedEntries);
 
             foreach (var filter in spec.Filters)
             {
@@ -184,9 +199,8 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public void SetSearchText(string value)
         {
-            searchText = value ?? string.Empty;
-            paginator.MoveFirst();
-            RefreshAndNotify();
+            searchPagedEntries.SetSearchText(value);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
         // ------------------------------------------------------------
@@ -197,8 +211,8 @@ namespace inonego.Xeri.UI.Picker
         public void SetFilterEnabled(string filterID, bool enabled)
         {
             filterStates[filterID ?? string.Empty] = enabled;
-            paginator.MoveFirst();
-            RefreshAndNotify();
+            searchPagedEntries.Refresh(resetPage: true);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
         // ------------------------------------------------------------
@@ -222,8 +236,8 @@ namespace inonego.Xeri.UI.Picker
 
             sortColumnID = columnID ?? string.Empty;
             sortAscending = ascending;
-            paginator.MoveFirst();
-            RefreshAndNotify();
+            searchPagedEntries.Refresh(resetPage: true);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
     #endregion
@@ -286,28 +300,28 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public void MoveSelectionPrev()
         {
-            if (pageEntries.Count == 0)
+            if (PageEntries.Count == 0)
             {
                 SetCurrentEntry(null);
                 return;
             }
 
-            var index = pageEntries.IndexOf(CurrentEntry);
+            var index = searchPagedEntries.IndexOfPage(CurrentEntry);
             if (index > 0)
             {
-                SetCurrentEntry(pageEntries[index - 1]);
+                SetCurrentEntry(PageEntries[index - 1]);
                 return;
             }
 
-            if (index == 0 && paginator.CanMovePrev)
+            if (index == 0 && Paginator.CanMovePrev)
             {
-                MovePrev();
+                NavigatePage(new PageNavigationRequest(PageNavigationKind.Previous));
                 return;
             }
 
             if (index < 0)
             {
-                SetCurrentEntry(pageEntries[pageEntries.Count - 1]);
+                SetCurrentEntry(PageEntries[PageEntries.Count - 1]);
             }
         }
 
@@ -318,28 +332,28 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public void MoveSelectionNext()
         {
-            if (pageEntries.Count == 0)
+            if (PageEntries.Count == 0)
             {
                 SetCurrentEntry(null);
                 return;
             }
 
-            var index = pageEntries.IndexOf(CurrentEntry);
-            if (0 <= index && index < pageEntries.Count - 1)
+            var index = searchPagedEntries.IndexOfPage(CurrentEntry);
+            if (0 <= index && index < PageEntries.Count - 1)
             {
-                SetCurrentEntry(pageEntries[index + 1]);
+                SetCurrentEntry(PageEntries[index + 1]);
                 return;
             }
 
-            if (index == pageEntries.Count - 1 && paginator.CanMoveNext)
+            if (index == PageEntries.Count - 1 && Paginator.CanMoveNext)
             {
-                MoveNext();
+                NavigatePage(new PageNavigationRequest(PageNavigationKind.Next));
                 return;
             }
 
             if (index < 0)
             {
-                SetCurrentEntry(pageEntries[0]);
+                SetCurrentEntry(PageEntries[0]);
             }
         }
 
@@ -349,85 +363,22 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 첫 페이지로 이동한다.
+        /// 페이지 이동을 실행하고 선택 항목 및 표시 변경을 통지한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void MoveFirst()
+        public PageNavigationResult NavigatePage(PageNavigationRequest request)
         {
-            var previousPageIndex = paginator.PageIndex;
-            paginator.MoveFirst();
-            Refresh();
-            if (paginator.PageIndex != previousPageIndex)
-            {
-                SelectFirstPageEntry();
-            }
+            var result = navigation.Navigate(request);
+            if (!result.ShouldApply) return result;
+
+            CurrentEntry = result.SelectedIndex >= 0
+                ? PageEntries[result.SelectedIndex]
+                : null;
 
             Changed?.Invoke(this, EventArgs.Empty);
-        }
+            PageNavigated?.Invoke(result);
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 이전 페이지로 이동한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void MovePrev()
-        {
-            var previousPageIndex = paginator.PageIndex;
-            paginator.MovePrev();
-            Refresh();
-            if (paginator.PageIndex != previousPageIndex)
-            {
-                SelectLastPageEntry();
-            }
-
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 다음 페이지로 이동한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void MoveNext()
-        {
-            var previousPageIndex = paginator.PageIndex;
-            paginator.MoveNext();
-            Refresh();
-            if (paginator.PageIndex != previousPageIndex)
-            {
-                SelectFirstPageEntry();
-            }
-
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 마지막 페이지로 이동한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void MoveLast()
-        {
-            var previousPageIndex = paginator.PageIndex;
-            paginator.MoveLast();
-            Refresh();
-            if (paginator.PageIndex != previousPageIndex)
-            {
-                SelectLastPageEntry();
-            }
-
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 지정한 페이지로 이동한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void SetPage(int pageIndex)
-        {
-            paginator.MoveTo(pageIndex);
-            RefreshAndNotify();
+            return result;
         }
 
     #endregion
@@ -436,77 +387,12 @@ namespace inonego.Xeri.UI.Picker
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 표시 목록을 다시 계산하고 변경 이벤트를 알린다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void RefreshAndNotify()
-        {
-            Refresh();
-            Changed?.Invoke(this, EventArgs.Empty);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 검색, 필터, 정렬, 페이지 범위를 적용해 표시 entry를 갱신한다.
+        /// 현재 검색/필터/정렬 규칙으로 공통 search/page state를 갱신한다.
         /// </summary>
         // ------------------------------------------------------------
         private void Refresh()
         {
-            filteredEntries.Clear();
-            foreach (var entry in allEntries)
-            {
-                if (!MatchesSearch(entry)) continue;
-                if (!MatchesFilters(entry)) continue;
-
-                filteredEntries.Add(entry);
-            }
-
-            if (IsSortableColumn(sortColumnID))
-            {
-                filteredEntries.Sort(CompareByColumn);
-            }
-
-            paginator.TotalCount = filteredEntries.Count;
-            RefreshPageEntries();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 page range에 해당하는 entry를 재사용 buffer에 채운다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void RefreshPageEntries()
-        {
-            pageEntries.Clear();
-
-            var range = paginator.Range;
-            if (range.IsEmpty) return;
-
-            var endIndex = Math.Min(range.BeginIndex + range.Count, filteredEntries.Count);
-            for (var i = range.BeginIndex; i < endIndex; i++)
-            {
-                pageEntries.Add(filteredEntries[i]);
-            }
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 페이지 첫 entry를 현재 선택으로 설정한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void SelectFirstPageEntry()
-        {
-            CurrentEntry = pageEntries.Count > 0 ? pageEntries[0] : null;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 페이지 마지막 entry를 현재 선택으로 설정한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void SelectLastPageEntry()
-        {
-            CurrentEntry = pageEntries.Count > 0 ? pageEntries[pageEntries.Count - 1] : null;
+            searchPagedEntries.Refresh();
         }
 
         // ------------------------------------------------------------
@@ -518,23 +404,7 @@ namespace inonego.Xeri.UI.Picker
         {
             if (CurrentEntry == null) return;
 
-            var index = filteredEntries.IndexOf(CurrentEntry);
-            if (index < 0) return;
-
-            paginator.MoveTo(index / paginator.PerPage);
-            Refresh();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 검색어와 entry 검색 문자열을 비교한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private bool MatchesSearch(PickerEntry<TEntry, TValue> entry)
-        {
-            if (string.IsNullOrWhiteSpace(searchText)) return true;
-
-            return entry.SearchText.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0;
+            searchPagedEntries.MoveToItem(CurrentEntry);
         }
 
         // ------------------------------------------------------------
@@ -555,6 +425,18 @@ namespace inonego.Xeri.UI.Picker
             }
 
             return true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 sort 상태에 사용할 comparer를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private Comparison<PickerEntry<TEntry, TValue>> GetComparison()
+        {
+            return IsSortableColumn(sortColumnID)
+                ? CompareByColumn
+                : null;
         }
 
         // ------------------------------------------------------------
@@ -593,24 +475,6 @@ namespace inonego.Xeri.UI.Picker
             }
 
             return false;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 원본 entry 목록을 session 내부 표시 entry로 변환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private List<PickerEntry<TEntry, TValue>> CreateEntries(IReadOnlyList<TEntry> entries)
-        {
-            if (entries == null) return new List<PickerEntry<TEntry, TValue>>();
-
-            var result = new List<PickerEntry<TEntry, TValue>>(entries.Count);
-            for (var i = 0; i < entries.Count; i++)
-            {
-                result.Add(spec.CreateEntry(entries[i]));
-            }
-
-            return result;
         }
 
         // ------------------------------------------------------------

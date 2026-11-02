@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XPriorityQueue.cs
-수정일 : 2026-04-29
+수정일 : 2026-09-29
 
 # 설명
 Unity 직렬화를 지원하는 최대 힙 기반 우선순위 큐.
@@ -23,9 +23,13 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     [Serializable]
     public class XPriorityQueue<TElement, TPriority>
+        : ISerializedCollectionNormalizer
     where TElement : class
     where TPriority : struct, IComparable<TPriority>
     {
+
+    #region 내부 데이터
+
         // ============================================================
         /// <summary>
         /// 요소와 우선순위를 묶는 내부 쌍 구조체.
@@ -37,6 +41,11 @@ namespace inonego.Xeri.Serializable
             [SerializeReference] public TElement  Element;
             [SerializeField]     public TPriority Priority;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// Pair 인스턴스를 초기화한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public Pair(TElement element, TPriority priority)
             {
                 Element  = element;
@@ -51,11 +60,19 @@ namespace inonego.Xeri.Serializable
             public int CompareTo(Pair other) => other.Priority.CompareTo(Priority);
         }
 
+    #endregion
+
     #region 필드
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Heap 값을 반환하거나 설정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected virtual List<Pair> Heap => heap;
 
         [SerializeField]
         private List<Pair> heap = new();
-        protected virtual List<Pair> Heap => heap;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -68,7 +85,15 @@ namespace inonego.Xeri.Serializable
 
     #region 생성자
 
-        public XPriorityQueue() {}
+        // ------------------------------------------------------------
+        /// <summary>
+        /// XPriorityQueue 인스턴스를 초기화한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public XPriorityQueue()
+        {
+            // NONE
+        }
 
     #endregion
 
@@ -146,19 +171,35 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public bool Contains(TElement element)
         {
-            for (int i = 0; i < heap.Count; i++)
+            var comparer = EqualityComparer<TElement>.Default;
+
+            for (var index = 0; index < heap.Count; index++)
             {
-                var other = heap[i].Element;
-
-                if (element != null && other != null)
+                if (comparer.Equals(element, heap[index].Element))
                 {
-                    if (element.Equals(other)) return true;
+                    return true;
                 }
-
-                if (element == null && other == null) return true;
             }
 
             return false;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 현재 serialized heap 전체에서 최대 힙 invariant를 다시 구성한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal void RebuildHeap()
+        {
+            for (var index = (heap.Count / 2) - 1; index >= 0; index--)
+            {
+                HeapifyDown(index);
+            }
+        }
+
+        void ISerializedCollectionNormalizer.NormalizeSerializedState()
+        {
+            RebuildHeap();
         }
 
         // ------------------------------------------------------------

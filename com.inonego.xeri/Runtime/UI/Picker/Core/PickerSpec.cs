@@ -67,6 +67,9 @@ namespace inonego.Xeri.UI.Picker
         private readonly IReadOnlyList<(string Label, Func<TEntry, string> Getter)> tagGetters;
         private readonly Func<TEntry, bool> disabledPredicate;
         private readonly Func<TEntry, string> disabledReasonGetter;
+        private readonly bool cacheImmutableEntries;
+        private IReadOnlyList<TEntry> cachedSource;
+        private IReadOnlyList<PickerEntry<TEntry, TValue>> cachedEntries;
 
     #endregion
 
@@ -90,7 +93,8 @@ namespace inonego.Xeri.UI.Picker
             IReadOnlyList<PickerFilterSpec<TEntry, TValue>> filters,
             PickerViewOptions viewOptions,
             Func<TEntry, bool> disabledPredicate,
-            Func<TEntry, string> disabledReasonGetter
+            Func<TEntry, string> disabledReasonGetter,
+            bool cacheImmutableEntries
         ) : base()
         {
             Title                     = title ?? string.Empty;
@@ -105,6 +109,7 @@ namespace inonego.Xeri.UI.Picker
             ViewOptions               = viewOptions;
             this.disabledPredicate    = disabledPredicate ?? (_ => false);
             this.disabledReasonGetter = disabledReasonGetter ?? (_ => string.Empty);
+            this.cacheImmutableEntries = cacheImmutableEntries;
         }
 
     #endregion
@@ -128,6 +133,43 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         /// <summary>
         /// 원본 entry를 picker 표시 entry로 변환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal IReadOnlyList<PickerEntry<TEntry, TValue>> CreateEntries
+        (
+            IReadOnlyList<TEntry> entries
+        )
+        {
+            if (entries == null)
+            {
+                return new List<PickerEntry<TEntry, TValue>>();
+            }
+
+            // 데이터 불변성을 보장한 Spec만 같은 후보 목록의 표시 정보를 공유한다.
+            if (cacheImmutableEntries && ReferenceEquals(cachedSource, entries))
+            {
+                return cachedEntries;
+            }
+
+            var result = new List<PickerEntry<TEntry, TValue>>(entries.Count);
+            foreach (var entry in entries)
+            {
+                result.Add(CreateEntry(entry));
+            }
+
+            if (cacheImmutableEntries)
+            {
+                cachedSource = entries;
+                cachedEntries = result.AsReadOnly();
+                return cachedEntries;
+            }
+
+            return result;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 원본 데이터로부터 Picker 표시 항목을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
         public PickerEntry<TEntry, TValue> CreateEntry(TEntry entry)

@@ -23,6 +23,7 @@ Unity 직렬화 규칙과 일반 C# 자료구조 사이에는 Dictionary, 다형
 
 - 여러 효과가 하나의 값을 합성하면 [MValue 사용 가이드](../../Documentation~/guides/serialization/use-mvalue.md)
 - Unity에 저장할 Collection이면 [Serializable Collections](../../Documentation~/modules/serialization/collections.md)
+- Inspector에서 컬렉션 행을 직접 편집하려면 [Collection Editor 가이드](../../Documentation~/guides/serialization/edit-collections-in-inspector.md)
 - JSON/XML 변환이면 [Serializer](../../Documentation~/modules/serialization/serializer.md)
 - 다형 `SerializeReference` authoring이면 [Managed Reference](../../Documentation~/modules/serialization/managed-reference.md)
 

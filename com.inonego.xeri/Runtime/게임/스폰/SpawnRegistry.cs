@@ -200,7 +200,8 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         public virtual void OnBeforeSerialize()
         {
-            _Spawned.OnBeforeSerialize();
+            // SpawnRegistry는 등록 상태 영속화를 소유하므로 이 경계에서 명시적으로 적용한다.
+            _Spawned.ApplyRuntime();
         }
 
         // ------------------------------------------------------------
@@ -214,7 +215,7 @@ namespace inonego.Xeri.Game
             spawned ??= new SpawnedDictionary<TKey, T>();
 
             // 상위/하위 callback 호출 순서에 의존하지 않도록 사전 복원을 명시적으로 보장한다.
-            spawned.OnAfterDeserialize();
+            spawned.UpdateRuntime();
 
             spawning = new HashSet<T>(ReferenceEqualityComparer<T>.Instance);
             bindings = new List<ISpawnRegistryBinding<TKey, T>>();

@@ -20,6 +20,8 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEditor.SceneManagement;
 
+using inonego.Xeri.UI;
+
 namespace inonego.Xeri.Bootstrapper.Editor
 {
     using Serializable;
@@ -236,8 +238,10 @@ namespace inonego.Xeri.Bootstrapper.Editor
             ApplyExtensionStyle(root);
 
             root.Q<Button>("btn-create").clicked      += () => CreateAndRegisterBootstrapper(window);
-            root.Q<Button>("btn-select-boot").clicked += () => ShowSceneSelectionMenu(statusLabel, true);
-            root.Q<Button>("btn-select-init").clicked += () => ShowSceneSelectionMenu(statusLabel, false);
+            var bootButton = root.Q<Button>("btn-select-boot");
+            var initButton = root.Q<Button>("btn-select-init");
+            bootButton.clicked += () => ShowSceneSelectionMenu(statusLabel, bootButton, true);
+            initButton.clicked += () => ShowSceneSelectionMenu(statusLabel, initButton, false);
             root.Q<Button>("btn-config").clicked      += () => SettingsService.OpenProjectSettings(SETTINGS_MENU_PATH);
 
             return root;
@@ -381,42 +385,45 @@ namespace inonego.Xeri.Bootstrapper.Editor
         /// Build Settings 씬 목록을 메뉴로 표시하고 선택한 씬 인덱스를 저장한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static void ShowSceneSelectionMenu(Label statusLabel, bool isBootstrapper)
+        private static void ShowSceneSelectionMenu
+        (
+            Label statusLabel, Button anchor, bool isBootstrapper
+        )
         {
             var scenes = EditorBuildSettings.scenes;
-            var menu = new GenericMenu();
+            var menu = new XeriContextMenu(anchor);
+            var clearLabel = isBootstrapper ? "Clear Bootstrapper Scene" : "Clear Init Scene";
 
-            string clearLabel = isBootstrapper ? "Clear Bootstrapper Scene" : "Clear Init Scene";
-
-            menu.AddItem(new GUIContent(clearLabel), false, () =>
-            {
-                ClearSceneIndex(isBootstrapper);
-                UpdateStatus(statusLabel);
-            });
-
-            if (scenes == null || scenes.Length == 0)
-            {
-                menu.ShowAsContext();
-                return;
-            }
-
-            menu.AddSeparator("");
-
-            for (int i = 0; i < scenes.Length; i++)
-            {
-                int index = i;
-                string sceneName = Path.GetFileNameWithoutExtension(scenes[index].path);
-
-                void OnClick()
+            menu.AddAction
+            (
+                clearLabel,
+                () =>
                 {
-                    SaveSceneIndex(index, isBootstrapper);
+                    ClearSceneIndex(isBootstrapper);
                     UpdateStatus(statusLabel);
                 }
+            );
 
-                menu.AddItem(new GUIContent($"[{index}] {sceneName}"), false, OnClick);
+            if (scenes != null && scenes.Length > 0)
+            {
+                menu.AddSeparator();
+                for (var index = 0; index < scenes.Length; index++)
+                {
+                    var sceneIndex = index;
+                    var sceneName = Path.GetFileNameWithoutExtension(scenes[index].path);
+                    menu.AddAction
+                    (
+                        $"[{sceneIndex}] {sceneName}",
+                        () =>
+                        {
+                            SaveSceneIndex(sceneIndex, isBootstrapper);
+                            UpdateStatus(statusLabel);
+                        }
+                    );
+                }
             }
 
-            menu.ShowAsContext();
+            menu.OpenBelow();
         }
 
         // ------------------------------------------------------------

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerColumnLayout.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-31
 
 # 설명
 Picker table column의 폭과 stretch 정책을 표현하는 layout 모델.
@@ -54,13 +54,19 @@ namespace inonego.Xeri.UI.Picker
             float minWidth,
             float maxWidth,
             float stretchWeight
-        ) : base()
+        )
         {
+            if (mode == PickerColumnLayoutMode.Flexible
+                && (stretchWeight <= 0f || float.IsNaN(stretchWeight) || float.IsInfinity(stretchWeight)))
+            {
+                throw new ArgumentOutOfRangeException(nameof(stretchWeight), "가변 열 가중치는 양의 유한한 값이어야 합니다.");
+            }
+
             Mode          = mode;
             Width         = Math.Max(1f, width);
             MinWidth      = Math.Max(1f, minWidth);
             MaxWidth      = Math.Max(0f, maxWidth);
-            StretchWeight = Math.Max(0f, stretchWeight);
+            StretchWeight = mode == PickerColumnLayoutMode.Flexible ? stretchWeight : 0f;
         }
 
     #endregion

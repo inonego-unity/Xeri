@@ -1,0 +1,14 @@
+/* backdrop과 프레임 레이어: 부모 전체를 덮는다. */
+.xeri-popup-backdrop,
+.xeri-popup-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* 팝업 단계 프레임: 위치와 크기는 배치 결과에 따라 코드가 지정한다. */
+.xeri-popup-frame {
+    position: absolute;
+}

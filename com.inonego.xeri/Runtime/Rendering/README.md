@@ -32,7 +32,6 @@ Batch의 `Add → Build → Render` 상태와 제약은 [Rendering Instancing](.
 
 - Render Pipeline 전체 추상화
 - 프로젝트별 shader/material authoring 정책
-- UI Core의 렌더링 composition
 
 ## 핵심 개념
 

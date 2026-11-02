@@ -12,13 +12,17 @@ Unity Player assembly의 직렬화 가능한 타입과 후보 목록을 domain r
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
 using UnityEditor;
-using UnityEditor.Compilation;
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -51,7 +55,15 @@ namespace inonego.Xeri.Serializable.Editor
         /// Picker에 표시할 선언 타입 계약을 반영한 이름이다.
         /// </summary>
         // ------------------------------------------------------------
-        public string DisplayName => ManagedReferenceTypeCatalog.GetDisplayName(Type, fixedArguments);
+        private string cachedDisplayName;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 타입 선택 UI에 표시할 이름을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public string DisplayName => cachedDisplayName ??=
+            ManagedReferenceTypeCatalog.GetDisplayName(Type, fixedArguments);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -69,8 +81,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// 생성 후보와 선언 타입에서 확정된 argument를 초기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public ManagedReferenceCreationCandidate
-        (
+        public ManagedReferenceCreationCandidate(
             Type type,
             IReadOnlyDictionary<Type, Type> fixedArguments = null
         )
@@ -112,8 +123,7 @@ namespace inonego.Xeri.Serializable.Editor
             };
 
         private static readonly Type[] builtInSerializableTypes = builtInTypeNames.Keys
-            .Concat
-            (
+            .Concat(
                 new[]
                 {
                     typeof(Color),
@@ -136,7 +146,6 @@ namespace inonego.Xeri.Serializable.Editor
         private static readonly Dictionary<string, Type> declaredTypeCache = new();
         private static readonly Dictionary<Type, IReadOnlyList<ManagedReferenceCreationCandidate>> creationCandidateCache = new();
         private static readonly Dictionary<(Type GenericParameter, bool MakeArray), IReadOnlyList<Type>> genericArgumentCandidateCache = new();
-        private static IReadOnlyList<Type> playerTypes = null;
         private static IReadOnlyList<Type> genericArgumentTypes = null;
 
     #endregion
@@ -205,7 +214,7 @@ namespace inonego.Xeri.Serializable.Editor
                 return cachedCandidates;
             }
 
-            var candidates = GetPlayerTypes()
+            var candidates = EditorTypeIndex.PlayerTypeList
                 .Select(type => TryCreateCandidate(type, declaredType, out var candidate) ? candidate : null)
                 .Where(candidate => candidate != null)
                 .OrderBy(candidate => candidate.DisplayName, StringComparer.Ordinal)
@@ -220,8 +229,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// generic parameter에 사용할 수 있는 Unity 직렬화 타입 후보를 반환한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public static IReadOnlyList<Type> GetGenericArgumentCandidates
-        (
+        public static IReadOnlyList<Type> GetGenericArgumentCandidates(
             Type genericParameter,
             bool makeArray
         )
@@ -278,8 +286,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// 지정된 generic parameter 치환을 반영한 type 이름을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static string GetDisplayName
-        (
+        public static string GetDisplayName(
             Type type,
             IReadOnlyDictionary<Type, Type> substitutions
         )
@@ -366,8 +373,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// type과 선언 타입의 계약을 해석해 실제 생성 후보를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool TryCreateCandidate
-        (
+        private static bool TryCreateCandidate(
             Type type,
             Type declaredType,
             out ManagedReferenceCreationCandidate candidate
@@ -434,8 +440,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// generic definition과 선언 타입의 계약을 비교해 확정된 argument를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool TryGetGenericArgumentBindings
-        (
+        private static bool TryGetGenericArgumentBindings(
             Type genericDefinition,
             Type declaredType,
             out IReadOnlyDictionary<Type, Type> fixedArguments
@@ -467,8 +472,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// generic definition을 확정된 argument로 닫고 CLR 제약을 확인한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool TryCloseGenericType
-        (
+        private static bool TryCloseGenericType(
             Type genericDefinition,
             IReadOnlyList<Type> parameters,
             IReadOnlyDictionary<Type, Type> fixedArguments,
@@ -498,8 +502,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// candidate contract의 generic parameter를 선언 타입의 실제 argument에 대응시킨다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool TryMatchContract
-        (
+        private static bool TryMatchContract(
             Type contract,
             Type declaredType,
             IDictionary<Type, Type> fixedArguments
@@ -539,8 +542,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// contract argument의 generic parameter와 실제 선언 argument를 재귀적으로 대응시킨다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool TryMatchTypeArgument
-        (
+        private static bool TryMatchTypeArgument(
             Type contractArgument,
             Type declaredArgument,
             IDictionary<Type, Type> fixedArguments
@@ -561,8 +563,7 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 return declaredArgument.IsArray
                        && contractArgument.GetArrayRank() == declaredArgument.GetArrayRank()
-                       && TryMatchTypeArgument
-                       (
+                       && TryMatchTypeArgument(
                            contractArgument.GetElementType(),
                            declaredArgument.GetElementType(),
                            fixedArguments
@@ -594,8 +595,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// 후보 타입이 선택 시점에 확인 가능한 generic parameter 제약을 만족하는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool IsPotentialGenericArgument
-        (
+        private static bool IsPotentialGenericArgument(
             Type genericParameter,
             Type candidate,
             bool makeArray
@@ -721,44 +721,12 @@ namespace inonego.Xeri.Serializable.Editor
 
             genericArgumentTypes = builtInSerializableTypes
                 .Concat(supportedContainerDefinitions)
-                .Concat(GetPlayerTypes())
+                .Concat(EditorTypeIndex.PlayerTypeList)
                 .Where(IsGenericArgumentType)
                 .Distinct()
                 .ToArray();
 
             return genericArgumentTypes;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Unity Player assembly에 속한 로드 가능한 타입을 캐싱해 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static IReadOnlyList<Type> GetPlayerTypes()
-        {
-            if (playerTypes != null)
-            {
-                return playerTypes;
-            }
-
-            var playerAssemblyNames = CompilationPipeline.GetAssemblies()
-                .Where
-                (
-                    assembly => (assembly.flags & UnityEditor.Compilation.AssemblyFlags.EditorAssembly) == 0
-                )
-                .Select(assembly => assembly.name)
-                .ToHashSet(StringComparer.Ordinal);
-
-            // Unity의 domain reload 수명과 같은 TypeCache를 사용해 unloaded assembly 참조를 보관하지 않는다.
-            playerTypes = TypeCache.GetTypesDerivedFrom<object>()
-                .Where
-                (
-                    type => playerAssemblyNames.Contains(type.Assembly.GetName().Name)
-                            || type.Assembly.GetName().Name.StartsWith(nameof(UnityEngine), StringComparison.Ordinal)
-                )
-                .Distinct()
-                .ToArray();
-            return playerTypes;
         }
 
         // ------------------------------------------------------------

@@ -1,9 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerWindow.cs
-수정일 : 2026-09-17
+수정일 : 2026-10-28
 
 # 설명
 PickerView를 Unity EditorWindow 안에 호스팅하고 창 수명주기를 관리한다.
+
+# 특이사항, 제약사항
+모달 표시 전용이며 앵커에 붙는 팝업은 PickerPopup이 공통 팝업 호스트로 연다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -32,10 +35,7 @@ namespace inonego.Xeri.Editor.Picker
 
         private static readonly Vector2 minimumModalWindowSize = new(640f, 560f);
         private static readonly Vector2 initialModalWindowSize = new(680f, 620f);
-        private static readonly Vector2 minimumDropdownWindowSize = new(250f, 180f);
-        private static readonly Vector2 initialDropdownWindowSize = new(290f, 280f);
         private IPickerWindowBridge bridge = null;
-        private bool isDropdown = false;
 
     #endregion
 
@@ -56,78 +56,6 @@ namespace inonego.Xeri.Editor.Picker
             int pageSize
         )
         {
-            var window = Create
-            (
-                spec,
-                entries,
-                currentValue,
-                onSelected,
-                onCanceled,
-                pageSize,
-                minimumModalWindowSize,
-                isDropdown: false
-            );
-            window.position = new Rect
-            (
-                100f,
-                100f,
-                initialModalWindowSize.x,
-                initialModalWindowSize.y
-            );
-            window.ShowModalUtility();
-
-            return window;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Picker를 지정한 rect에 연결된 dropdown EditorWindow로 연다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal static PickerWindow OpenDropdown<TEntry, TValue>
-        (
-            PickerSpec<TEntry, TValue> spec,
-            IReadOnlyList<TEntry> entries,
-            TValue currentValue,
-            Action<TValue> onSelected,
-            Action onCanceled,
-            int pageSize,
-            Rect rect
-        )
-        {
-            var window = Create
-            (
-                spec,
-                entries,
-                currentValue,
-                onSelected,
-                onCanceled,
-                pageSize,
-                minimumDropdownWindowSize,
-                isDropdown: true
-            );
-            window.ShowAsDropDown(rect, initialDropdownWindowSize);
-
-            return window;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 표시 방식과 무관한 PickerView 및 취소 수명주기를 초기화한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static PickerWindow Create<TEntry, TValue>
-        (
-            PickerSpec<TEntry, TValue> spec,
-            IReadOnlyList<TEntry> entries,
-            TValue currentValue,
-            Action<TValue> onSelected,
-            Action onCanceled,
-            int pageSize,
-            Vector2 minimumWindowSize,
-            bool isDropdown
-        )
-        {
             var window = CreateInstance<PickerWindow>();
             window.bridge = new PickerWindowBridge<TEntry, TValue>
             (
@@ -139,8 +67,15 @@ namespace inonego.Xeri.Editor.Picker
                 pageSize
             );
             window.titleContent = new GUIContent(window.bridge.Title);
-            window.minSize = minimumWindowSize;
-            window.isDropdown = isDropdown;
+            window.minSize = minimumModalWindowSize;
+            window.position = new Rect
+            (
+                100f,
+                100f,
+                initialModalWindowSize.x,
+                initialModalWindowSize.y
+            );
+            window.ShowModalUtility();
 
             return window;
         }
@@ -157,13 +92,20 @@ namespace inonego.Xeri.Editor.Picker
         private void CreateGUI()
         {
             rootVisualElement.Clear();
-            var view = bridge.CreateView(Close);
-            if (isDropdown)
+            if (bridge == null)
             {
-                view.AddToClassList("xeri-picker-host--dropdown");
+                rootVisualElement.Add
+                (
+                    new UnityEngine.UIElements.HelpBox
+                    (
+                        "에디터 상태가 초기화되었습니다. Picker를 다시 여세요.",
+                        UnityEngine.UIElements.HelpBoxMessageType.Info
+                    )
+                );
+                return;
             }
 
-            rootVisualElement.Add(view);
+            rootVisualElement.Add(bridge.CreateView(Close));
         }
 
         // ------------------------------------------------------------

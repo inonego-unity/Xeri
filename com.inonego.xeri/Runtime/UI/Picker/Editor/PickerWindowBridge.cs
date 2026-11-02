@@ -3,7 +3,7 @@
 수정일 : 2026-09-17
 
 # 설명
-Picker.Show 인자를 non-generic EditorWindow 생명주기에 연결하기 위한 bridge.
+Picker.Show·ShowPopup 인자를 non-generic EditorWindow 또는 팝업 호스트의 생명주기에 연결하기 위한 bridge.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;

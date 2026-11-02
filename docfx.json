@@ -7,9 +7,7 @@
         "files": [
           "inonego.Xeri.csproj",
           "inonego.Xeri.Editor.csproj",
-          "inonego.Xeri.VFXGraph.csproj",
-          "inonego.Xeri.UI.HDRP.csproj",
-          "inonego.Xeri.UI.HDRP.Editor.csproj"
+          "inonego.Xeri.VFXGraph.csproj"
         ]
       }
     ],
