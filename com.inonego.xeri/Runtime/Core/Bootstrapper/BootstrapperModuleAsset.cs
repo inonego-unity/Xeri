@@ -1,13 +1,21 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BootstrapperModuleAsset.cs
-수정일 : 2026-09-02
+수정일 : 2026-11-03
 
 # 설명
-Bootstrapper의 Initial Scene 전후 실행 phase와 Module 초기화 계약을 정의한다.
-각 Module Asset은 실행 phase를 명시하고 해당 phase에서 초기화 로직을 수행한다.
+Unity Bootstrapper의 Initial Scene 전후 초기화 계약을 정의한다.
+Application의 일반 초기화 모듈과 달리 Scene phase를 필수로 갖는다.
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
 using UnityEngine;
+
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Application;
 
 namespace inonego.Xeri.Bootstrapper
 {
@@ -24,7 +32,7 @@ namespace inonego.Xeri.Bootstrapper
 
     // ============================================================
     /// <summary>
-    /// Bootstrapper에서 phase별로 순차 실행되는 초기화 Module Asset.
+    /// Scene phase에 속한 Bootstrapper Module Asset.
     /// </summary>
     // ============================================================
     public abstract class BootstrapperModuleAsset : ScriptableObject
@@ -41,10 +49,10 @@ namespace inonego.Xeri.Bootstrapper
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Bootstrap phase에서 Module 초기화 로직을 실행한다.
+        /// Scene phase에서 Application 소유 자원을 초기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public abstract Awaitable Init();
+        public abstract Task StartAsync(ApplicationContext context, CancellationToken cancellationToken);
 
     #endregion
 

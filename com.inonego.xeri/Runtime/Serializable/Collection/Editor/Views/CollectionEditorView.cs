@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorView.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-03
 
 # 설명
 Collection Model의 표시 순서와 변경 명령을 Inspector의 검색·선택·페이지에 연결한다.
@@ -1077,7 +1077,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void HandleContextMouseUp(MouseUpEvent evt)
         {
             var contextClick = evt.button == 1
-                || (Application.platform == RuntimePlatform.OSXEditor
+                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor
                     && evt.button == 0 && evt.ctrlKey);
             if (!contextClick || !TryGetContextRow(evt.target as VisualElement, out var binding))
             {
@@ -1157,7 +1157,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             var originalRevision = model.Revision;
-            var modifier = Application.platform == RuntimePlatform.OSXEditor ? "Cmd+" : "Ctrl+";
+            var modifier = UnityEngine.Application.platform == RuntimePlatform.OSXEditor ? "Cmd+" : "Ctrl+";
             rowContextMenu.Clear();
             rowContextMenu.AddAction
             (
@@ -1200,7 +1200,7 @@ namespace inonego.Xeri.Serializable.Editor
                 enabled: hasSelection && CanMoveSelected(1, out _)
             );
             rowContextMenu.AddSeparator();
-            var deleteShortcut = Application.platform == RuntimePlatform.OSXEditor
+            var deleteShortcut = UnityEngine.Application.platform == RuntimePlatform.OSXEditor
                 ? "Backspace" : "Delete";
             rowContextMenu.AddAction
             (
@@ -1242,7 +1242,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void HandleRowContextMenuKeyDown(KeyDownEvent evt)
         {
             if (evt.ctrlKey || evt.commandKey || evt.keyCode == KeyCode.Delete
-                || (Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
+                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
             {
                 CloseRowContextMenu();
                 listView.Focus();
@@ -1336,7 +1336,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             if (evt.keyCode == KeyCode.Delete
-                || (Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
+                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
             {
                 HandleRemove();
                 StopShortcutEvent(evt);

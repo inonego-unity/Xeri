@@ -6,7 +6,8 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 
 | 필요 | 모듈 |
 |---|---|
-| Initial Scene 전후 초기화 순서 | Core / Bootstrapper |
+| 실행 세대와 소유 자원의 시작·종료 | [Core / Application](../../Runtime/Core/Application/README.md) |
+| Initial Scene 전후 초기화 순서 | [Core / Bootstrapper](../modules/core/bootstrapper.md) |
 | 일회성 반환 책임 | Core / Lease |
 | 이름별 Runtime 인스턴스와 임시 Context | Core / Singleton |
 

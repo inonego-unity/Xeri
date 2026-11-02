@@ -16,7 +16,11 @@ Xeri package는 다음 Unity Package를 직접 의존합니다.
 | Input System | `1.18.0` | package PlayMode 검증과 입력 기반 테스트 |
 | UGUI | `2.6.0` | Drag & Drop UGUI adapter |
 
-Runtime의 `TweenHelper`는 `DOTween.Modules` assembly를 사용합니다. DOTween은 UPM `package.json`에 포함되지 않으므로 해당 기능을 사용하는 프로젝트가 별도로 준비해야 합니다.
+## 선택적 외부 연동
+
+- `Newtonsoft.Json` 3.0.0 이상이 프로젝트에 설치돼 있으면 `inonego.Xeri` Assembly Definition의 `XERI_NEWTONSOFT_JSON` 심볼이 자동 정의됩니다. 이때 `XVec`의 `[JsonProperty]` 어트리뷰트를 포함합니다. 설치되지 않아도 Unity 및 XML 직렬화는 그대로 컴파일됩니다.
+- `TweenHelper`는 DOTween이 설치되고 프로젝트의 `DOTWEEN` 심볼이 활성화된 경우 `DG.Tweening.Ease`를 사용합니다. 미설치 환경에서는 Xeri의 `Ease.None`을 사용하며 Core Assembly는 `DOTween.Modules`를 필수 참조하지 않습니다. DOTween을 제거한 프로젝트에서는 해당 전역 심볼도 해제해야 합니다.
+- VFX Graph 지원은 별도 `inonego.Xeri.VFXGraph` Assembly Definition이 해당 Unity 패키지의 설치 여부로 조건부 컴파일합니다.
 
 ## 로컬 패키지로 연결
 

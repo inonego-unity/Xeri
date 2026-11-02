@@ -146,6 +146,14 @@ namespace inonego.Xeri.Playback
 
         // ------------------------------------------------------------
         /// <summary>
+        /// 현재 인스턴스가 자신의 Singleton 슬롯에 등록되어 있는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool IsRegistered => Named.TryGet(slotKey, out var current) &&
+            ReferenceEquals(current, this);
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 모든 Bus 위에 적용되는 Master Volume.
         /// </summary>
         // ------------------------------------------------------------
@@ -206,11 +214,11 @@ namespace inonego.Xeri.Playback
             return playback;
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// Audio Cue를 지정 Audio DSP 시각에 2D 예약 재생한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public IAudioPlayback PlayScheduled
         (
             AudioCue cue,
@@ -292,11 +300,11 @@ namespace inonego.Xeri.Playback
 
     #region Music 재생
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// Music Layer Group을 공통 미래 DSP 시각에 동기 예약 재생한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public IMusicPlayback Play(MusicLayerGroup group)
         {
             var variants = PrepareMusicLayerGroup(group);
@@ -318,11 +326,12 @@ namespace inonego.Xeri.Playback
             return PlayMusicLayerGroupValidated(variants, dspTime);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 검증 완료된 Music Layer Variant를 하나의 DSP 시작점으로 예약하고 Aggregate Handle을 생성한다.
+        /// <br/> 검증된 Music Layer Variant를 같은 DSP 시각에 예약한다.
+        /// <br/> 예약 성공 시 Aggregate Handle을 생성한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         private IMusicPlayback PlayMusicLayerGroupValidated
         (
             UnityAudioClipCueVariant[] variants,
@@ -354,7 +363,8 @@ namespace inonego.Xeri.Playback
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// Music Layer Group의 runtime Cue에서 이번 재생 Variant를 선택하고 공통 Timeline 계약을 검증한다.
+        /// <br/> Music Layer Group의 runtime Cue에서 Variant를 선택한다.
+        /// <br/> 선택된 Variant의 공통 Timeline 계약을 검증한다.
         /// </summary>
         // ----------------------------------------------------------------------
         private UnityAudioClipCueVariant[] PrepareMusicLayerGroup(MusicLayerGroup group)
@@ -417,11 +427,11 @@ namespace inonego.Xeri.Playback
             return variants;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// Music Layer Asset의 runtime Cue를 Manager 수명 동안 한 번 생성해 재사용한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         private AudioCue ResolveMusicCue(AudioCueAsset asset)
         {
             if (musicCues.TryGetValue(asset, out var cue))
@@ -437,11 +447,11 @@ namespace inonego.Xeri.Playback
             return cue;
         }
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// Group 생성 실패 전에 시작한 Layer를 모두 종료하고 정리 실패가 있으면 함께 전달한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         private static void CleanupFailedMusicPlayback
         (
             IAudioPlayback[] layers,
@@ -697,11 +707,11 @@ namespace inonego.Xeri.Playback
             return playback;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 예약 시작 시각이 현재 Audio DSP Time 이후의 유한한 값인지 검증한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private static void ValidateScheduledDSPTime(double dspTime)
         {
             if
@@ -826,11 +836,11 @@ namespace inonego.Xeri.Playback
             return Play(RequireAudioCue(cue));
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// Audio Cue를 고정 World Transform Binding으로 처리할 수 있는지 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         bool ICuePlayer<TransformBinding_Fixed>.CanPlay
         (
             IPlaybackCue cue,
@@ -863,11 +873,11 @@ namespace inonego.Xeri.Playback
             return Play(RequireAudioCue(cue), binding.World.Position);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// Audio Cue를 Tracked Transform Binding으로 처리할 수 있는지 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         bool ICuePlayer<TransformBinding_Tracked>.CanPlay
         (
             IPlaybackCue cue,
@@ -949,7 +959,7 @@ namespace inonego.Xeri.Playback
 
             if (!TryRegisterOrDestroy(slotKey, this)) return;
 
-            if (Application.isPlaying)
+            if (UnityEngine.Application.isPlaying)
             {
                 DontDestroyOnLoad(gameObject);
             }

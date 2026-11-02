@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명: BuildProfileWindowExtender.cs
-수정일: 2026-05-20
+파일명 : BuildProfileWindowExtender.cs
+수정일 : 2026-11-03
 
 # 설명
 Unity Build Profile 창의 Scene List 영역에 BootStrapper 설정 버튼과 상태 표시를 추가한다.
-BootStrapper 씬 생성, Build Settings 등록, 부트 씬/시작 씬 인덱스 저장을 지원한다.
+BootStrapper 씬 생성, Build Settings 등록, 활성 Scene 기준 빌드 인덱스 저장을 지원한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -20,6 +20,8 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEditor.SceneManagement;
 
+using inonego;
+using inonego.Xeri;
 using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Bootstrapper.Editor
@@ -28,7 +30,7 @@ namespace inonego.Xeri.Bootstrapper.Editor
 
     // ============================================================
     /// <summary>
-    /// Build Profile 창의 Scene List에 BootStrapper 제어 UI를 추가한다.
+    /// Build Profile 창의 Bootstrapper 설정 UI를 제공한다.
     /// </summary>
     // ============================================================
     [InitializeOnLoad]
@@ -48,9 +50,9 @@ namespace inonego.Xeri.Bootstrapper.Editor
 
     #region 스타일 상수
 
-        private static readonly Color HEADER_BACKGROUND_COLOR = new(51f / 255f, 51f / 255f, 51f / 255f, 0.8f);
-        private static readonly Color HEADER_BORDER_COLOR = new(128f / 255f, 128f / 255f, 128f / 255f, 1f);
-        private static readonly Color STATUS_COLOR = Color.yellow;
+        private static readonly Color headerBackgroundColor = new(51f / 255f, 51f / 255f, 51f / 255f, 0.8f);
+        private static readonly Color headerBorderColor = new(128f / 255f, 128f / 255f, 128f / 255f, 1f);
+        private static readonly Color statusColor = Color.yellow;
 
         private const float HEADER_PADDING_VERTICAL = 6f;
         private const float HEADER_PADDING_HORIZONTAL = 10f;
@@ -138,7 +140,7 @@ namespace inonego.Xeri.Bootstrapper.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 주입된 UI가 패널에서 제거되면 Build Profile 창 감시를 다시 시작한다.
+        /// 확장 UI가 제거되면 Build Profile 감시를 재개한다.
         /// </summary>
         // ------------------------------------------------------------
         private static void OnExtensionDetached(DetachFromPanelEvent evt)
@@ -254,14 +256,14 @@ namespace inonego.Xeri.Bootstrapper.Editor
         // ------------------------------------------------------------
         private static void ApplyExtensionStyle(VisualElement root)
         {
-            root.style.backgroundColor      = HEADER_BACKGROUND_COLOR;
+            root.style.backgroundColor      = headerBackgroundColor;
             root.style.paddingTop           = HEADER_PADDING_VERTICAL;
             root.style.paddingBottom        = HEADER_PADDING_VERTICAL;
             root.style.paddingLeft          = HEADER_PADDING_HORIZONTAL;
             root.style.paddingRight         = HEADER_PADDING_HORIZONTAL;
             root.style.marginBottom         = HEADER_MARGIN_BOTTOM;
             root.style.borderBottomWidth    = HEADER_BORDER_BOTTOM_WIDTH;
-            root.style.borderBottomColor    = HEADER_BORDER_COLOR;
+            root.style.borderBottomColor    = headerBorderColor;
             root.style.flexDirection        = FlexDirection.Row;
             root.style.alignItems           = Align.Center;
             root.style.justifyContent       = Justify.SpaceBetween;
@@ -284,7 +286,7 @@ namespace inonego.Xeri.Bootstrapper.Editor
         {
             label.style.flexGrow    = 1f;
             label.style.flexShrink  = 1f;
-            label.style.color       = STATUS_COLOR;
+            label.style.color       = statusColor;
             label.style.fontSize    = STATUS_FONT_SIZE;
         }
 
@@ -337,7 +339,7 @@ namespace inonego.Xeri.Bootstrapper.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// BootStrapper 씬을 생성하고 Build Settings 첫 번째 항목으로 등록한다.
+        /// Bootstrapper Scene을 Build Settings 첫 항목으로 등록한다.
         /// </summary>
         // ------------------------------------------------------------
         private static void CreateAndRegisterBootstrapper(EditorWindow window)
@@ -382,7 +384,7 @@ namespace inonego.Xeri.Bootstrapper.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Build Settings 씬 목록을 메뉴로 표시하고 선택한 씬 인덱스를 저장한다.
+        /// 활성 Scene 메뉴를 표시하고 선택된 Build Index를 저장한다.
         /// </summary>
         // ------------------------------------------------------------
         private static void ShowSceneSelectionMenu
@@ -390,7 +392,8 @@ namespace inonego.Xeri.Bootstrapper.Editor
             Label statusLabel, Button anchor, bool isBootstrapper
         )
         {
-            var scenes = EditorBuildSettings.scenes;
+            // 저장하는 Build Index는 Player에 포함되는 활성 Scene 순서와 일치해야 한다.
+            var scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).ToArray();
             var menu = new XeriContextMenu(anchor);
             var clearLabel = isBootstrapper ? "Clear Bootstrapper Scene" : "Clear Init Scene";
 
@@ -491,7 +494,7 @@ namespace inonego.Xeri.Bootstrapper.Editor
                 return;
             }
 
-            var scenes = EditorBuildSettings.scenes;
+            var scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).ToArray();
 
             var bootIndex = settings.BootstrapperSceneIndex;
             var initIndex = settings.SceneIndexToLoad;

@@ -2,7 +2,6 @@
     "name": "inonego.Xeri",
     "rootNamespace": "",
     "references": [
-        "DOTween.Modules",
         "Unity.Addressables",
         "Unity.ResourceManager"
     ],
@@ -13,6 +12,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.nuget.newtonsoft-json",
+            "expression": "3.0.0",
+            "define": "XERI_NEWTONSOFT_JSON"
+        }
+    ],
     "noEngineReferences": false
 }

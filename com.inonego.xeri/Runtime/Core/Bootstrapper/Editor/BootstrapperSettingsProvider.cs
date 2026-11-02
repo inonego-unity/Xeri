@@ -41,7 +41,10 @@ namespace inonego.Xeri.Bootstrapper.Editor
         /// SettingsProvider를 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public BootstrapperSettingsProvider(string path, SettingsScope scope = SettingsScope.Project) : base(path, scope) {}
+        public BootstrapperSettingsProvider(string path, SettingsScope scope = SettingsScope.Project) : base(path, scope)
+        {
+            // NONE
+        }
 
     #endregion
 
