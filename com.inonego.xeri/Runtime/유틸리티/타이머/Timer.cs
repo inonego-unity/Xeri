@@ -1,17 +1,16 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Timer.cs
-수정일 : 2026-04-30
+수정일 : 2026-11-02
 
 # 설명
-float 기반 타이머. Tick(deltaTime) 호출로 시간을 진행시킨다.
-MonoBehaviour 비종속 — MonoBehaviour.Update() 등에서 Tick()을 직접 호출하여 사용한다.
+float 기반 타이머. 외부 Tick(deltaTime)으로 시간을 전진하거나 되돌린다.
+지속 시간이 끝나면 Ready 상태로 전환한 뒤 완료 이벤트를 통지한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using TValue = System.Single;
 
 using UnityEngine;
-
-using TValue = System.Single;
 
 namespace inonego.Xeri.Utility
 {
@@ -61,10 +60,7 @@ namespace inonego.Xeri.Utility
                     throw new InvalidOperationException("Duration은 Run 또는 Pause 상태일 때만 변경할 수 있습니다.");
                 }
 
-                if (next < 0.0f)
-                {
-                    throw new InvalidTimeException("Duration은 0 이상이어야 합니다.");
-                }
+                ValidateNonNegativeTime(next);
 
                 duration = next;
 
@@ -105,10 +101,7 @@ namespace inonego.Xeri.Utility
                     throw new InvalidOperationException("ElapsedTime은 Run 또는 Pause 상태일 때만 변경할 수 있습니다.");
                 }
 
-                if (next < 0.0f)
-                {
-                    throw new InvalidTimeException("ElapsedTime은 0 이상이어야 합니다.");
-                }
+                ValidateNonNegativeTime(next);
 
                 elapsedTime = Mathf.Clamp(next, 0.0f, duration);
             }
@@ -134,10 +127,7 @@ namespace inonego.Xeri.Utility
                     throw new InvalidOperationException("RemainingTime은 Run 또는 Pause 상태일 때만 변경할 수 있습니다.");
                 }
 
-                if (next < 0.0f)
-                {
-                    throw new InvalidTimeException("RemainingTime은 0 이상이어야 합니다.");
-                }
+                ValidateNonNegativeTime(next);
 
                 elapsedTime = Mathf.Clamp(duration - next, 0.0f, duration);
             }
@@ -145,17 +135,17 @@ namespace inonego.Xeri.Utility
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 경과 시간 비율 (0.0 ~ 1.0). duration이 0이면 NaN을 반환한다.
+        /// 경과 시간 비율 (0.0 ~ 1.0). 지속 시간이 0이면 0을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public TValue ElapsedTime01 => ElapsedTime / duration;
+        public TValue ElapsedTime01 => duration > 0.0f ? elapsedTime / duration : 0.0f;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 잔여 시간 비율 (0.0 ~ 1.0). duration이 0이면 NaN을 반환한다.
+        /// 잔여 시간 비율 (0.0 ~ 1.0). 지속 시간이 0이면 0을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public TValue RemainingTime01 => RemainingTime / duration;
+        public TValue RemainingTime01 => duration > 0.0f ? RemainingTime / duration : 0.0f;
 
     #endregion
 
@@ -215,32 +205,41 @@ namespace inonego.Xeri.Utility
         // ------------------------------------------------------------
         public event ValueChangeEventHandler<TimerState> OnStateChange = null;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 종료 및 상태 변경의 구독 여부를 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal bool HasObservers => OnEnd != null || OnStateChange != null;
+
     #endregion
 
     #region 메서드
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 타이머를 업데이트한다. 매 프레임 또는 틱마다 호출한다.
+        /// <br/> 외부에서 전달된 시간만큼 진행하거나 되돌린다.
+        /// <br/> 지속 시간에 도달하면 먼저 정지한 뒤 완료 이벤트를 통지한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Tick(TValue deltaTime)
         {
             if (!IsRunning) return;
 
+            ValidateFiniteTime(deltaTime);
             elapsedTime = Mathf.Clamp(elapsedTime + deltaTime, 0.0f, duration);
 
             if (elapsedTime >= duration)
             {
-                OnEnd?.Invoke(this, new());
-
                 Stop();
+                OnEnd?.Invoke(this, new());
             }
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 타이머 작동을 시작한다.
+        /// <br/> 타이머를 새 지속시간으로 초기화하고 실행을 시작한다.
+        /// <br/> 상태 변경 이벤트는 새 시간이 설정된 뒤 발생한다.
         /// </summary>
         // ------------------------------------------------------------
         public void Start(TValue duration)
@@ -250,18 +249,12 @@ namespace inonego.Xeri.Utility
                 throw new AlreadyRunningException();
             }
 
+            ValidateNonNegativeTime(duration);
+
+            // 상태 변경 통지 시 새 주기의 시간이 완성되어 있어야 한다.
+            this.duration = duration;
+            elapsedTime = default;
             Current = TimerState.Run;
-
-            try
-            {
-                (Duration, ElapsedTime) = (duration, default);
-            }
-            catch
-            {
-                Current = TimerState.Ready;
-
-                throw;
-            }
         }
 
         // ------------------------------------------------------------
@@ -316,6 +309,38 @@ namespace inonego.Xeri.Utility
             }
 
             (duration, elapsedTime) = (default, default);
+        }
+
+    #endregion
+
+    #region 시간 검증
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 시간 입력이 유한한 숫자인지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void ValidateFiniteTime(TValue value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                throw new InvalidTimeException("시간 값은 유한해야 합니다.");
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지속시간과 시간 설정값이 0 이상의 유한한 숫자인지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static void ValidateNonNegativeTime(TValue value)
+        {
+            ValidateFiniteTime(value);
+
+            if (value < 0.0f)
+            {
+                throw new InvalidTimeException();
+            }
         }
 
     #endregion
