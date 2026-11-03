@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XHashSet.cs
-수정일 : 2026-10-23
+수정일 : 2026-11-07
 
 # 설명
 Unity 직렬화를 지원하는 HashSet 구현.
@@ -11,10 +11,7 @@ Runtime 변경은 내부 ApplyRuntime 호출 시에만 직렬화 목록에 반�
 using System;
 using System.Collections;
 using System.Collections.Generic;
-
-#if UNITY_EDITOR
 using System.Reflection;
-#endif
 
 using UnityEngine;
 
@@ -38,59 +35,6 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         protected abstract IList<T> Serialized { get; }
-
-    #endregion
-
-    #region 해시 집합 상태 복구
-
-        #if UNITY_EDITOR
-
-        private const BindingFlags HashSetFieldFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-
-        private static readonly FieldInfo EntriesField = RequiredField("_entries");
-        private static readonly FieldInfo BucketsField = RequiredField("_buckets");
-        private static readonly FieldInfo CountField = RequiredField("_count");
-        private static readonly FieldInfo FreeListField = RequiredField("_freeList");
-        private static readonly FieldInfo FreeCountField = RequiredField("_freeCount");
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Unity 7 HashSet 내부 필드 정보를 가져오고 필드가 없으면 명확히 예외를 발생시킨다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static FieldInfo RequiredField(string name) =>
-            typeof(HashSet<T>).GetField(name, HashSetFieldFlags)
-            ?? throw new MissingFieldException(typeof(HashSet<T>).FullName, name);
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Unity 7 Editor의 직렬화 복원 과정에서 불일치한 HashSet 내부 상태를 복구한다.
-        /// 정상 상태에서는 필드를 변경하지 않는다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void RepairHashSetState()
-        {
-            var entries = EntriesField.GetValue(this);
-            var buckets = BucketsField.GetValue(this);
-            var count = (int)CountField.GetValue(this);
-
-            var requiresRepair =
-                (entries == null && (buckets != null || count > 0)) ||
-                (count > 0 && buckets == null);
-
-            if (!requiresRepair)
-            {
-                return;
-            }
-
-            // Comparer와 기존 Clear/Add 복원 로직은 유지한다.
-            CountField.SetValue(this, 0);
-            BucketsField.SetValue(this, null);
-            FreeListField.SetValue(this, -1);
-            FreeCountField.SetValue(this, 0);
-        }
-
-        #endif
 
     #endregion
 
@@ -133,6 +77,8 @@ namespace inonego.Xeri.Serializable
             }
         }
 
+        void ISerializedRuntimeCollection.ApplyRuntime() => ApplyRuntime();
+
         // ------------------------------------------------------------
         /// <summary>
         /// Editor Apply 또는 Unity 역직렬화 뒤 runtime 집합을 갱신한다.
@@ -154,9 +100,73 @@ namespace inonego.Xeri.Serializable
             }
         }
 
-        void ISerializedRuntimeCollection.ApplyRuntime() => ApplyRuntime();
-
         void ISerializedRuntimeCollection.UpdateRuntime() => UpdateRuntime();
+
+        #if UNITY_EDITOR
+
+        private const BindingFlags HashSetFieldFlags     = BindingFlags.Instance | BindingFlags.NonPublic;
+        private static readonly FieldInfo EntriesField   = typeof(HashSet<T>).GetField("_entries", HashSetFieldFlags) ?? RequiredField("_slots");
+        private static readonly FieldInfo BucketsField   = RequiredField("_buckets");
+        private static readonly FieldInfo CountField     = RequiredField("_count");
+        private static readonly FieldInfo FreeListField  = RequiredField("_freeList");
+        private static readonly FieldInfo FreeCountField = typeof(HashSet<T>).GetField("_freeCount", HashSetFieldFlags);
+        private static readonly FieldInfo LastIndexField = typeof(HashSet<T>).GetField("_lastIndex", HashSetFieldFlags);
+        private static readonly FieldInfo ComparerField  = typeof(HashSet<T>).GetField("_comparer", HashSetFieldFlags);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 7 HashSet 내부 필드 정보를 가져오고 필드가 없으면 명확히 예외를 발생시킨다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static FieldInfo RequiredField(string name) =>
+            typeof(HashSet<T>).GetField(name, HashSetFieldFlags)
+            ?? throw new MissingFieldException(typeof(HashSet<T>).FullName, name);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 7 Editor의 직렬화 복원 과정에서 불일치한 HashSet 내부 상태를 복구한다.
+        /// 정상 상태에서는 필드를 변경하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RepairHashSetState()
+        {
+            var entries = EntriesField.GetValue(this);
+            var buckets = BucketsField.GetValue(this);
+            var count = (int)CountField.GetValue(this);
+
+            var requiresRepair =
+                (entries == null && (buckets != null || count > 0)) ||
+                (count > 0 && buckets == null) ||
+                (entries == null && LastIndexField != null && (int)LastIndexField.GetValue(this) > 0);
+
+            if (requiresRepair)
+            {
+                // 서로 다른 BCL의 필드 배치를 보존하면서 잘못된 내부 상태만 비운다.
+                CountField.SetValue(this, 0);
+                EntriesField.SetValue(this, null);
+                BucketsField.SetValue(this, null);
+                FreeListField.SetValue(this, -1);
+                FreeCountField?.SetValue(this, 0);
+                LastIndexField?.SetValue(this, 0);
+            }
+            else if (entries == null && buckets == null && count == 0)
+            {
+                // Unity 역직렬화는 HashSet 생성자를 건너뛰어 _freeList가 0일 수 있다.
+                FreeListField.SetValue(this, FreeListField.GetValue(new HashSet<T>()));
+            }
+
+            if (ComparerField != null && ComparerField.GetValue(this) == null)
+            {
+                // 생성자를 건너뛰었으면 Mono의 기본 comparer도 복원해야 한다.
+                var comparer = ComparerField.GetValue(new HashSet<T>());
+                if (comparer != null)
+                {
+                    ComparerField.SetValue(this, comparer);
+                }
+            }
+        }
+
+        #endif
 
     #endregion
 

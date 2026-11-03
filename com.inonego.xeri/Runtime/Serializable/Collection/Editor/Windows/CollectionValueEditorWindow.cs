@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionValueEditorWindow.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-03
 
 # 설명
 Cell을 독립 SerializedObject와 UI Toolkit PropertyField로 상세 표시한다.
@@ -103,7 +103,7 @@ namespace inonego.Xeri.Serializable.Editor
             for (var index = 0; index < sourceModel.Count; index++)
             {
                 var rowPath = sourceModel.GetRowProperty(index).propertyPath;
-                if (itemProperty.propertyPath == rowPath || itemProperty.propertyPath.StartsWith(rowPath + ".", StringComparison.Ordinal))
+                if (SerializedPropertyHelper.IsSameOrDescendantPath(itemProperty.propertyPath, rowPath))
                 {
                     rowIndex = index;
                     break;
@@ -135,8 +135,10 @@ namespace inonego.Xeri.Serializable.Editor
         {
             foreach (var window in Resources.FindObjectsOfTypeAll<CollectionValueEditorWindow>())
             {
-                if (window.target == target && (window.collectionPropertyPath == propertyPath
-                    || window.collectionPropertyPath.StartsWith(propertyPath + ".", StringComparison.Ordinal)))
+                if (window.target == target && SerializedPropertyHelper.IsSameOrDescendantPath
+                (
+                    window.collectionPropertyPath, propertyPath
+                ))
                 {
                     window.Close();
                 }
@@ -339,8 +341,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             var path = evt.changedProperty.propertyPath;
-            if (path != itemPropertyPath
-                && !path.StartsWith(itemPropertyPath + ".", StringComparison.Ordinal))
+            if (!SerializedPropertyHelper.IsSameOrDescendantPath(path, itemPropertyPath))
             {
                 return;
             }

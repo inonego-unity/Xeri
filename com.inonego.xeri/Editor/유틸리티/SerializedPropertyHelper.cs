@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializedPropertyHelper.cs
-수정일 : 2026-11-01
+수정일 : 2026-11-03
 
 # 설명
 SerializedProperty의 현재 값과 실제 객체 인스턴스를 구분하여 조회한다.
-배열/리스트 요소 경로, UI Toolkit 직계 자식 필드 생성, 타입 기본값 초기화를 지원한다.
+배열/리스트 요소 경로, 경로 포함 관계, UI Toolkit 직계 자식 필드 생성과 기본값 초기화를 지원한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -103,6 +103,131 @@ namespace inonego.Xeri
             }
 
             return property.boxedValue;
+        }
+
+    #endregion
+
+    #region 경로 관계
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 자신을 제외하고 지정한 경로의 하위 프로퍼티인지 판정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsDescendantPath(string path, string ancestorPath)
+        {
+            return !string.IsNullOrEmpty(path)
+                && !string.IsNullOrEmpty(ancestorPath)
+                && path.Length > ancestorPath.Length
+                && path[ancestorPath.Length] == '.'
+                && path.StartsWith(ancestorPath, StringComparison.Ordinal);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 동일하거나 하위 프로퍼티인지 판정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsSameOrDescendantPath(string path, string ancestorPath)
+        {
+            return !string.IsNullOrEmpty(path)
+                && (path == ancestorPath || IsDescendantPath(path, ancestorPath));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 자신을 제외하고 지정한 경로의 상위 프로퍼티인지 판정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsAncestorPath(string path, string descendantPath)
+        {
+            return IsDescendantPath(descendantPath, path);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 동일하거나 상위 프로퍼티인지 판정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsSameOrAncestorPath(string path, string descendantPath)
+        {
+            return IsSameOrDescendantPath(descendantPath, path);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 지정한 경로의 직계 자식 프로퍼티인지 판정한다.
+        /// <br/> Unity의 Array.data[n]과 Array.size를 하나의 논리적 자식으로 취급한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        public static bool IsDirectChildPath(string path, string parentPath)
+        {
+            if (!IsDescendantPath(path, parentPath))
+            {
+                return false;
+            }
+
+            var childStart = parentPath.Length + 1;
+            var separatorIndex = path.IndexOf('.', childStart);
+            if (separatorIndex < 0)
+            {
+                return true;
+            }
+
+            // Array는 실제 필드가 아닌 Unity 직렬화 경로의 중간 표기다.
+            if (separatorIndex != childStart + "Array".Length)
+            {
+                return false;
+            }
+
+            const string sizePath = "Array.size";
+            if (path.Length == childStart + sizePath.Length
+                && string.CompareOrdinal(path, childStart, sizePath, 0, sizePath.Length) == 0)
+            {
+                return true;
+            }
+
+            const string elementPrefix = "Array.data[";
+            if (path.Length <= childStart + elementPrefix.Length + 1
+                || path[path.Length - 1] != ']'
+                || string.CompareOrdinal
+                (
+                    path, childStart, elementPrefix, 0, elementPrefix.Length
+                ) != 0)
+            {
+                return false;
+            }
+
+            for (var index = childStart + elementPrefix.Length; index < path.Length - 1; index++)
+            {
+                if (path[index] < '0' || path[index] > '9')
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정한 경로의 직계 부모 프로퍼티인지 판정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsDirectParentPath(string path, string childPath)
+        {
+            return IsDirectChildPath(childPath, path);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 두 경로가 동일하거나 상위·하위 관계인지 판정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsRelatedPath(string path, string otherPath)
+        {
+            return IsSameOrDescendantPath(path, otherPath)
+                || IsSameOrAncestorPath(path, otherPath);
         }
 
     #endregion

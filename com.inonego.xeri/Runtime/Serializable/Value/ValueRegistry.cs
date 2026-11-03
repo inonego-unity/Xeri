@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ValueRegistry.cs
-수정일 : 2026-09-18
+수정일 : 2026-11-07
 
 # 설명
-이름 붙은 string/int/float/flag 값을 하나의 직렬화 가능한 Registry로 관리하고 runtime 변경을 알린다.
+이름 붙은 string/int/float/flag 값을 타입별 런타임 컬렉션에 보관하고 변경을 알린다.
+Unity 직렬화 콜백에서 런타임 값과 저장용 목록을 동기화한다.
 
 # 제약사항
 하나의 Key는 하나의 값 타입에만 속하며 구조화된 도메인 State를 대신하지 않는다.
@@ -17,33 +18,33 @@ using UnityEngine;
 
 namespace inonego.Xeri.Serializable
 {
-    // ============================================================
+    // ======================================================================
     /// <summary>
-    /// 이름 붙은 여러 primitive 값을 타입별로 관리하는 직렬화 가능한 Registry.
+    /// <br/> 이름 붙은 primitive 값과 Flag를 타입별 런타임 컬렉션에 보관한다.
+    /// <br/> Unity 직렬화 과정에서 저장 목록과 런타임 상태를 동기화한다.
     /// </summary>
-    // ============================================================
+    // ======================================================================
     [Serializable]
-    public class ValueRegistry
+    public class ValueRegistry : ISerializationCallbackReceiver
     {
 
     #region 필드
 
+        public IReadOnlyDictionary<string, string> ValSs => valSs;
         [SerializeField]
         private XDictionary_VV<string, string> valSs = new();
 
+        public IReadOnlyDictionary<string, int> ValIs => valIs;
         [SerializeField]
         private XDictionary_VV<string, int> valIs = new();
 
+        public IReadOnlyDictionary<string, float> ValFs => valFs;
         [SerializeField]
         private XDictionary_VV<string, float> valFs = new();
 
+        public IReadOnlyCollection<string> ValFlags => valFlags;
         [SerializeField]
         private XHashSet_V<string> valFlags = new();
-
-        public IReadOnlyDictionary<string, string> ValSs => valSs;
-        public IReadOnlyDictionary<string, int> ValIs => valIs;
-        public IReadOnlyDictionary<string, float> ValFs => valFs;
-        public IReadOnlyCollection<string> ValFlags => valFlags;
 
     #endregion
 
@@ -55,6 +56,37 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         public event Action OnChange = null;
+
+    #endregion
+
+    #region 직렬화와 런타임 투영
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> Unity 저장 전에 네 컬렉션의 런타임 값을 직렬화 목록에 반영한다.
+        /// <br/> 개별 컬렉션의 명시적 ApplyRuntime 계약을 이 Registry에서 수행한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void OnBeforeSerialize()
+        {
+            ((ISerializedRuntimeCollection)valSs).ApplyRuntime();
+            ((ISerializedRuntimeCollection)valIs).ApplyRuntime();
+            ((ISerializedRuntimeCollection)valFs).ApplyRuntime();
+            ((ISerializedRuntimeCollection)valFlags).ApplyRuntime();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 역직렬화 후 저장 목록을 타입별 런타임 컬렉션으로 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void OnAfterDeserialize()
+        {
+            ((ISerializedRuntimeCollection)valSs).UpdateRuntime();
+            ((ISerializedRuntimeCollection)valIs).UpdateRuntime();
+            ((ISerializedRuntimeCollection)valFs).UpdateRuntime();
+            ((ISerializedRuntimeCollection)valFlags).UpdateRuntime();
+        }
 
     #endregion
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorModelBase.cs
-수정일 : 2026-11-01
+수정일 : 2026-11-03
 
 # 설명
 Collection Editor Model의 직렬화 편집, 변경 확정 및 Runtime 동기화를 관리한다.
@@ -140,6 +140,7 @@ namespace inonego.Xeri.Serializable.Editor
             SerializedObject = property.serializedObject;
             CollectionPropertyPath = property.propertyPath;
             Label = property.displayName;
+            RevisionTracker.Observe(property);
             CaptureCommittedSnapshot();
         }
 
@@ -458,12 +459,22 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 외부 직렬화 변경을 같은 컬렉션을 보는 모든 Model에 알린다.
+        /// 현재 컬렉션이 마지막 확인 상태에서 실제 변경되었는지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public void ObserveExternalChange()
+        public bool ObserveExternalChange()
         {
-            RevisionTracker.Advance(SerializedObject.targetObject, CollectionPropertyPath);
+            SerializedObject.UpdateIfRequiredOrScript();
+            var property = GetCollectionProperty();
+            // 관찰 기준은 Model이 아니라 대상 객체와 경로별로 공유한다.
+            RevisionTracker.Observe(property);
+            if (committedSnapshot?.Matches(property) == true)
+            {
+                return false;
+            }
+
+            CaptureCommittedSnapshot();
+            return true;
         }
 
         // ------------------------------------------------------------
@@ -473,8 +484,8 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public void Synchronize()
         {
-            SerializedObject.UpdateIfRequiredOrScript();
-            CaptureCommittedSnapshot();
+            // UI 새로고침이 바인딩 감시보다 먼저 실행되어도 외부 변경을 놓치지 않는다.
+            ObserveExternalChange();
         }
 
         // ------------------------------------------------------------
@@ -486,6 +497,8 @@ namespace inonego.Xeri.Serializable.Editor
         {
             SerializedObject.UpdateIfRequiredOrScript();
             RestoreOwner();
+            // Undo 복원 결과도 공유 관찰 기준에 반영해 다음 UI 알림을 중복 처리하지 않는다.
+            RevisionTracker.Observe(GetCollectionProperty());
             CaptureCommittedSnapshot();
         }
 
@@ -511,8 +524,10 @@ namespace inonego.Xeri.Serializable.Editor
         public bool CommitPropertyChange(SerializedProperty property)
         {
             if (isCommitting || property == null
-                || property.propertyPath != CollectionPropertyPath
-                    && !property.propertyPath.StartsWith(CollectionPropertyPath + ".", StringComparison.Ordinal)
+                || !SerializedPropertyHelper.IsSameOrDescendantPath
+                (
+                    property.propertyPath, CollectionPropertyPath
+                )
                 || property.serializedObject != SerializedObject)
             {
                 return false;
@@ -535,7 +550,8 @@ namespace inonego.Xeri.Serializable.Editor
         public void CommitValueChange(string propertyPath)
         {
             if (string.IsNullOrEmpty(propertyPath)
-                || !propertyPath.StartsWith(CollectionPropertyPath + ".", StringComparison.Ordinal))
+                || propertyPath == CollectionPropertyPath
+                || !SerializedPropertyHelper.IsSameOrDescendantPath(propertyPath, CollectionPropertyPath))
             {
                 return;
             }
@@ -640,11 +656,24 @@ namespace inonego.Xeri.Serializable.Editor
 
                 RefreshOwner();
                 SerializedObject.Update();
-                CaptureCommittedSnapshot();
 
+                // 세대 갱신과 로컬 스냅샷 기록을 마친 뒤 다른 Editor에 통지한다.
                 foreach (var target in SerializedObject.targetObjects)
                 {
-                    RevisionTracker.Advance(target, CollectionPropertyPath);
+                    if (target == SerializedObject.targetObject)
+                    {
+                        RevisionTracker.Advance(SerializedObject, CollectionPropertyPath);
+                    }
+                    else
+                    {
+                        using var other = new SerializedObject(target);
+                        RevisionTracker.Advance(other, CollectionPropertyPath);
+                    }
+                }
+
+                CaptureCommittedSnapshot();
+                foreach (var target in SerializedObject.targetObjects)
+                {
                     EditorUtility.SetDirty(target);
                     Committed?.Invoke(target, CollectionPropertyPath, ReordersRowsOnCommit(propertyPath) ? null : propertyPath);
                 }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionRowDragController.cs
-수정일 : 2026-10-28
+수정일 : 2026-11-03
 
 # 설명
 Unity 기본 ListView 드래그와 원본 행의 삽입형 이동 요청을 연결한다.
@@ -46,6 +46,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         private int dragSourceIndex = -1;
         private ulong originalRevision;
+        private SerializedPropertyLocator dragSourceLocator;
         private bool isBound;
 
     #endregion
@@ -178,6 +179,12 @@ namespace inonego.Xeri.Serializable.Editor
         {
             CancelDrag();
 
+            // 갱신되지 않은 화면에서 이전 행을 새 드래그 대상으로 잡지 않는다.
+            if (model.ObserveExternalChange())
+            {
+                return false;
+            }
+
             var pageIndex = args.id;
             if (pageIndex < 0 || pageIndex >= searchPagedRows.PageItems.Count)
             {
@@ -192,6 +199,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             dragSourceIndex = sourceIndex;
             originalRevision = model.Revision;
+            dragSourceLocator = new SerializedPropertyLocator(model.GetRowProperty(sourceIndex));
             selectPageRow(pageIndex);
             return true;
         }
@@ -236,7 +244,11 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         private DragVisualMode HandleDrop(HandleDragAndDropArgs args)
         {
-            if (!CanDrop(args) || model.Revision != originalRevision)
+            // 비동기 바인딩 알림이 오기 전에 실행되더라도 오래된 드래그를 거절한다.
+            model.ObserveExternalChange();
+            if (!CanDrop(args) || model.Revision != originalRevision
+                || dragSourceLocator == null
+                || !dragSourceLocator.TryResolve(model.SerializedObject, out _, out _))
             {
                 return DragVisualMode.Rejected;
             }
@@ -275,6 +287,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             dragSourceIndex = -1;
             originalRevision = 0;
+            dragSourceLocator = null;
             listView.Query<VisualElement>(className: "xeri-collection__drag-handle").ForEach
             (
                 handle => handle.RemoveFromClassList("xeri-collection__drag-handle--active")

@@ -1,12 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_CollectionEditor_Window.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-03
 
 # 설명
 키와 정렬 순서의 구조 변경, 임시 버퍼 적용과 상세 편집창의 원본 갱신을 검증한다.
 
 # 테스트 구성
- W: 구조 변경과 상세 편집창 통합
+ W: 구조 변경·상세 편집창·지연 명령 통합
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -278,6 +278,59 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             {
                 editor?.Close();
             }
+        }
+
+    #endregion
+
+    #region W-2: 지연된 행 명령의 유효성
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// UI 관찰 이전의 외부 변경도 지연된 행 명령 실행 시 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [UnityTest]
+        public IEnumerator TEST_CollectionEditor_외부변경후_지연행명령은_실행하지않음()
+        {
+            var view = new CollectionEditorView(model);
+            Show(view);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var isCurrent = typeof(CollectionEditorView).GetMethod("IsCurrentPageRow", flags);
+            var execute = typeof(CollectionEditorView).GetMethod("ExecuteContextRowAction", flags);
+            Assert.IsNotNull(isCurrent);
+            Assert.IsNotNull(execute);
+
+            yield return WaitForBinding
+            (
+                () => (bool)isCurrent.Invoke
+                (
+                    view,
+                    new object[]
+                    {
+                        0, 0,
+                    }
+                )
+            );
+
+            var originalRevision = model.Revision;
+            var rowLocator = new SerializedPropertyLocator(model.GetRowProperty(0));
+            GetValueProperty().intValue = 7;
+            serializedObject.ApplyModifiedProperties();
+            target.Value.OnAfterDeserialize();
+
+            var executed = false;
+            execute.Invoke
+            (
+                view,
+                new object[]
+                {
+                    0, 0, originalRevision, rowLocator,
+                    (Action)(() => executed = true),
+                }
+            );
+
+            Assert.IsFalse(executed);
+            Assert.AreNotEqual(originalRevision, model.Revision);
         }
 
     #endregion

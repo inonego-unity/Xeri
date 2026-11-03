@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorView.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-03
 
 # 설명
 Collection Model의 표시 순서와 변경 명령을 Inspector의 검색·선택·페이지에 연결한다.
@@ -686,8 +686,12 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            // 다른 Inspector나 외부 직렬화 변경도 같은 컬렉션의 세대에 반영한다.
-            model.ObserveExternalChange();
+            // 전체 SerializedObject 알림 중 실제 컬렉션 변경만 표시 갱신한다.
+            if (!model.ObserveExternalChange())
+            {
+                return;
+            }
+
             displayedRevision = model.Revision;
             RequestRefresh(model.CollectionPropertyPath);
         }
@@ -765,30 +769,13 @@ namespace inonego.Xeri.Serializable.Editor
             CloseRowContextMenu();
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 컬렉션의 상위·하위 경로에서 발생한 변경인지 확인한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static bool IsRelatedCollectionPath(string watchedPath, string changedPath)
-        {
-            if (string.IsNullOrEmpty(watchedPath) || string.IsNullOrEmpty(changedPath))
-            {
-                return false;
-            }
-
-            return watchedPath == changedPath
-                || watchedPath.StartsWith(changedPath + ".", StringComparison.Ordinal)
-                || changedPath.StartsWith(watchedPath + ".", StringComparison.Ordinal);
-        }
-
         private void HandleExternalChange
         (
             UnityEngine.Object target, string path, string propertyPath
         )
         {
             if (target != model.SerializedObject.targetObject
-                || !IsRelatedCollectionPath(model.CollectionPropertyPath, path))
+                || !SerializedPropertyHelper.IsRelatedPath(model.CollectionPropertyPath, path))
             {
                 return;
             }
@@ -1138,6 +1125,14 @@ namespace inonego.Xeri.Serializable.Editor
         {
             CloseRowContextMenu();
 
+            // 화면에 남은 행과 현재 원본이 다르면 이전 표시에서 명령을 만들지 않는다.
+            if (model.ObserveExternalChange()
+                || model.Revision != displayedRevision || pendingRefresh)
+            {
+                RequestRefresh();
+                return;
+            }
+
             if (pageIndex < 0 && TryGetSelectedSourceIndex(out var selectedSource))
             {
                 pageIndex = listView.selectedIndex;
@@ -1145,6 +1140,9 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             var hasSelection = IsCurrentPageRow(pageIndex, sourceIndex);
+            var rowLocator = hasSelection
+                ? new SerializedPropertyLocator(model.GetRowProperty(sourceIndex))
+                : null;
             var canPaste = false;
             if (hasSelection && !isReadOnly)
             {
@@ -1162,27 +1160,27 @@ namespace inonego.Xeri.Serializable.Editor
             rowContextMenu.AddAction
             (
                 "행 복제",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, HandleDuplicateSelected),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, HandleDuplicateSelected),
                 enabled: hasSelection && !isReadOnly, shortcut: modifier + "D"
             );
             rowContextMenu.AddSeparator();
             rowContextMenu.AddAction
             (
                 "행 전체 복사",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, HandleCopySelected),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, HandleCopySelected),
                 enabled: hasSelection, shortcut: modifier + "C"
             );
             rowContextMenu.AddAction
             (
                 "행 전체 붙여넣기",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, HandlePasteSelected),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, HandlePasteSelected),
                 enabled: canPaste, shortcut: modifier + "V"
             );
             rowContextMenu.AddSeparator();
             rowContextMenu.AddAction
             (
                 "인덱스로 이동...",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, OpenMoveIndex),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, OpenMoveIndex),
                 enabled: hasSelection && !isReadOnly && model.CanReorder
                     && string.IsNullOrWhiteSpace(searchPagedRows.SearchText)
             );
@@ -1190,13 +1188,13 @@ namespace inonego.Xeri.Serializable.Editor
             rowContextMenu.AddAction
             (
                 "위로 이동",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, () => HandleMoveSelected(-1)),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, () => HandleMoveSelected(-1)),
                 enabled: hasSelection && CanMoveSelected(-1, out _)
             );
             rowContextMenu.AddAction
             (
                 "아래로 이동",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, () => HandleMoveSelected(1)),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, () => HandleMoveSelected(1)),
                 enabled: hasSelection && CanMoveSelected(1, out _)
             );
             rowContextMenu.AddSeparator();
@@ -1205,7 +1203,7 @@ namespace inonego.Xeri.Serializable.Editor
             rowContextMenu.AddAction
             (
                 "행 삭제",
-                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, HandleRemove),
+                () => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, HandleRemove),
                 enabled: hasSelection && !isReadOnly, shortcut: deleteShortcut
             );
             rowContextMenu.Open(worldPosition);
@@ -1218,12 +1216,16 @@ namespace inonego.Xeri.Serializable.Editor
         // ----------------------------------------------------------------------
         private void ExecuteContextRowAction
         (
-            int pageIndex, int sourceIndex, ulong originalRevision, Action execute
+            int pageIndex, int sourceIndex, ulong originalRevision,
+            SerializedPropertyLocator rowLocator, Action execute
         )
         {
-            model.SerializedObject.UpdateIfRequiredOrScript();
+            // UI Toolkit 관찰 콜백보다 먼저 명령이 실행돼도 원본 변경을 검사한다.
+            model.ObserveExternalChange();
             if (model.Revision != originalRevision
-                || !IsCurrentPageRow(pageIndex, sourceIndex))
+                || !IsCurrentPageRow(pageIndex, sourceIndex)
+                || rowLocator == null
+                || !rowLocator.TryResolve(model.SerializedObject, out _, out _))
             {
                 LogCommandFailure("행이 변경되어 명령을 실행하지 않았습니다.");
                 RefreshRows();
@@ -1725,18 +1727,31 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
+            if (model.ObserveExternalChange())
+            {
+                RefreshRows();
+                return;
+            }
+
             var originalCount = model.Count;
             var originalRevision = model.Revision;
+            var rowLocator = new SerializedPropertyLocator(model.GetRowProperty(sourceIndex));
             CollectionRowMoveWindow.Open
             (
                 sourceIndex, originalCount,
                 destinationIndex =>
                 {
-                    if (panel == null
-                        || isReadOnly || !model.CanReorder
+                    if (panel == null)
+                    {
+                        return;
+                    }
+
+                    model.ObserveExternalChange();
+                    if (isReadOnly || !model.CanReorder
                         || !string.IsNullOrWhiteSpace(searchPagedRows.SearchText)
                         || model.Count != originalCount
                         || model.Revision != originalRevision
+                        || !rowLocator.TryResolve(model.SerializedObject, out _, out _)
                         || !TryGetSelectedSourceIndex(out var selectedIndex)
                         || selectedIndex != sourceIndex)
                     {
