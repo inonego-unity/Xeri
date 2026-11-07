@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TimerPropertyDrawer.cs
-수정일 : 2026-05-02
+수정일 : 2026-11-07
 
 # 설명
 Timer/ITimer/IReadOnlyTimer 의 UI Toolkit 기반 PropertyDrawer.
@@ -39,8 +39,8 @@ namespace inonego.Xeri
 
     #region 필드
 
-        private static readonly Color ProgressColorPro      = new(0.3f, 0.6f, 1f, 0.8f);
-        private static readonly Color ProgressColorPersonal = new(0.2f, 0.4f, 0.8f, 0.8f);
+        private static readonly Color progressColorPro      = new(0.3f, 0.6f, 1f, 0.8f);
+        private static readonly Color progressColorPersonal = new(0.2f, 0.4f, 0.8f, 0.8f);
 
     #endregion
 
@@ -62,7 +62,10 @@ namespace inonego.Xeri
 
             var root = LoadRoot();
 
-            if (root == null) return new Label($"[{GetType().Name}] UXML을 찾을 수 없습니다.");
+            if (root == null)
+            {
+                return new Label($"[{GetType().Name}] UXML을 찾을 수 없습니다.");
+            }
 
             root.Q<Label>("field-label").text = ObjectNames.NicifyVariableName(property.name);
 
@@ -70,7 +73,7 @@ namespace inonego.Xeri
             var progressFill = root.Q<VisualElement>("progress-fill");
             var progressText = root.Q<Label>("progress-text");
 
-            progressFill.style.backgroundColor = EditorGUIUtility.isProSkin ? ProgressColorPro : ProgressColorPersonal;
+            progressFill.style.backgroundColor = EditorGUIUtility.isProSkin ? progressColorPro : progressColorPersonal;
 
             FloatField    durationField = null;
             VisualElement buttonArea    = null;
@@ -79,7 +82,10 @@ namespace inonego.Xeri
             // 수정 전 스냅샷 등록 — 이후 변경이 Undo 대상이 된다.
             void Execute(string undoName, Action<ITimer> action)
             {
-                if (timer == null) return;
+                if (timer == null)
+                {
+                    return;
+                }
 
                 Undo.RecordObject(targetObject, undoName);
 
@@ -92,19 +98,26 @@ namespace inonego.Xeri
             // 타이머 상태가 변경된 경우에만 버튼 영역을 재구성한다.
             void RefreshButtonArea(TimerState state)
             {
-                if (lastState == state) return;
+                if (lastState == state)
+                {
+                    return;
+                }
+
                 lastState = state;
 
                 buttonArea.Clear();
 
                 if (state == TimerState.Ready)
                 {
-                    // Stop/Reset 후 cached 값으로 복원
-                    if (timer != null) durationField.SetValueWithoutNotify(timer.cached);
+                    // Stop/Reset 후 Cached 값으로 복원
+                    if (timer != null)
+                    {
+                        durationField.SetValueWithoutNotify(timer.Cached);
+                    }
 
                     void Play()
                     {
-                        var duration = timer?.cached ?? 0f;
+                        var duration = timer?.Cached ?? 0f;
                         Execute("타이머 시작", t => t.Start(duration));
                     }
 
@@ -126,7 +139,10 @@ namespace inonego.Xeri
             // 50ms 간격으로 호출되어 상태·진행률 및 컨트롤 요소를 갱신한다.
             void Refresh()
             {
-                if (readOnlyTimer == null) return;
+                if (readOnlyTimer == null)
+                {
+                    return;
+                }
 
                 var state    = readOnlyTimer.Current;
                 var duration = readOnlyTimer.Duration;
@@ -149,10 +165,10 @@ namespace inonego.Xeri
 
                 if (timer != null)
                 {
-                    durationField.SetValueWithoutNotify(timer.cached);
+                    durationField.SetValueWithoutNotify(timer.Cached);
                 }
 
-                durationField.RegisterValueChangedCallback(e => Execute("타이머 Duration 변경", t => t.cached = e.newValue));
+                durationField.RegisterValueChangedCallback(e => Execute("타이머 Duration 변경", t => t.Cached = e.newValue));
 
                 buttonArea = root.Q<VisualElement>("button-area");
             }
@@ -180,11 +196,17 @@ namespace inonego.Xeri
             var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>($"{dir}/TimerPropertyDrawer.uxml");
             var uss  = AssetDatabase.LoadAssetAtPath<StyleSheet>($"{dir}/TimerPropertyDrawer.uss");
 
-            if (uxml == null) return null;
+            if (uxml == null)
+            {
+                return null;
+            }
 
             var root = uxml.CloneTree();
 
-            if (uss != null) root.styleSheets.Add(uss);
+            if (uss != null)
+            {
+                root.styleSheets.Add(uss);
+            }
 
             return root;
         }

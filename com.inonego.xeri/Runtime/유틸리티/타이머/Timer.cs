@@ -77,7 +77,7 @@ namespace inonego.Xeri.Utility
         // ------------------------------------------------------------
         [SerializeField]
         internal TValue cached = default;
-        TValue ITimer.cached
+        TValue ITimer.Cached
         {
             get => cached; 
             set => cached = value;

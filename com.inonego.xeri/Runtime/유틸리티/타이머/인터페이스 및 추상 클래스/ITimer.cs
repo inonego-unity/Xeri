@@ -50,7 +50,7 @@ namespace inonego.Xeri.Utility
         /// Start 시 사용할 duration 값. Stop/Reset 후에도 유지된다.
         /// </summary>
         // ------------------------------------------------------------
-        internal TValue cached { get; set; }
+        internal TValue Cached { get; set; }
 
     #endregion
 

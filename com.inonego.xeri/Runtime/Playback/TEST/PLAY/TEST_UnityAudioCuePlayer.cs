@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UnityAudioCuePlayer.cs
-수정일 : 2026-09-05
+수정일 : 2026-11-02
 
 # 설명
 UnityAudioCuePlayer의 AudioSource Pool, 공간 재생과 Playback 수명 계약을 검증한다.
@@ -11,11 +11,13 @@ UnityAudioCuePlayer의 AudioSource Pool, 공간 재생과 Playback 수명 계약
  L: Audio Playback 자연 종료
 ========================================================================= BLOCK_HEADER_END */
 
+using System;
 using System.Collections;
 
 using UnityEngine;
 using UnityEngine.TestTools;
 
+using NUnit;
 using NUnit.Framework;
 
 using inonego;
@@ -70,11 +72,11 @@ namespace inonego.Xeri.TEST._Playback
             return source;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 비활성 Host에서 source 설정을 완료한 뒤 실제 Awake 경로로 Player를 초기화한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         private static UnityAudioCuePlayer CreatePlayer(GameObject root, AudioSource sourcePrefab)
         {
             root.SetActive(false);
@@ -109,11 +111,11 @@ namespace inonego.Xeri.TEST._Playback
 
     #region C-1: Audio Playback 제어
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 재생 결과는 Clock과 Pause·Resume을 제공하고 즉시 종료하면 voice를 Pool로 반환한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [Test]
         public void TEST_UnityAudioCuePlayer_재생제어와_즉시종료가_같은Playback에_반영()
         {
@@ -130,9 +132,14 @@ namespace inonego.Xeri.TEST._Playback
 
             try
             {
-
                 var player = CreatePlayer(root, sourcePrefab);
-                var service = new CuePlaybackService(new ICuePlayer[] { player });
+                var service = new CuePlaybackService
+                (
+                    new ICuePlayer[]
+                    {
+                        player
+                    }
+                );
                 var playback = service.Play(cue) as IAudioPlayback;
                 var source = FindActiveSource(root, clip);
 
@@ -175,12 +182,12 @@ namespace inonego.Xeri.TEST._Playback
 
     #region S-1: 동시·공간 재생과 voice 재사용
 
-        // ----------------------------------------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// <br/> 동시 position·emitter 재생은 서로 다른 voice를 사용하고 emitter 이동을 반영한다.
         /// <br/> 반환된 voice는 후속 2D 재생에 재사용되며 이전 Playback은 새 재생을 변경하지 않는다.
         /// </summary>
-        // ----------------------------------------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [UnityTest]
         public IEnumerator TEST_UnityAudioCuePlayer_공간동시재생후_voice를_안전하게_재사용()
         {
@@ -299,7 +306,9 @@ namespace inonego.Xeri.TEST._Playback
 
                 Assert.AreEqual(CuePlaybackState.Draining, playback.State);
 
-                for (var i = 0; i < 120 && playback.State != CuePlaybackState.Released; i++)
+                var deadline = Time.realtimeSinceStartup + 2.0f;
+                while (Time.realtimeSinceStartup < deadline &&
+                       playback.State != CuePlaybackState.Released)
                 {
                     yield return null;
                 }

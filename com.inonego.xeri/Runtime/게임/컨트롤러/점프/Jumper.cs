@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Jumper.cs
-수정일 : 2026-08-02
+수정일 : 2026-11-07
 
 # 설명
 IJumper 구현체.
@@ -217,7 +217,15 @@ namespace inonego.Xeri.Game.Controller
             Count--;
             isJumping = true;
 
-            OnJump?.Invoke(this, new() { MaxCount = MaxCount, Count = Count });
+            OnJump?.Invoke
+            (
+                this,
+                new()
+                {
+                    MaxCount = MaxCount,
+                    Count = Count
+                }
+            );
             return true;
         }
 

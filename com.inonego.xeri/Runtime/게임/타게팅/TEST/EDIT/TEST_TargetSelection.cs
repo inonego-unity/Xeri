@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_TargetSelection.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-02
 
 # 설명
 공통 IFilter 기반 Single / All / Top N 선택과 직접 누적 선택의 외부 계약을 검증한다.
@@ -412,7 +412,7 @@ namespace inonego.Xeri.TEST.Game._Targeting
             (
                 candidates, 0, scorer, destination
             );
-            Action negative = () => TargetSelector.SelectTop
+            TestDelegate negative = () => TargetSelector.SelectTop
             (
                 candidates, -1, scorer, destination
             );
@@ -436,7 +436,7 @@ namespace inonego.Xeri.TEST.Game._Targeting
             };
             Func<Candidate, float> scorer = candidate => candidate.ID == 2
                 ? throw new InvalidOperationException() : candidate.Score;
-            Action select = () => TargetSelector.SelectTop
+            TestDelegate select = () => TargetSelector.SelectTop
             (
                 candidates, 2, scorer, destination
             );
@@ -460,7 +460,7 @@ namespace inonego.Xeri.TEST.Game._Targeting
                     ? throw new InvalidOperationException()
                     : true
             );
-            Action select = () => TargetSelector.SelectAll(candidates, destination, filter);
+            TestDelegate select = () => TargetSelector.SelectAll(candidates, destination, filter);
 
             Assert.Throws<InvalidOperationException>(select);
             Assert.AreEqual(1, destination.Count);
@@ -475,13 +475,13 @@ namespace inonego.Xeri.TEST.Game._Targeting
             Func<Candidate, float> scorer = candidate => candidate.Score;
 
             var acceptAll = new PredicateFilter<Candidate>(null);
-            Action allNullSource = () => TargetSelector.SelectAll(null, destination);
-            Action allNullDestination = () => TargetSelector.SelectAll(candidates, null);
-            Action selectNullScorer = () => TargetSelector.TrySelect
+            TestDelegate allNullSource = () => TargetSelector.SelectAll(null, destination);
+            TestDelegate allNullDestination = () => TargetSelector.SelectAll(candidates, null);
+            TestDelegate selectNullScorer = () => TargetSelector.TrySelect
             (
                 candidates, (Func<Candidate, float>)null, out _
             );
-            Action topNullDestination = () => TargetSelector.SelectTop
+            TestDelegate topNullDestination = () => TargetSelector.SelectTop
             (
                 candidates, 1, scorer, null
             );
