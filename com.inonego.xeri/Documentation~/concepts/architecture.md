@@ -37,3 +37,4 @@ Unity / File / Addressables / UI backend
 - [소유권과 수명](ownership-and-lifetime.md)
 - [확장 계약](extension-contracts.md)
 - [모듈 목록](../modules/index.md)
+- [Gameplay Framework 시스템 구조](../modules/game/gameplay-framework.md)

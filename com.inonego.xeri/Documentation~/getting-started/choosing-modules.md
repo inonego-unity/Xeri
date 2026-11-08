@@ -36,6 +36,9 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | HP와 Alive/Dead 상태 | Game / HP |
 | 2D/3D 보드 배치 | Game / Board |
 | 상호작용 후보 선택과 사용 전달 | Game / Use |
+| Ability Definition·State·Entry별 Binding과 사용 승인 | Game / Gameplay Framework (Ability/Activation) |
+| 실행별 Flow·Trigger·Host 실행 경계 | Game / Gameplay Framework (Execution) |
+| 위치·Target·접촉·실제 게임 Result를 연결 | Spatial / Targeting / Delivery / GameplayOperation |
 | Signal → Guard → Action 연결 | Game / Reaction |
 | AI 판단 대상 수명 경계 | Game / AI Group + Brain |
 

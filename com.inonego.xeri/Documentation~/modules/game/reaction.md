@@ -2,6 +2,8 @@
 
 Xeri Reaction은 Signal을 선택적 Guard 판정 뒤 Action Target 실행으로 연결하는 얇은 Runtime binding입니다.
 
+**구분:** 이 Reaction은 `ISignalSource`와 `IActionTarget`의 연결을 의미합니다. 원소 반응·실제 피해/회복 결과·Ability의 Cost/Execution 승인 시스템이 아닙니다. 게임의 해당 경계는 [Gameplay Framework](gameplay-framework.md)를 참고합니다.
+
 ## 왜 필요한가
 
 상호작용, 트리거, UI 이벤트 같은 Signal Source가 프로젝트 도메인 메서드를 직접 호출하기 시작하면 Source가 Door, Quest, UI 같은 구체 타입을 알아야 합니다. Reaction은 Source와 Target 사이에 최소 Context와 선택적 Guard만 두어 사건 발생과 실제 효과를 분리합니다.

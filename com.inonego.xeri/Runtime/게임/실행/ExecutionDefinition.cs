@@ -72,11 +72,7 @@ namespace inonego.Xeri.Game
         /// 지정된 Flow와 Behavior 정의로 실행 구성을 생성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public ExecutionDefinition
-        (
-            ExecutionFlowDefinition flow,
-            ExecutionBehaviorDefinition[] behaviors = null
-        )
+        public ExecutionDefinition(ExecutionFlowDefinition flow, ExecutionBehaviorDefinition[] behaviors = null)
         {
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.behaviors = behaviors ?? Array.Empty<ExecutionBehaviorDefinition>();
@@ -91,11 +87,7 @@ namespace inonego.Xeri.Game
         /// Flow와 Behavior 정의에서 새 Runtime을 구성하며 정의 자체는 실행 상태를 보관하지 않는다.
         /// </summary>
         // --------------------------------------------------------------------------------
-        public ExecutionSession CreateSession
-        (
-            ulong executionID,
-            in ExecutionContext context
-        )
+        public ExecutionSession CreateSession(ulong executionID, in ExecutionContext context)
         {
             if (flow == null)
             {

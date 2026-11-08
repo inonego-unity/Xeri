@@ -33,7 +33,7 @@ namespace inonego.Xeri.Game
     public readonly struct ExecutionSignal : IEquatable<ExecutionSignal>
     {
 
-    #region 키
+    #region 키 및 생성자
 
         // ------------------------------------------------------------
         /// <summary>
@@ -48,10 +48,6 @@ namespace inonego.Xeri.Game
         /// </summary>
         // ------------------------------------------------------------
         public bool IsValid => !string.IsNullOrWhiteSpace(Key);
-
-    #endregion
-
-    #region 생성자
 
         // ------------------------------------------------------------
         /// <summary>
@@ -68,21 +64,17 @@ namespace inonego.Xeri.Game
             Key = key.Trim();
         }
 
+        public override string ToString() => Key ?? string.Empty;
+
     #endregion
 
-    #region 값 비교
+    #region 동등성
 
         public bool Equals(ExecutionSignal other) => string.Equals(Key, other.Key, StringComparison.Ordinal);
-
         public override bool Equals(object obj) => obj is ExecutionSignal other && Equals(other);
-
         public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Key ?? string.Empty);
-
         public static bool operator ==(ExecutionSignal left, ExecutionSignal right) => left.Equals(right);
-
         public static bool operator !=(ExecutionSignal left, ExecutionSignal right) => !left.Equals(right);
-
-        public override string ToString() => Key ?? string.Empty;
 
     #endregion
 
@@ -108,8 +100,6 @@ namespace inonego.Xeri.Game
     public readonly struct ExecutionCommand
     {
 
-    #region 키
-
         // ------------------------------------------------------------
         /// <summary>
         /// 명령을 식별하는 키.
@@ -123,10 +113,6 @@ namespace inonego.Xeri.Game
         /// </summary>
         // ------------------------------------------------------------
         public bool IsValid => !string.IsNullOrWhiteSpace(Key);
-
-    #endregion
-
-    #region 생성자
 
         // ------------------------------------------------------------
         /// <summary>
@@ -143,8 +129,6 @@ namespace inonego.Xeri.Game
             Key = key.Trim();
         }
 
-    #endregion
-
     }
 
     // ============================================================
@@ -154,8 +138,6 @@ namespace inonego.Xeri.Game
     // ============================================================
     public readonly struct ExecutionContext
     {
-
-    #region 실행 참조
 
         // ------------------------------------------------------------
         /// <summary>
@@ -171,10 +153,6 @@ namespace inonego.Xeri.Game
         // ------------------------------------------------------------
         public object Instigator { get; }
 
-    #endregion
-
-    #region 생성자
-
         // ------------------------------------------------------------
         /// <summary>
         /// 지속 소유자와 실행 주체를 묶는다.
@@ -185,8 +163,6 @@ namespace inonego.Xeri.Game
             Owner = owner;
             Instigator = instigator;
         }
-
-    #endregion
 
     }
 }

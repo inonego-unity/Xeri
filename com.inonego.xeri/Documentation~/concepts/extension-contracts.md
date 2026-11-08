@@ -38,3 +38,4 @@ Application UI의 Screen/Presentation/Window 계약은 [Xeri UI](https://inonego
 - [Xeri 구조](architecture.md)
 - [소유권과 수명](ownership-and-lifetime.md)
 - [모듈 목록](../modules/index.md)
+- [Gameplay Framework 시스템 구조](../modules/game/gameplay-framework.md)

@@ -596,11 +596,7 @@ namespace inonego.Xeri.Game
             return true;
         }
 
-        private void OnChildEnded
-        (
-            ExecutionSession child,
-            ExecutionEndReason reason
-        )
+        private void OnChildEnded(ExecutionSession child, ExecutionEndReason reason)
         {
             DetachChild(child);
         }

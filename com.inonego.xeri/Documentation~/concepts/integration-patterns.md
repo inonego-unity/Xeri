@@ -76,6 +76,7 @@ persistent Actor state와 gameplay policy는 프로젝트에 남기고 Xeri tran
 | Xeri가 제공하는 것 | 프로젝트가 결정하는 것 |
 |---|---|
 | `UseController`의 후보 선택과 사용 전달 | 후보를 어떻게 탐색할지, 어떤 입력을 사용할지 |
+| AbilityBindings·AbilityState·AbilityActivationPolicy·AbilityUseSelection·ExecutionSession | State/Context별 사용 후보 선택 정책, Host Slot·Cost/Begin 승인 순서, 실제 Resource/Combat Result·Effect Owner |
 | `CuePlaybackService`의 Player 선택과 Playback 수명 | 어떤 게임 사건에서 어떤 Cue를 재생할지 |
 | `GenerationSeed`의 결정적 파생 | 실제 생성 알고리즘과 stable key 체계 |
 | `TrackingBinding`의 resolve/commit 수명 | 무엇을 추적하고 어떤 좌표계로 변환할지 |
@@ -88,3 +89,4 @@ persistent Actor state와 gameplay policy는 프로젝트에 남기고 Xeri tran
 - [소유권과 수명](ownership-and-lifetime.md)
 - [확장 계약](extension-contracts.md)
 - [Runtime 모듈](../modules/index.md)
+- [Gameplay Framework — 상태 선택·Host와 결과 소유권](../modules/game/gameplay-framework.md)

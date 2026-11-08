@@ -149,11 +149,7 @@ namespace inonego.Xeri.Game
         /// 실행 명령을 판정하며 지원하지 않는 명령은 거부한다.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual ExecutionCommandResult Command
-        (
-            ExecutionSession session,
-            in ExecutionCommand command
-        )
+        public virtual ExecutionCommandResult Command(ExecutionSession session, in ExecutionCommand command)
         {
             return ExecutionCommandResult.Rejected;
         }
@@ -163,11 +159,7 @@ namespace inonego.Xeri.Game
         /// Execution이 종료될 때 Flow의 수명을 함께 마무리한다.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void End
-        (
-            ExecutionSession session,
-            ExecutionEndReason reason
-        )
+        public virtual void End(ExecutionSession session, ExecutionEndReason reason)
         {
             // NONE
         }
@@ -283,10 +275,7 @@ namespace inonego.Xeri.Game
         /// Timeline 지속 시간을 실행별 불변 값으로 복사한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal FixedTimelineExecutionFlowRuntime
-        (
-            FixedTimelineExecutionFlowDefinition definition
-        )
+        internal FixedTimelineExecutionFlowRuntime(FixedTimelineExecutionFlowDefinition definition)
         {
             if (definition == null)
             {
@@ -513,10 +502,7 @@ namespace inonego.Xeri.Game
         /// HoldRelease 설정을 실행별 불변 값으로 복사한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal HoldReleaseExecutionFlowRuntime
-        (
-            HoldReleaseExecutionFlowDefinition definition
-        )
+        internal HoldReleaseExecutionFlowRuntime(HoldReleaseExecutionFlowDefinition definition)
         {
             if (definition == null)
             {
@@ -576,11 +562,7 @@ namespace inonego.Xeri.Game
         /// Release 명령을 수락하거나 최소 유지 시간까지 처리를 유예한다.
         /// </summary>
         // ------------------------------------------------------------
-        public override ExecutionCommandResult Command
-        (
-            ExecutionSession session,
-            in ExecutionCommand command
-        )
+        public override ExecutionCommandResult Command(ExecutionSession session, in ExecutionCommand command)
         {
             if (!command.IsValid || !string.Equals(command.Key, releaseCommandKey, StringComparison.Ordinal) || released)
             {

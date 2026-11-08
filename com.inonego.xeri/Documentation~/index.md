@@ -21,6 +21,7 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | 시작 순서를 구성한다 | [Bootstrapper](modules/core/bootstrapper.md) |
 | 작업 실행과 Undo/Redo history를 관리한다 | [Commanding과 DoSession](modules/commanding/do-session.md) |
 | Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |
+| Ability·Execution·Cost·Spatial·Delivery·Effect 소유권을 설계한다 | [Gameplay Framework 시스템 구조](modules/game/gameplay-framework.md) |
 | Entity와 Scene Actor를 0..N으로 분리하고 Presentation까지 조립한다 | [Entity Actor Runtime 조립하기](guides/game/compose-entity-actor-runtime.md) |
 | Screen/Modal/Window UI를 운영한다 | [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/) |
 | UGUI/UITK Drag & Drop 또는 Picker를 구성한다 | [UI Utilities](../Runtime/UI/README.md) |

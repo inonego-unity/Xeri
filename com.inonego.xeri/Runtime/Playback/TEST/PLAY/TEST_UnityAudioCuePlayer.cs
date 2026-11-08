@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UnityAudioCuePlayer.cs
-수정일 : 2026-11-02
+수정일 : 2026-11-08
 
 # 설명
 UnityAudioCuePlayer의 AudioSource Pool, 공간 재생과 Playback 수명 계약을 검증한다.
@@ -16,6 +16,7 @@ using System.Collections;
 
 using UnityEngine;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 using NUnit;
 using NUnit.Framework;

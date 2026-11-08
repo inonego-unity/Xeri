@@ -2,6 +2,8 @@
 
 Xeri Game은 게임 Runtime에서 반복되는 Entity, Spawn, Actor, Presentation, State, HP, AI, Zone, Board와 controller 기반 기능을 제공합니다.
 
+[Gameplay Framework 시스템 구조](../../Documentation~/modules/game/gameplay-framework.md)는 Ability·Execution·Spatial·Delivery와 게임별 Result·Owner의 연결을 설명합니다.
+
 ## 개요
 
 이 영역은 특정 프로젝트의 콘텐츠 데이터보다 게임 객체의 상태와 관계, 등록·해제 lifecycle을 재사용 가능한 계약으로 표현합니다.
@@ -27,6 +29,10 @@ Entity Key/Spawn, HP, FSM, AI Group, Board, Use/Reaction 같은 게임 Runtime �
 
 ## 주요 영역
 
+게임의 사용 승인·실행·실제 결과 흐름은 [Gameplay Framework](../../Documentation~/modules/game/gameplay-framework.md)를 기준으로 구분합니다.
+
+- `능력`·`실행`: Ability/Activation/ExecutionSession의 지속 상태·비용·실행 수명
+- `타게팅`·`전달`·`오퍼레이션`: 접촉과 실제 게임 결과의 경계
 - `엔티티`: Entity identity/lifecycle, Entity → Actor 0..N, Actor → Presentation 0..N, Actor runtime transaction
 - `스폰`: spawn/despawn 상태와 registry
 - `상태`: 상태 머신과 상태 계약

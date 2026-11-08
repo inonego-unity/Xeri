@@ -18,6 +18,8 @@ Dispose / Release / Close
 
 모든 모듈이 같은 타입을 사용하는 것은 아니지만, 반환된 수명 객체를 실제 사용 범위의 소유자가 보관한다는 원칙은 공통입니다.
 
+게임에서는 **Host Slot 권한·ExecutionSession·독립 Effect/World Object**가 다른 수명입니다. 실행 종료 후 다른 실제 Owner에게 인수된 결과는 그 Owner의 정책에 따라 유지됩니다.
+
 ## 주요 형태
 
 | 형태 | 의미 |
@@ -39,3 +41,4 @@ Dispose / Release / Close
 
 - [Xeri 구조](architecture.md)
 - [확장 계약](extension-contracts.md)
+- [Gameplay Framework — 실행과 독립 결과 소유권](../modules/game/gameplay-framework.md)

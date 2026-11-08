@@ -93,6 +93,8 @@
     href: https://inonego-unity.github.io/Xeri-UI/
 - name: Game
   items:
+  - name: Gameplay Framework — 시스템 구조와 사용 계약
+    href: modules/game/gameplay-framework.md
   - name: Entity와 Spawn 수명
     href: modules/game/entity-lifecycle.md
   - name: State Machine

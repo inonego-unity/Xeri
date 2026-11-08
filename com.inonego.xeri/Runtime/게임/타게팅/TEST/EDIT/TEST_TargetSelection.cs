@@ -412,15 +412,15 @@ namespace inonego.Xeri.TEST.Game._Targeting
             (
                 candidates, 0, scorer, destination
             );
-            TestDelegate negative = () => TargetSelector.SelectTop
-            (
-                candidates, -1, scorer, destination
-            );
+            void SelectNegativeCount()
+            {
+                TargetSelector.SelectTop(candidates, -1, scorer, destination);
+            }
 
             Assert.AreEqual(0, count);
             Assert.AreEqual(0, calls);
             Assert.AreEqual(0, destination.Count);
-            Assert.Throws<ArgumentOutOfRangeException>(negative);
+            Assert.Throws<ArgumentOutOfRangeException>(SelectNegativeCount);
         }
 
         [Test]
@@ -436,12 +436,12 @@ namespace inonego.Xeri.TEST.Game._Targeting
             };
             Func<Candidate, float> scorer = candidate => candidate.ID == 2
                 ? throw new InvalidOperationException() : candidate.Score;
-            TestDelegate select = () => TargetSelector.SelectTop
-            (
-                candidates, 2, scorer, destination
-            );
+            void SelectTopWithInvalidScore()
+            {
+                TargetSelector.SelectTop(candidates, 2, scorer, destination);
+            }
 
-            Assert.Throws<InvalidOperationException>(select);
+            Assert.Throws<InvalidOperationException>(SelectTopWithInvalidScore);
             Assert.AreEqual(1, destination.Count);
             Assert.AreEqual(99, destination[0].ID);
         }
@@ -460,9 +460,12 @@ namespace inonego.Xeri.TEST.Game._Targeting
                     ? throw new InvalidOperationException()
                     : true
             );
-            TestDelegate select = () => TargetSelector.SelectAll(candidates, destination, filter);
+            void SelectAllWithInvalidFilter()
+            {
+                TargetSelector.SelectAll(candidates, destination, filter);
+            }
 
-            Assert.Throws<InvalidOperationException>(select);
+            Assert.Throws<InvalidOperationException>(SelectAllWithInvalidFilter);
             Assert.AreEqual(1, destination.Count);
             Assert.AreEqual(1, destination[0].ID);
         }
@@ -475,22 +478,31 @@ namespace inonego.Xeri.TEST.Game._Targeting
             Func<Candidate, float> scorer = candidate => candidate.Score;
 
             var acceptAll = new PredicateFilter<Candidate>(null);
-            TestDelegate allNullSource = () => TargetSelector.SelectAll(null, destination);
-            TestDelegate allNullDestination = () => TargetSelector.SelectAll(candidates, null);
-            TestDelegate selectNullScorer = () => TargetSelector.TrySelect
-            (
-                candidates, (Func<Candidate, float>)null, out _
-            );
-            TestDelegate topNullDestination = () => TargetSelector.SelectTop
-            (
-                candidates, 1, scorer, null
-            );
+            void SelectAllWithNullSource()
+            {
+                TargetSelector.SelectAll(null, destination);
+            }
+
+            void SelectAllWithNullDestination()
+            {
+                TargetSelector.SelectAll(candidates, null);
+            }
+
+            void SelectSingleWithNullScorer()
+            {
+                TargetSelector.TrySelect(candidates, (Func<Candidate, float>)null, out _);
+            }
+
+            void SelectTopWithNullDestination()
+            {
+                TargetSelector.SelectTop(candidates, 1, scorer, null);
+            }
 
             Assert.IsTrue(acceptAll.IsMatch(new Candidate(1, 1f)));
-            Assert.Throws<ArgumentNullException>(allNullSource);
-            Assert.Throws<ArgumentNullException>(allNullDestination);
-            Assert.Throws<ArgumentNullException>(selectNullScorer);
-            Assert.Throws<ArgumentNullException>(topNullDestination);
+            Assert.Throws<ArgumentNullException>(SelectAllWithNullSource);
+            Assert.Throws<ArgumentNullException>(SelectAllWithNullDestination);
+            Assert.Throws<ArgumentNullException>(SelectSingleWithNullScorer);
+            Assert.Throws<ArgumentNullException>(SelectTopWithNullDestination);
         }
 
     #endregion

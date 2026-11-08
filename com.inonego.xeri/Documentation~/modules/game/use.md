@@ -2,6 +2,8 @@
 
 Xeri Use System은 외부 Scanner가 공급한 상호작용 후보 중 현재 사용할 `UseOffer`를 선택하고, 입력을 Signal로 전달하는 Runtime 연결 계층입니다.
 
+**구분:** 이 Use System은 Scanner가 공급한 **상호작용 후보**를 선택하는 시스템입니다. 스킬의 상태 기반 사용 선택·Requirement·Cost 승인과는 별개이며, 그 구조는 [Gameplay Framework](gameplay-framework.md)를 참고합니다.
+
 ## 왜 필요한가
 
 상호작용 시스템이 Physics 탐색, 입력 구독, 후보 우선순위, Prompt 표시와 실제 효과 실행을 한 Component에 모으면 프로젝트마다 재사용하기 어렵고 테스트 경계도 흐려집니다. Xeri Use는 후보 선택과 사용 전달만 맡고 탐색·입력·표시·도메인 효과를 분리합니다.

@@ -104,11 +104,7 @@ namespace inonego.Xeri.Game
         /// Execution에서 전달받은 제어 Signal을 Behavior에 알린다.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void Signal
-        (
-            ExecutionSession session,
-            in ExecutionSignal signal
-        )
+        public virtual void Signal(ExecutionSession session, in ExecutionSignal signal)
         {
             // NONE
         }
@@ -118,11 +114,7 @@ namespace inonego.Xeri.Game
         /// 종료 사유를 받고 Behavior가 보유한 실행 자원을 정리한다.
         /// </summary>
         // ------------------------------------------------------------
-        public virtual void End
-        (
-            ExecutionSession session,
-            ExecutionEndReason reason
-        )
+        public virtual void End(ExecutionSession session, ExecutionEndReason reason)
         {
             // NONE
         }

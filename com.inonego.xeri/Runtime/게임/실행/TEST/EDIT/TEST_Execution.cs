@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Execution.cs
-수정일 : 2026-11-01
+수정일 : 2026-11-08
 
 # 설명
 ExecutionSession의 시간·Commit·Behavior 수명·ValueRegistry 격리와 기본 Flow/Trigger 계약을 검증한다.
+Ability 선택·비용 지불·Fake Host·Session Begin을 연결한 승인/실패 경계도 검증한다.
 
 # 테스트 구성
  S: Session 구성·Runtime 소유권·시간·수명·Child
@@ -101,11 +102,7 @@ namespace inonego.Xeri.TEST.Game._Execution
                 SignalCount++;
             }
 
-            public override void End
-            (
-                ExecutionSession session,
-                ExecutionEndReason reason
-            )
+            public override void End(ExecutionSession session, ExecutionEndReason reason)
             {
                 EndCount++;
                 trace?.Add($"{name}.End:{reason}");
@@ -1543,6 +1540,248 @@ namespace inonego.Xeri.TEST.Game._Execution
             Assert.IsTrue(session.HasEnded);
             Assert.AreEqual(ExecutionEndReason.Cancelled, session.EndReason);
             Assert.IsFalse(session.End(ExecutionEndReason.Cancelled));
+        }
+
+    #endregion
+
+    #region F-1: Ability 선택·Host 승인·Execution 연결
+
+        // ============================================================
+        /// <summary>
+        /// 선택 승인 슬롯과 Session 시작을 분리해 관찰하는 테스트 Host.
+        /// </summary>
+        // ============================================================
+        private sealed class FakeExecutionHost
+        {
+            public bool IsOccupied => occupied;
+            private bool occupied;
+
+            public ExecutionSession Session { get; private set; }
+
+            public FakeExecutionHost(bool occupied = false)
+            {
+                this.occupied = occupied;
+            }
+
+            public bool TryAcquire()
+            {
+                if (occupied)
+                {
+                    return false;
+                }
+
+                occupied = true;
+                return true;
+            }
+
+            public ExecutionSession Begin
+            (
+                ExecutionDefinition selected,
+                in ExecutionContext context,
+                ulong id,
+                Action<ExecutionSession> configure = null
+            )
+            {
+                if (!occupied)
+                {
+                    throw new InvalidOperationException("Host 실행 슬롯이 승인되지 않았습니다.");
+                }
+
+                var session = selected.CreateSession(id, context);
+                configure?.Invoke(session);
+                try
+                {
+                    session.Begin();
+                    Session = session;
+                    return session;
+                }
+                catch
+                {
+                    occupied = false;
+                    throw;
+                }
+            }
+
+            public void Release()
+            {
+                if (Session?.IsActive == true)
+                {
+                    Session.End(ExecutionEndReason.Cancelled);
+                }
+
+                Session = null;
+                occupied = false;
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 선택된 Definition과 Cost Policy를 한 요청에 묶고 선택 횟수를 관찰한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static AbilityUseSelection<ExecutionDefinition, int, ExecutionDefinition> SelectExecution
+        (
+            AbilityInstance<ExecutionDefinition> ability,
+            ExecutionDefinition execution,
+            object owner,
+            Action onSelect = null,
+            Action transition = null
+        )
+        {
+            var policy = new AbilityActivationPolicy<ExecutionDefinition, int>
+            (
+                cost: new IAbilityActivationCost<ExecutionDefinition, int>[]
+                {
+                    new AbilityChargeCost<ExecutionDefinition, int>(),
+                }
+            );
+            var selector = new AbilityUseSelector<ExecutionDefinition, int, ExecutionDefinition>
+            (
+                new Func<AbilityActivationContext<ExecutionDefinition, int>,
+                    AbilityUseChoice<ExecutionDefinition, int, ExecutionDefinition>>[]
+                {
+                    request =>
+                    {
+                        onSelect?.Invoke();
+                        return new AbilityUseChoice<ExecutionDefinition, int, ExecutionDefinition>
+                        (
+                            execution,
+                            policy,
+                            () => ability.State.Charge.Current > 0,
+                            transition
+                        );
+                    },
+                }
+            );
+            var context = new AbilityActivationContext<ExecutionDefinition, int>
+            (
+                owner,
+                owner,
+                new AbilityBinding<ExecutionDefinition>(new AbilityEntryKey("Q"), ability),
+                0
+            );
+
+            Assert.IsTrue(selector.TrySelect(context, out var selection, out _));
+            return selection;
+        }
+
+        [Test]
+        public void TEST_ExecutionHost_선택후Host시작거부는비용을소비하지않음()
+        {
+            var owner = new object();
+            var execution = new ExecutionDefinition(new FixedTimelineExecutionFlowDefinition(1f));
+            var ability = new AbilityInstance<ExecutionDefinition>
+            (
+                execution,
+                new AbilityState(new AbilityKey("Skill"))
+            );
+            ability.State.Control.ConfigureCharge(2, 1f);
+            var selectionCount = 0;
+            var selection = SelectExecution(ability, execution, owner, () => selectionCount++);
+
+            // Host 승인 이전에는 비용 지불을 시작하지 않는다.
+            var host = new FakeExecutionHost(occupied: true);
+            Assert.IsFalse(host.TryAcquire());
+            Assert.IsTrue(host.IsOccupied);
+            Assert.IsNull(host.Session);
+            Assert.AreEqual(2, ability.State.Charge.Current);
+            Assert.AreEqual(1, selectionCount);
+            Assert.AreSame(execution, selection.Execution);
+        }
+
+        [Test]
+        public void TEST_ExecutionHost_비용지불후SessionBegin실패는자동환급하지않음()
+        {
+            var owner = new object();
+            var execution = new ExecutionDefinition(new FixedTimelineExecutionFlowDefinition(1f));
+            var ability = new AbilityInstance<ExecutionDefinition>
+            (
+                execution,
+                new AbilityState(new AbilityKey("Skill"))
+            );
+            ability.State.Control.ConfigureCharge(2, 1f);
+            var selectionCount = 0;
+            var selection = SelectExecution(ability, execution, owner, () => selectionCount++);
+
+            // 슬롯을 먼저 확보한 뒤 비용을 지불한다.
+            var host = new FakeExecutionHost();
+            Assert.IsTrue(host.TryAcquire());
+            Assert.IsTrue(selection.TryActivate(out var activation));
+            Assert.IsTrue(activation.Succeeded);
+            Assert.AreEqual(1, ability.State.Charge.Current);
+
+            // Begin 예외에는 Host를 정리하지만 소비한 비용은 환급하지 않는다.
+            ExecutionSession failedSession = null;
+            Assert.Throws<InvalidOperationException>
+            (
+                () => host.Begin
+                (
+                    selection.Execution,
+                    new ExecutionContext(owner, owner),
+                    101UL,
+                    session =>
+                    {
+                        failedSession = session;
+                        session.OnBegun += _ => throw new InvalidOperationException("Fake Host Begin failed");
+                    }
+                )
+            );
+
+            Assert.IsTrue(failedSession.HasEnded);
+            Assert.AreEqual(ExecutionEndReason.Cancelled, failedSession.EndReason);
+            Assert.IsFalse(host.IsOccupied);
+            Assert.IsNull(host.Session);
+            Assert.AreEqual(1, ability.State.Charge.Current);
+            Assert.IsFalse(selection.TryActivate(out var repeated));
+            Assert.AreEqual(AbilityActivationFailure.InvalidState, repeated.Failure);
+            Assert.AreEqual(1, selectionCount);
+        }
+
+        [Test]
+        public void TEST_ExecutionHost_선택한Execution을재선택없이시작하고상태전이는한번만적용()
+        {
+            var owner = new object();
+            var execution = new ExecutionDefinition(new FixedTimelineExecutionFlowDefinition(1f));
+            var ability = new AbilityInstance<ExecutionDefinition>
+            (
+                execution,
+                new AbilityState(new AbilityKey("Skill"))
+            );
+            ability.State.Control.ConfigureCharge(2, 1f);
+            var selectionCount = 0;
+            var transitionCount = 0;
+            var selection = SelectExecution
+            (
+                ability,
+                execution,
+                owner,
+                () => selectionCount++,
+                () => transitionCount++
+            );
+
+            var host = new FakeExecutionHost();
+            Assert.IsTrue(host.TryAcquire());
+            Assert.IsTrue(selection.TryActivate(out var activation));
+            Assert.IsTrue(activation.Succeeded);
+            Assert.AreEqual(1, transitionCount);
+            Assert.AreSame(execution, selection.Execution);
+            var session = host.Begin(selection.Execution, new ExecutionContext(owner, owner), 102UL);
+            Assert.IsTrue(host.IsOccupied);
+            Assert.AreSame(session, host.Session);
+            Assert.IsTrue(session.IsActive);
+            Assert.IsFalse(selection.TryActivate(out var repeated));
+            Assert.AreEqual(AbilityActivationFailure.InvalidState, repeated.Failure);
+            Assert.AreEqual(1, transitionCount);
+            Assert.AreEqual(1, selectionCount);
+            Assert.AreEqual(1, ability.State.Charge.Current);
+
+            session.Advance(1f);
+            Assert.IsTrue(session.TryComplete());
+            Assert.AreEqual(ExecutionEndReason.Completed, session.EndReason);
+            host.Release();
+            Assert.IsFalse(host.IsOccupied);
+            Assert.IsNull(host.Session);
+            Assert.AreEqual(1, ability.State.Charge.Current);
         }
 
     #endregion
