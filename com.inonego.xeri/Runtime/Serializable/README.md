@@ -36,6 +36,7 @@ Unity 직렬화 규칙과 일반 C# 자료구조 사이에는 Dictionary, 다형
 - `XDictionary`, `XHashSet`, queue/stack과 ordered/priority collection
 - `XNullable`, `XType`, `SerializeReferenceWrapper` 같은 직렬화 보조 타입
 - `ISerializer`, `UnityJsonSerializer`, `XeriXmlSerializer`
+- `XVec`의 Unity·XML 직렬화와, Newtonsoft.Json 3.0.0 이상 설치 시 자동 활성화되는 `[JsonProperty]` 필드명 어트리뷰트
 - `Value`, `MValue`, `RangeValue`와 modifier 기반 값 모델
 - managed reference와 일부 inspector/editor 보조 구현
 

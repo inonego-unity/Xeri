@@ -18,6 +18,7 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 
 | 하고 싶은 일 | 시작 문서 |
 |---|---|
+| Application 실행 세대·자원 수명을 관리한다 | [Application](../Runtime/Core/Application/README.md) |
 | 시작 순서를 구성한다 | [Bootstrapper](modules/core/bootstrapper.md) |
 | 작업 실행과 Undo/Redo history를 관리한다 | [Commanding과 DoSession](modules/commanding/do-session.md) |
 | Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |

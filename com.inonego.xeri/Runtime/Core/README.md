@@ -12,6 +12,7 @@ Core는 애플리케이션 시작 순서, 일회성 수명 소유권, 공통 값
 
 ## 언제 사용하는가
 
+- Application 실행 세대의 시작·종료와 자원 소유권을 관리하려면 `ApplicationRuntime`/`ApplicationScope`
 - Initial Scene 전후 초기화 순서를 조립하려면 `Bootstrapper`
 - 외부 자원이나 등록의 일회 종료 책임을 전달하려면 `Lease`
 - 여러 named instance와 임시 Current Context가 필요하면 `Singleton`/`InstanceRegistry`
@@ -21,12 +22,13 @@ Core는 애플리케이션 시작 순서, 일회성 수명 소유권, 공통 값
 
 ## 어디서 시작하는가
 
-애플리케이션 초기화 문제면 [Bootstrapper](../../Documentation~/modules/core/bootstrapper.md), 여러 Runtime Context면 [Singleton과 슬롯](../../Documentation~/modules/core/singleton.md), 수치 기반 계약 확장이면 [Primitive](../../Documentation~/modules/core/primitive.md)에서 시작합니다. 반환 책임 자체의 공통 규칙은 [소유권과 수명](../../Documentation~/concepts/ownership-and-lifetime.md)을 먼저 봅니다.
+Application 수명과 소유권은 [Application](Application/README.md), 초기 Scene Phase는 [Bootstrapper](../../Documentation~/modules/core/bootstrapper.md), 여러 Runtime Context면 [Singleton과 슬롯](../../Documentation~/modules/core/singleton.md), 수치 기반 계약 확장이면 [Primitive](../../Documentation~/modules/core/primitive.md)에서 시작합니다. 반환 책임 자체의 공통 규칙은 [소유권과 수명](../../Documentation~/concepts/ownership-and-lifetime.md)을 먼저 봅니다.
 
 ## 책임 범위
 
 ### 담당하는 것
 
+- `ApplicationRuntime`/`ApplicationScope`를 통한 실행 수명과 소유 자원 정리
 - `Bootstrapper`와 module phase를 통한 초기화 순서
 - `Lease` 기반 일회성 종료 책임
 - Singleton 등록과 조회
@@ -43,6 +45,7 @@ Core는 애플리케이션 시작 순서, 일회성 수명 소유권, 공통 값
 
 | 개념 | 설명 |
 |---|---|
+| Application | 실행 세대의 모듈 시작과 자원·진행 작업의 종료를 소유 |
 | Bootstrapper | 초기 Scene 전후의 module 실행 순서를 조립 |
 | `Lease` | 호출자가 종료해야 하는 일회성 수명 책임 |
 | Singleton | Runtime instance의 명시적 등록·조회 기반 |
@@ -50,6 +53,7 @@ Core는 애플리케이션 시작 순서, 일회성 수명 소유권, 공통 값
 
 ## 관련 문서
 
+- [Application](Application/README.md)
 - [Bootstrapper](../../Documentation~/modules/core/bootstrapper.md)
 - [Singleton과 슬롯](../../Documentation~/modules/core/singleton.md)
 - [Core Primitive](../../Documentation~/modules/core/primitive.md)

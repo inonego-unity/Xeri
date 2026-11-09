@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명: BootstrapperSettings.cs
-수정일: 2026-05-20
+파일명 : BootstrapperSettings.cs
+수정일 : 2026-11-03
 
 # 설명
 BootStrapper 실행에 필요한 씬 인덱스와 초기화 모듈 에셋 목록을 저장하는 설정 에셋.
-에디터에서는 Assets/Resources/BootstrapperSettings.asset 이 없으면 자동 생성한다.
+설정 조회는 에셋을 생성하지 않으며, 에디터 설정 UI에서 명시적으로 생성한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -20,6 +20,8 @@ using UnityEditor;
 
 namespace inonego.Xeri.Bootstrapper
 {
+    using inonego;
+    using inonego.Xeri;
     using inonego.Xeri.Serializable;
 
     // ============================================================
@@ -42,18 +44,6 @@ namespace inonego.Xeri.Bootstrapper
 
         private static BootstrapperSettings instance;
 
-        [SerializeField]
-        [HelpBox("BootStrapper가 먼저 로드할 씬의 Build Settings 인덱스입니다.")]
-        private XNullable<int> bootstrapperSceneIndex = default;
-
-        [SerializeField]
-        [HelpBox("BootStrapper 초기화가 끝난 뒤 로드할 실제 시작 씬의 Build Settings 인덱스입니다.")]
-        private XNullable<int> sceneIndexToLoad = default;
-
-        [SerializeField]
-        [HelpBox("BootStrapper가 순서대로 실행할 초기화 모듈 에셋 목록입니다.")]
-        private List<BootstrapperModuleAsset> modules = new();
-
     #endregion
 
     #region 프로퍼티
@@ -69,7 +59,7 @@ namespace inonego.Xeri.Bootstrapper
             {
                 if (instance == null)
                 {
-                    instance = LoadOrCreate();
+                    instance = Load();
                 }
 
                 return instance;
@@ -86,6 +76,9 @@ namespace inonego.Xeri.Bootstrapper
             get => bootstrapperSceneIndex;
             set => bootstrapperSceneIndex = value;
         }
+        [SerializeField]
+        [HelpBox("BootStrapper가 먼저 로드할 씬의 Build Settings 인덱스입니다.")]
+        private XNullable<int> bootstrapperSceneIndex = default;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -97,6 +90,9 @@ namespace inonego.Xeri.Bootstrapper
             get => sceneIndexToLoad;
             set => sceneIndexToLoad = value;
         }
+        [SerializeField]
+        [HelpBox("BootStrapper 초기화가 끝난 뒤 로드할 실제 시작 씬의 Build Settings 인덱스입니다.")]
+        private XNullable<int> sceneIndexToLoad = default;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -104,28 +100,22 @@ namespace inonego.Xeri.Bootstrapper
         /// </summary>
         // ------------------------------------------------------------
         public IReadOnlyList<BootstrapperModuleAsset> Modules => modules;
+        [SerializeField]
+        [HelpBox("BootStrapper가 순서대로 실행할 초기화 모듈 에셋 목록입니다.")]
+        private List<BootstrapperModuleAsset> modules = new();
 
     #endregion
 
-    #region 메서드
+    #region 설정 에셋 접근
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Resources에서 설정을 로드하고, 에디터에서는 없을 때 에셋을 생성한다.
+        /// 기존 Resources 설정 에셋만 조회한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static BootstrapperSettings LoadOrCreate()
+        private static BootstrapperSettings Load()
         {
-            var settings = Resources.Load<BootstrapperSettings>(ResourcesFileName);
-
-        #if UNITY_EDITOR
-            if (settings == null)
-            {
-                settings = CreateAsset();
-            }
-        #endif
-
-            return settings;
+            return Resources.Load<BootstrapperSettings>(ResourcesFileName);
         }
 
     #if UNITY_EDITOR

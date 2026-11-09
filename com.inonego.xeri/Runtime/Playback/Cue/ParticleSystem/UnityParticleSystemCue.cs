@@ -27,12 +27,12 @@ namespace inonego.Xeri.Playback
 
     #region 필드
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// <br/> 이 runtime Cue를 생성한 authoring Asset.
         /// <br/> 단일 Variant 직접 구성에서는 null이다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public UnityParticleSystemCueAsset Asset => asset;
 
         private readonly UnityParticleSystemCueAsset asset = null;
@@ -75,12 +75,12 @@ namespace inonego.Xeri.Playback
 
     #region Variant 획득
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// <br/> 이번 재생 Variant를 선택하고 대응 Pool에서 ParticleSystem Lease를 획득한다.
         /// <br/> 반환 Lease는 Cue의 활성 Lease 수명과 원본 Pool 반환을 함께 끝낸다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         internal Lease<ParticleSystem> AcquireLease
         (
             Transform parent,
@@ -106,11 +106,11 @@ namespace inonego.Xeri.Playback
             );
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 이번 재생에 사용할 ParticleSystem Variant와 그 인덱스를 선택한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private int SelectVariant(out UnityParticleSystemCueVariant variant)
         {
             // 직접 구성된 Cue는 선택 대상이 하나뿐이므로 index 0을 사용한다.
@@ -141,12 +141,12 @@ namespace inonego.Xeri.Playback
 
     #region 풀 연결과 생성
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// <br/> Pool이 사용할 활성 Parent와 released Root를 최초 Player Host에 연결한다.
         /// <br/> 살아 있는 다른 Host로 같은 runtime Cue를 공유하는 호출은 거부한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         private void EnsurePoolHost(Transform parent, Transform releasedRoot)
         {
             if (parent == null)
@@ -176,11 +176,11 @@ namespace inonego.Xeri.Playback
             poolRoot = resolvedRoot;
         }
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 지정 Variant 인덱스에 대응하는 ParticleSystem Pool을 조회하거나 최초 생성한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         private GOCompPool<ParticleSystem> GetOrCreatePool
         (
             int variantIndex,
@@ -250,11 +250,11 @@ namespace inonego.Xeri.Playback
             }
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// 원본 Pool Lease를 반환하고 Cue의 활성 Lease 수명을 갱신한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         private void ReleaseLease(Lease<ParticleSystem> poolLease)
         {
             try
@@ -273,11 +273,11 @@ namespace inonego.Xeri.Playback
             }
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// 생성된 Variant Pool Container와 Host 연결 상태를 정리한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         private void ReleasePools()
         {
             if (pools == null) return;
@@ -298,17 +298,17 @@ namespace inonego.Xeri.Playback
             poolRoot = null;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 현재 실행 환경에 맞는 Unity 파괴 API로 Pool Container를 제거한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private static void DestroyGameObject(GameObject gameObject)
         {
             if (gameObject == null) return;
 
             // Play Mode에서는 Frame 종료 파괴를 사용해 Unity 생명주기 규칙을 따른다.
-            if (Application.isPlaying)
+            if (UnityEngine.Application.isPlaying)
             {
                 UnityEngine.Object.Destroy(gameObject);
                 return;

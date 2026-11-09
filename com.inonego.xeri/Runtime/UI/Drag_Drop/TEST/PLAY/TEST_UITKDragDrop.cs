@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_UITKDragDrop.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-03
 
 # 설명
 Runtime UI Toolkit DragDrop Manipulator 연결과 예외 종료 상태 테스트.
@@ -12,7 +12,6 @@ Runtime UI Toolkit DragDrop Manipulator 연결과 예외 종료 상태 테스트
 
 using System;
 using System.Collections;
-using System.Reflection;
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -43,32 +42,34 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         /// 실제 pointer capture를 사용할 Runtime UI Toolkit Panel을 생성한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        private static VisualElement CreatePanel
+        private static void CreatePanel
         (
             out GameObject panelObject,
-            out PanelSettings panelSettings
+            out PanelSettings panelSettings,
+            Action<VisualElement> onReload
         )
         {
             panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             panelObject = new GameObject("TEST_UITKDragDrop");
             panelObject.SetActive(false);
+
             var renderer = panelObject.AddComponent<PanelRenderer>();
             renderer.panelSettings = panelSettings;
-            panelObject.SetActive(true);
 
-            var rootProperty = typeof(PanelRenderer).GetProperty
+            // 같은 UI 버전에서는 재구성하지 않고 실제 재로드 때만 요소를 다시 연결한다.
+            int initializedVersion = -1;
+            renderer.RegisterUIReloadCallback
             (
-                "rootVisualElement",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+                (_, root, version) =>
+                {
+                    if (initializedVersion == version) return;
+
+                    initializedVersion = version;
+                    onReload(root);
+                }
             );
-            var root = rootProperty?.GetValue(renderer) as VisualElement;
 
-            if (root == null)
-            {
-                throw new MissingReferenceException("PanelRenderer Root를 찾을 수 없습니다.");
-            }
-
-            return root;
+            panelObject.SetActive(true);
         }
 
         // ------------------------------------------------------------
@@ -160,23 +161,36 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [UnityTest]
         public IEnumerator TEST_UITKDragDrop_DragBegin실패_Drag와Pointer정리()
         {
-            var root = CreatePanel(out var panelObject, out var panelSettings);
-            var element = new VisualElement();
             var coordinator = new DragDropCoordinator();
-            var manipulator = new UITKDraggableManipulator(coordinator)
-            {
-                CanMove       = false,
-                DragThreshold = 0f,
-            };
+            VisualElement element = null;
+            UITKDraggableManipulator manipulator = null;
 
-            root.Add(element);
-            element.AddManipulator(manipulator);
+            CreatePanel
+            (
+                out var panelObject,
+                out var panelSettings,
+                root =>
+                {
+                    element = new VisualElement();
+                    manipulator = new UITKDraggableManipulator(coordinator)
+                    {
+                        CanMove       = false,
+                        DragThreshold = 0f,
+                    };
+
+                    root.Add(element);
+                    element.AddManipulator(manipulator);
+                }
+            );
 
             try
             {
-                // Runtime panel과 pointer capture가 연결된 뒤 공개 입력을 전달한다.
+                // PanelRenderer의 초기 UI 구성 이후 공개 입력을 전달한다.
                 yield return null;
                 yield return null;
+                Assert.IsNotNull(element, "PanelRenderer UI가 초기화되지 않았습니다.");
+                Assert.IsNotNull(element.panel, "PanelRenderer UI가 Panel에 연결되지 않았습니다.");
+                Assert.IsNotNull(manipulator);
 
                 var callbackInvoked = false;
                 manipulator.OnDragBegin += (_, _) =>
@@ -215,23 +229,36 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [UnityTest]
         public IEnumerator TEST_UITKDragDrop_DragEnd실패_Drag와Pointer정리()
         {
-            var root = CreatePanel(out var panelObject, out var panelSettings);
-            var element = new VisualElement();
             var coordinator = new DragDropCoordinator();
-            var manipulator = new UITKDraggableManipulator(coordinator)
-            {
-                CanMove       = false,
-                DragThreshold = 0f,
-            };
+            VisualElement element = null;
+            UITKDraggableManipulator manipulator = null;
 
-            root.Add(element);
-            element.AddManipulator(manipulator);
+            CreatePanel
+            (
+                out var panelObject,
+                out var panelSettings,
+                root =>
+                {
+                    element = new VisualElement();
+                    manipulator = new UITKDraggableManipulator(coordinator)
+                    {
+                        CanMove       = false,
+                        DragThreshold = 0f,
+                    };
+
+                    root.Add(element);
+                    element.AddManipulator(manipulator);
+                }
+            );
 
             try
             {
-                // 실제 pointer 입력으로 시작한 Drag가 종료 예외 뒤에도 닫히는지 확인한다.
+                // 실제 PanelRenderer UI와 pointer 연결이 준비된 뒤 드래그를 시작한다.
                 yield return null;
                 yield return null;
+                Assert.IsNotNull(element, "PanelRenderer UI가 초기화되지 않았습니다.");
+                Assert.IsNotNull(element.panel, "PanelRenderer UI가 Panel에 연결되지 않았습니다.");
+                Assert.IsNotNull(manipulator);
 
                 SendPointerDown(element, new Vector2(10f, 10f));
                 SendPointerMove(element, new Vector2(20f, 10f));
@@ -297,22 +324,37 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
         [UnityTest]
         public IEnumerator TEST_UITKDragDrop_DropZone해제실패_Resolver등록해제()
         {
-            var root = CreatePanel(out var panelObject, out var panelSettings);
-            var zone = new VisualElement();
             var coordinator = new DragDropCoordinator();
-            var resolver = new UITKDropResolver(root);
-            var manipulator = new UITKDropZoneManipulator(coordinator, resolver);
+            VisualElement zone = null;
+            UITKDropResolver resolver = null;
+            UITKDropZoneManipulator manipulator = null;
 
-            zone.style.width  = 100f;
-            zone.style.height = 100f;
-            root.Add(zone);
-            zone.AddManipulator(manipulator);
+            CreatePanel
+            (
+                out var panelObject,
+                out var panelSettings,
+                root =>
+                {
+                    zone = new VisualElement();
+                    resolver = new UITKDropResolver(root);
+                    manipulator = new UITKDropZoneManipulator(coordinator, resolver);
+
+                    zone.style.width  = 100f;
+                    zone.style.height = 100f;
+                    root.Add(zone);
+                    zone.AddManipulator(manipulator);
+                }
+            );
 
             try
             {
-                // worldBound를 확정한 뒤 Resolver의 공개 조회 경로로 등록 상태를 확인한다.
+                // PanelRenderer와 레이아웃을 확정한 뒤 Resolver의 공개 조회 경로를 확인한다.
                 yield return null;
                 yield return null;
+                Assert.IsNotNull(zone, "PanelRenderer UI가 초기화되지 않았습니다.");
+                Assert.IsNotNull(zone.panel, "PanelRenderer UI가 Panel에 연결되지 않았습니다.");
+                Assert.IsNotNull(resolver);
+                Assert.IsNotNull(manipulator);
 
                 var input = new InputPoint(1, zone.worldBound.center);
                 var draggable = new Draggable

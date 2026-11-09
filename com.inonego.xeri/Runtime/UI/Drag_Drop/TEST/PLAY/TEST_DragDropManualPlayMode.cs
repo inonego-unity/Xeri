@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_DragDropManualPlayMode.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-03
 
 # 설명
 UGUI / Runtime UI Toolkit DragDrop 을 PlayMode 화면에서 직접 드래그해 확인하는 수동 테스트.
@@ -15,7 +15,6 @@ UGUI / Runtime UI Toolkit DragDrop 을 PlayMode 화면에서 직접 드래그해
 
 using System;
 using System.Collections;
-using System.Reflection;
 
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -208,73 +207,87 @@ namespace inonego.Xeri.TEST.UI._Drag_Drop
 
             uitkRoot = new GameObject("TEST_UITK_DragDrop");
             uitkRoot.SetActive(false);
+
             var renderer = uitkRoot.AddComponent<PanelRenderer>();
             renderer.panelSettings = panelSettings;
+
+            int initializedVersion = -1;
+            VisualElement previousRoot = null;
+            EventCallback<GeometryChangedEvent> previousLayoutCallback = null;
+
+            renderer.RegisterUIReloadCallback
+            (
+                (_, root, version) =>
+                {
+                    if (initializedVersion == version) return;
+
+                    initializedVersion = version;
+                    dropped = false;
+
+                    // 동일한 루트를 재사용해도 이전 UI와 레이아웃 콜백이 중복되지 않게 정리한다.
+                    if (previousRoot != null && previousLayoutCallback != null)
+                    {
+                        previousRoot.UnregisterCallback(previousLayoutCallback);
+                    }
+
+                    root.Clear();
+                    root.style.flexGrow = 1f;
+                    root.style.backgroundColor = new Color(0.05f, 0.05f, 0.05f, 0.9f);
+
+                    var guide = new Label("UITK: 파란 박스를 오른쪽 초록 영역에 드롭한 뒤 Space 키를 누르세요.");
+                    guide.style.position = Position.Absolute;
+                    guide.style.left = 0f;
+                    guide.style.right = 0f;
+                    guide.style.color = Color.white;
+                    guide.style.fontSize = 24f;
+                    guide.style.unityFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    guide.style.unityTextAlign = TextAnchor.MiddleCenter;
+                    guide.style.whiteSpace = WhiteSpace.NoWrap;
+                    root.Add(guide);
+
+                    var coordinator = new DragDropCoordinator();
+                    var resolver = new UITKDropResolver(root);
+                    coordinator.DropResolver = resolver;
+
+                    var dropElement = new VisualElement();
+                    dropElement.style.position = Position.Absolute;
+                    dropElement.style.width = 220f;
+                    dropElement.style.height = 160f;
+                    dropElement.style.backgroundColor = new Color(0.15f, 0.45f, 0.18f, 0.85f);
+                    root.Add(dropElement);
+
+                    var dropZone = new UITKDropZoneManipulator(coordinator, resolver);
+                    dropZone.OnDropDone += (_, _) =>
+                    {
+                        dropped = true;
+                        dropElement.style.backgroundColor = Color.green;
+                        Debug.Log("UITK Drop Done");
+                    };
+                    dropElement.AddManipulator(dropZone);
+
+                    var dragElement = new VisualElement();
+                    dragElement.style.position = Position.Absolute;
+                    dragElement.style.width = 160f;
+                    dragElement.style.height = 120f;
+                    dragElement.style.backgroundColor = new Color(0.1f, 0.35f, 0.9f, 0.9f);
+                    root.Add(dragElement);
+
+                    dragElement.AddManipulator(new UITKDraggableManipulator(coordinator));
+
+                    EventCallback<GeometryChangedEvent> onLayout =
+                        _ => LayoutUITKSample(root, guide, dragElement, dropElement);
+                    root.RegisterCallback(onLayout);
+                    previousRoot = root;
+                    previousLayoutCallback = onLayout;
+
+                    root.schedule.Execute
+                    (
+                        () => LayoutUITKSample(root, guide, dragElement, dropElement)
+                    ).ExecuteLater(0);
+                }
+            );
+
             uitkRoot.SetActive(true);
-
-            var rootProperty = typeof(PanelRenderer).GetProperty
-            (
-                "rootVisualElement",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            );
-            var root = rootProperty?.GetValue(renderer) as VisualElement;
-
-            if (root == null)
-            {
-                throw new MissingReferenceException("PanelRenderer Root를 찾을 수 없습니다.");
-            }
-
-            root.style.flexGrow = 1f;
-            root.style.backgroundColor = new Color(0.05f, 0.05f, 0.05f, 0.9f);
-
-            var guide = new Label("UITK: 파란 박스를 오른쪽 초록 영역에 드롭한 뒤 Space 키를 누르세요.");
-            guide.style.position = Position.Absolute;
-            guide.style.left = 0f;
-            guide.style.right = 0f;
-            guide.style.color = Color.white;
-            guide.style.fontSize = 24f;
-            guide.style.unityFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            guide.style.unityTextAlign = TextAnchor.MiddleCenter;
-            guide.style.whiteSpace = WhiteSpace.NoWrap;
-            root.Add(guide);
-
-            var coordinator = new DragDropCoordinator();
-            var resolver = new UITKDropResolver(root);
-            coordinator.DropResolver = resolver;
-
-            var dropElement = new VisualElement();
-            dropElement.style.position = Position.Absolute;
-            dropElement.style.width = 220f;
-            dropElement.style.height = 160f;
-            dropElement.style.backgroundColor = new Color(0.15f, 0.45f, 0.18f, 0.85f);
-            root.Add(dropElement);
-
-            var dropZone = new UITKDropZoneManipulator(coordinator, resolver);
-            dropZone.OnDropDone += (_, _) =>
-            {
-                dropped = true;
-                dropElement.style.backgroundColor = Color.green;
-                Debug.Log("UITK Drop Done");
-            };
-            dropElement.AddManipulator(dropZone);
-
-            var dragElement = new VisualElement();
-            dragElement.style.position = Position.Absolute;
-            dragElement.style.width = 160f;
-            dragElement.style.height = 120f;
-            dragElement.style.backgroundColor = new Color(0.1f, 0.35f, 0.9f, 0.9f);
-            root.Add(dragElement);
-
-            dragElement.AddManipulator(new UITKDraggableManipulator(coordinator));
-            root.RegisterCallback<GeometryChangedEvent>
-            (
-                (_) => LayoutUITKSample(root, guide, dragElement, dropElement)
-            );
-            root.schedule.Execute
-            (
-                () => LayoutUITKSample(root, guide, dragElement, dropElement)
-            ).ExecuteLater(0);
-
             return () => dropped;
         }
 

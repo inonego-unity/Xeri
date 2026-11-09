@@ -17,7 +17,7 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 
 ## 주요 세부 시스템
 
-- Core: [Bootstrapper](core/bootstrapper.md), [Singleton과 슬롯](core/singleton.md), [Primitive](core/primitive.md)
+- Core: [Application](../../Runtime/Core/Application/README.md), [Bootstrapper](core/bootstrapper.md), [Singleton과 슬롯](core/singleton.md), [Primitive](core/primitive.md)
 - Commanding: [DoSession](commanding/do-session.md)
 - Playback: [Playback Cue](playback/cue.md)
 - Rendering: [Instancing](rendering/instancing.md)

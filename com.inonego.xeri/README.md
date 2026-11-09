@@ -23,6 +23,8 @@ Application UI lifecycle, Window, Tray와 Bar는 [Xeri UI](https://github.com/in
 - [Documentation~/getting-started/installation.md](Documentation~/getting-started/installation.md): 설치와 요구 환경
 - [Documentation~/getting-started/choosing-modules.md](Documentation~/getting-started/choosing-modules.md): 문제에 맞는 모듈 선택
 - [Documentation~/guides/index.md](Documentation~/guides/index.md): 실제 작업 절차와 코드 예제
+- [Runtime/Core/Application/README.md](Runtime/Core/Application/README.md): Application 실행 세대와 자원 소유권, 공개 API 사용 예제
+- [Documentation~/modules/core/bootstrapper.md](Documentation~/modules/core/bootstrapper.md): Unity 자동 초기화와 Scene phase
 - [Documentation~/guides/game/compose-entity-actor-runtime.md](Documentation~/guides/game/compose-entity-actor-runtime.md): Entity → Actor 0..N과 Actor + Presentation transaction 조립
 - [Documentation~/guides/serialization/edit-collections-in-inspector.md](Documentation~/guides/serialization/edit-collections-in-inspector.md): Collection Editor 사용법
 - [Documentation~/concepts/integration-patterns.md](Documentation~/concepts/integration-patterns.md): 프로젝트 Adapter와 Xeri 책임 경계

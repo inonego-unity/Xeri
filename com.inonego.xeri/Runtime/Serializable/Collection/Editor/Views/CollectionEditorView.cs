@@ -1064,7 +1064,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void HandleContextMouseUp(MouseUpEvent evt)
         {
             var contextClick = evt.button == 1
-                || (Application.platform == RuntimePlatform.OSXEditor
+                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor
                     && evt.button == 0 && evt.ctrlKey);
             if (!contextClick || !TryGetContextRow(evt.target as VisualElement, out var binding))
             {
@@ -1155,7 +1155,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             var originalRevision = model.Revision;
-            var modifier = Application.platform == RuntimePlatform.OSXEditor ? "Cmd+" : "Ctrl+";
+            var modifier = UnityEngine.Application.platform == RuntimePlatform.OSXEditor ? "Cmd+" : "Ctrl+";
             rowContextMenu.Clear();
             rowContextMenu.AddAction
             (
@@ -1198,7 +1198,7 @@ namespace inonego.Xeri.Serializable.Editor
                 enabled: hasSelection && CanMoveSelected(1, out _)
             );
             rowContextMenu.AddSeparator();
-            var deleteShortcut = Application.platform == RuntimePlatform.OSXEditor
+            var deleteShortcut = UnityEngine.Application.platform == RuntimePlatform.OSXEditor
                 ? "Backspace" : "Delete";
             rowContextMenu.AddAction
             (
@@ -1244,7 +1244,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void HandleRowContextMenuKeyDown(KeyDownEvent evt)
         {
             if (evt.ctrlKey || evt.commandKey || evt.keyCode == KeyCode.Delete
-                || (Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
+                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
             {
                 CloseRowContextMenu();
                 listView.Focus();
@@ -1338,7 +1338,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             if (evt.keyCode == KeyCode.Delete
-                || (Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
+                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
             {
                 HandleRemove();
                 StopShortcutEvent(evt);

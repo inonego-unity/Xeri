@@ -51,7 +51,7 @@ Project 창에서 다음 Asset을 만든다.
 Create/Xeri/Bootstrapper/Audio Module
 ```
 
-`AudioBootstrapperModuleAsset`의 `Host Prefab`에 Audio Host Prefab을 지정하고 `BootstrapperSettings.Modules`에 등록한다. Audio를 사용할 다른 모듈보다 앞에 배치한다.
+`AudioBootstrapperModuleAsset`의 `Host Prefab`에 Audio Host Prefab을 지정하고 `BootstrapperSettings.Modules`에 등록한다. Audio를 사용할 다른 모듈보다 앞에 배치한다. Module은 `StartAsync(context, token)`으로 Host를 생성하고 `ApplicationScope`에 종료 책임을 등록한다.
 
 ```text
 BootstrapperSettings.Modules
@@ -59,7 +59,7 @@ BootstrapperSettings.Modules
 └── UIBootstrapperModuleAsset
 ```
 
-Bootstrapper를 사용하지 않는 프로젝트는 시작 Scene에 Audio Host Prefab을 직접 배치할 수 있다. 두 방식을 동시에 사용하면 같은 Singleton Slot의 중복 Host 중 나중에 등록한 객체가 제거된다.
+Bootstrapper가 생성한 Audio Host는 자신의 Singleton 슬롯에 실제 등록됐는지 검사하며, 슬롯 충돌 시 모듈 초기화를 실패로 반환한다. ApplicationScope의 종료 시에는 Singleton 등록을 먼저 해제하고 Unity 객체 파괴를 예약한다. Unity `Destroy()` 자체는 지연 실행되므로 실제 오브젝트 파괴와 서비스 슬롯 해제의 완료 시점을 구분한다. Audio Host를 수동으로 구성하는 경우에는 동일 슬롯에 중복 Host를 생성하지 않아야 한다.
 
 ## Audio Cue 만들기
 
