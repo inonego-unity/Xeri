@@ -38,7 +38,6 @@ namespace inonego.Xeri.Game
 
     #region 필드
 
-        public SpatialTargetField RequiredField => requiredAll;
         public SpatialTargetField RequiredAll => requiredAll;
 
         [SerializeField]

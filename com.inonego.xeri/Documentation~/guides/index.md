@@ -10,6 +10,7 @@
 
 - [Entity Registry 구현하기](game/create-entity-registry.md)
 - [Entity Actor Runtime 조립하기](game/compose-entity-actor-runtime.md)
+- [Ability 사용에서 Execution·Targeting·Delivery까지 연결하기](game/ability-execution-delivery.md)
 - [State Machine 구성하기](game/create-state-machine.md)
 - [Use와 Reaction 연결하기](game/connect-use-and-reaction.md)
 

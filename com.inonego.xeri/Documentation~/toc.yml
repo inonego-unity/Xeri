@@ -27,6 +27,8 @@
     href: guides/game/create-entity-registry.md
   - name: Entity Actor Runtime 조립하기
     href: guides/game/compose-entity-actor-runtime.md
+  - name: Ability에서 Execution·Delivery까지 연결하기
+    href: guides/game/ability-execution-delivery.md
   - name: State Machine 구성하기
     href: guides/game/create-state-machine.md
   - name: Use와 Reaction 연결하기
@@ -93,8 +95,16 @@
     href: https://inonego-unity.github.io/Xeri-UI/
 - name: Game
   items:
-  - name: Gameplay Framework — 시스템 구조와 사용 계약
+  - name: Gameplay Framework — 전체 아키텍처
     href: modules/game/gameplay-framework.md
+  - name: Ability — 상태·바인딩·활성화
+    href: modules/game/ability.md
+  - name: Execution — Flow·Behavior·Trigger
+    href: modules/game/execution.md
+  - name: Spatial·Targeting — 공간과 대상 선택
+    href: modules/game/spatial-targeting.md
+  - name: Delivery·Gameplay Operation
+    href: modules/game/delivery-operation.md
   - name: Entity와 Spawn 수명
     href: modules/game/entity-lifecycle.md
   - name: State Machine

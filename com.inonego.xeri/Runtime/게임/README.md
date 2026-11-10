@@ -2,7 +2,7 @@
 
 Xeri Game은 게임 Runtime에서 반복되는 Entity, Spawn, Actor, Presentation, State, HP, AI, Zone, Board와 controller 기반 기능을 제공합니다.
 
-[Gameplay Framework 시스템 구조](../../Documentation~/modules/game/gameplay-framework.md)는 Ability·Execution·Spatial·Delivery와 게임별 Result·Owner의 연결을 설명합니다.
+[Gameplay Framework 전체 구조](../../Documentation~/modules/game/gameplay-framework.md)는 Ability·Execution·Spatial·Targeting·Delivery와 게임별 Result·Owner의 연결을 설명합니다. 각 계약의 실제 사용법은 [Ability](../../Documentation~/modules/game/ability.md), [Execution](../../Documentation~/modules/game/execution.md), [Spatial·Targeting](../../Documentation~/modules/game/spatial-targeting.md), [Delivery·Gameplay Operation](../../Documentation~/modules/game/delivery-operation.md)에서 확인합니다.
 
 ## 개요
 
@@ -63,6 +63,7 @@ Entity/Spawn 계열은 registry가 등록 상태와 key를 관리합니다. Acto
 
 ## 관련 문서
 
+- [Ability·Execution·Spatial·Delivery 연결 가이드](../../Documentation~/guides/game/ability-execution-delivery.md)
 - [Entity와 Spawn 수명](../../Documentation~/modules/game/entity-lifecycle.md)
 - [Entity Actor Runtime 조립하기](../../Documentation~/guides/game/compose-entity-actor-runtime.md)
 - [State Machine](../../Documentation~/modules/game/state-machine.md)
