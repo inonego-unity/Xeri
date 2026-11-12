@@ -59,6 +59,6 @@ Primitive는 도메인 상태를 소유하지 않습니다. HP가 `INumeric`을 
 
 ## 관련 문서
 
-- [HP](../game/hp.md)
+- [HP](https://inonego-unity.github.io/Xeri-Game/docs/modules/combat/hp.html)
 - [Serializable Value와 Modifier](../serialization/value.md)
 - [Xeri Core](../../../Runtime/Core/README.md)

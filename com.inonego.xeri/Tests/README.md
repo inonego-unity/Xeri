@@ -13,14 +13,9 @@
 
 테스트 배치는 실제 assembly 참조와 검증 대상의 성격을 기준으로 결정합니다.
 
-Game Entity/Actor 계열은 transaction 경계를 직접 검증합니다.
+Core는 공통 Runtime·Editor의 계약을 검사합니다. 기능별 테스트는 자신의 구현 근처에 두되, 별도 패키지의 검증을 Core 테스트로 포함하지 않습니다.
 
-- `TEST_EntityActorController`: Entity → Actor 0..N, exact-one lookup, 선택적 Registry binding
-- `TEST_EntityActorFactory`: Actor 생성 실패 cleanup
-- `TEST_EntityActorRuntime`: Actor + Presentation create/rollback/release와 오류 aggregate
-- `TEST_EntityPresentationCoordinator`: Provider 정순 Spawn, 역순 rollback/release
-
-개별 primitive 테스트와 상위 orchestration 테스트를 분리해, 상위 테스트가 하위 구현 세부를 다시 복제하지 않게 유지합니다.
+Entity·Actor·Presentation과 Game 기능 테스트는 [Xeri Game](https://github.com/inonego-unity/Xeri-Game)의 `Tests/`가 소유합니다.
 
 ## 관련 문서
 

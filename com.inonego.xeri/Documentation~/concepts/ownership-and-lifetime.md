@@ -18,8 +18,6 @@ Dispose / Release / Close
 
 모든 모듈이 같은 타입을 사용하는 것은 아니지만, 반환된 수명 객체를 실제 사용 범위의 소유자가 보관한다는 원칙은 공통입니다.
 
-게임에서는 **Host Slot 권한·ExecutionSession·독립 Effect/World Object**가 다른 수명입니다. 실행 종료 후 다른 실제 Owner에게 인수된 결과는 그 Owner의 정책에 따라 유지됩니다.
-
 ## 주요 형태
 
 | 형태 | 의미 |
@@ -27,6 +25,7 @@ Dispose / Release / Close
 | `Lease` | 특정 요청 또는 외부 자원의 수명을 일회성으로 소유 |
 | `Handle` | 등록이나 조회 결과처럼 안정적인 참조 상태를 소유 |
 | `Session` | 문서, 재생, 작업 history처럼 일정 기간 유지되는 작업 상태를 소유 |
+
 ## 규칙
 
 - 획득한 객체의 종료 책임자를 호출 시점에 결정합니다.
@@ -35,10 +34,11 @@ Dispose / Release / Close
 - 실제 계약이 재시도를 요구하지 않는 `Dispose` 실패를 임의의 복구 상태 머신으로 확장하지 않습니다.
 - Addressables처럼 외부 release가 필요한 값은 값과 수명 책임을 분리하지 않습니다.
 - Registry relation과 pooled object를 함께 반환할 때는 live relation을 먼저 제거하고 object/pool release를 나중에 수행합니다.
-- 여러 subsystem을 조립한 transaction은 commit 전 실패와 정상 terminal release를 구분합니다. Actor의 경우 `EntityActorRuntime.Rollback`은 `SpawnRollback` 의미로 정리하고, 정상 `Release`는 caller가 전달한 `DespawnReason`을 유지합니다.
+- 여러 subsystem을 조립한 transaction은 commit 전 실패 시 정리와 정상 종료 시 자원 반환을 구분합니다.
 
 ## 관련 문서
 
 - [Xeri 구조](architecture.md)
 - [확장 계약](extension-contracts.md)
-- [Gameplay Framework — 실행과 독립 결과 소유권](../modules/game/gameplay-framework.md)
+- [Xeri Game — Action 실행과 결과 소유권](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/overview.html)
+- [Xeri Game — Entity·Actor의 수명과 Rollback](https://inonego-unity.github.io/Xeri-Game/docs/foundation/entity-and-spawn.html)

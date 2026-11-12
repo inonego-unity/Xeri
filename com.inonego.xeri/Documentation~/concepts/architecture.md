@@ -22,8 +22,8 @@ Unity / File / Addressables / UI backend
 
 - `Core`는 여러 모듈에서 사용하는 기반 계약과 생명주기를 제공합니다.
 - `Serializable`은 변환과 직렬화 책임을 제공하며 저장 위치나 외부 데이터 접근을 소유하지 않습니다.
-- `UI`, `Playback`, `Game`은 독립적인 Runtime 도메인을 제공합니다.
-- Game 내부에서도 logical Entity, Scene Actor, Presentation을 같은 객체로 합치지 않고 각각의 Registry/Controller/Coordinator 책임을 유지하며 필요할 때 `EntityActorRuntime` 같은 상위 transaction에서 조립합니다.
+- `UI`, `Playback`은 Core의 개별 Runtime 영역이며 게임 도메인은 별도 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/) 패키지에서 제공합니다.
+- Entity·Actor·Presentation을 위한 Registry/Controller/Coordinator는 Xeri Game의 책임입니다.
 - 작은 보조 기능은 `Rendering`, `Tracking`, `Generation`, `Utility` 같은 영역에 분리합니다.
 ## 규칙
 
@@ -37,4 +37,4 @@ Unity / File / Addressables / UI backend
 - [소유권과 수명](ownership-and-lifetime.md)
 - [확장 계약](extension-contracts.md)
 - [모듈 목록](../modules/index.md)
-- [Gameplay Framework 시스템 구조](../modules/game/gameplay-framework.md)
+- [Gameplay Framework 시스템 구조](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/overview.html)

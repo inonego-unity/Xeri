@@ -30,7 +30,7 @@ Project Adapter
 Xeri API
 ```
 
-예를 들어 후보 탐색 방식은 프로젝트 Scanner가 담당하고, `UseController`에는 발견한 `UseOffer`만 공급하는 식입니다.
+예를 들어 재생 이벤트를 처리할 때 프로젝트 Presenter는 사용할 Cue를 고르고, Core의 Playback 계약을 통해 실행하도록 연결할 수 있습니다.
 ## 3. 수명 소유자를 먼저 정한다
 
 새 기능을 연결하기 전에 다음 질문에 답합니다.
@@ -56,11 +56,11 @@ Create → Load → Validate → Compose → Register
 
 - Generation: 같은 Seed에서 같은 결과가 재현되는지 확인
 - Tracking: 하나의 Binding을 등록하고 Lease 해제 시 clear되는지 확인
-- Game Entity/Actor: Entity 하나를 Spawn한 뒤 Actor Create → project setup → Release 또는 Rollback이 대칭인지 확인
+- Playback: Cue 하나를 생성·실행하고 종료 후 사용 자원이 정리되는지 확인
 
 ## 관련 문서
 
 - [모듈 선택 가이드](choosing-modules.md)
 - [Xeri 통합 패턴](../concepts/integration-patterns.md)
 - [소유권과 수명](../concepts/ownership-and-lifetime.md)
-- [Entity Actor Runtime 조립하기](../guides/game/compose-entity-actor-runtime.md)
+- [Xeri Game 초기 설정](https://inonego-unity.github.io/Xeri-Game/docs/getting-started/installation.html) (게임 기능이 필요한 경우)

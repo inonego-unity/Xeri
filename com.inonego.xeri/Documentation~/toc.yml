@@ -23,16 +23,8 @@
   items:
   - name: Bootstrapper Module 추가하기
     href: guides/core/add-bootstrapper-module.md
-  - name: Entity Registry 구현하기
-    href: guides/game/create-entity-registry.md
-  - name: Entity Actor Runtime 조립하기
-    href: guides/game/compose-entity-actor-runtime.md
-  - name: Ability에서 Execution·Delivery까지 연결하기
-    href: guides/game/ability-execution-delivery.md
-  - name: State Machine 구성하기
-    href: guides/game/create-state-machine.md
-  - name: Use와 Reaction 연결하기
-    href: guides/game/connect-use-and-reaction.md
+  - name: Xeri Game 사용 가이드 (별도 패키지)
+    href: https://inonego-unity.github.io/Xeri-Game/docs/guides/index.html
   - name: 결정적 생성 흐름 만들기
     href: guides/generation/deterministic-generation.md
   - name: Instanced Renderer 구성하기
@@ -93,40 +85,8 @@
     href: ../Runtime/UI/README.md
   - name: Xeri UI (별도 패키지)
     href: https://inonego-unity.github.io/Xeri-UI/
-- name: Game
-  items:
-  - name: Gameplay Framework — 전체 아키텍처
-    href: modules/game/gameplay-framework.md
-  - name: Ability — 상태·바인딩·활성화
-    href: modules/game/ability.md
-  - name: Execution — Flow·Behavior·Trigger
-    href: modules/game/execution.md
-  - name: Spatial·Targeting — 공간과 대상 선택
-    href: modules/game/spatial-targeting.md
-  - name: Delivery·Gameplay Operation
-    href: modules/game/delivery-operation.md
-  - name: Entity와 Spawn 수명
-    href: modules/game/entity-lifecycle.md
-  - name: State Machine
-    href: modules/game/state-machine.md
-  - name: Board
-    href: modules/game/board.md
-  - name: Controller
-    href: modules/game/controller.md
-  - name: HP
-    href: modules/game/hp.md
-  - name: Physics Query
-    href: modules/game/physics-query.md
-  - name: AI Group과 Brain
-    href: modules/game/ai-group.md
-  - name: Use System
-    href: modules/game/use.md
-  - name: Reaction
-    href: modules/game/reaction.md
-  - name: Zone Graph
-    href: modules/game/zone-graph.md
-  - name: Level
-    href: modules/game/level.md
+- name: Xeri Game (별도 패키지)
+  href: https://inonego-unity.github.io/Xeri-Game/
 - name: Generation
   items:
   - name: Generation

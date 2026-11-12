@@ -1,11 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XDictionary.cs
-수정일 : 2026-10-06
+수정일 : 2026-11-12
 
 # 설명
 Unity 직렬화를 지원하는 Dictionary 구현.
 SerializeReference / SerializeField 조합으로 4가지 변형(RR/RV/VR/VV)을 제공한다.
-Runtime 변경은 내부 ApplyRuntime 호출 시에만 serialized pair 목록에 반영한다.
+Runtime 변경은 명시적 ApplyRuntime 호출 시에만 serialized pair 목록에 반영한다. 외부 Game 패키지의 Registry도 저장·복원 경계에서 이를 호출할 수 있다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -93,7 +93,7 @@ namespace inonego.Xeri.Serializable
         /// Runtime Dictionary를 저장용 pair 목록에 명시적으로 적용한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void ApplyRuntime()
+        public void ApplyRuntime()
         {
             // 유효한 pair 목록을 먼저 만든 후 authoring 목록을 교체한다.
             var pairs = new List<TPair>(Count);
@@ -120,7 +120,7 @@ namespace inonego.Xeri.Serializable
         /// Serialized 목록에서 런타임 Dictionary를 다시 구성한다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void UpdateRuntime()
+        public void UpdateRuntime()
         {
             var serialized = Serialized;
             Clear();

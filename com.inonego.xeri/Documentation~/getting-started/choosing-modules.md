@@ -26,7 +26,9 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 | Unity 직렬화용 Dictionary/Ordered Collection | Serializable / Collections |
 | Base 값과 Modifier 합성 | Serializable / Value |
 
-## 게임 Runtime
+## Xeri Game (별도 패키지)
+
+다음 기능은 Xeri Core가 아닌 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)의 Foundation과 Modules에서 제공합니다. Game 모듈의 상세 조합 기준은 해당 패키지 문서를 확인합니다.
 
 | 필요 | 모듈 |
 |---|---|

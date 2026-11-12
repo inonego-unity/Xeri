@@ -84,5 +84,5 @@ timer.Tick(deltaTime);
 
 ## 관련 문서
 
-- [Game Controller](../game/controller.md)
+- [Game Controller](https://inonego-unity.github.io/Xeri-Game/docs/modules/character/controller.html)
 - [Utility 모듈](../../../Runtime/유틸리티/README.md)

@@ -6,13 +6,15 @@
 
 - [Bootstrapper Module 추가하기](core/add-bootstrapper-module.md)
 
-## 게임 Runtime
+## Xeri Game (별도 패키지)
 
-- [Entity Registry 구현하기](game/create-entity-registry.md)
-- [Entity Actor Runtime 조립하기](game/compose-entity-actor-runtime.md)
-- [Ability 사용에서 Execution·Targeting·Delivery까지 연결하기](game/ability-execution-delivery.md)
-- [State Machine 구성하기](game/create-state-machine.md)
-- [Use와 Reaction 연결하기](game/connect-use-and-reaction.md)
+게임 관련 가이드는 [Xeri Game Manual](https://inonego-unity.github.io/Xeri-Game/docs/guides/index.html)에서 제공합니다.
+
+- [Entity Registry 구현하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/foundation/create-entity-registry.html)
+- [Entity Actor Runtime 조립하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/foundation/compose-entity-actor-runtime.html)
+- [Ability 사용에서 Execution·Targeting·Delivery까지 연결하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/action/ability-execution-delivery.html)
+- [State Machine 구성하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/foundation/create-state-machine.html)
+- [Use와 Reaction 연결하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/interaction/connect-use-and-reaction.html)
 
 ## 생성과 표현
 

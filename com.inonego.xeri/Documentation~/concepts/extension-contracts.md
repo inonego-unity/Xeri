@@ -28,14 +28,12 @@ Project Adapter / Source / Driver / Handler
 |---|---|
 | Drag & Drop | `IDropRule`, `IDropResolver`, `IDragCoordinateProvider` |
 | Playback | `ICuePlayer`, `ICueBinding` |
-| Game Entity | `ISpawnRegistryBinding<TKey,T>`, `IEntityActorFactory` |
-| Game Presentation | `IEntityPresentationProvider<TEntityActor,TEntity>` |
 
-Application UI의 Screen/Presentation/Window 계약은 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
+Game의 Entity·Presentation 확장 계약은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서, Application UI의 Screen·Window 계약은 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
 
 ## 관련 문서
 
 - [Xeri 구조](architecture.md)
 - [소유권과 수명](ownership-and-lifetime.md)
 - [모듈 목록](../modules/index.md)
-- [Gameplay Framework 시스템 구조](../modules/game/gameplay-framework.md)
+- [Gameplay Framework 시스템 구조](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/overview.html)

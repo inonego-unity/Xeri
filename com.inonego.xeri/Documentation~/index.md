@@ -1,8 +1,8 @@
 # Xeri 문서
 
-Xeri는 Unity 프로젝트에서 반복되는 Runtime 수명, 데이터 접근, 게임 객체, 재생과 직렬화 문제를 독립 모듈과 명시적인 계약으로 다루는 foundation framework입니다.
+Xeri는 Unity 프로젝트에서 반복되는 Runtime 수명, 데이터 접근, 재생과 직렬화 문제를 독립 모듈과 명시적인 계약으로 다루는 foundation framework입니다.
 
-Application UI lifecycle, Window, Tray와 Bar는 별도 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/) package가 담당합니다.
+게임 객체·Ability·Gameplay 기능은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서 제공하며, Application UI lifecycle, Window, Tray와 Bar는 별도 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/) package가 담당합니다.
 
 ## 처음이라면
 
@@ -21,13 +21,13 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | Application 실행 세대·자원 수명을 관리한다 | [Application](../Runtime/Core/Application/README.md) |
 | 시작 순서를 구성한다 | [Bootstrapper](modules/core/bootstrapper.md) |
 | 작업 실행과 Undo/Redo history를 관리한다 | [Commanding과 DoSession](modules/commanding/do-session.md) |
-| Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](modules/game/entity-lifecycle.md) |
-| Ability·Execution·Cost·Spatial·Delivery·Effect의 책임을 구분한다 | [Gameplay Framework 전체 구조](modules/game/gameplay-framework.md) |
-| Ability 바인딩·상태·비용 소비 API를 사용한다 | [Ability](modules/game/ability.md) |
-| Flow·Behavior·Trigger를 조립한다 | [Execution](modules/game/execution.md) |
-| 위치·방향과 대상 후보를 선택한다 | [Spatial·Targeting](modules/game/spatial-targeting.md) |
-| Physics Contact와 게임 Operation을 연결한다 | [Delivery·Gameplay Operation](modules/game/delivery-operation.md) |
-| Entity와 Scene Actor를 0..N으로 분리하고 Presentation까지 조립한다 | [Entity Actor Runtime 조립하기](guides/game/compose-entity-actor-runtime.md) |
+| Entity를 Spawn/Despawn한다 | [Entity와 Spawn 수명](https://inonego-unity.github.io/Xeri-Game/docs/foundation/entity-and-spawn.html) |
+| Ability·Execution·Cost·Spatial·Delivery·Effect의 책임을 구분한다 | [Gameplay Framework 전체 구조](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/overview.html) |
+| Ability 바인딩·상태·비용 소비 API를 사용한다 | [Ability](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/ability.html) |
+| Flow·Behavior·Trigger를 조립한다 | [Execution](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/execution.html) |
+| 위치·방향과 대상 후보를 선택한다 | [Spatial·Targeting](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/spatial-targeting.html) |
+| Physics Contact와 게임 Operation을 연결한다 | [Delivery·Gameplay Operation](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/delivery-operation.html) |
+| Entity와 Scene Actor를 0..N으로 분리하고 Presentation까지 조립한다 | [Entity Actor Runtime 조립하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/foundation/compose-entity-actor-runtime.html) |
 | Screen/Modal/Window UI를 운영한다 | [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/) |
 | UGUI/UITK Drag & Drop 또는 Picker를 구성한다 | [UI Utilities](../Runtime/UI/README.md) |
 | Picker/Editor가 공유하는 팝업 배치 경계를 확인한다 | [UI Popup 공통 기반](../Runtime/UI/README.md) |

@@ -2,7 +2,7 @@
   "name": "com.inonego.xeri",
   "version": "0.0.1",
   "displayName": "Xeri",
-  "description": "Modular Unity runtime framework with Entity/Actor/Presentation, serialization, playback, and editor tooling.",
+  "description": "Modular Unity core runtime with lifecycle, serialization, playback, and editor tooling.",
   "unity": "6000.0",
   "author": {
     "name": "inonego"

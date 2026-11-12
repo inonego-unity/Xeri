@@ -41,29 +41,9 @@ Load / Validate / Compose
 Register / Publish
 ```
 
-실패하면 이미 획득한 `Lease`, Handle, Actor, Presentation, Source를 역순으로 정리하고 외부에는 준비되지 않은 상태를 노출하지 않습니다.
+실패하면 이미 획득한 `Lease`, Handle, Source를 역순으로 정리하고 외부에는 준비되지 않은 상태를 노출하지 않습니다.
 
-Game Actor처럼 여러 subsystem이 한 사용 단위를 이루는 경우에도 각 subsystem의 primitive를 없애지 않고 상위 transaction이 조립합니다.
-
-```text
-EntityActorRuntime.Create
-→ EntityActorController.Create
-→ EntityActorController.Attach
-→ EntityPresentationCoordinator.CreateForActor
-→ project setup / Activate
-→ commit
-
-pre-commit 실패
-→ EntityActorRuntime.Rollback
-
-owner migration
-→ EntityActorRuntime.Transfer
-
-terminal release
-→ EntityActorRuntime.Release
-```
-
-persistent Actor state와 gameplay policy는 프로젝트에 남기고 Xeri transaction은 live object 수명만 관리합니다.
+상위 Runtime이 여러 계약을 조합하더라도 Core의 개별 Acquire/Release 책임은 유지합니다. Entity·Actor·Presentation을 조합하는 구체적인 실행 흐름은 [Xeri Game 가이드](https://inonego-unity.github.io/Xeri-Game/docs/guides/foundation/compose-entity-actor-runtime.html)에서 다룹니다.
 
 ## 안정 ID와 Key를 사용한다
 
@@ -75,18 +55,15 @@ persistent Actor state와 gameplay policy는 프로젝트에 남기고 Xeri tran
 
 | Xeri가 제공하는 것 | 프로젝트가 결정하는 것 |
 |---|---|
-| `UseController`의 후보 선택과 사용 전달 | 후보를 어떻게 탐색할지, 어떤 입력을 사용할지 |
-| AbilityBindings·AbilityState·AbilityActivationPolicy·AbilityUseSelection·ExecutionSession | State/Context별 사용 후보 선택 정책, Host Slot·Cost/Begin 승인 순서, 실제 Resource/Combat Result·Effect Owner |
 | `CuePlaybackService`의 Player 선택과 Playback 수명 | 어떤 게임 사건에서 어떤 Cue를 재생할지 |
 | `GenerationSeed`의 결정적 파생 | 실제 생성 알고리즘과 stable key 체계 |
 | `TrackingBinding`의 resolve/commit 수명 | 무엇을 추적하고 어떤 좌표계로 변환할지 |
-| `EntitySpawnRegistry`의 Spawn/Despawn 계약 | 구체 Entity 생성과 외부 자원 해제 방식 |
-| `EntityActorController`의 Entity → Actor 0..N 관계 | 어떤 Entity에 언제 Actor를 materialize할지 |
-| `EntityActorRuntime`의 Actor + Presentation transaction | Actor state apply, Activate, AI/Control, gameplay commit 정책 |
+게임별 사용 입력·Ability·Entity 수명 계약은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서 제공합니다.
+
 ## 관련 문서
 
 - [Xeri 구조](architecture.md)
 - [소유권과 수명](ownership-and-lifetime.md)
 - [확장 계약](extension-contracts.md)
 - [Runtime 모듈](../modules/index.md)
-- [Gameplay Framework — 상태 선택·Host와 결과 소유권](../modules/game/gameplay-framework.md)
+- [Gameplay Framework — 상태 선택·Host와 결과 소유권](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/overview.html)

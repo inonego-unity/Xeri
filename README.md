@@ -2,7 +2,7 @@
 
 **Xeri**는 Unity 프로젝트에서 반복되는 Runtime 구조와 생명주기 문제를 공통 계약으로 분리하는 모듈형 프레임워크입니다.
 
-게임마다 달라지는 규칙과 콘텐츠는 프로젝트에 남기고, 여러 프로젝트에서 반복되는 **초기화, 소유권, 데이터 접근, 재생, 직렬화, 작업 상태와 게임 Runtime 기반 기능**을 재사용 가능한 형태로 제공합니다.
+게임마다 달라지는 규칙과 콘텐츠는 프로젝트에 남기고, 여러 프로젝트에서 반복되는 **초기화, 소유권, 데이터 접근, 재생, 직렬화, 작업 상태 등 Core 기반 기능**을 재사용 가능한 형태로 제공합니다. Entity·Spawn·HP·Ability 등의 게임 모듈은 별도 Xeri-Game 패키지가 담당합니다.
 
 > Unity 6 · UPM package · Runtime-first modular framework
 
@@ -13,7 +13,7 @@ Unity 프로젝트가 커질수록 기능 자체보다 다음과 같은 경계�
 - 누가 Runtime 객체를 만들고 언제 해제하는가
 - Scene 전환 전후의 초기화 순서를 어떻게 보장하는가
 - 파일, 메모리, Resources, Addressables 차이를 소비 코드에서 어떻게 숨기는가
-- 게임 도메인 로직과 범용 Entity/State/HP/AI 기반을 어떻게 분리하는가
+- 게임 도메인 모듈과 범용 Core 계약의 패키지 의존 방향을 어떻게 분리하는가
 - 저장 가능한 상태와 Runtime 상태를 어디까지 나눌 것인가
 - 반복되는 작업 실행·추적·재생 수명을 어떻게 일관되게 관리할 것인가
 
@@ -35,7 +35,7 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 |---|---|
 | **Core** | Bootstrapper, Lease, Singleton, 공통 primitive와 lifecycle 계약 |
 | **Serializable** | Unity 직렬화 보조 컬렉션, serializer, `MValue`, managed reference |
-| **Game** | Entity/Actor/Presentation, Spawn, State Machine, HP, AI Group, Targeting, Spatial, Delivery, Execution 및 Ability 공통 계약 |
+| **Game (별도 패키지)** | Entity/Actor/Presentation, Spawn, State Machine, HP, AI Group, Targeting, Delivery, Execution, Ability 등은 Xeri-Game의 책임 |
 | **UI Utilities** | Drag & Drop, Picker, 공통 Popup 배치·표시 기반 |
 | **Playback** | Cue, Playback lifecycle, Unity Audio |
 | **Tracking** | resolve → transition → commit 반복 갱신과 Lease 수명 |
@@ -45,6 +45,7 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 
 ## Xeri Ecosystem
 
+- **Xeri Game** — Entity, Spawn, WorldObject와 게임 모듈은 별도 `com.inonego.xeri.game` 패키지에서 제공합니다. 기존 Game 관련 Manual의 사이트 분리는 별도 작업입니다.
 - **Xeri Fabric** — IO, Data, Localization, Workspace Runtime은 [Xeri Fabric Documentation](https://inonego-unity.github.io/Xeri-Fabric/)에서 제공합니다.
 - **Xeri UI** — application UI lifecycle, Window, Tray와 Bar는 [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
 

@@ -11,7 +11,6 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 | Serializable | [README](../../Runtime/Serializable/README.md) | Unity 직렬화 보조 타입과 serializer |
 | Tracking | [README](../../Runtime/Tracking/README.md) | 값 resolve·transition·commit 추적 |
 | UI Utilities | [README](../../Runtime/UI/README.md) | Drag & Drop, Picker, 공통 목록 및 Popup 기반 |
-| Game | [README](../../Runtime/게임/README.md) | Entity, Actor, Presentation, Spawn, State, HP, AI 등 |
 | Generation | [README](../../Runtime/생성/README.md) | seed, random, validation |
 | Utility | [README](../../Runtime/유틸리티/README.md) | pooling, timer, paging, logging 등 |
 
@@ -23,11 +22,14 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 - Rendering: [Instancing](rendering/instancing.md)
 - Serializable: [Value와 Modifier](serialization/value.md), [Collections](serialization/collections.md), [Serializer](serialization/serializer.md), [Managed Reference](serialization/managed-reference.md)
 - Tracking: [Tracking](tracking/tracking.md)
-- Game: [Gameplay Framework 전체 구조](game/gameplay-framework.md), [Ability](game/ability.md), [Execution](game/execution.md), [Spatial·Targeting](game/spatial-targeting.md), [Delivery·Gameplay Operation](game/delivery-operation.md), [사용 연결 가이드](../guides/game/ability-execution-delivery.md), [Entity와 Spawn 수명](game/entity-lifecycle.md), [Entity Actor Runtime 조립 가이드](../guides/game/compose-entity-actor-runtime.md), [State Machine](game/state-machine.md), [Board](game/board.md), [Controller](game/controller.md), [HP](game/hp.md), [Physics Query](game/physics-query.md), [AI Group](game/ai-group.md), [Use](game/use.md), [Reaction](game/reaction.md), [Zone Graph](game/zone-graph.md), [Level](game/level.md)
 - Generation: [Generation](generation/generation.md)
 - Utility: [GameObject Provider](utility/game-object-provider.md), [Object Pooling](utility/pooling.md), [Timer](utility/timer.md), [Paging](utility/paging.md)
 - UI Utilities: [Drag & Drop](../../Runtime/UI/Drag_Drop/README.md), [Picker](../../Runtime/UI/Picker/README.md), [Popup 공통 기반](../../Runtime/UI/README.md) (내부 호스트 및 배치 계약)
 - Application UI: [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)
+
+## 별도 게임 패키지
+
+Entity·Spawn·Actor, Ability·Execution·Combat 등 게임 기능은 Core Runtime 모듈이 아니라 별도 [Xeri Game Manual](https://inonego-unity.github.io/Xeri-Game/)에서 설명합니다.
 
 ## 읽는 순서
 
