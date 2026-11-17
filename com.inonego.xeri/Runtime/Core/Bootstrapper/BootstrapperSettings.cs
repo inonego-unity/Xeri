@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BootstrapperSettings.cs
-수정일 : 2026-11-03
+수정일 : 2026-11-18
 
 # 설명
 BootStrapper 실행에 필요한 씬 인덱스와 초기화 모듈 에셋 목록을 저장하는 설정 에셋.
 설정 조회는 에셋을 생성하지 않으며, 에디터 설정 UI에서 명시적으로 생성한다.
+에디터에서는 모듈 목록이 바뀌면 OnModulesChange로 알려 설정 UI가 상태를 다시 읽게 한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -103,6 +104,75 @@ namespace inonego.Xeri.Bootstrapper
         [SerializeField]
         [HelpBox("BootStrapper가 순서대로 실행할 초기화 모듈 에셋 목록입니다.")]
         private List<BootstrapperModuleAsset> modules = new();
+
+    #endregion
+
+    #region 변경 알림
+
+    #if UNITY_EDITOR
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 실행할 모듈 목록이 추가·제거·교체·재정렬되면 발생한다. 에디터에서만 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static event Action<BootstrapperSettings> OnModulesChange = null;
+
+        [NonSerialized]
+        private readonly List<BootstrapperModuleAsset> observedModules = new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 모듈 목록을 변경 비교의 기준으로 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnEnable()
+        {
+            observedModules.Clear();
+            observedModules.AddRange(modules);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Inspector 편집, 실행 취소, 에셋 로드로 값이 바뀌면 모듈 목록 변경 여부를 확인해 알린다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnValidate()
+        {
+            if (HasSameModules())
+            {
+                return;
+            }
+
+            observedModules.Clear();
+            observedModules.AddRange(modules);
+            OnModulesChange?.Invoke(this);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기록한 모듈 목록과 현재 목록이 같은 순서로 같은 에셋을 가리키는지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool HasSameModules()
+        {
+            if (modules.Count != observedModules.Count)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < modules.Count; index++)
+            {
+                if (modules[index] != observedModules[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+    #endif
 
     #endregion
 

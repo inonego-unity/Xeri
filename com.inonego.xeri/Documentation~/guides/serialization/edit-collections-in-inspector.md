@@ -28,6 +28,31 @@ public sealed class CollectionAuthoringExample : MonoBehaviour
 
 `Unique = true`는 **중복된 행을 Inspector에서 진단**하는 옵션입니다. Runtime 목록을 `HashSet`으로 바꾸거나 중복을 자동으로 제거하지 않습니다.
 
+`VisibleRows`는 처음 표시할 행 수(기본 5)입니다. `Columns`는 class/struct 요소의 직렬화 필드를 열로 나눠 표에서 바로 편집하게 합니다. 열 헤더는 필드의 `[InspectorName]`, 없으면 Unity 표시 이름을 사용합니다. 열로 지정하지 않은 필드가 남아 있으면 행의 편집 버튼으로 요소 전체를 편집합니다. `Columns`는 `[SerializeReference]` 요소에는 사용할 수 없습니다.
+
+```csharp
+[Serializable]
+public sealed class LayerRow
+{
+    [InspectorName("이름")] public string displayName;
+    [InspectorName("ID")] public string layerID;
+    [InspectorName("순서")] public int order;
+}
+
+[CollectionEditor(VisibleRows = 8, Columns = new[] { "displayName", "layerID", "order" })]
+[SerializeField] private List<LayerRow> layers = new();
+```
+
+## 목록 높이
+
+- 목록 아래의 손잡이를 위아래로 끌면 표시 행 수가 바뀝니다. 조절한 높이는 같은 대상·필드에 대해 Editor 세션 동안 유지되며, 손잡이를 더블 클릭하면 기본 행 수로 돌아갑니다.
+- 전용 편집 창처럼 목록이 남은 공간을 모두 써야 하는 호스트는 USS에서 `--xeri-collection-fill: 1;`을 지정합니다. 이 경우 목록은 부모 높이를 채우고, 들어가는 행 수만큼 페이지를 나누므로 내부 스크롤과 바깥 스크롤이 겹치지 않습니다. 채움 모드에서는 목록을 접지 않으며 바깥 테두리는 호스트가 그립니다. 부모 요소(예: `PropertyField`)도 `flex-grow: 1`이어야 합니다.
+
+```css
+.my-editor .xeri-collection { --xeri-collection-fill: 1; }
+.my-editor .unity-property-field { flex-grow: 1; }
+```
+
 직접 실행 가능한 예제를 보려면 Unity **Package Manager > Xeri > Samples > Collection Editor Inspector > Import**를 선택하세요. 가져온 `TEST_E_CollectionValidation.unity` 씬에서 컬렉션 타입별 Inspector 표시와 편집을 확인할 수 있습니다.
 
 ## 2. 컬렉션 펼치고 행 편집하기

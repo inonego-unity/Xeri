@@ -4,7 +4,7 @@
 
 # 설명
 Collection Editor의 View와 Window가 공유하는 UXML·USS를 Resources에서 로드한다.
-리소스는 Editor/Resources/XeriUI/Collection에 두고 Unity의 에셋 수명주기에 맡긴다.
+리소스는 Editor/Resources/Xeri/Collection에 두고 Unity의 에셋 수명주기에 맡긴다.
 UXML과 USS는 Resources 경로가 겹치지 않도록 별도 이름으로 구분한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -25,7 +25,7 @@ namespace inonego.Xeri.Serializable.Editor
 
     #region 필드
 
-        private const string resourceRoot = "XeriUI/Collection/";
+        private const string resourceRoot = "Xeri/Collection/";
 
     #endregion
 

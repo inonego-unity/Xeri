@@ -247,6 +247,26 @@ namespace inonego.Xeri.Serializable.Editor
             return CollectionCellEditMode.Default;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기본 열은 입력 중에도 값을 확정한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual bool UsesDelayedInput(string columnID)
+        {
+            return false;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 편집창으로만 바꾸는 셀의 기본 설명을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual string GetCellEditTooltip(int sourceIndex, string columnID)
+        {
+            return "항목 편집";
+        }
+
         // ----------------------------------------------------------------------
         /// <summary>
         /// Add 전에 type 선택이 필요한 managed-reference column 정보를 반환한다.

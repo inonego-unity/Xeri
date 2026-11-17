@@ -9,6 +9,7 @@ SerializedProperty의 현재 값과 실제 객체 인스턴스를 구분하여 �
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 
 using UnityEditor;
@@ -246,13 +247,32 @@ namespace inonego.Xeri
                 return;
             }
 
+            // 현재 property의 drawer를 재호출하지 않고 실제 데이터 자식부터 기본 PropertyField에 위임한다.
+            foreach (var child in EnumerateVisibleChildren(property))
+            {
+                container.Add(new PropertyField(child.Copy()));
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 표시 가능한 직계 자식 프로퍼티를 순회한다.
+        /// <br/> 반환하는 프로퍼티는 순회 중 계속 이동하는 단일 반복자이므로 보관하려면 Copy해야 한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal static IEnumerable<SerializedProperty> EnumerateVisibleChildren(SerializedProperty property)
+        {
+            if (property == null)
+            {
+                yield break;
+            }
+
             var depth    = property.depth;
             var iterator = property.Copy();
 
-            // 현재 property의 drawer를 재호출하지 않고 실제 데이터 자식부터 기본 PropertyField에 위임한다.
             if (!iterator.NextVisible(enterChildren: true))
             {
-                return;
+                yield break;
             }
 
             do
@@ -260,10 +280,10 @@ namespace inonego.Xeri
                 // 다음 sibling으로 넘어가면 현재 property의 자식 범위를 모두 처리한 상태다.
                 if (iterator.depth <= depth)
                 {
-                    break;
+                    yield break;
                 }
 
-                container.Add(new PropertyField(iterator.Copy()));
+                yield return iterator;
             }
             while (iterator.NextVisible(enterChildren: false));
         }
@@ -463,7 +483,7 @@ namespace inonego.Xeri
         /// 상속 계층을 순회하며 필드를 검색한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static FieldInfo FindField(Type type, string name)
+        internal static FieldInfo FindField(Type type, string name)
         {
             const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance;
 

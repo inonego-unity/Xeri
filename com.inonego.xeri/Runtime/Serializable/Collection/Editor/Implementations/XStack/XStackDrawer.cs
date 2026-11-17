@@ -24,7 +24,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// <inheritdoc />
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            return CollectionEditorDrawerGUI.CreateForType(property, fieldInfo);
+            return CollectionEditorDrawerGUI.CreateForType(property, fieldInfo, preferredLabel);
         }
     }
 }

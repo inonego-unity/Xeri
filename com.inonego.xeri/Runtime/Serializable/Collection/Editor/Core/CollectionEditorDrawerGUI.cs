@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorDrawerGUI.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-17
 
 # 설명
 Collection Editor의 Model·View 생성과 ReadOnly 모드 적용을 담당한다.
@@ -49,7 +49,8 @@ namespace inonego.Xeri.Serializable.Editor
             SerializedProperty property,
             string displayName,
             Func<ICollectionEditorModel> createModel,
-            bool isReadOnly = false
+            bool isReadOnly = false,
+            CollectionEditorViewOptions? options = null
         )
         {
             if (property.serializedObject.isEditingMultipleObjects)
@@ -63,7 +64,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             try
             {
-                return new CollectionEditorView(createModel(), isReadOnly);
+                return new CollectionEditorView(createModel(), isReadOnly, options);
             }
             catch (Exception exception)
             {
@@ -80,10 +81,17 @@ namespace inonego.Xeri.Serializable.Editor
         /// 타입 기반 컬렉션을 공통 Editor Model과 View에 연결한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static VisualElement CreateForType(SerializedProperty property, FieldInfo field)
+        public static VisualElement CreateForType
+        (
+            SerializedProperty property, FieldInfo field, string label = null
+        )
         {
             var isReadOnly = field?.IsDefined(typeof(ReadOnlyAttribute), inherit: true) == true;
-            return TryCreateForType(property, field?.FieldType, isReadOnly, out var view)
+            var options = new CollectionEditorViewOptions
+            (
+                CollectionEditorViewOptions.DefaultVisibleRows, label
+            );
+            return TryCreateForType(property, field?.FieldType, isReadOnly, options, out var view)
                 ? view
                 : new HelpBox("지원하지 않는 컬렉션 형식입니다.", HelpBoxMessageType.Warning);
         }
@@ -108,7 +116,10 @@ namespace inonego.Xeri.Serializable.Editor
                 return CollectionEditorAttributeDrawer.CreateGUI(property, field);
             }
 
-            return TryCreateForType(property, field.FieldType, true, out var view)
+            return TryCreateForType
+            (
+                property, field.FieldType, true, CollectionEditorViewOptions.Default(), out var view
+            )
                 ? view
                 : null;
         }
@@ -123,6 +134,7 @@ namespace inonego.Xeri.Serializable.Editor
             SerializedProperty property,
             Type fieldType,
             bool isReadOnly,
+            CollectionEditorViewOptions options,
             out VisualElement view
         )
         {
@@ -139,37 +151,37 @@ namespace inonego.Xeri.Serializable.Editor
                     || definition == typeof(XDictionary_VR<,>)
                     || definition == typeof(XDictionary_VV<,>))
                 {
-                    view = Create(property, "XDictionary", () => new XDictionaryEditorModel(property), isReadOnly);
+                    view = Create(property, "XDictionary", () => new XDictionaryEditorModel(property), isReadOnly, options);
                     return true;
                 }
 
                 if (definition == typeof(XOrdered<,>) || definition == typeof(XOrdered<,,>))
                 {
-                    view = Create(property, "XOrdered", () => new XOrderedEditorModel(property), isReadOnly);
+                    view = Create(property, "XOrdered", () => new XOrderedEditorModel(property), isReadOnly, options);
                     return true;
                 }
 
                 if (definition == typeof(XHashSet_R<>) || definition == typeof(XHashSet_V<>))
                 {
-                    view = Create(property, "XHashSet", () => new XHashSetEditorModel(property), isReadOnly);
+                    view = Create(property, "XHashSet", () => new XHashSetEditorModel(property), isReadOnly, options);
                     return true;
                 }
 
                 if (definition == typeof(XQueue_R<>) || definition == typeof(XQueue_V<>))
                 {
-                    view = Create(property, "XQueue", () => new XQueueEditorModel(property), isReadOnly);
+                    view = Create(property, "XQueue", () => new XQueueEditorModel(property), isReadOnly, options);
                     return true;
                 }
 
                 if (definition == typeof(XStack_R<>) || definition == typeof(XStack_V<>))
                 {
-                    view = Create(property, "XStack", () => new XStackEditorModel(property), isReadOnly);
+                    view = Create(property, "XStack", () => new XStackEditorModel(property), isReadOnly, options);
                     return true;
                 }
 
                 if (definition == typeof(XPriorityQueue<,>))
                 {
-                    view = Create(property, "XPriorityQueue", () => new XPriorityQueueEditorModel(property), isReadOnly);
+                    view = Create(property, "XPriorityQueue", () => new XPriorityQueueEditorModel(property), isReadOnly, options);
                     return true;
                 }
             }

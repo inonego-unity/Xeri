@@ -87,51 +87,29 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         private void ConfigureColumns()
         {
-            listView.columns.Add
-            (
-                new Column
-                {
-                    name = imageColumnID,
-                    title = string.Empty,
-                    width = 42f,
-                    minWidth = 42f,
-                    maxWidth = 42f,
-                    stretchable = false,
-                    sortable = false,
-                    makeCell = MakeImageCell,
-                    bindCell = BindImageCell,
-                }
-            );
+            var imageLayout = TableColumnLayout.Fixed(42f);
+            var imageColumn = TableColumnSizing.CreateColumn(imageColumnID, string.Empty, imageLayout);
+            imageColumn.sortable = false;
+            imageColumn.makeCell = MakeImageCell;
+            imageColumn.bindCell = BindImageCell;
+            listView.columns.Add(imageColumn);
 
-            var stretchWeights = new List<float>(session.Columns.Count + 1);
-            stretchWeights.Add(0f);
+            var layouts = new List<TableColumnLayout>(session.Columns.Count + 1);
+            layouts.Add(imageLayout);
             foreach (var pickerColumn in session.Columns)
             {
                 var column = pickerColumn;
                 if (column.Options.Visibility == PickerColumnVisibility.Hidden) continue;
 
-                var listColumn = new Column
-                {
-                    name = column.ID,
-                    title = column.Header,
-                    width = column.Options.Layout.Width,
-                    minWidth = column.Options.Layout.MinWidth,
-                    stretchable = column.Options.Layout.Mode == PickerColumnLayoutMode.Flexible,
-                    sortable = column.Options.Sortable,
-                    makeCell = MakeTextCell,
-                    bindCell = (element, index) => BindTextCell(element, index, column),
-                };
-
-                if (column.Options.Layout.MaxWidth > 0f)
-                {
-                    listColumn.maxWidth = column.Options.Layout.MaxWidth;
-                }
-
+                var listColumn = TableColumnSizing.CreateColumn(column.ID, column.Header, column.Options.Layout);
+                listColumn.sortable = column.Options.Sortable;
+                listColumn.makeCell = MakeTextCell;
+                listColumn.bindCell = (element, index) => BindTextCell(element, index, column);
                 listView.columns.Add(listColumn);
-                stretchWeights.Add(column.Options.Layout.StretchWeight);
+                layouts.Add(column.Options.Layout);
             }
 
-            listView.ApplyColumnSizing(stretchWeights);
+            listView.ApplyColumnSizing(layouts);
         }
 
     #endregion

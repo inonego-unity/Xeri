@@ -24,9 +24,11 @@ namespace inonego.Xeri.UI
 
     #region 필드
 
-        private const string layoutPath = "XeriUI/Common/PagedListChrome";
+        private const string layoutPath = "Xeri/Common/PagedListChrome";
+        private const string rowStylePath = "Xeri/Common/ListRows";
         private static VisualTreeAsset layoutAsset;
         private static StyleSheet styleAsset;
+        private static StyleSheet rowStyleAsset;
         private BaseListView pageListView;
         private ScrollView pageScrollView;
         private PageScrollAnchor? pendingScrollAnchor;
@@ -106,6 +108,7 @@ namespace inonego.Xeri.UI
             }
 
             styleSheets.Add(styleAsset);
+            styleSheets.Add(rowStyleAsset);
 
             HeaderHost = Require("paged-list-header");
             SearchHost = Require("paged-list-search");
@@ -233,9 +236,14 @@ namespace inonego.Xeri.UI
                 styleAsset = Resources.Load<StyleSheet>(layoutPath);
             }
 
-            if (layoutAsset == null || styleAsset == null)
+            if (rowStyleAsset == null)
             {
-                throw new InvalidOperationException("PagedListChrome UXML/USS를 로드할 수 없습니다.");
+                rowStyleAsset = Resources.Load<StyleSheet>(rowStylePath);
+            }
+
+            if (layoutAsset == null || styleAsset == null || rowStyleAsset == null)
+            {
+                throw new InvalidOperationException("PagedListChrome UXML/USS와 공통 행 스타일을 로드할 수 없습니다.");
             }
         }
 

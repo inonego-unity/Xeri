@@ -166,6 +166,23 @@ namespace inonego.Xeri.UI
             return pageItems.IndexOf(item);
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 페이지 크기를 바꾸고 page slice를 다시 계산한다. 변경 여부를 반환한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public bool SetPageSize(int size)
+        {
+            if (size == paginator.PerPage)
+            {
+                return false;
+            }
+
+            paginator.PerPage = size;
+            RefreshPageItems();
+            return true;
+        }
+
     #endregion
 
     #region 페이지 이동

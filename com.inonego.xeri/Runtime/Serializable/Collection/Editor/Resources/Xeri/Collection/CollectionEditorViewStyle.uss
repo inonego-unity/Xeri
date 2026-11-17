@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorViewStyle.uss
-수정일 : 2026-10-31
+수정일 : 2026-11-17
 
 # 설명
 Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspector 크기에 맞춰 적용한다.
-항목 수가 바뀌어도 목록의 고정 높이와 페이지네이션 위치는 유지한다.
+항목 수가 바뀌어도 목록의 높이와 페이지네이션 위치는 유지한다.
+기본은 행 수 높이와 하단 조절 손잡이, --xeri-collection-fill 호스트에서는 부모 높이를 채운다.
 ========================================================================= BLOCK_HEADER_END */
 
 /* 접힌 CollectionEditor는 헤더와 항목 수만 남기고 박스 높이를 줄인다. */
@@ -40,6 +41,11 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
 .xeri-collection__foldout-button:hover {
     background-color: rgba(127,127,127,0.18);
 }
+/* 교차 행 대비는 공통 ListRows.uss의 변수로 정한다. 컬렉션은 다른 목록보다 대비를 높게 준다. */
+.xeri-collection {
+    --xeri-row-alt: rgba(127,127,127,0.12);
+}
+
 /* 프레임과 상단 도구 모음 */
 /* 공통 셸의 콘텐츠만 Inspector 환경에 맞게 조정한다. */
 .xeri-collection .xeri-paged-list__header {
@@ -88,6 +94,54 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     margin-bottom: 6px;
 }
 
+/* 목록 하단 높이 조절 손잡이. 행 단위로 높이가 바뀐다. */
+.xeri-collection__resize-handle {
+    flex-shrink: 0;
+    height: 5px;
+    min-height: 5px;
+    cursor: resize-vertical;
+    border-top-width: 1px;
+    border-top-color: rgba(127,127,127,0.18);
+    background-color: rgba(127,127,127,0.06);
+}
+
+.xeri-collection__resize-handle:hover,
+.xeri-collection__resize-handle--active {
+    background-color: rgba(125,177,221,0.45);
+}
+
+/* 채움 모드: 호스트가 --xeri-collection-fill: 1을 지정하면 부모 높이를 그대로 사용한다. */
+.xeri-collection--fill {
+    margin-top: 0;
+    margin-bottom: 0;
+    min-height: 0;
+}
+
+.xeri-collection--fill .xeri-paged-list,
+.xeri-collection--fill .xeri-paged-list__template,
+.xeri-collection--fill .xeri-paged-list__root,
+.xeri-collection--fill .xeri-paged-list__content,
+.xeri-collection--fill .xeri-collection__rows-host,
+.xeri-collection--fill #collection-rows {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.xeri-collection--fill .xeri-collection__resize-handle,
+.xeri-collection--fill .xeri-collection__foldout-button {
+    display: none;
+}
+
+/* 채움 모드는 호스트 패널 안에 붙어 있으므로 바깥 경계선은 호스트가 소유한다. */
+.xeri-collection--fill .xeri-paged-list__header {
+    border-top-width: 0;
+}
+
+.xeri-collection--fill .xeri-paged-list__footer {
+    border-bottom-width: 0;
+}
+
 .xeri-collection__header {
     flex-direction: row;
     align-items: center;
@@ -106,7 +160,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
 .xeri-collection__title {
     -unity-font-style: bold;
     -unity-text-align: middle-left;
-    font-size: 11px;
+    font-size: 12px;
     height: 22px;
     flex-shrink: 1;
     min-width: 0;
@@ -116,7 +170,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
 }
 
 .xeri-collection__count {
-    font-size: 10px;
+    font-size: 11px;
     opacity: 0.72;
     -unity-text-align: middle-center;
     height: 22px;
@@ -260,7 +314,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     height: 24px;
     margin: 0;
     padding: 0;
-    font-size: 11px;
+    font-size: 12px;
     -unity-text-align: middle-left;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -300,7 +354,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     min-height: 20px;
     padding-top: 0;
     padding-bottom: 0;
-    font-size: 11px;
+    font-size: 12px;
     -unity-text-align: middle-left;
 }
 
@@ -309,7 +363,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     min-height: 0;
     padding-top: 0;
     padding-bottom: 0;
-    font-size: 11px;
+    font-size: 12px;
     -unity-text-align: middle-left;
 }
 
@@ -332,7 +386,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     border-radius: 0;
 }
 
-/* 셀 동작 세 개와 행 삭제를 하나의 오른쪽 정렬 그룹으로 취급한다. */
+/* 행 전체 명령(항목 상세 편집, 행 삭제)을 행 끝의 오른쪽 정렬 그룹으로 둔다. */
 .xeri-collection__row-actions {
     flex-direction: row;
     align-items: center;
@@ -344,11 +398,6 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     margin-left: 6px;
     margin-right: 0;
     padding: 0;
-}
-
-.xeri-collection__row-actions .xeri-collection__cell-toolbar {
-    margin-left: 0;
-    margin-right: 0;
 }
 
 .xeri-collection__icon-button {
@@ -478,7 +527,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     min-height: 24px;
     margin: 0;
     padding: 0;
-    font-size: 11px;
+    font-size: 12px;
     -unity-text-align: middle-left;
 }
 
@@ -495,7 +544,7 @@ Picker의 평평한 툴바·표·하단 페이지 스타일을 Collection Inspec
     top: 0;
     bottom: 0;
     -unity-text-align: middle-center;
-    font-size: 11px;
+    font-size: 12px;
     opacity: 0.7;
     white-space: normal;
 }

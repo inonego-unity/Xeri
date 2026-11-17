@@ -56,7 +56,7 @@ namespace inonego.Xeri.UI.Picker
 
     #region 필드
 
-        public readonly PickerColumnLayout Layout;
+        public readonly TableColumnLayout Layout;
         public readonly bool Sortable;
         public readonly bool Searchable;
         public readonly PickerColumnAlignment Alignment;
@@ -74,7 +74,7 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public PickerColumnOptions
         (
-            PickerColumnLayout layout,
+            TableColumnLayout layout,
             bool sortable,
             bool searchable,
             PickerColumnAlignment alignment,
@@ -82,7 +82,7 @@ namespace inonego.Xeri.UI.Picker
             PickerColumnVisibility visibility
         ) : base()
         {
-            Layout     = layout ?? PickerColumnLayout.Flexible(120f, 40f, 0f, 1f);
+            Layout     = layout ?? TableColumnLayout.Flexible(120f, 40f, 0f, 1f);
             Sortable   = sortable;
             Searchable = searchable;
             Alignment  = alignment;
@@ -111,7 +111,7 @@ namespace inonego.Xeri.UI.Picker
         {
             return new PickerColumnOptions
             (
-                PickerColumnLayout.Fixed(width),
+                TableColumnLayout.Fixed(width),
                 sortable,
                 searchable,
                 alignment,
@@ -140,7 +140,7 @@ namespace inonego.Xeri.UI.Picker
         {
             return new PickerColumnOptions
             (
-                PickerColumnLayout.Flexible(width, minWidth, maxWidth, stretchWeight),
+                TableColumnLayout.Flexible(width, minWidth, maxWidth, stretchWeight),
                 sortable,
                 searchable,
                 alignment,

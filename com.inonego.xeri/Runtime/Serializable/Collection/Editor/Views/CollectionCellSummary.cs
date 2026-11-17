@@ -165,34 +165,22 @@ namespace inonego.Xeri.Serializable.Editor
         private static bool TryBuildAutomaticSummary(SerializedProperty property, out string summary)
         {
             summary = null;
-            var iterator = property.Copy();
-            var parentDepth = iterator.depth;
-            if (!iterator.NextVisible(true))
-            {
-                return false;
-            }
-
+            var parentDepth = property.depth;
             var parts = new List<string>(2);
-            do
+            foreach (var child in SerializedPropertyHelper.EnumerateVisibleChildren(property))
             {
-                if (iterator.depth <= parentDepth)
-                {
-                    break;
-                }
-
-                if (iterator.depth != parentDepth + 1)
+                if (child.depth != parentDepth + 1)
                 {
                     continue;
                 }
 
-                if (!IsSimple(iterator) || parts.Count >= 2)
+                if (!IsSimple(child) || parts.Count >= 2)
                 {
                     return false;
                 }
 
-                parts.Add(GetDisplayText(iterator));
+                parts.Add(GetDisplayText(child));
             }
-            while (iterator.NextVisible(false));
 
             if (parts.Count == 0)
             {

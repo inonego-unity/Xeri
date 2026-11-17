@@ -1,10 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorView.cs
-수정일 : 2026-11-03
+수정일 : 2026-11-17
 
 # 설명
 Collection Model의 표시 순서와 변경 명령을 Inspector의 검색·선택·페이지에 연결한다.
 행 검증 아이콘은 드래그 핸들 뒤에 배치하고, ReadOnly에서도 탐색·복사·상세보기를 허용한다.
+기본은 지정 행 수 높이(하단 손잡이로 조절)이며, 호스트 USS가 채움 모드를 켜면
+부모 높이를 따르고 들어가는 행 수로 페이지를 나눠 내부 스크롤을 만들지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -36,10 +38,18 @@ namespace inonego.Xeri.Serializable.Editor
         private const float rowHeight = 28f;
         private const float tableHeaderHeight = 28f;
         private const float viewportHeightAllowance = 6f;
-        private const int visibleRowCount = 5;
-        private const int pageSize = 10;
+        private const int minimumPageSize = 10;
+        private static readonly CustomStyleProperty<float> fillProperty = new("--xeri-collection-fill");
         private readonly ICollectionEditorModel model;
         private readonly bool isReadOnly;
+        private readonly string label;
+        private readonly int defaultVisibleRows;
+        private readonly string rowsStateKey;
+        private readonly VisualElement resizeHandle;
+        private int visibleRows;
+        private bool fillsParent;
+        private float resizeStartY;
+        private int resizeStartRows;
         private readonly List<int> sourceRows = new();
         private readonly SearchPagedList<int> searchPagedRows;
         private readonly PageNavigationController<int> navigation;
@@ -67,7 +77,18 @@ namespace inonego.Xeri.Serializable.Editor
 
         private sealed class CellBinding
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 원본 컬렉션에서의 행 인덱스다.
+            /// </summary>
+            // ------------------------------------------------------------
             public int SourceIndex = -1;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 현재 페이지 안의 행 인덱스다.
+            /// </summary>
+            // ------------------------------------------------------------
             public int PageIndex = -1;
 
             // ------------------------------------------------------------
@@ -104,6 +125,13 @@ namespace inonego.Xeri.Serializable.Editor
             /// </summary>
             // ------------------------------------------------------------
             public SeverityIndicator Validation;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 열에 없는 필드를 편집하는 행 전체 편집 버튼을 보관한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public Button RowEditButton;
         }
 
     #endregion
@@ -115,20 +143,33 @@ namespace inonego.Xeri.Serializable.Editor
         /// collection 의미 Model에서 독립된 authoring View를 구성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public CollectionEditorView(ICollectionEditorModel model, bool isReadOnly = false)
+        public CollectionEditorView
+        (
+            ICollectionEditorModel model,
+            bool isReadOnly = false,
+            CollectionEditorViewOptions? options = null
+        )
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.isReadOnly = isReadOnly;
+            var settings = options ?? CollectionEditorViewOptions.Default();
+            label = settings.Label;
             selectedColumnID = model.Columns[0].ID;
             refreshTask = schedule.Execute(RefreshWhenIdle);
             refreshTask.Pause();
-            foldoutStateKey = $"UniXeri.CollectionEditor.Foldout.{model.SerializedObject.targetObject.GetEntityId()}.{model.CollectionPropertyPath}";
+            var stateKey = $"{model.SerializedObject.targetObject.GetEntityId()}.{model.CollectionPropertyPath}";
+            foldoutStateKey = $"UniXeri.CollectionEditor.Foldout.{stateKey}";
             isExpanded = SessionState.GetBool(foldoutStateKey, false);
+
+            // 사용자가 조절한 행 수는 같은 대상과 경로에 대해 편집 세션 동안 유지한다.
+            rowsStateKey = $"UniXeri.CollectionEditor.Rows.{stateKey}";
+            defaultVisibleRows = settings.VisibleRows;
+            visibleRows = ClampVisibleRows(SessionState.GetInt(rowsStateKey, defaultVisibleRows));
             searchPagedRows = new SearchPagedList<int>
             (
                 sourceRows,
                 index => CollectionCellSummary.GetSearchText(model, index),
-                pageSize
+                Math.Max(minimumPageSize, visibleRows)
             );
             navigation = new PageNavigationController<int>(searchPagedRows);
             AddToClassList("xeri-collection");
@@ -180,10 +221,16 @@ namespace inonego.Xeri.Serializable.Editor
             collectionActionsMenu = new XeriContextMenu(actionsButton);
             actionsButton.clicked += ShowCollectionActions;
             // 제목/빈 헤더를 눌러도 접되, ⋮ 메뉴와 접기 버튼 클릭은 중복 처리하지 않는다.
+            // 채움 모드는 항상 펼친 상태를 유지한다.
             header.RegisterCallback<ClickEvent>
             (
                 evt =>
                 {
+                    if (fillsParent)
+                    {
+                        return;
+                    }
+
                     if (evt.target is VisualElement target
                         && (target == actionsButton || actionsButton.Contains(target)
                             || target == foldoutButton || foldoutButton.Contains(target)))
@@ -217,39 +264,26 @@ namespace inonego.Xeri.Serializable.Editor
                 var table = new MultiColumnListView();
                 table.sortingMode = ColumnSortingMode.None;
                 // 고정 열은 유지하고 가변 열은 공통 정책에 따라 남는 폭을 자동으로 채운다.
-                // 사용자의 수동 열 조절은 UI Toolkit에 맡긴다.
-                var target = model.SerializedObject.targetObject;
-                var globalID = GlobalObjectId.GetGlobalObjectIdSlow(target);
-                var ownerID = globalID.identifierType != 0
-                    ? globalID.ToString()
-                    : target.GetEntityId().ToString();
-                table.viewDataKey = $"UniXeri.CollectionEditor.Columns.{ownerID}.{model.CollectionPropertyPath}";
+                // 사용자의 수동 열 조절은 UI Toolkit에 맡기되, 열 폭은 창 폭에 따라 달라지므로
+                // 이전에 저장된 폭이 첫 배치를 덮어쓰지 않도록 뷰 데이터는 저장하지 않는다.
                 table.columns.resizable = true;
                 table.columns.resizePreview = false;
-                var stretchWeights = new List<float>(model.Columns.Count);
+                var layouts = new List<TableColumnLayout>(model.Columns.Count);
                 foreach (var column in model.Columns)
                 {
                     var spec = column;
-                    table.columns.Add
-                    (
-                        new Column
-                        {
-                            name = spec.ID,
-                            width = spec.Width,
-                            minWidth = spec.MinWidth,
-                            stretchable = spec.Stretchable,
-                            resizable = spec.Stretchable,
-                            sortable = false,
-                            makeHeader = () => MakeColumnHeader(spec),
-                            makeCell = () => MakeCell(spec),
-                            bindCell = BindCell,
-                            unbindCell = UnbindCell,
-                        }
-                    );
-                    stretchWeights.Add(spec.StretchWeight);
+                    var tableColumn = TableColumnSizing.CreateColumn(spec.ID, spec.Header, spec.Layout);
+                    tableColumn.resizable = spec.Layout.Mode == TableColumnLayoutMode.Flexible;
+                    tableColumn.sortable = false;
+                    tableColumn.makeHeader = () => MakeColumnHeader(spec);
+                    tableColumn.makeCell = () => MakeCell(spec);
+                    tableColumn.bindCell = BindCell;
+                    tableColumn.unbindCell = UnbindCell;
+                    table.columns.Add(tableColumn);
+                    layouts.Add(spec.Layout);
                 }
 
-                table.ApplyColumnSizing(stretchWeights);
+                table.ApplyColumnSizing(layouts);
                 listView = table;
             }
 
@@ -289,6 +323,22 @@ namespace inonego.Xeri.Serializable.Editor
             var rowsHost = this.Q<VisualElement>("collection-rows-host");
             rowsHost.Insert(0, listView);
             chrome.BindPageListView(listView);
+
+            // 목록 하단 손잡이로 표시 행 수를 조절하고, 더블 클릭으로 기본값을 복원한다.
+            resizeHandle = new VisualElement
+            {
+                name = "collection-resize-handle",
+                tooltip = "끌어서 목록 높이 조절 · 더블 클릭으로 기본 높이",
+            };
+            resizeHandle.AddToClassList("xeri-collection__resize-handle");
+            resizeHandle.RegisterCallback<PointerDownEvent>(HandleResizePointerDown);
+            resizeHandle.RegisterCallback<PointerMoveEvent>(HandleResizePointerMove);
+            resizeHandle.RegisterCallback<PointerUpEvent>(HandleResizePointerUp);
+            chrome.ContentHost.Add(resizeHandle);
+
+            // 부모를 채우는 배치는 호스트 USS가 --xeri-collection-fill로 지정한다.
+            RegisterCallback<CustomStyleResolvedEvent>(HandleCustomStyleResolved);
+            rowsHost.RegisterCallback<GeometryChangedEvent>(HandleRowsGeometryChanged);
             renderedPageItemCount = searchPagedRows.PageItems.Count;
             emptyLabel.pickingMode = PickingMode.Ignore;
             // 실제 field 편집만 commit한다. 외부 변경 관찰은 표시 갱신만 담당한다.
@@ -399,9 +449,24 @@ namespace inonego.Xeri.Serializable.Editor
             binding.Row.Add(binding.Content);
             if (column.ID == model.Columns[model.Columns.Count - 1].ID)
             {
+                // 행 전체에 대한 명령만 행 끝에 두고, 셀 동작(상세 편집·형식 작업)은 각 셀에 남긴다.
                 var rowActions = new VisualElement();
                 rowActions.AddToClassList("xeri-collection__row-actions");
-                rowActions.Add(binding.Content.ActionToolbar);
+
+                // 필드 열로 나눈 요소에 열 밖의 필드가 있으면 행 전체 편집 창을 연다.
+                if (model is SerializedListEditorModel
+                {
+                    UsesFieldColumns: true
+                })
+                {
+                    binding.RowEditButton = new ToolbarButton(() => OpenRowEditor(binding))
+                    {
+                        iconImage = XeriIcon.LoadBackground(isReadOnly ? "eye" : "pencil"),
+                        tooltip = isReadOnly ? "항목 상세 보기" : "항목 상세 편집",
+                    };
+                    binding.RowEditButton.AddToClassList("xeri-collection__icon-button");
+                    rowActions.Add(binding.RowEditButton);
+                }
 
                 var deleteButton = new ToolbarButton
                 (
@@ -460,7 +525,25 @@ namespace inonego.Xeri.Serializable.Editor
                 rowDrag.UpdateReorderHandle(binding.DragHandle, pageIndex, binding.SourceIndex);
             }
 
+            if (binding.RowEditButton != null)
+            {
+                var list = (SerializedListEditorModel)model;
+                var hasHidden = list.HasUnlistedFields(model.GetRowProperty(binding.SourceIndex));
+                binding.RowEditButton.style.display = hasHidden ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
             RefreshCellValidation(binding);
+        }
+
+        private void OpenRowEditor(CellBinding binding)
+        {
+            if (binding.SourceIndex < 0 || binding.SourceIndex >= model.Count)
+            {
+                RefreshRows();
+                return;
+            }
+
+            CollectionValueEditorWindow.Open(model, model.GetRowProperty(binding.SourceIndex), isReadOnly);
         }
 
         // ----------------------------------------------------------------------
@@ -565,7 +648,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void RefreshStatus()
         {
             var searching = isExpanded && !string.IsNullOrWhiteSpace(searchPagedRows.SearchText);
-            titleLabel.text = model.Label;
+            titleLabel.text = label ?? model.Label;
             countLabel.text = searching
                 ? $"{searchPagedRows.FilteredCount}/{model.Count}"
                 : $"{model.Count}";
@@ -583,19 +666,176 @@ namespace inonego.Xeri.Serializable.Editor
             emptyLabel.style.display = count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
             listView.style.display = DisplayStyle.Flex;
             paginationBar.style.display = DisplayStyle.Flex;
-            // 페이지당 최대 10개지만 표시 영역은 5행으로 고정하고 초과분만 스크롤한다.
-            // 정확히 5행일 때 스크롤바가 생기지 않도록 Viewport 여유를 포함한다.
-            var headerHeight = model.Columns.Count > 1 ? tableHeaderHeight : 0f;
-            listView.style.height = headerHeight + visibleRowCount * rowHeight
-                + viewportHeightAllowance;
+            ApplyListHeight();
+        }
 
+    #endregion
+
+    #region 높이 정책
+
+        private static int ClampVisibleRows(int rows)
+        {
+            return Math.Clamp(rows, 1, CollectionEditorViewOptions.MaxVisibleRows);
+        }
+
+        private float HeaderHeight => model.Columns.Count > 1 ? tableHeaderHeight : 0f;
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 행 모드는 표시 행 수만큼 높이를 고정하고 초과분만 스크롤한다.
+        /// <br/> 채움 모드는 부모 높이를 따르고 들어가는 행 수로 페이지를 나눈다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ApplyListHeight()
+        {
             var scroll = listView.Q<ScrollView>();
+            if (fillsParent)
+            {
+                listView.style.height = StyleKeyword.Null;
+                if (scroll != null)
+                {
+                    scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+                }
+
+                return;
+            }
+
+            // 정확히 표시 행 수일 때 스크롤바가 생기지 않도록 Viewport 여유를 포함한다.
+            listView.style.height = HeaderHeight + visibleRows * rowHeight + viewportHeightAllowance;
             if (scroll != null)
             {
                 // 행 개수에 따른 너비 변화 없이 세로 스크롤바를 항상 표시한다.
                 scroll.verticalScrollerVisibility = ScrollerVisibility.AlwaysVisible;
             }
         }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 페이지 크기를 바꾸고 선택 항목이 있는 페이지를 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void SetPageSize(int size)
+        {
+            if (!searchPagedRows.SetPageSize(size))
+            {
+                return;
+            }
+
+            if (TryGetSelectedSourceIndex(out var selected))
+            {
+                searchPagedRows.MoveToItem(selected);
+            }
+
+            if (isExpanded)
+            {
+                RefreshPageView();
+            }
+        }
+
+        private void SetVisibleRows(int rows)
+        {
+            rows = ClampVisibleRows(rows);
+            if (rows == visibleRows)
+            {
+                return;
+            }
+
+            visibleRows = rows;
+            SetPageSize(Math.Max(minimumPageSize, visibleRows));
+            ApplyListHeight();
+        }
+
+        private void HandleCustomStyleResolved(CustomStyleResolvedEvent evt)
+        {
+            var fill = evt.customStyle.TryGetValue(fillProperty, out var value) && value > 0f;
+            if (fill == fillsParent)
+            {
+                return;
+            }
+
+            fillsParent = fill;
+            EnableInClassList("xeri-collection--fill", fill);
+            if (!fill)
+            {
+                SetPageSize(Math.Max(minimumPageSize, visibleRows));
+            }
+
+            // 호스트가 공간을 맡긴 채움 모드에서는 접지 않고 항상 목록을 보여준다.
+            if (fill && !isExpanded)
+            {
+                SetExpanded(true);
+            }
+
+            ApplyListHeight();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 채움 모드에서 목록 영역에 들어가는 행 수를 페이지 크기로 사용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleRowsGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (!fillsParent || !isExpanded)
+            {
+                return;
+            }
+
+            var available = evt.newRect.height - HeaderHeight - viewportHeightAllowance;
+            var rows = Math.Max(1, (int)Math.Floor(available / rowHeight));
+            SetPageSize(rows);
+        }
+
+        private void HandleResizePointerDown(PointerDownEvent evt)
+        {
+            if (evt.button != 0 || fillsParent)
+            {
+                return;
+            }
+
+            if (evt.clickCount == 2)
+            {
+                SessionState.EraseInt(rowsStateKey);
+                SetVisibleRows(defaultVisibleRows);
+                evt.StopPropagation();
+                return;
+            }
+
+            resizeStartY = evt.position.y;
+            resizeStartRows = visibleRows;
+            resizeHandle.CapturePointer(evt.pointerId);
+            resizeHandle.AddToClassList("xeri-collection__resize-handle--active");
+            evt.StopPropagation();
+        }
+
+        private void HandleResizePointerMove(PointerMoveEvent evt)
+        {
+            if (!resizeHandle.HasPointerCapture(evt.pointerId))
+            {
+                return;
+            }
+
+            var delta = evt.position.y - resizeStartY;
+            SetVisibleRows(resizeStartRows + (int)Math.Round(delta / rowHeight));
+            evt.StopPropagation();
+        }
+
+        private void HandleResizePointerUp(PointerUpEvent evt)
+        {
+            if (!resizeHandle.HasPointerCapture(evt.pointerId))
+            {
+                return;
+            }
+
+            resizeHandle.ReleasePointer(evt.pointerId);
+            resizeHandle.RemoveFromClassList("xeri-collection__resize-handle--active");
+            SessionState.SetInt(rowsStateKey, visibleRows);
+            evt.StopPropagation();
+        }
+
+    #endregion
+
+    #region 명령 결과와 편집 상태
 
         // ------------------------------------------------------------
         /// <summary>

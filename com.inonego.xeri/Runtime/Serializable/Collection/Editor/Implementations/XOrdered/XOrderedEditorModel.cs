@@ -16,6 +16,7 @@ using UnityEditor;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -91,9 +92,9 @@ namespace inonego.Xeri.Serializable.Editor
                 columns = new CollectionColumnSpec[]
                 {
                     // Order는 고정하고 동일한 기준 폭의 Key:Value를 4:6으로 배분한다.
-                    new(orderFieldName, "순서", 70f, 70f, stretchable: false),
-                    new(keyFieldName, "키", 150f, 70f, stretchWeight: 4f),
-                    new(valueFieldName, "값", 150f, 100f, stretchWeight: 6f),
+                    new(orderFieldName, "순서", TableColumnLayout.Fixed(70f)),
+                    new(keyFieldName, "키", TableColumnLayout.Flexible(150f, 70f, 0f, 4f)),
+                    new(valueFieldName, "값", TableColumnLayout.Flexible(150f, 100f, 0f, 6f)),
                 };
             }
             else
@@ -101,8 +102,8 @@ namespace inonego.Xeri.Serializable.Editor
                 columns = new CollectionColumnSpec[]
                 {
                     // Key 없는 XOrdered도 Order만 70px로 고정한다.
-                    new(orderFieldName, "순서", 70f, 70f, stretchable: false),
-                    new(valueFieldName, "값", 240f, 100f),
+                    new(orderFieldName, "순서", TableColumnLayout.Fixed(70f)),
+                    new(valueFieldName, "값", TableColumnLayout.Flexible(240f, 100f, 0f, 1f)),
                 };
             }
         }
@@ -125,6 +126,12 @@ namespace inonego.Xeri.Serializable.Editor
             return columnID == keyFieldName || columnID == orderFieldName
                 ? CollectionCellEditMode.ReplaceOnly
                 : CollectionCellEditMode.Default;
+        }
+
+        /// <inheritdoc />
+        public override string GetCellEditTooltip(int sourceIndex, string columnID)
+        {
+            return columnID == orderFieldName ? "순서 편집" : "키 편집";
         }
 
         /// <inheritdoc />

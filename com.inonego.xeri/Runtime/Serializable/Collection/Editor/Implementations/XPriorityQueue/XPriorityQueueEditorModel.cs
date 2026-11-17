@@ -14,6 +14,8 @@ using System.Reflection;
 
 using UnityEditor;
 
+using inonego.Xeri.UI;
+
 namespace inonego.Xeri.Serializable.Editor
 {
     // ============================================================
@@ -43,6 +45,13 @@ namespace inonego.Xeri.Serializable.Editor
 
         /// <inheritdoc />
         public override string Description => "우선순위가 높은 항목부터 표시하며, 내부 저장 순서와 다릅니다.";
+        /// <inheritdoc />
+        public override bool UsesDelayedInput(string columnID)
+        {
+            // 우선순위를 바꾸면 힙 순서가 즉시 바뀌므로 입력이 끝났을 때만 확정한다.
+            return columnID == priorityFieldName;
+        }
+
         /// <inheritdoc />
         protected override bool ReordersRowsOnCommit(string propertyPath)
         {
@@ -90,15 +99,13 @@ namespace inonego.Xeri.Serializable.Editor
                 (
                     elementFieldName,
                     "항목",
-                    220f,
-                    100f
+                    TableColumnLayout.Flexible(220f, 100f, 0f, 1f)
                 ),
                 new CollectionColumnSpec
                 (
                     priorityFieldName,
                     "우선순위",
-                    100f,
-                    70f
+                    TableColumnLayout.Flexible(100f, 70f, 0f, 1f)
                 ),
             };
         }

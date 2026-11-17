@@ -17,6 +17,7 @@ using UnityEngine;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -120,8 +121,8 @@ namespace inonego.Xeri.Serializable.Editor
             columns = new[]
             {
                 // 초기 기준 폭은 동일하게 두고, 실제 Key:Value 분배는 4:6 가중치에 맡긴다.
-                new CollectionColumnSpec(keyFieldName, "키", 150f, 70f, stretchWeight: 4f),
-                new CollectionColumnSpec(valueFieldName, "값", 150f, 100f, stretchWeight: 6f),
+                new CollectionColumnSpec(keyFieldName, "키", TableColumnLayout.Flexible(150f, 70f, 0f, 4f)),
+                new CollectionColumnSpec(valueFieldName, "값", TableColumnLayout.Flexible(150f, 100f, 0f, 6f)),
             };
 
             _ = GetSerializedList();
@@ -167,6 +168,12 @@ namespace inonego.Xeri.Serializable.Editor
 
             // Key는 타입에 관계없이 별도 편집창에서만 변경한다.
             return CollectionCellEditMode.ReplaceOnly;
+        }
+
+        /// <inheritdoc />
+        public override string GetCellEditTooltip(int sourceIndex, string columnID)
+        {
+            return "키 편집";
         }
 
         /// <inheritdoc />

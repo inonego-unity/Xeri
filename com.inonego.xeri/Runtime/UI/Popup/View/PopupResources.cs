@@ -6,7 +6,7 @@
 팝업 호스트가 쓰는 backdrop·프레임 레이어·프레임을 Resources의 UXML·USS로 만든다.
 
 # 특이사항, 제약사항
-리소스는 Resources/XeriUI/Popup/에 있고 컨텍스트 메뉴 리소스와 같은 방식으로 한 번만 불러 공유한다.
+리소스는 Resources/Xeri/Popup/에 있고 컨텍스트 메뉴 리소스와 같은 방식으로 한 번만 불러 공유한다.
 요소는 UXML 템플릿에서 꺼내 USS를 연결해 돌려주므로 호출자는 위치·크기 같은 배치 값만 지정한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -27,7 +27,7 @@ namespace inonego.Xeri.UI
 
     #region 필드
 
-        private const string resourceRoot = "XeriUI/Popup/";
+        private const string resourceRoot = "Xeri/Popup/";
 
         private static VisualTreeAsset backdropLayout;
         private static VisualTreeAsset layerLayout;

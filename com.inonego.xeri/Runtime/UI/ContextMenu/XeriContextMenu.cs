@@ -405,7 +405,7 @@ namespace inonego.Xeri.UI
     #region 상수 및 필드
 
         // 화면 가장자리 여백과 서브메뉴 간격은 밀도와 무관한 배치 정책이다.
-        private const string resourceRoot = "XeriUI/ContextMenu/";
+        private const string resourceRoot = "Xeri/ContextMenu/";
         private const float menuMargin = 4f;
         private const float submenuGap = 1f;
 

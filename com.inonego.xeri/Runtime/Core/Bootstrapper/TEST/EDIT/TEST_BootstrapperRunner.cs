@@ -1,13 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_BootstrapperRunner.cs
-수정일 : 2026-11-03
+수정일 : 2026-11-18
 
 # 설명
-Bootstrapper phase의 순차 실행과 실패 시 Application 수명 정리를 검증한다.
+Bootstrapper phase의 순차 실행, 실패 시 Application 수명 정리, 에디터 변경 이벤트를 검증한다.
 
 # 테스트 구성
  E: Scene phase 필터링과 실행 순서
  X: 초기화 실패와 소유권 정리
+ C: 모듈 목록·모듈 에셋 변경 이벤트
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -16,6 +17,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+using UnityEditor;
 using UnityEngine;
 
 using NUnit;
@@ -194,6 +196,85 @@ namespace inonego.Xeri.TEST.Core._Bootstrapper
                 UnityEngine.Object.DestroyImmediate(first);
                 UnityEngine.Object.DestroyImmediate(failed);
                 UnityEngine.Object.DestroyImmediate(later);
+            }
+        }
+
+    #endregion
+
+    #region C-1: 변경 이벤트
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모듈을 목록에 추가하고 다시 빼면 모듈 목록 변경 이벤트가 각각 한 번씩 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_BootstrapperSettings_모듈목록변경_이벤트발생()
+        {
+            var settings = ScriptableObject.CreateInstance<BootstrapperSettings>();
+            var module = ScriptableObject.CreateInstance<ProbeModule>();
+            var changes = 0;
+            Action<BootstrapperSettings> handler = changed =>
+            {
+                if (changed == settings)
+                {
+                    changes++;
+                }
+            };
+
+            BootstrapperSettings.OnModulesChange += handler;
+            try
+            {
+                using var serialized = new SerializedObject(settings);
+                var modules = serialized.FindProperty("modules");
+
+                modules.InsertArrayElementAtIndex(0);
+                modules.GetArrayElementAtIndex(0).objectReferenceValue = module;
+                serialized.ApplyModifiedProperties();
+                Assert.AreEqual(1, changes);
+
+                modules.DeleteArrayElementAtIndex(0);
+                serialized.ApplyModifiedProperties();
+                Assert.AreEqual(2, changes);
+            }
+            finally
+            {
+                BootstrapperSettings.OnModulesChange -= handler;
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(module);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모듈 에셋의 값이 검증되면 모듈 변경 이벤트가 발생한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_BootstrapperModuleAsset_값검증_이벤트발생()
+        {
+            var module = ScriptableObject.CreateInstance<ProbeModule>();
+            var changes = 0;
+            Action<BootstrapperModuleAsset> handler = changed =>
+            {
+                if (changed == module)
+                {
+                    changes++;
+                }
+            };
+
+            BootstrapperModuleAsset.OnChange += handler;
+            try
+            {
+                using var serialized = new SerializedObject(module);
+                serialized.FindProperty("m_Name").stringValue = "Changed";
+                serialized.ApplyModifiedProperties();
+                Assert.GreaterOrEqual(changes, 1);
+            }
+            finally
+            {
+                BootstrapperModuleAsset.OnChange -= handler;
+                UnityEngine.Object.DestroyImmediate(module);
             }
         }
 

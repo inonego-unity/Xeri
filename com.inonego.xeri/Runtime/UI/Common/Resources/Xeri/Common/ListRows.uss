@@ -1,0 +1,28 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : ListRows.uss
+수정일 : 2026-11-18
+
+# 설명
+ListView·MultiColumnListView·TreeView의 교차 행 배경을 한곳에서 정한다.
+Unity의 교차 행 색은 대비가 커서 --xeri-row-alt로 덮고, 선택 행은 Unity가 쓰는 테마 변수로 같은 색을 유지한다.
+
+# 특이사항, 제약사항
+Unity의 선택 색 규칙도 클래스 하나라서 특이도가 아니라 스타일시트 순서로 결정된다.
+이 시트가 뒤에 적용되므로 교차 행 규칙이 선택 색을 가리지 않게 선택 상태를 아래에서 다시 지정한다.
+호스트는 --xeri-row-alt만 정하면 된다.
+========================================================================= BLOCK_HEADER_END */
+
+/* 교차 행 */
+.unity-collection-view__item--alternative-background {
+    background-color: var(--xeri-row-alt, rgba(127,127,127,0.08));
+}
+
+/* 선택 행: 목록에 포커스가 없을 때 */
+.unity-collection-view__item--alternative-background.unity-collection-view__item--selected {
+    background-color: var(--unity-colors-highlight-background-inactive);
+}
+
+/* 선택 행: 목록에 포커스가 있을 때 */
+.unity-collection-view:focus .unity-collection-view__item--alternative-background.unity-collection-view__item--selected {
+    background-color: var(--unity-colors-highlight-background);
+}

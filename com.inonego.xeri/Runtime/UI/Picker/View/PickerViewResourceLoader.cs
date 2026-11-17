@@ -23,9 +23,9 @@ namespace inonego.Xeri.UI.Picker
 
     #region 필드
 
-        private const string layoutPath = "XeriUI/Picker/PickerView";
-        private const string themeStylePath = "XeriUI/Picker/PickerTheme";
-        private const string viewStylePath = "XeriUI/Picker/PickerViewStyle";
+        private const string layoutPath = "Xeri/Picker/PickerView";
+        private const string themeStylePath = "Xeri/Picker/PickerTheme";
+        private const string viewStylePath = "Xeri/Picker/PickerViewStyle";
 
     #endregion
 

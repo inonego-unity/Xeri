@@ -16,6 +16,7 @@ using UnityEngine;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -100,8 +101,7 @@ namespace inonego.Xeri.Serializable.Editor
                 (
                     valueColumnID,
                     columnHeader,
-                    width: 240f,
-                    minWidth: 100f
+                    TableColumnLayout.Flexible(240f, 100f, 0f, 1f)
                 ),
             };
 

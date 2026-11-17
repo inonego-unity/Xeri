@@ -45,12 +45,6 @@ namespace inonego.Xeri.Serializable.Editor
         private string fieldPath;
         private SerializedPropertyType fieldType;
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 마지막 컬럼의 행 명령과 함께 배치할 셀 동작 툴바이다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public Toolbar ActionToolbar => toolbar;
         private readonly Toolbar toolbar;
 
         // ------------------------------------------------------------
@@ -83,7 +77,7 @@ namespace inonego.Xeri.Serializable.Editor
             this.isReadOnly = isReadOnly;
             AddToClassList("xeri-collection__cell-content");
             field = new PropertyField();
-            if (columnID == "Priority")
+            if (model.UsesDelayedInput(columnID))
             {
                 field.RegisterCallback<GeometryChangedEvent>(_ => ConfigureDelayedFields());
             }
@@ -222,7 +216,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
             else if (mode == CollectionCellEditMode.ReplaceOnly)
             {
-                editButton.tooltip = columnID == "order" ? "순서 편집" : "키 편집";
+                editButton.tooltip = model.GetCellEditTooltip(sourceIndex, columnID);
             }
             else
             {
