@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializeReferencePickerDrawer.cs
-수정일 : 2026-09-25
+수정일 : 2026-11-18
 
 # 설명
 SerializeReferencePickerAttribute 필드를 UI Toolkit으로 표시한다.
@@ -119,7 +119,7 @@ namespace inonego.Xeri.Serializable.Editor
                 typeButton,
                 Refresh
             );
-            actionButton.clicked += () => ManagedReferenceEditorAction.ShowActions
+            actionButton.clicked += () => ManagedReferenceEditorAction.ShowMenu
             (
                 property,
                 declaredType,

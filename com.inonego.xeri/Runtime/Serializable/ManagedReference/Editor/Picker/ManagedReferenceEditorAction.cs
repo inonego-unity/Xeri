@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ManagedReferenceEditorAction.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-18
 
 # 설명
 SerializeReference의 구현 형식 선택·생성·참조 비우기·복사·붙여넣기를 공통 제공한다.
@@ -317,7 +317,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// null, Value/Link clipboard 명령을 포함한 managed-reference 메뉴를 표시한다.
         /// </summary>
         // --------------------------------------------------------------------------------
-        public static void ShowActions
+        public static void ShowMenu
         (
             SerializedProperty property,
             Type declaredType,
@@ -334,15 +334,47 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            var targets = property.serializedObject.targetObjects;
-            var locators = CaptureTargets(property);
             var anchor = menuOwner ?? EditorWindow.focusedWindow?.rootVisualElement;
             if (anchor == null)
             {
                 return;
             }
 
-            var menu = new XeriContextMenu(anchor);
+            new XeriContextMenu(anchor).OpenBelow
+            (
+                CreateMenuItems
+                (
+                    property, declaredType, onChanged, chooseType, canApply, canChangeReference, canChooseType
+                )
+            );
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> managed-reference 명령을 메뉴 항목 데이터로 만든다.
+        /// <br/> 형식 선택, null 지정, Value/Link clipboard 명령이 들어 있다.
+        /// <br/> 메뉴를 그리거나 열지 않으므로 호출한 쪽이 다른 항목과 함께 조립해서 연다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        public static IReadOnlyList<XeriContextMenuItem> CreateMenuItems
+        (
+            SerializedProperty property,
+            Type declaredType,
+            Action onChanged = null,
+            Action chooseType = null,
+            Func<bool> canApply = null,
+            bool canChangeReference = true,
+            bool canChooseType = true
+        )
+        {
+            var items = new List<XeriContextMenuItem>();
+            if (property == null || declaredType == null)
+            {
+                return items;
+            }
+
+            var targets = property.serializedObject.targetObjects;
+            var locators = CaptureTargets(property);
 
             void ClearReference()
             {
@@ -440,37 +472,46 @@ namespace inonego.Xeri.Serializable.Editor
 
             if (!property.hasMultipleDifferentValues && property.managedReferenceValue != null)
             {
-                menu.AddLabel($"참조 ID: {property.managedReferenceId}");
-                menu.AddSeparator();
+                items.Add(XeriContextMenuItem.Label($"참조 ID: {property.managedReferenceId}"));
+                items.Add(XeriContextMenuItem.Separator());
             }
 
             if (chooseType != null)
             {
-                menu.AddAction("구현 형식 선택...", chooseType, enabled: canChooseType);
+                items.Add(XeriContextMenuItem.Command("구현 형식 선택...", chooseType, enabled: canChooseType));
             }
 
             var canClear = canChangeReference && (property.hasMultipleDifferentValues
                 || property.managedReferenceValue != null);
-            menu.AddAction("참조 비우기 (Null)", ClearReference, enabled: canClear);
-            menu.AddSeparator();
-            menu.AddAction("값으로 복사", CopyValue);
-            menu.AddAction
+            items.Add(XeriContextMenuItem.Command("참조 비우기 (Null)", ClearReference, enabled: canClear));
+            items.Add(XeriContextMenuItem.Separator());
+            items.Add(XeriContextMenuItem.Command("값으로 복사", CopyValue));
+            items.Add
             (
-                "값으로 붙여넣기", PasteValue,
-                enabled: canChangeReference && SerializedPropertyClipboard.CanPasteValue(property, out _, declaredType)
+                XeriContextMenuItem.Command
+                (
+                    "값으로 붙여넣기", PasteValue,
+                    enabled: canChangeReference && SerializedPropertyClipboard.CanPasteValue(property, out _, declaredType)
+                )
             );
-            menu.AddAction
+            items.Add
             (
-                "참조 링크 복사", CopyLink,
-                enabled: SerializedPropertyClipboard.CanCopyLink(property, out _)
+                XeriContextMenuItem.Command
+                (
+                    "참조 링크 복사", CopyLink,
+                    enabled: SerializedPropertyClipboard.CanCopyLink(property, out _)
+                )
             );
-            menu.AddAction
+            items.Add
             (
-                "참조 링크 붙여넣기", PasteLink,
-                enabled: canChangeReference && SerializedPropertyClipboard.CanPasteLink(property, declaredType, out _)
+                XeriContextMenuItem.Command
+                (
+                    "참조 링크 붙여넣기", PasteLink,
+                    enabled: canChangeReference && SerializedPropertyClipboard.CanPasteLink(property, declaredType, out _)
+                )
             );
 
-            menu.OpenBelow();
+            return items;
         }
 
         // ------------------------------------------------------------

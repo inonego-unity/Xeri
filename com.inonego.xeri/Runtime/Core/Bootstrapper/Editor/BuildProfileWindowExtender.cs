@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BuildProfileWindowExtender.cs
-수정일 : 2026-11-03
+수정일 : 2026-11-18
 
 # 설명
 Unity Build Profile 창의 Scene List 영역에 BootStrapper 설정 버튼과 상태 표시를 추가한다.
@@ -394,39 +394,43 @@ namespace inonego.Xeri.Bootstrapper.Editor
         {
             // 저장하는 Build Index는 Player에 포함되는 활성 Scene 순서와 일치해야 한다.
             var scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).ToArray();
-            var menu = new XeriContextMenu(anchor);
             var clearLabel = isBootstrapper ? "Clear Bootstrapper Scene" : "Clear Init Scene";
-
-            menu.AddAction
-            (
-                clearLabel,
-                () =>
-                {
-                    ClearSceneIndex(isBootstrapper);
-                    UpdateStatus(statusLabel);
-                }
-            );
-
-            if (scenes != null && scenes.Length > 0)
+            var items = new List<XeriContextMenuItem>
             {
-                menu.AddSeparator();
+                XeriContextMenuItem.Command
+                (
+                    clearLabel,
+                    () =>
+                    {
+                        ClearSceneIndex(isBootstrapper);
+                        UpdateStatus(statusLabel);
+                    }
+                ),
+            };
+
+            if (scenes.Length > 0)
+            {
+                items.Add(XeriContextMenuItem.Separator());
                 for (var index = 0; index < scenes.Length; index++)
                 {
                     var sceneIndex = index;
                     var sceneName = Path.GetFileNameWithoutExtension(scenes[index].path);
-                    menu.AddAction
+                    items.Add
                     (
-                        $"[{sceneIndex}] {sceneName}",
-                        () =>
-                        {
-                            SaveSceneIndex(sceneIndex, isBootstrapper);
-                            UpdateStatus(statusLabel);
-                        }
+                        XeriContextMenuItem.Command
+                        (
+                            $"[{sceneIndex}] {sceneName}",
+                            () =>
+                            {
+                                SaveSceneIndex(sceneIndex, isBootstrapper);
+                                UpdateStatus(statusLabel);
+                            }
+                        )
                     );
                 }
             }
 
-            menu.OpenBelow();
+            new XeriContextMenu(anchor).OpenBelow(items);
         }
 
         // ------------------------------------------------------------
