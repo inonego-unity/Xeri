@@ -1,10 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Timer.cs
-수정일 : 2026-11-02
+수정일 : 2026-11-19
 
 # 설명
 float 기반 타이머. 외부 Tick(deltaTime)으로 시간을 전진하거나 되돌린다.
 지속 시간이 끝나면 Ready 상태로 전환한 뒤 완료 이벤트를 통지한다.
+
+# 제약사항
+CloneFrom은 시간과 상태만 복제하고 이벤트를 발행하지 않으며 구독은 복제하지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -38,7 +41,7 @@ namespace inonego.Xeri.Utility
     /// </summary>
     // ============================================================
     [Serializable]
-    public partial class Timer : ITimer, IReadOnlyTimer
+    public partial class Timer : ITimer, IReadOnlyTimer, IDeepCloneable<Timer>
     {
 
     #region 필드
@@ -309,6 +312,36 @@ namespace inonego.Xeri.Utility
             }
 
             (duration, elapsedTime) = (default, default);
+        }
+
+    #endregion
+
+    #region 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 빈 Timer 인스턴스를 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public Timer @new() => new Timer();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source의 시간과 상태를 변경 알림 없이 복제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(Timer source)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            // 복제는 상태 전이가 아니므로 Current setter와 이벤트를 거치지 않는다.
+            duration    = source.duration;
+            cached      = source.cached;
+            elapsedTime = source.elapsedTime;
+            current     = source.current;
         }
 
     #endregion

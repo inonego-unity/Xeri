@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Timer.cs
-수정일 : 2026-11-02
+수정일 : 2026-11-19
 
 # 설명
 Timer 핵심 기능 유닛 테스트.
@@ -13,9 +13,12 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
  X: 상태 제약과 시간 입력 검증
  P: 시간 속성 설정과 범위 제한
  V: 완료 이벤트와 상태 전이
+ C: 복제
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+
+using UnityEngine;
 
 using NUnit;
 using NUnit.Framework;
@@ -461,6 +464,131 @@ namespace inonego.Xeri.TEST.Utility._Timer
             timer.Start(10.0f);
             Assert.AreEqual(10.0f, runDuration);
             Assert.AreEqual(0.0f, runElapsed);
+        }
+
+    #endregion
+
+    #region C-1: 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Clone은 실행 중인 시간과 상태를 가진 독립된 새 인스턴스를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_Clone_실행중시간과상태를독립사본으로복제()
+        {
+            var source = new Timer();
+            source.Start(10.0f);
+            source.Tick(3.0f);
+
+            var clone = source.Clone();
+
+            Assert.AreNotSame(source, clone);
+            Assert.AreEqual(JsonUtility.ToJson(source), JsonUtility.ToJson(clone));
+            Assert.IsTrue(clone.IsRunning);
+            Assert.AreEqual(10.0f, clone.Duration);
+            Assert.AreEqual(3.0f, clone.ElapsedTime);
+
+            clone.Tick(2.0f);
+
+            Assert.AreEqual(3.0f, source.ElapsedTime);
+            Assert.AreEqual(5.0f, clone.ElapsedTime);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> CloneFrom은 상태 전이 이벤트 없이 일시정지 상태를 복제하고
+        /// <br/> 대상의 기존 구독은 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_CloneFrom_일시정지상태복제_이벤트없음_구독유지()
+        {
+            var source = new Timer();
+            source.Start(8.0f);
+            source.Tick(2.0f);
+            source.Pause();
+            var target = new Timer();
+            var stateChanges = 0;
+            var ends = 0;
+            target.OnStateChange += (_, _) => stateChanges++;
+            target.OnEnd += (_, _) => ends++;
+
+            target.CloneFrom(source);
+
+            Assert.AreEqual(0, stateChanges);
+            Assert.IsTrue(target.IsPaused);
+            Assert.AreEqual(8.0f, target.Duration);
+            Assert.AreEqual(2.0f, target.ElapsedTime);
+
+            target.Resume();
+            target.Tick(6.0f);
+
+            Assert.AreEqual(2, stateChanges);
+            Assert.AreEqual(1, ends);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 중지 뒤 경과 시간이 남은 Ready 상태와 Start 값도 복제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_CloneFrom_중지후남은경과시간과Start값복제()
+        {
+            var source = new Timer();
+            source.Start(5.0f);
+            source.Tick(2.0f);
+            source.Stop();
+            source.cached = 4.0f;
+            var target = new Timer();
+            target.Start(1.0f);
+
+            target.CloneFrom(source);
+
+            Assert.AreEqual(TimerState.Ready, target.Current);
+            Assert.AreEqual(5.0f, target.Duration);
+            Assert.AreEqual(2.0f, target.ElapsedTime);
+            Assert.AreEqual(4.0f, target.cached);
+            Assert.AreEqual(JsonUtility.ToJson(source), JsonUtility.ToJson(target));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제본은 원본의 구독을 가져가지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_Clone_원본구독은복제하지않음()
+        {
+            var source = new Timer();
+            var sourceEnds = 0;
+            source.OnEnd += (_, _) => sourceEnds++;
+            source.Start(1.0f);
+
+            var clone = source.Clone();
+            clone.Tick(1.0f);
+
+            Assert.AreEqual(0, sourceEnds);
+            Assert.IsTrue(source.IsRunning);
+            Assert.AreEqual(TimerState.Ready, clone.Current);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// null source는 예외로 거부하고 기존 상태를 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_CloneFrom_null거부()
+        {
+            var target = new Timer();
+            target.Start(3.0f);
+
+            Assert.Throws<ArgumentNullException>(() => target.CloneFrom(null));
+            Assert.IsTrue(target.IsRunning);
+            Assert.AreEqual(3.0f, target.Duration);
         }
 
     #endregion
