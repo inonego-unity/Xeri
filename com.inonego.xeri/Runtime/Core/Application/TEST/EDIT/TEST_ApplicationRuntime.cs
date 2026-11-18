@@ -1,9 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ApplicationRuntime.cs
-수정일 : 2026-11-03
+수정일 : 2026-11-19
 
 # 설명
 ApplicationRuntime의 순차 초기화, 준비 경계와 실패 종료를 검증한다.
+
+# 특이사항, 제약사항
+예외 검증은 Assert.ThrowsAsync 대신 await로 기다린다. Unity 메인 스레드를 동기로 막으면
+UnitySynchronizationContext로 돌아오는 이어하기와 교착한다.
 
 # 테스트 구성
  E: 순차 초기화와 Readiness
@@ -40,11 +44,21 @@ namespace inonego.Xeri.TEST.Core._Application
         {
             private readonly Func<ApplicationContext, CancellationToken, Task> start;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 시작 동작을 받아 모듈을 만든다.
+            /// </summary>
+            // ------------------------------------------------------------
             public Module(Func<ApplicationContext, CancellationToken, Task> start)
             {
                 this.start = start;
             }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 받은 시작 동작을 실행한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public Task StartAsync(ApplicationContext context, CancellationToken cancellationToken)
             {
                 return start(context, cancellationToken);
@@ -55,15 +69,47 @@ namespace inonego.Xeri.TEST.Core._Application
         {
             private readonly Action close;
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 해제 시 실행할 동작을 받아 만든다.
+            /// </summary>
+            // ------------------------------------------------------------
             public OwnedItem(Action close)
             {
                 this.close = close;
             }
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 해제 동작을 실행한다.
+            /// </summary>
+            // ------------------------------------------------------------
             public void Dispose()
             {
                 close();
             }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 작업을 await로 기다려 지정한 형식의 예외를 반환한다.
+        /// <br/> 메인 스레드를 막지 않아 이어하기와 교착하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static async Task<T> CatchAsync<T>(Task task) where T : Exception
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception exception)
+            {
+                Assert.AreEqual(typeof(T), exception.GetType());
+                return (T)exception;
+            }
+
+            Assert.Fail($"{typeof(T).Name} 예외가 발생해야 합니다.");
+            return null;
         }
 
     #endregion
@@ -174,10 +220,7 @@ namespace inonego.Xeri.TEST.Core._Application
             unrelated.Cancel();
             otherPending.SetException(new OperationCanceledException(unrelated.Token));
 
-            var failure = Assert.ThrowsAsync<InvalidOperationException>
-            (
-                async () => await otherStarting
-            );
+            var failure = await CatchAsync<InvalidOperationException>(otherStarting);
             Assert.IsInstanceOf<OperationCanceledException>(failure.InnerException);
 
             await otherStopping;
@@ -239,7 +282,7 @@ namespace inonego.Xeri.TEST.Core._Application
         /// </summary>
         // ------------------------------------------------------------
         [Test]
-        public void TEST_ApplicationRuntime_시작실패시_정리오류까지반환()
+        public async Task TEST_ApplicationRuntime_시작실패시_정리오류까지반환()
         {
             int releases = 0;
             var runtime = new ApplicationRuntime();
@@ -268,10 +311,7 @@ namespace inonego.Xeri.TEST.Core._Application
             modules.Add(new Module(Second));
             var starting = runtime.StartAsync(modules);
 
-            var error = Assert.ThrowsAsync<AggregateException>
-            (
-                async () => await starting
-            );
+            var error = await CatchAsync<AggregateException>(starting);
 
             Assert.AreEqual(1, releases);
             Assert.AreEqual(ApplicationState.Failed, runtime.State);
@@ -289,10 +329,7 @@ namespace inonego.Xeri.TEST.Core._Application
             cancelledModules.Add(new Module((context, token) => Task.FromCanceled(unrelated.Token)));
             var cancelled = cancelledRuntime.StartAsync(cancelledModules);
 
-            var failure = Assert.ThrowsAsync<InvalidOperationException>
-            (
-                async () => await cancelled
-            );
+            var failure = await CatchAsync<InvalidOperationException>(cancelled);
             Assert.IsInstanceOf<OperationCanceledException>(failure.InnerException);
             Assert.AreSame(failure, cancelledRuntime.Failure);
             Assert.AreEqual(ApplicationState.Failed, cancelledRuntime.State);
