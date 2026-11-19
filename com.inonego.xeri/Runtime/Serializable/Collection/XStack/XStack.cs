@@ -1,16 +1,21 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XStack.cs
-수정일 : 2026-10-23
+수정일 : 2026-11-19
 
 # 설명
 Unity 직렬화를 지원하는 Stack 구현.
 SerializeReference(_R) / SerializeField(_V) 두 가지 변형을 제공한다.
 Runtime 변경은 내부 ApplyRuntime 호출 시에만 저장 목록에 반영한다.
+
+# 특이사항, 제약사항
+Unity 7 Editor의 역직렬화 복원 뒤 Stack 내부 배열과 개수가 어긋나 Clear가 IndexOutOfRangeException을 낼 수 있다.
+UpdateRuntime은 어차피 저장 목록에서 다시 채우므로, Editor에서는 Clear 전에 어긋난 내부 상태만 빈 상태로 되돌린다(XHashSet과 같은 방식).
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 
 using UnityEngine;
 
@@ -84,6 +89,11 @@ namespace inonego.Xeri.Serializable
         internal void UpdateRuntime()
         {
             var serialized = Serialized;
+
+            #if UNITY_EDITOR
+            RepairStackState();
+            #endif
+
             Clear();
 
             // 저장 순서는 top-first이므로 역순 Push한다.
@@ -96,6 +106,42 @@ namespace inonego.Xeri.Serializable
         void ISerializedRuntimeCollection.ApplyRuntime() => ApplyRuntime();
 
         void ISerializedRuntimeCollection.UpdateRuntime() => UpdateRuntime();
+
+        #if UNITY_EDITOR
+
+        private const BindingFlags StackFieldFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+        private static readonly FieldInfo ArrayField = RequiredField("_array");
+        private static readonly FieldInfo SizeField  = RequiredField("_size");
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 7 Stack 내부 필드 정보를 가져오고 필드가 없으면 명확히 예외를 발생시킨다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static FieldInfo RequiredField(string name) =>
+            typeof(Stack<T>).GetField(name, StackFieldFlags)
+            ?? throw new MissingFieldException(typeof(Stack<T>).FullName, name);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 7 Editor의 직렬화 복원 과정에서 어긋난 Stack 내부 상태를 비운다.
+        /// 정상 상태에서는 필드를 변경하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RepairStackState()
+        {
+            var array = (Array)ArrayField.GetValue(this);
+            var size = (int)SizeField.GetValue(this);
+            if (array != null && size >= 0 && size <= array.Length)
+            {
+                return;
+            }
+
+            ArrayField.SetValue(this, Array.Empty<T>());
+            SizeField.SetValue(this, 0);
+        }
+
+        #endif
 
     #endregion
 
