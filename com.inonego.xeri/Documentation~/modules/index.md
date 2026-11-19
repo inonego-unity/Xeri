@@ -10,7 +10,7 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 | Rendering | [README](../../Runtime/Rendering/README.md) | Runtime rendering 보조 기능 |
 | Serializable | [README](../../Runtime/Serializable/README.md) | Unity 직렬화 보조 타입과 serializer |
 | Tracking | [README](../../Runtime/Tracking/README.md) | 값 resolve·transition·commit 추적 |
-| UI Utilities | [README](../../Runtime/UI/README.md) | Drag & Drop, Picker, 공통 목록 및 Popup 기반 |
+| UI Utilities | [README](../../Runtime/UI/README.md) | Drag & Drop, Picker, 공통 목록, 공용 표시 요소(Badge·ColorSwatch) 및 Popup 기반 |
 | Generation | [README](../../Runtime/생성/README.md) | seed, random, validation |
 | Utility | [README](../../Runtime/유틸리티/README.md) | pooling, timer, paging, logging 등 |
 
@@ -24,7 +24,7 @@ Xeri Runtime은 책임이 다른 여러 모듈로 구성됩니다. 각 모듈 RE
 - Tracking: [Tracking](tracking/tracking.md)
 - Generation: [Generation](generation/generation.md)
 - Utility: [GameObject Provider](utility/game-object-provider.md), [Object Pooling](utility/pooling.md), [Timer](utility/timer.md), [Paging](utility/paging.md)
-- UI Utilities: [Drag & Drop](../../Runtime/UI/Drag_Drop/README.md), [Picker](../../Runtime/UI/Picker/README.md), [Popup 공통 기반](../../Runtime/UI/README.md) (내부 호스트 및 배치 계약)
+- UI Utilities: [Drag & Drop](../../Runtime/UI/Drag_Drop/README.md), [Picker](../../Runtime/UI/Picker/README.md), [공용 표시 요소](../../Runtime/UI/README.md#공용-표시-요소) (Badge·ColorSwatch), [Popup 공통 기반](../../Runtime/UI/README.md) (내부 호스트 및 배치 계약)
 - Application UI: [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)
 
 ## 별도 게임 패키지

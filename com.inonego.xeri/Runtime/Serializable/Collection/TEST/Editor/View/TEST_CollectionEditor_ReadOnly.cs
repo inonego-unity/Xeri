@@ -1,6 +1,6 @@
-/* BLOCK_HEADER_BEGIN =======================================================================
+﻿/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_CollectionEditor_ReadOnly.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-19
 
 # 설명
 Collection Editor의 ReadOnly 조회, 편집 차단과 상세 보기 유지 계약을 검증한다.
@@ -30,6 +30,11 @@ using inonego.Xeri.Serializable.Editor;
 
 namespace inonego.Xeri.TEST.Serializable._Collection
 {
+    // ============================================================
+    /// <summary>
+    /// Collection Editor의 ReadOnly 조회 회귀 테스트.
+    /// </summary>
+    // ============================================================
     public partial class TEST_CollectionEditor
     {
 
@@ -37,17 +42,37 @@ namespace inonego.Xeri.TEST.Serializable._Collection
 
         private sealed class ReadOnlyTarget : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// ReadOnly 어트리뷰트가 먼저 붙은 조회 전용 목록.
+            /// </summary>
+            // ------------------------------------------------------------
             [ReadOnly]
             [CollectionEditor]
             public List<int> FirstReadOnly = new();
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// CollectionEditor 어트리뷰트가 먼저 붙은 조회 전용 목록.
+            /// </summary>
+            // ------------------------------------------------------------
             [CollectionEditor]
             [ReadOnly]
             public List<int> FirstCollection = new();
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// ReadOnly 딕셔너리 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             [ReadOnly]
             public XDictionary_VV<int, int> DictionaryReadOnly = new();
 
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 기본 편집 가능 딕셔너리 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XDictionary_VV<int, int> DictionaryDefault = new();
         }
 
@@ -87,12 +112,12 @@ namespace inonego.Xeri.TEST.Serializable._Collection
                 root.Bind(owner);
                 yield return WaitForBinding
                 (
-                    () => fields.TrueForAll(field => field.Q<CollectionEditorView>() != null)
+                    () => fields.TrueForAll(field => field.Q<CollectionTable>() != null)
                 );
 
                 for (var index = 0; index < fields.Count; index++)
                 {
-                    var view = fields[index].Q<CollectionEditorView>();
+                    var view = fields[index].Q<CollectionTable>();
                     var readOnly = index != names.Length - 1;
                     Assert.IsTrue(view.enabledInHierarchy);
                     Assert.AreEqual(!readOnly, view.Q<Button>("collection-add").enabledInHierarchy);
@@ -117,20 +142,10 @@ namespace inonego.Xeri.TEST.Serializable._Collection
         [UnityTest]
         public IEnumerator TEST_CollectionEditor_ReadOnly_상세보기는열리고입력만비활성화()
         {
-            var listModel = new SerializedListEditorModel
-            (
-                serializedObject.FindProperty("Numbers"), false, typeof(int), false
-            );
-            var view = new CollectionEditorView(listModel, true);
+            var list = OpenList(serializedObject, "Numbers", typeof(int), isReadOnly: true);
+            var view = new CollectionTable(list);
             Show(view);
-            var cell = listModel.GetCellProperty(0, "Value");
-            Assert.IsTrue
-            (
-                CollectionCellRenderer.OpenEditor
-                (
-                    listModel, 0, cell, CollectionCellEditMode.Default, null, true
-                )
-            );
+            Assert.IsTrue(CollectionDetailEditors.OpenCell(list, 0, list.Kind.Columns[0]));
 
             var editor = CollectionEditWindowCoordinator.Find<CollectionValueEditorWindow>();
             Assert.IsNotNull(editor);

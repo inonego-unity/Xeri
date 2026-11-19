@@ -31,6 +31,7 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | Screen/Modal/Window UI를 운영한다 | [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/) |
 | UGUI/UITK Drag & Drop 또는 Picker를 구성한다 | [UI Utilities](../Runtime/UI/README.md) |
 | Picker/Editor가 공유하는 팝업 배치 경계를 확인한다 | [UI Popup 공통 기반](../Runtime/UI/README.md) |
+| 배지·색상 견본을 UITK에서 재사용한다 | [공용 표시 요소](../Runtime/UI/README.md#공용-표시-요소) |
 | 컬렉션을 Inspector에서 편집한다 | [Collection Editor 가이드](guides/serialization/edit-collections-in-inspector.md) |
 | Audio/VFX Cue를 공통 재생한다 | [Playback Cue](modules/playback/cue.md) |
 | 결정적 procedural generation을 만든다 | [Generation](modules/generation/generation.md) |

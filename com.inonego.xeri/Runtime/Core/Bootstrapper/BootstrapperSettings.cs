@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BootstrapperSettings.cs
-수정일 : 2026-11-18
+수정일 : 2026-11-19
 
 # 설명
 BootStrapper 실행에 필요한 씬 인덱스와 초기화 모듈 에셋 목록을 저장하는 설정 에셋.
@@ -139,7 +139,7 @@ namespace inonego.Xeri.Bootstrapper
         // ------------------------------------------------------------
         private void OnValidate()
         {
-            if (HasSameModules())
+            if (IsSame())
             {
                 return;
             }
@@ -154,7 +154,7 @@ namespace inonego.Xeri.Bootstrapper
         /// 기록한 모듈 목록과 현재 목록이 같은 순서로 같은 에셋을 가리키는지 확인한다.
         /// </summary>
         // ------------------------------------------------------------
-        private bool HasSameModules()
+        private bool IsSame()
         {
             if (modules.Count != observedModules.Count)
             {

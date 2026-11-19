@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionKeyRangeWindow.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-19
 
 # 설명
-정수 Key를 사용하는 XDictionary에서 범위별 키 추가·제거·제한을 입력받는다.
-생성된 Key 집합의 적용과 Undo는 XDictionaryEditorModel에 위임한다.
+정수 키를 쓰는 컬렉션에서 범위별 키 추가·제거·제한을 입력받는다.
+생성한 키 집합의 적용과 Undo는 CollectionSession의 ApplyKeySet 편집에 맡긴다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -34,8 +34,7 @@ namespace inonego.Xeri.Serializable.Editor
 
     #region 필드
 
-        private XDictionaryEditorModel model = null;
-        private SerializedPropertyLocator locator = null;
+        private CollectionSession session = null;
         private CollectionKeySetOperation operation = CollectionKeySetOperation.Add;
         private IntegerField minField = null;
         private IntegerField maxField = null;
@@ -51,18 +50,12 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public static void Open
         (
-            XDictionaryEditorModel model,
+            CollectionSession session,
             CollectionKeySetOperation operation
         )
         {
-            if (model == null)
-            {
-                throw new ArgumentNullException(nameof(model));
-            }
-
             var window = CreateInstance<CollectionKeyRangeWindow>();
-            window.model = model;
-            window.locator = new SerializedPropertyLocator(model.GetCollectionProperty());
+            window.session = session ?? throw new ArgumentNullException(nameof(session));
 
             window.operation = operation;
             window.titleContent = new GUIContent("정수 키 범위");
@@ -120,7 +113,7 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         private void Apply()
         {
-            if (model == null || minField == null || maxField == null)
+            if (session == null || minField == null || maxField == null)
             {
                 Close();
                 return;
@@ -157,30 +150,21 @@ namespace inonego.Xeri.Serializable.Editor
                 keys.Add((int)value);
             }
 
-            var target = model.SerializedObject.targetObject;
-            if (target == null || locator == null)
+            if (session.SerializedObject.targetObject == null)
             {
                 Close();
                 return;
             }
 
-            using (var current = new SerializedObject(target))
+            // 창을 연 사이의 외부 변경을 먼저 받아들인 뒤 현재 상태에 적용한다.
+            session.Observe();
+            CollectionDetailEditors.Close(session);
+            var result = session.Apply(CollectionEdit.ApplyKeySet(keys, operation));
+            if (!result.Succeeded && !string.IsNullOrEmpty(result.Reason))
             {
-                if (!locator.TryResolve(current, out _, out var reason))
-                {
-                    EditorUtility.DisplayDialog("정수 키 범위", reason, "확인");
-                    Close();
-                    return;
-                }
+                EditorUtility.DisplayDialog("정수 키 범위", result.Reason, "확인");
             }
 
-            CollectionValueEditorWindow.CloseForCollection
-            (
-                target,
-                model.CollectionPropertyPath
-            );
-
-            model.ApplyKeySet(keys, operation);
             Close();
         }
 

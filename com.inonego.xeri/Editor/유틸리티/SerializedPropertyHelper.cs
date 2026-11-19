@@ -1,10 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializedPropertyHelper.cs
-수정일 : 2026-11-03
+수정일 : 2026-11-19
 
 # 설명
 SerializedProperty의 현재 값과 실제 객체 인스턴스를 구분하여 조회한다.
 배열/리스트 요소 경로, 경로 포함 관계, UI Toolkit 직계 자식 필드 생성과 기본값 초기화를 지원한다.
+배열 요소 추가·삽입·삭제는 Unity ObjectReference 배열의 2단계 삭제 같은 직렬화 배열 특성을 함께 처리한다.
+경로 탐색에 쓰는 필드 검색과 Unity 직렬화 필드 규칙을 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -254,12 +256,12 @@ namespace inonego.Xeri
             }
         }
 
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// <br/> 표시 가능한 직계 자식 프로퍼티를 순회한다.
         /// <br/> 반환하는 프로퍼티는 순회 중 계속 이동하는 단일 반복자이므로 보관하려면 Copy해야 한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         internal static IEnumerable<SerializedProperty> EnumerateVisibleChildren(SerializedProperty property)
         {
             if (property == null)
@@ -476,6 +478,68 @@ namespace inonego.Xeri
 
     #endregion
 
+    #region 배열 요소
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 지정 위치 또는 배열 끝에 새 요소를 추가하고 실제 인덱스를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal static int InsertArrayElement(SerializedProperty array, int? insertIndex)
+        {
+            if (!insertIndex.HasValue || insertIndex.Value >= array.arraySize)
+            {
+                return AppendArrayElement(array);
+            }
+
+            var index = Math.Max(0, insertIndex.Value);
+            array.InsertArrayElementAtIndex(index);
+            return index;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 배열 끝에 새 요소를 추가하고 인덱스를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal static int AppendArrayElement(SerializedProperty array)
+        {
+            var index = array.arraySize;
+            array.arraySize++;
+            return index;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 배열 끝에 형식 기본값 요소를 추가하고 인덱스를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal static int AppendDefaultArrayElement(SerializedProperty array)
+        {
+            var index = AppendArrayElement(array);
+            SetDefaultValue(array.GetArrayElementAtIndex(index));
+            return index;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// Unity ObjectReference 배열의 2단계 삭제까지 포함해 요소를 제거한다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        internal static void DeleteArrayElement(SerializedProperty array, int index)
+        {
+            // ObjectReference 요소는 첫 삭제에서 값만 비우고 크기는 그대로 남는다.
+            var previousSize = array.arraySize;
+            array.DeleteArrayElementAtIndex(index);
+
+            if (array.arraySize == previousSize && index < array.arraySize)
+            {
+                array.DeleteArrayElementAtIndex(index);
+            }
+        }
+
+    #endregion
+
     #region 필드 탐색
 
         // ------------------------------------------------------------
@@ -495,6 +559,23 @@ namespace inonego.Xeri
             }
 
             return null;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity가 직렬화하는 인스턴스 필드인지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal static bool IsSerializedField(FieldInfo field)
+        {
+            if (field.IsStatic || field.IsInitOnly || field.IsLiteral || field.IsNotSerialized)
+            {
+                return false;
+            }
+
+            return field.IsPublic
+                || field.IsDefined(typeof(SerializeField), inherit: false)
+                || field.IsDefined(typeof(SerializeReference), inherit: false);
         }
 
     #endregion

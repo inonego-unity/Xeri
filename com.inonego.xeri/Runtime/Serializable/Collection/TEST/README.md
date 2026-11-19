@@ -1,6 +1,6 @@
 # 컬렉션 테스트 구성 (Unity 7)
 
-컬렉션 런타임, 직렬화, Editor Model, 편집창과 UI를 책임별로 검증한다.
+컬렉션 런타임, 직렬화, 편집 세션, 편집창과 UI를 책임별로 검증한다.
 
 ## 폴더와 어셈블리
 
@@ -10,18 +10,20 @@
   - TEST_XOrdered_Serialization.cs: JSON 직렬화와 관리 참조 공유 계약
   - TEST_XPriorityQueue.cs: Heap과 우선순위
 - **Editor**: 상위 inonego.Xeri.Editor.TEST.EDIT.asmref를 사용한다.
-  - TEST_CollectionEditor.cs: 공통 픽스처와 변경 확정, Undo
-  - Model/: 컬렉션별 직렬화 동기화와 값 검증
-  - Integration/: 상세 편집창과 원본 항목 추적
-  - View/: ReadOnly 편집 차단과 실제 값 편집창 동작
+  - TEST_CollectionEditor.cs: 공통 픽스처와 CollectionSession의 변경 확정, Undo
+  - Model/: 종류별 편집 적용·Runtime 동기화·변경 세대와 셀 drawer 선택, 값 검증
+  - Integration/: 초안 확정, 초안·값 상세 창과 원본·표 갱신
+  - View/: 표 높이·Columns 열 구성, ReadOnly 조회, 셀 뷰 등록·표시
 - **Tests/Editor**: 공통 Editor 테스트 어셈블리.
   - TEST_SerializedPropertyClipboard.cs: 값·관리 참조 링크 복사와 복원
+- **Validation**: 수동 검증 씬(CollectionValidation.unity)과 컬렉션 종류별 필드·원소 형식. inonego.Xeri.Collection.Validation(Editor 전용 정의).
+  - Validation/Editor/: 검증 원소 형식의 셀 뷰 예시. inonego.Xeri.Collection.Validation.Editor(Editor 플랫폼).
 
 하위 폴더는 상위 .asmref를 상속하므로 새 .asmdef를 만들지 않는다.
 기존 테스트 파일과 Unity .meta GUID는 보존한다.
 
 TEST_XOrdered는 기본·키 기반 동작과 직렬화 계약을 분리하되 테스트 값을 공유하고,
-TEST_CollectionEditor는 변경 확정·모델·편집창·화면 영역의 픽스처를 공유한다.
+TEST_CollectionEditor는 변경 확정·편집 세션·편집창·화면 영역의 픽스처를 공유한다.
 이 두 그룹만 필요한 테스트 데이터와 Unity EditorWindow 준비를 위해 partial class를 사용한다.
 SerializedPropertyClipboard는 공통 Editor 테스트 어셈블리에서 별도 검증한다.
 
@@ -33,8 +35,8 @@ SerializedPropertyClipboard는 공통 Editor 테스트 어셈블리에서 별도
 3. 실패한 추가·붙여넣기·확정은 원본 데이터나 Undo 상태를 훼손하지 않아야 한다.
 4. SerializedProperty는 기본 값, Generic, 배열·목록, SerializeReference,
    UnityEngine.Object 참조와 null을 구분한다.
-5. UI 테스트는 사용자 동작과 최종 상태를 검증하고, 모델 내부 규칙은
-   Editor Model 테스트에서 검증한다.
+5. UI 테스트는 사용자 동작과 최종 상태를 검증하고, 종류별 규칙과 편집 적용은
+   CollectionSession 테스트(Model/)에서 검증한다.
 6. 테스트는 programmer·test-design·dev-unity의 현행 로컬 규칙을 따른다.
    헤더에는 # 테스트 구성으로 카테고리를 선언하고 region 번호는 논리적 순서를 사용한다.
    헬퍼와 픽스처는 테스트 region에서 분리한다.

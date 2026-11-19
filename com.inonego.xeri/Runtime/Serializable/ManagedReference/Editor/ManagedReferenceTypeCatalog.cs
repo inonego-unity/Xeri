@@ -1,10 +1,11 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ManagedReferenceTypeCatalog.cs
-수정일 : 2026-08-05
+수정일 : 2026-11-19
 
 # 설명
 SerializeReference 필드에 생성할 구현 타입과 generic argument 타입 후보를 제공한다.
-Unity Player assembly의 직렬화 가능한 타입과 후보 목록을 domain reload 단위로 캐싱한다.
+형식의 직렬화 구조 안에 SerializeReference 필드가 있는지 판단한다.
+Unity Player assembly의 직렬화 가능한 타입과 후보 목록, 구조 판단 결과를 domain reload 단위로 캐싱한다.
 
 # 특이사항
 선언 타입으로 확정 가능한 generic argument는 후보를 반환하기 전에 닫고,
@@ -26,20 +27,21 @@ using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {
-    // ============================================================
+    // ======================================================================
     /// <summary>
     /// 선언 타입에 할당할 수 있는 managed-reference 생성 후보를 표현한다.
     /// </summary>
-    // ============================================================
+    // ======================================================================
     internal sealed class ManagedReferenceCreationCandidate
     {
+
     #region 필드
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 즉시 생성할 closed type 또는 추가 구성이 필요한 generic definition.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public Type Type { get; }
 
         // ------------------------------------------------------------
@@ -62,8 +64,14 @@ namespace inonego.Xeri.Serializable.Editor
         /// 타입 선택 UI에 표시할 이름을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public string DisplayName => cachedDisplayName ??=
-            ManagedReferenceTypeCatalog.GetDisplayName(Type, fixedArguments);
+        public string DisplayName
+        {
+            get
+            {
+                cachedDisplayName ??= ManagedReferenceTypeCatalog.GetDisplayName(Type, fixedArguments);
+                return cachedDisplayName;
+            }
+        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -81,7 +89,8 @@ namespace inonego.Xeri.Serializable.Editor
         /// 생성 후보와 선언 타입에서 확정된 argument를 초기화한다.
         /// </summary>
         // ------------------------------------------------------------
-        public ManagedReferenceCreationCandidate(
+        public ManagedReferenceCreationCandidate
+        (
             Type type,
             IReadOnlyDictionary<Type, Type> fixedArguments = null
         )
@@ -93,6 +102,7 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
     #endregion
+
     }
 
     // ============================================================
@@ -102,40 +112,41 @@ namespace inonego.Xeri.Serializable.Editor
     // ============================================================
     internal static class ManagedReferenceTypeCatalog
     {
+
     #region 내부 데이터
 
-        private static readonly IReadOnlyDictionary<Type, string> builtInTypeNames =
-            new Dictionary<Type, string>
-            {
-                { typeof(bool), "bool" },
-                { typeof(char), "char" },
-                { typeof(sbyte), "sbyte" },
-                { typeof(byte), "byte" },
-                { typeof(short), "short" },
-                { typeof(ushort), "ushort" },
-                { typeof(int), "int" },
-                { typeof(uint), "uint" },
-                { typeof(long), "long" },
-                { typeof(ulong), "ulong" },
-                { typeof(float), "float" },
-                { typeof(double), "double" },
-                { typeof(string), "string" },
-            };
+        private static readonly IReadOnlyDictionary<Type, string> builtInTypeNames = new Dictionary<Type, string>
+        {
+            { typeof(bool), "bool" },
+            { typeof(char), "char" },
+            { typeof(sbyte), "sbyte" },
+            { typeof(byte), "byte" },
+            { typeof(short), "short" },
+            { typeof(ushort), "ushort" },
+            { typeof(int), "int" },
+            { typeof(uint), "uint" },
+            { typeof(long), "long" },
+            { typeof(ulong), "ulong" },
+            { typeof(float), "float" },
+            { typeof(double), "double" },
+            { typeof(string), "string" },
+        };
 
         private static readonly Type[] builtInSerializableTypes = builtInTypeNames.Keys
-            .Concat(
-                new[]
-                {
-                    typeof(Color),
-                    typeof(Color32),
-                    typeof(Vector2),
-                    typeof(Vector3),
-                    typeof(Vector4),
-                    typeof(Quaternion),
-                    typeof(Ray),
-                    typeof(Ray2D),
-                }
-            )
+            .Concat
+        (
+            new[]
+            {
+                typeof(Color),
+                typeof(Color32),
+                typeof(Vector2),
+                typeof(Vector3),
+                typeof(Vector4),
+                typeof(Quaternion),
+                typeof(Ray),
+                typeof(Ray2D),
+            }
+        )
             .ToArray();
 
         private static readonly Type[] supportedContainerDefinitions =
@@ -146,6 +157,7 @@ namespace inonego.Xeri.Serializable.Editor
         private static readonly Dictionary<string, Type> declaredTypeCache = new();
         private static readonly Dictionary<Type, IReadOnlyList<ManagedReferenceCreationCandidate>> creationCandidateCache = new();
         private static readonly Dictionary<(Type GenericParameter, bool MakeArray), IReadOnlyList<Type>> genericArgumentCandidateCache = new();
+        private static readonly Dictionary<Type, bool> managedReferenceStructureCache = new();
         private static IReadOnlyList<Type> genericArgumentTypes = null;
 
     #endregion
@@ -197,11 +209,11 @@ namespace inonego.Xeri.Serializable.Editor
             return cachedType;
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
         /// 선언 타입에 대입할 수 있는 생성 후보를 반환한다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         public static IReadOnlyList<ManagedReferenceCreationCandidate> GetCreationCandidates(Type declaredType)
         {
             if (declaredType == null)
@@ -229,7 +241,8 @@ namespace inonego.Xeri.Serializable.Editor
         /// generic parameter에 사용할 수 있는 Unity 직렬화 타입 후보를 반환한다.
         /// </summary>
         // ----------------------------------------------------------------------
-        public static IReadOnlyList<Type> GetGenericArgumentCandidates(
+        public static IReadOnlyList<Type> GetGenericArgumentCandidates
+        (
             Type genericParameter,
             bool makeArray
         )
@@ -254,11 +267,11 @@ namespace inonego.Xeri.Serializable.Editor
             return candidates;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 기본 생성자로 새 managed-reference instance를 만들 수 있는지 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         public static bool CanCreate(Type type)
         {
             return type != null
@@ -286,7 +299,8 @@ namespace inonego.Xeri.Serializable.Editor
         /// 지정된 generic parameter 치환을 반영한 type 이름을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static string GetDisplayName(
+        public static string GetDisplayName
+        (
             Type type,
             IReadOnlyDictionary<Type, Type> substitutions
         )
@@ -373,7 +387,8 @@ namespace inonego.Xeri.Serializable.Editor
         /// type과 선언 타입의 계약을 해석해 실제 생성 후보를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static bool TryCreateCandidate(
+        private static bool TryCreateCandidate
+        (
             Type type,
             Type declaredType,
             out ManagedReferenceCreationCandidate candidate
@@ -420,11 +435,11 @@ namespace inonego.Xeri.Serializable.Editor
             return true;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 열린 generic class가 managed-reference instance로 닫힐 수 있는 형태인지 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         private static bool IsOpenManagedReferenceType(Type type)
         {
             return type.IsGenericTypeDefinition
@@ -435,12 +450,13 @@ namespace inonego.Xeri.Serializable.Editor
                    && type.GetConstructor(Type.EmptyTypes) != null;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// generic definition과 선언 타입의 계약을 비교해 확정된 argument를 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static bool TryGetGenericArgumentBindings(
+        // ----------------------------------------------------------------------
+        private static bool TryGetGenericArgumentBindings
+        (
             Type genericDefinition,
             Type declaredType,
             out IReadOnlyDictionary<Type, Type> fixedArguments
@@ -467,12 +483,13 @@ namespace inonego.Xeri.Serializable.Editor
             return false;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// generic definition을 확정된 argument로 닫고 CLR 제약을 확인한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static bool TryCloseGenericType(
+        // ----------------------------------------------------------------------
+        private static bool TryCloseGenericType
+        (
             Type genericDefinition,
             IReadOnlyList<Type> parameters,
             IReadOnlyDictionary<Type, Type> fixedArguments,
@@ -497,12 +514,13 @@ namespace inonego.Xeri.Serializable.Editor
             }
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// candidate contract의 generic parameter를 선언 타입의 실제 argument에 대응시킨다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static bool TryMatchContract(
+        // --------------------------------------------------------------------------------
+        private static bool TryMatchContract
+        (
             Type contract,
             Type declaredType,
             IDictionary<Type, Type> fixedArguments
@@ -537,12 +555,13 @@ namespace inonego.Xeri.Serializable.Editor
             return true;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// contract argument의 generic parameter와 실제 선언 argument를 재귀적으로 대응시킨다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static bool TryMatchTypeArgument(
+        // --------------------------------------------------------------------------------
+        private static bool TryMatchTypeArgument
+        (
             Type contractArgument,
             Type declaredArgument,
             IDictionary<Type, Type> fixedArguments
@@ -563,7 +582,8 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 return declaredArgument.IsArray
                        && contractArgument.GetArrayRank() == declaredArgument.GetArrayRank()
-                       && TryMatchTypeArgument(
+                       && TryMatchTypeArgument
+                       (
                            contractArgument.GetElementType(),
                            declaredArgument.GetElementType(),
                            fixedArguments
@@ -590,12 +610,13 @@ namespace inonego.Xeri.Serializable.Editor
             return true;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 후보 타입이 선택 시점에 확인 가능한 generic parameter 제약을 만족하는지 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static bool IsPotentialGenericArgument(
+        // --------------------------------------------------------------------------------
+        private static bool IsPotentialGenericArgument
+        (
             Type genericParameter,
             Type candidate,
             bool makeArray
@@ -643,11 +664,11 @@ namespace inonego.Xeri.Serializable.Editor
                 .All(constraint => CanPotentiallySatisfyConstraint(argument, constraint));
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// 열린 후보 타입이 닫힌 뒤 명시 constraint에 대입될 가능성이 있는지 반환한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private static bool CanPotentiallySatisfyConstraint(Type candidate, Type constraint)
         {
             if (constraint.IsAssignableFrom(candidate))
@@ -749,11 +770,11 @@ namespace inonego.Xeri.Serializable.Editor
             }
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
         /// namespace와 nested type 경로를 유지하면서 generic arity를 제거한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private static string GetTypeNameWithoutArity(Type type)
         {
             var definition = type.IsGenericType ? type.GetGenericTypeDefinition() : type;
@@ -776,5 +797,94 @@ namespace inonego.Xeri.Serializable.Editor
         }
 
     #endregion
+
+    #region 직렬화 구조
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 속성 값의 직렬화 구조 어딘가에 SerializeReference가 있는지 반환한다.
+        /// <br/> 값 형식을 알 수 없으면 있다고 보수적으로 본다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool ContainsManagedReference(SerializedProperty property)
+        {
+            if (property == null)
+            {
+                throw new ArgumentNullException(nameof(property));
+            }
+
+            if (property.propertyType == SerializedPropertyType.ManagedReference)
+            {
+                return true;
+            }
+
+            var type = SerializedPropertyHelper.GetTargetObject(property)?.GetType();
+            return type == null || ContainsManagedReference(type);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 형식의 직렬화 구조 어딘가에 SerializeReference 필드가 있는지 반환한다.
+        /// <br/> 형식별로 한 번만 계산하며 순환 형식은 계산 중에 있다고 보수적으로 본다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool ContainsManagedReference(Type type)
+        {
+            if (type == null)
+            {
+                return false;
+            }
+
+            if (managedReferenceStructureCache.TryGetValue(type, out var cached))
+            {
+                return cached;
+            }
+
+            managedReferenceStructureCache[type] = true;
+            var result = ScanManagedReference(type);
+            managedReferenceStructureCache[type] = result;
+            return result;
+        }
+
+        private static bool ScanManagedReference(Type type)
+        {
+            if (type.IsArray)
+            {
+                return ContainsManagedReference(type.GetElementType());
+            }
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                return ContainsManagedReference(type.GetGenericArguments()[0]);
+            }
+
+            // 기본형·열거형·문자열·Unity 오브젝트 참조는 하위 직렬화 구조가 없다.
+            if (type.IsPrimitive || type.IsEnum || type == typeof(string) || typeof(UnityEngine.Object).IsAssignableFrom(type))
+            {
+                return false;
+            }
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            for (var current = type; current != null && current != typeof(object); current = current.BaseType)
+            {
+                foreach (var field in current.GetFields(flags))
+                {
+                    if (!SerializedPropertyHelper.IsSerializedField(field))
+                    {
+                        continue;
+                    }
+
+                    if (field.IsDefined(typeof(SerializeReference), inherit: false) || ContainsManagedReference(field.FieldType))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+    #endregion
+
     }
 }

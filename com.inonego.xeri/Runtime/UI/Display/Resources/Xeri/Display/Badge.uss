@@ -1,0 +1,47 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : Badge.uss
+수정일 : 2026-11-19
+
+# 설명
+Badge 요소의 기본 모양. 크기·여백·색은 USS 변수로 바꾸며, 상위 요소에 지정한 변수는 상속된다.
+
+  --xeri-badge-height              높이 (기본 16px)
+  --xeri-badge-padding             좌우 안쪽 여백 (기본 5px)
+  --xeri-badge-radius              모서리 둥글기 (기본 3px)
+  --xeri-badge-font-size           글자 크기 (기본 10px)
+  --xeri-badge-width               Fixed 폭 (기본 56px)
+  --xeri-badge-background-color    Neutral 배경 (기본 옅은 회색). 글자색은 주변 글자색을 따른다
+  --xeri-badge-accent-color        Accent 글자색
+  --xeri-badge-accent-background-color   Accent 배경
+========================================================================= BLOCK_HEADER_END */
+
+.xeri-badge {
+    flex-grow: 0;
+    flex-shrink: 0;
+    height: var(--xeri-badge-height, 16px);
+    min-height: var(--xeri-badge-height, 16px);
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--xeri-badge-padding, 5px);
+    padding-right: var(--xeri-badge-padding, 5px);
+    border-width: 0;
+    border-radius: var(--xeri-badge-radius, 3px);
+    font-size: var(--xeri-badge-font-size, 10px);
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: var(--xeri-badge-background-color, rgba(127, 127, 127, 0.22));
+}
+
+.xeri-badge--fixed {
+    width: var(--xeri-badge-width, 56px);
+    min-width: var(--xeri-badge-width, 56px);
+    max-width: var(--xeri-badge-width, 56px);
+}
+
+.xeri-badge--accent {
+    color: var(--xeri-badge-accent-color, rgb(125, 177, 221));
+    background-color: var(--xeri-badge-accent-background-color, rgba(125, 177, 221, 0.18));
+}

@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_CollectionEditor.cs
-수정일 : 2026-10-31
+수정일 : 2026-11-19
 
 # 설명
-변경 확정, 외부 상태 동기화와 Undo/Redo 계약을 검증한다.
+편집 세션의 변경 확정, 외부 상태 동기화와 Undo/Redo 계약을 검증한다.
 공통 SerializedObject 및 EditorWindow 준비와 정리는 이 픽스처에 둔다.
 
 # 테스트 구성
@@ -33,6 +33,11 @@ using inonego.Xeri.Serializable.Editor;
 
 namespace inonego.Xeri.TEST.Serializable._Collection
 {
+    // ============================================================
+    /// <summary>
+    /// 편집 세션 확정·외부 동기화·Undo/Redo 회귀 테스트.
+    /// </summary>
+    // ============================================================
     public partial class TEST_CollectionEditor
     {
 
@@ -40,7 +45,18 @@ namespace inonego.Xeri.TEST.Serializable._Collection
 
         private sealed class Target : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 수정자를 가진 MValue 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public MValue<int> Value = new(100);
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 정수 목록 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public List<int> Numbers = new();
         }
 
@@ -51,24 +67,63 @@ namespace inonego.Xeri.TEST.Serializable._Collection
 
         private sealed class OrderedTarget : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// XOrdered 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XOrdered<int, string, NumericIModifier> Ordered = new();
         }
 
         private sealed class CollectionTarget : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 값 HashSet 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XHashSet_V<int> Set = new();
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 참조 HashSet 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XHashSet_R<NumericIModifier> ReferenceSet = new();
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 딕셔너리 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XDictionary_VV<string, int> Dictionary = new();
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 큐 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XQueue_V<int> Queue = new();
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 스택 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public XStack_V<int> Stack = new();
         }
 
         private Target target;
         private SerializedObject serializedObject;
-        private MValueModifierEditorModel<int> model;
+        private CollectionSession session;
         private EditorWindow window;
         private Action<UnityEngine.Object, string, string> changeHandler;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트마다 Target과 편집 세션을 새로 준비한다.
+        /// </summary>
+        // ------------------------------------------------------------
         [SetUp]
         public void SetUp()
         {
@@ -77,15 +132,21 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             target.Numbers.Add(2);
             target.Value.AddModifier("a", new NumericIModifier(NumericIOperation.ADD, 5));
             serializedObject = new SerializedObject(target);
-            model = new MValueModifierEditorModel<int>(serializedObject.FindProperty("Value.modifiers"));
+            var modifiers = serializedObject.FindProperty("Value.modifiers");
+            session = Open(serializedObject, modifiers.propertyPath, MValueModifierHooks<int>.CreateKind(modifiers));
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 테스트 창, 구독, Undo 기록과 Target을 정리한다.
+        /// </summary>
+        // ------------------------------------------------------------
         [TearDown]
         public void TearDown()
         {
             if (changeHandler != null)
             {
-                CollectionEditorModelBase.Committed -= changeHandler;
+                CollectionSession.Committed -= changeHandler;
             }
 
             if (window != null)
@@ -99,14 +160,35 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             UnityEngine.Object.DestroyImmediate(target);
         }
 
+        private static CollectionSession Open(SerializedObject owner, string path, CollectionKind kind, bool isReadOnly = false)
+        {
+            return new CollectionSession(new CollectionSource(owner, path, kind), isReadOnly);
+        }
+
+        private static CollectionSession Open(SerializedObject owner, string path, Func<SerializedProperty, CollectionKind> create)
+        {
+            return Open(owner, path, create(owner.FindProperty(path)));
+        }
+
+        private static CollectionSession OpenList(SerializedObject owner, string path, Type elementType, IReadOnlyList<string> columns = null, bool isReadOnly = false)
+        {
+            var kind = SerializedListKindProvider.Create(owner.FindProperty(path), false, elementType, false, columns);
+            return Open(owner, path, kind, isReadOnly);
+        }
+
+        private static SerializedProperty GetCell(CollectionSession target, int sourceIndex, string columnID)
+        {
+            return target.Source.GetCell(sourceIndex, target.Kind.FindColumn(columnID));
+        }
+
         private SerializedProperty GetValueProperty()
         {
-            return model.GetCellProperty(0, "value").FindPropertyRelative("value");
+            return GetCell(session, 0, "value").FindPropertyRelative("value");
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Collection 행을 펼친 상태로 테스트 창에 연결한다.
+        /// 컬렉션 표를 펼친 상태로 테스트 창에 연결한다.
         /// </summary>
         // ------------------------------------------------------------
         private void Show(VisualElement element)
@@ -117,20 +199,24 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             window.rootVisualElement.Add(element);
 
             // SessionState에 남은 접힘 상태가 행 바인딩 테스트에 영향을 주지 않도록 한다.
-            if (element is CollectionEditorView view)
+            if (element is CollectionTable table)
             {
-                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-                var expand = typeof(CollectionEditorView).GetMethod("SetExpanded", flags);
-                Assert.IsNotNull(expand);
-
-                var arguments = new object[]
-                {
-                    true
-                };
-                expand.Invoke(view, arguments);
+                Expand(table);
             }
 
             window.ShowUtility();
+        }
+
+        private static void Expand(CollectionTable table)
+        {
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var expand = typeof(CollectionTable).GetMethod("SetExpanded", flags);
+            Assert.IsNotNull(expand);
+            var arguments = new object[]
+            {
+                true
+            };
+            expand.Invoke(table, arguments);
         }
 
         private static IEnumerator WaitForBinding(Func<bool> ready)
@@ -148,18 +234,28 @@ namespace inonego.Xeri.TEST.Serializable._Collection
 
     #region C-1: 변경 확정과 중복 통지
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 값의 바인딩 통지는 확정하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
         [Test]
         public void TEST_CollectionEditor_동일값_바인딩통지는_확정하지않음()
         {
             var notices = 0;
             changeHandler = (_, _, _) => notices++;
-            CollectionEditorModelBase.Committed += changeHandler;
+            CollectionSession.Committed += changeHandler;
 
-            Assert.IsFalse(model.CommitPropertyChange(GetValueProperty()));
+            Assert.IsFalse(session.Apply(CollectionEdit.CommitBound(GetValueProperty().propertyPath)).Succeeded);
             Assert.AreEqual(0, notices);
             Assert.AreEqual(105, target.Value.Modified);
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 행 추가는 owner 갱신 뒤 구조 변경으로 한 번 통지한다.
+        /// </summary>
+        // ------------------------------------------------------------
         [Test]
         public void TEST_CollectionEditor_행추가도_owner갱신후_구조변경으로통지()
         {
@@ -172,17 +268,12 @@ namespace inonego.Xeri.TEST.Serializable._Collection
                 modifiedAtNotice = target.Value.Modified;
                 changedPath = path;
             };
-            CollectionEditorModelBase.Committed += changeHandler;
+            CollectionSession.Committed += changeHandler;
 
-            model.Add
-            (
-                index =>
-                {
-                    model.GetCellProperty(index, "key").stringValue = "b";
-                    model.GetCellProperty(index, "value").managedReferenceValue =
-                        new NumericIModifier(NumericIOperation.ADD, 3);
-                }
-            );
+            var draft = CollectionDraft.ForNewRow()
+                .Set("key", "b")
+                .Set("value", new NumericIModifier(NumericIOperation.ADD, 3));
+            Assert.IsTrue(session.Apply(CollectionEdit.AddRow(draft)).Succeeded);
 
             Assert.AreEqual(1, notices);
             Assert.IsNull(changedPath);
@@ -193,24 +284,34 @@ namespace inonego.Xeri.TEST.Serializable._Collection
 
     #region U-1: 외부 상태와 실행 취소
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 외부 변경 관찰 뒤의 통지는 새 편집으로 확정하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
         [Test]
         public void TEST_CollectionEditor_외부동기화는_새편집으로확정하지않음()
         {
             var notices = 0;
             changeHandler = (_, _, _) => notices++;
-            CollectionEditorModelBase.Committed += changeHandler;
+            CollectionSession.Committed += changeHandler;
             var property = GetValueProperty();
             property.intValue = 9;
             serializedObject.ApplyModifiedProperties();
             target.Value.OnAfterDeserialize();
 
-            model.Synchronize();
+            session.Observe();
 
-            Assert.IsFalse(model.CommitPropertyChange(GetValueProperty()));
+            Assert.IsFalse(session.Apply(CollectionEdit.CommitBound(GetValueProperty().propertyPath)).Succeeded);
             Assert.AreEqual(0, notices);
             Assert.AreEqual(109, target.Value.Modified);
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 값 편집의 Undo와 Redo가 데이터와 Modified를 함께 되돌린다.
+        /// </summary>
+        // ------------------------------------------------------------
         [Test]
         public void TEST_CollectionEditor_값편집_UndoRedo로_데이터와Modified복원()
         {
@@ -219,17 +320,17 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             var property = GetValueProperty();
             property.intValue = 7;
             serializedObject.ApplyModifiedProperties();
-            model.CommitPropertyChange(property);
+            session.Apply(CollectionEdit.CommitBound(property.propertyPath));
             Undo.FlushUndoRecordObjects();
             Undo.CollapseUndoOperations(group);
 
             Undo.PerformUndo();
-            model.RestoreSerializedState();
+            session.Restore();
             Assert.AreEqual(5, GetValueProperty().intValue);
             Assert.AreEqual(105, target.Value.Modified);
 
             Undo.PerformRedo();
-            model.RestoreSerializedState();
+            session.Restore();
             Assert.AreEqual(7, GetValueProperty().intValue);
             Assert.AreEqual(107, target.Value.Modified);
         }

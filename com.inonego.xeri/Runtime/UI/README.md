@@ -9,6 +9,7 @@
 | 영역 | 역할 | 문서 |
 |---|---|---|
 | Common | PagedListChrome 셸, SearchPagedList 검색·페이지 상태, PaginationBar 표시 | 아래 공통 목록 UI |
+| Display | Badge·ColorSwatch 같은 작은 공용 표시 요소 | 아래 공용 표시 요소 |
 | Drag & Drop | backend 공통 drag/drop 상태와 UGUI/UITK adapter | [README](Drag_Drop/README.md) |
 | Picker | UI Toolkit 기반 선택 UI와 table/filter/paging | [README](Picker/README.md) |
 | Popup | 앵커 배치 Solver와 Editor/Runtime 공유 표시 호스트 | 아래 Popup 공통 기반 |
@@ -18,7 +19,18 @@
 Runtime/UI/Common은 Picker와 Collection Editor에서 재사용하는 목록 UI만 소유합니다.
 PagedListChrome은 UXML/USS 레이아웃과 요소 삽입 지점을 제공하고 검색·선택·직렬화 정책은 소유하지 않습니다.
 검색·필터·정렬·페이지 상태는 SearchPagedList<T>, 페이지 이동 버튼은 PaginationBar가 담당합니다.
-Picker의 선택·필터 동작과 Collection Editor의 Undo·Mutation은 각각의 Session/Model에 남깁니다.
+Picker의 선택·필터 동작은 PickerSession에, Collection Editor의 편집 적용과 Undo는 CollectionSession에 남깁니다.
+
+## 공용 표시 요소
+
+Runtime/UI/Display는 Runtime UI Toolkit과 Editor UI Toolkit에서 함께 쓰는 작은 표시 요소를 제공합니다. 모두 `[UxmlElement]`라 UXML·UI Builder에서도 쓸 수 있고, 기본 스타일은 `Resources/Xeri/Display/*.uss`를 요소에 직접 붙입니다.
+
+| 요소 | 역할 | 코드 | USS |
+|---|---|---|---|
+| `Badge` | 짧은 상태·분류 표식 | `Sizing`(Fit·Fixed), `Tone`(Neutral·Accent), `TextColor`, `BackgroundColor` | `.xeri-badge`, `--fixed`, `--accent` 클래스와 `--xeri-badge-*` 변수(높이·여백·모서리·글자 크기·고정 폭·배경·강조색) |
+| `ColorSwatch` | 색 하나를 보이는 견본 | `Color` | `.xeri-color-swatch` 클래스와 `--xeri-color-swatch-*` 변수(크기·모서리·테두리색) |
+
+기본 스타일이 요소 자신에 붙어 있어 같은 우선순위의 바깥 USS보다 먼저 적용됩니다. 바깥에서 모양을 바꿀 때는 상위 요소에 USS 변수를 지정하거나(상속됨) `.my-panel .xeri-badge`처럼 더 구체적인 선택자를 씁니다. 코드 프로퍼티는 인라인 스타일이라 USS보다 우선합니다.
 
 ## Popup 공통 기반
 

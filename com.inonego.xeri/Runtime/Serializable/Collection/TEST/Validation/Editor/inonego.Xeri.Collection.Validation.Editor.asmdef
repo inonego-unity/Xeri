@@ -1,0 +1,20 @@
+{
+    "name": "inonego.Xeri.Collection.Validation.Editor",
+    "rootNamespace": "inonego.Xeri.Serializable.Validation.Editor",
+    "references": [
+        "inonego.Xeri",
+        "inonego.Xeri.Editor",
+        "inonego.Xeri.Collection.Validation"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

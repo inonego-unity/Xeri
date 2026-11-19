@@ -1,6 +1,6 @@
-/* BLOCK_HEADER_BEGIN =======================================================================
+﻿/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_CollectionEditor_Layout.cs
-수정일 : 2026-11-17
+수정일 : 2026-11-19
 
 # 설명
 Collection Editor의 표시 행 수, 채움 모드와 필드 열 계약을 검증한다.
@@ -30,11 +30,11 @@ using inonego.Xeri.Serializable.Editor;
 
 namespace inonego.Xeri.TEST.Serializable._Collection
 {
-    // ================================================================================
+    // ======================================================================
     /// <summary>
-    /// CollectionEditor의 높이 정책과 필드 열 계약을 검증하는 테스트 partial 클래스다.
+    /// 컬렉션 표의 높이 정책과 필드 열 계약을 검증하는 테스트 partial 클래스다.
     /// </summary>
-    // ================================================================================
+    // ======================================================================
     public partial class TEST_CollectionEditor
     {
 
@@ -122,12 +122,9 @@ namespace inonego.Xeri.TEST.Serializable._Collection
         [Test]
         public void TEST_CollectionEditor_VisibleRows_지정행수높이()
         {
-            var list = new SerializedListEditorModel
-            (
-                serializedObject.FindProperty("Numbers"), false, typeof(int), false
-            );
+            var list = OpenList(serializedObject, "Numbers", typeof(int));
             SessionState.EraseInt($"UniXeri.CollectionEditor.Rows.{target.GetEntityId()}.Numbers");
-            var view = new CollectionEditorView(list, false, new CollectionEditorViewOptions(3, "숫자"));
+            var view = new CollectionTable(list, new CollectionTableOptions(3, "숫자"));
             Show(view);
 
             var rows = view.Q<ListView>("collection-rows");
@@ -152,11 +149,7 @@ namespace inonego.Xeri.TEST.Serializable._Collection
                 host.AddToClassList("fill-host");
                 host.styleSheets.Add(sheet);
                 host.style.height = 300f;
-                var list = new SerializedListEditorModel
-                (
-                    serializedObject.FindProperty("Numbers"), false, typeof(int), false
-                );
-                var view = new CollectionEditorView(list);
+                var view = new CollectionTable(OpenList(serializedObject, "Numbers", typeof(int)));
                 host.Add(view);
                 Show(host);
                 yield return WaitForBinding(() => view.ClassListContains("xeri-collection--fill"));
@@ -186,21 +179,25 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             try
             {
                 using var owner = new SerializedObject(sample);
-                var list = new SerializedListEditorModel
-                (
-                    owner.FindProperty("Rows"), false, typeof(ColumnRow), false,
-                    new[]
-                    {
-                        "DisplayName",
-                        "Order"
-                    }
-                );
+                var columns = new[]
+                {
+                    "DisplayName", "Order"
+                };
+                var list = OpenList(owner, "Rows", typeof(ColumnRow), columns);
 
-                Assert.AreEqual(2, list.Columns.Count);
-                Assert.AreEqual("이름", list.Columns[0].Header);
-                Assert.AreEqual("Order", list.Columns[1].Header);
-                Assert.AreEqual("Desktop", list.GetCellProperty(0, "DisplayName").stringValue);
-                Assert.IsTrue(list.HasUnlistedFields(list.GetRowProperty(0)));
+                Assert.AreEqual(2, list.Kind.Columns.Count);
+                Assert.AreEqual("이름", list.Kind.Columns[0].Header);
+                Assert.AreEqual("Order", list.Kind.Columns[1].Header);
+                Assert.AreEqual("Desktop", GetCell(list, 0, "DisplayName").stringValue);
+
+                // 열로 나열하지 않은 Note 필드가 있으므로 행 상세 편집 버튼을 보인다.
+                var table = new CollectionTable(list);
+                var hasUnlisted = typeof(CollectionTable).GetMethod("HasUnlistedFields", BindingFlags.Instance | BindingFlags.NonPublic);
+                var arguments = new object[]
+                {
+                    0
+                };
+                Assert.IsTrue((bool)hasUnlisted.Invoke(table, arguments));
             }
             finally
             {
@@ -220,16 +217,13 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             try
             {
                 using var owner = new SerializedObject(sample);
+                var columns = new[]
+                {
+                    "missing"
+                };
                 Assert.Throws<InvalidOperationException>
                 (
-                    () => new SerializedListEditorModel
-                    (
-                        owner.FindProperty("Rows"), false, typeof(ColumnRow), false,
-                        new[]
-                        {
-                            "missing"
-                        }
-                    )
+                    () => SerializedListKindProvider.Create(owner.FindProperty("Rows"), false, typeof(ColumnRow), false, columns)
                 );
             }
             finally
@@ -238,11 +232,11 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             }
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// 분할 뷰처럼 첫 레이아웃 뒤에 폭이 줄어도 실제 열 폭이 가중치 비율로 헤더 폭을 채운다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [UnityTest]
         public IEnumerator TEST_CollectionEditor_Columns_헤더폭변화에맞춰열을채움()
         {
@@ -250,16 +244,11 @@ namespace inonego.Xeri.TEST.Serializable._Collection
             using var owner = new SerializedObject(sample);
             try
             {
-                var list = new SerializedListEditorModel
-                (
-                    owner.FindProperty("Rows"), false, typeof(ColumnRow), false,
-                    new[]
-                    {
-                        "DisplayName",
-                        "Order"
-                    }
-                );
-                var view = new CollectionEditorView(list);
+                var columns = new[]
+                {
+                    "DisplayName", "Order"
+                };
+                var view = new CollectionTable(OpenList(owner, "Rows", typeof(ColumnRow), columns));
                 var split = new TwoPaneSplitView(0, 200f, TwoPaneSplitViewOrientation.Horizontal);
                 split.Add(new Label("left"));
                 var host = new VisualElement();
@@ -268,11 +257,7 @@ namespace inonego.Xeri.TEST.Serializable._Collection
                 split.Add(host);
                 Show(split);
 
-                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-                typeof(CollectionEditorView).GetMethod("SetExpanded", flags).Invoke(view, new object[]
-                {
-                    true
-                });
+                Expand(view);
 
                 var table = view.Q<MultiColumnListView>();
                 var header = table.Q<VisualElement>(className: "unity-multi-column-header");
@@ -286,7 +271,8 @@ namespace inonego.Xeri.TEST.Serializable._Collection
                     }
 
                     var sum = cells[0].layout.width + cells[1].layout.width;
-                    var weighted = cells[0].layout.width > cells[1].layout.width * 1.5f;
+                    // 첫 열(1.2)과 숫자 열(1)의 가중치가 균등 분할이 아니라 비율대로 적용됐는지 본다.
+                    var weighted = cells[0].layout.width > cells[1].layout.width * 1.1f;
                     return Mathf.Abs(sum - header.layout.width) <= 1.5f && weighted;
                 }
 

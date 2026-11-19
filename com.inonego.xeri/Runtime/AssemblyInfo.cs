@@ -14,3 +14,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("inonego.Xeri.TEST.EDIT")]
 [assembly: InternalsVisibleTo("inonego.Xeri.Editor.TEST.EDIT")]
 [assembly: InternalsVisibleTo("inonego.Xeri.TEST.PLAY")]
+[assembly: InternalsVisibleTo("inonego.Xeri.Collection.Validation")]

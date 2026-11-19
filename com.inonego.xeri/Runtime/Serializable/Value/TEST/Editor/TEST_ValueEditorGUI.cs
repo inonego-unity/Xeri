@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ValueEditorGUI.cs
-수정일 : 2026-10-30
+수정일 : 2026-11-19
 
 # 설명
 Value·MValue·RangeValue Drawer의 기존 Inspector 구성 계약을 검증한다.
@@ -36,16 +36,31 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
         private sealed class ValueOwner : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 기본 Value 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public Value<int> Value = new(42);
         }
 
         private sealed class MValueOwner : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// MValue 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public MValue<int> Value = new(42);
         }
 
         private sealed class RangeValueOwner : ScriptableObject
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// RangeValue 직렬화 필드.
+            /// </summary>
+            // ------------------------------------------------------------
             public RangeValue<int> Value = new(5, new Range<int>(0, 10));
         }
 
@@ -103,7 +118,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
                 Assert.AreEqual(2, root.childCount);
                 Assert.IsNotNull(root.Q<Toggle>());
-                Assert.IsNotNull(root.Q<CollectionEditorView>());
+                Assert.IsNotNull(root.Q<CollectionTable>());
 
                 var row = root.Q<VisualElement>("value-base-row");
                 Assert.AreEqual(5, row.childCount);

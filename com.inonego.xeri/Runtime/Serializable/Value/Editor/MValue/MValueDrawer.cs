@@ -1,6 +1,6 @@
-/* BLOCK_HEADER_BEGIN =======================================================================
+﻿/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValueDrawer.cs
-수정일 : 2026-10-30
+수정일 : 2026-11-19
 
 # 설명
 MValue<T> 전용 UI Toolkit PropertyDrawer.
@@ -10,7 +10,7 @@ Base → Modified 1행 편집과 modifiers Collection Editor section을 함께 �
 int·float 타입만 지원하며 그 외는 기본 PropertyField로 폴백한다.
 
 # 특이사항
-직렬화된 Modifier 변경 확정은 Collection Editor Model, Base 복원은 MValue의 동기화 계약이 담당한다.
+직렬화된 Modifier 변경 확정은 컬렉션 편집 세션(MValueModifierHooks), Base 복원은 MValue의 동기화 계약이 담당한다.
 Drawer는 현재 owner의 Bind/Unbind와 표시 동기화만 관리한다.
 modifiedField는 항상 disabled 상태이며 xeri-set-field 클래스로 회색 처리를 방지한다.
 편집 모드(FieldEditor.IsEditing) 중에는 setField 외부 갱신을 억제하고 modifiedField는 즉시 갱신한다.
@@ -121,7 +121,9 @@ namespace inonego.Xeri
             var modifiersProperty = property.FindPropertyRelative(modifiersFieldName);
             if (modifiersProperty != null)
             {
-                root.Add(new CollectionEditorView(new MValueModifierEditorModel<T>(modifiersProperty)));
+                var kind = MValueModifierHooks<T>.CreateKind(modifiersProperty);
+                var source = new CollectionSource(so, modifiersProperty.propertyPath, kind);
+                root.Add(new CollectionTable(new CollectionSession(source)));
             }
 
             // 현재 경로로 owner를 찾는다. Unity가 중첩 인스턴스를 교체할 수 있다.

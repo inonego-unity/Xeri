@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditWindowCoordinator.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-19
 
 # 설명
-Collection Key/Order와 Value 편집창을 대상과 무관하게 한 개씩 재사용한다.
+Collection 초안(키·순서) 편집창과 값 상세 편집창을 대상과 무관하게 한 개씩 재사용한다.
 편집 모드를 전환하면 다른 종류의 창을 닫아 동시에 하나의 편집 팝업만 남긴다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -70,9 +70,9 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public static void Activate<T>() where T : EditorWindow
         {
-            if (typeof(T) != typeof(CollectionStructuralEditorWindow))
+            if (typeof(T) != typeof(CollectionDraftWindow))
             {
-                Find<CollectionStructuralEditorWindow>()?.Close();
+                Find<CollectionDraftWindow>()?.Close();
             }
 
             if (typeof(T) != typeof(CollectionValueEditorWindow))
