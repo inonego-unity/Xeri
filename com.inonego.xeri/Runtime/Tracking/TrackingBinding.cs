@@ -12,7 +12,7 @@ Clear callback은 적용 상태를 먼저 소비한 뒤 최대 한 번 호출한
 
 using System;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Tracking
 {
     // ============================================================
     /// <summary>

@@ -1,4 +1,4 @@
-﻿/* BLOCK_HEADER_BEGIN =======================================================================
+/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValueDrawer.cs
 수정일 : 2026-11-19
 
@@ -23,7 +23,11 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Editor;
+
+namespace inonego.Xeri.Serializable.Editor
 {
     using Serializable;
     using Serializable.Editor;

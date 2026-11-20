@@ -94,4 +94,4 @@ Unity instance 제한에 맞춰 하나의 batch도 최대 1023개 단위로 여�
 
 ## 관련 문서
 
-- [Rendering 모듈](../../../Runtime/Rendering/README.md)
+- [Rendering 모듈](../../../Runtime/게임/Rendering/README.md)

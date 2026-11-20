@@ -19,9 +19,9 @@ using UnityEngine.UIElements;
 using inonego;
 using inonego.Xeri;
 using inonego.Xeri.Editor;
-using inonego.Xeri.Editor.Picker;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
+using inonego.Xeri.UI.Picker.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {

@@ -11,6 +11,7 @@
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -18,11 +19,13 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-using inonego.Xeri.Editor.Picker;
+using inonego;
+using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
+using inonego.Xeri.UI.Picker.Editor;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Editor
 {
     // ============================================================
     /// <summary>

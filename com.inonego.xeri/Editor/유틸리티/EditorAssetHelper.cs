@@ -15,7 +15,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Editor
 {
     // ============================================================
     /// <summary>

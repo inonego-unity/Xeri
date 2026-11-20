@@ -20,6 +20,7 @@ using UnityEngine.UIElements;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {

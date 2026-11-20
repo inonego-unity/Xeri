@@ -97,7 +97,7 @@ public sealed class ExampleBootstrapperModuleAsset : BootstrapperModuleAsset
 
 Initial Scene 오브젝트의 `Awake()`와 `OnEnable()`은 `AfterInitialScene` 초기화가 끝나기 전에 실행될 수 있습니다. 게임 로직 진입 시점을 조정해야 하는 Scene 코드는 `await ApplicationHost.StartupTask`로 모든 시작 phase가 완료됐는지 관찰한 뒤 `ApplicationHost.Current`를 사용합니다. 이 Task는 성공 시 완료되고, Settings 검증 또는 초기화 실패 시 예외를 전달하며, 시작 중 Play 종료 시 취소됩니다.
 
-`StartupTask`는 **외부 소비자가 시작을 기다리기 위한 API**입니다. Bootstrapper Module의 `StartAsync()` 안에서 기다리면 자신의 완료를 기다리는 순환 의존이 되므로 사용하지 않습니다. 실제 코드 예제와 종료 후 수명 경계는 [Application README](../../../Runtime/Core/Application/README.md#unity-play-시작-완료-관찰)를 참고합니다.
+`StartupTask`는 **외부 소비자가 시작을 기다리기 위한 API**입니다. Bootstrapper Module의 `StartAsync()` 안에서 기다리면 자신의 완료를 기다리는 순환 의존이 되므로 사용하지 않습니다. 실제 코드 예제와 종료 후 수명 경계는 [Application README](../../../Runtime/Application/README.md#unity-play-시작-완료-관찰)를 참고합니다.
 
 ## 순서와 실패
 
@@ -120,7 +120,7 @@ Initial Scene 오브젝트의 `Awake()`와 `OnEnable()`은 `AfterInitialScene` �
 
 ## 관련 문서
 
-- [Application Lifetime](../../../Runtime/Core/Application/README.md)
+- [Application Lifetime](../../../Runtime/Application/README.md)
 - [Xeri Core](../../../Runtime/Core/README.md)
 - [Xeri Audio](../../../Runtime/Playback/Cue/Audio/README.md)
 - [Xeri 구조](../../concepts/architecture.md)

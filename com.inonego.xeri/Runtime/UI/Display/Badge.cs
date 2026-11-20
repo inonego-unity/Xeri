@@ -18,7 +18,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.UI
 {
     // ============================================================
     /// <summary>
@@ -96,7 +96,7 @@ namespace inonego.Xeri
         // ------------------------------------------------------------
         public static readonly string AccentUssClassName = UssClassName + "--accent";
 
-        private const string styleSheetPath = "Xeri/Display/Badge";
+        private const string styleSheetPath = "Xeri/UI/Display/Badge";
         private static StyleSheet styleSheet;
 
         // ------------------------------------------------------------

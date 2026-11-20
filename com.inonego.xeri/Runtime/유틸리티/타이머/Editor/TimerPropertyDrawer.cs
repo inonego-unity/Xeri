@@ -20,10 +20,13 @@ using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-
 using Object = UnityEngine.Object;
 
-namespace inonego.Xeri
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Editor;
+
+namespace inonego.Xeri.Utility.Editor
 {
     using Utility;
 

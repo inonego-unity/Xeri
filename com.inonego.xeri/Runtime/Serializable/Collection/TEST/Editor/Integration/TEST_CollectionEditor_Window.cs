@@ -27,6 +27,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.Serializable;
 using inonego.Xeri.Serializable.Editor;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.TEST.Serializable._Collection
 {

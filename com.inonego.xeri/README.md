@@ -14,7 +14,7 @@ Entity·Spawn·Actor·WorldObject·State Machine 및 Ability·Execution·HP·AI 
 
 패키지의 실제 의존성은 [package.json](package.json)을 기준으로 확인합니다.
 
-Application UI lifecycle, Window, Tray와 Bar는 [Xeri UI](https://github.com/inonego-unity/Xeri-UI) package에서 제공합니다. 이 패키지의 `Runtime/UI`는 Drag & Drop·Picker와 이를 지원하는 공통 목록/Popup 기반만 담당하며 Application UI 수명 관리를 대체하지 않습니다.
+Application UI lifecycle, Window, Tray와 Bar는 [Xeri UI](https://github.com/inonego-unity/Xeri-UI) package에서 제공합니다. 이 패키지의 `Runtime/UI`는 Drag & Drop·자동 스크롤·Picker·컨텍스트 메뉴와 이를 지원하는 공통 목록·표·Popup·표시 요소·아이콘 기반만 담당하며 Application UI 수명 관리를 대체하지 않습니다.
 
 ## 문서 구조
 
@@ -22,7 +22,7 @@ Application UI lifecycle, Window, Tray와 Bar는 [Xeri UI](https://github.com/in
 - [Documentation~/getting-started/installation.md](Documentation~/getting-started/installation.md): 설치와 요구 환경
 - [Documentation~/getting-started/choosing-modules.md](Documentation~/getting-started/choosing-modules.md): 문제에 맞는 모듈 선택
 - [Documentation~/guides/index.md](Documentation~/guides/index.md): 실제 작업 절차와 코드 예제
-- [Runtime/Core/Application/README.md](Runtime/Core/Application/README.md): Application 실행 세대와 자원 소유권, 공개 API 사용 예제
+- [Runtime/Application/README.md](Runtime/Application/README.md): Application 실행 세대와 자원 소유권, 공개 API 사용 예제
 - [Documentation~/modules/core/bootstrapper.md](Documentation~/modules/core/bootstrapper.md): Unity 자동 초기화와 Scene phase
 - [Xeri Game Manual](https://inonego-unity.github.io/Xeri-Game/): 별도 게임 패키지의 Foundation과 기능 모듈
 - [Documentation~/guides/serialization/edit-collections-in-inspector.md](Documentation~/guides/serialization/edit-collections-in-inspector.md): Collection Editor 사용법

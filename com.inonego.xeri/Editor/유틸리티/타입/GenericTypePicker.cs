@@ -11,9 +11,10 @@
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Editor
 {
     // ============================================================
     /// <summary>

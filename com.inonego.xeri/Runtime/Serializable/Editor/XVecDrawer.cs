@@ -13,7 +13,7 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Serializable.Editor
 {
     using Serializable;
 

@@ -78,7 +78,9 @@
 - name: UI Utilities
   items:
   - name: Drag & Drop
-    href: ../Runtime/UI/Drag_Drop/README.md
+    href: ../Runtime/UI/DragDrop/README.md
+  - name: Auto Scroll
+    href: ../Runtime/UI/AutoScroll/README.md
   - name: Picker
     href: ../Runtime/UI/Picker/README.md
   - name: Popup 공통 기반

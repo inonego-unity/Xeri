@@ -1,4 +1,4 @@
-﻿/* BLOCK_HEADER_BEGIN =======================================================================
+/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionSession.cs
 수정일 : 2026-11-19
 
@@ -23,6 +23,7 @@ using UnityEngine;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {

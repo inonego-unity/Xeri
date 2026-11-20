@@ -1,13 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PopupHost.cs
-수정일 : 2026-10-28
+수정일 : 2026-11-19
 
 # 설명
 앵커에 붙는 팝업(컨텍스트 메뉴·피커 드롭다운 등)이 공유하는 호스트.
 소유 패널 입력 차단, 닫기 정책, 좌표 변환과 솔버 호출을 한 곳에서 맡는다.
+다른 어셈블리의 팝오버(예: TableGrid 열 메뉴)도 Open으로 열어 같은 정책을 쓴다.
 
 # 특이사항, 제약사항
 팝업이 실제로 그려지는 방식만 IPopupDisplay가 다르며 Editor와 Runtime이 같은 호스트를 쓴다.
+Editor 표시 구현 등록(EditorDisplayFactory)은 Xeri Editor 어셈블리만 하므로 공개하지 않는다.
 호출자가 Close를 부르면 닫기 콜백을 부르지 않고, backdrop 클릭·크기 변경·소유 요소 분리·표시 구현이
 요청한 닫기에서는 호스트를 닫은 뒤 닫기 콜백을 한 번 부른다.
 모든 배치는 팝업 좌표계에서 이뤄지고, 소유 패널 좌표는 ToPopupPosition·ToPopupRect로만 변환한다.
@@ -26,7 +28,7 @@ namespace inonego.Xeri.UI
     /// 앵커 팝업이 공유하는 입력 차단·닫기·배치 호스트.
     /// </summary>
     // ============================================================
-    internal sealed class PopupHost
+    public sealed class PopupHost
     {
 
     #region 필드
@@ -37,7 +39,7 @@ namespace inonego.Xeri.UI
         /// <br/> 인자는 소유 요소, 월드 좌표의 앵커, 닫기 요청 콜백이다.
         /// </summary>
         // ------------------------------------------------------------
-        public static Func<VisualElement, Rect, Action, IPopupDisplay> EditorDisplayFactory
+        internal static Func<VisualElement, Rect, Action, IPopupDisplay> EditorDisplayFactory
         {
             get;
             set;

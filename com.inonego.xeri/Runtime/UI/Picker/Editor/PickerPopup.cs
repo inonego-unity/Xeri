@@ -23,7 +23,7 @@ using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
 
-namespace inonego.Xeri.Editor.Picker
+namespace inonego.Xeri.UI.Picker.Editor
 {
     // ============================================================
     /// <summary>

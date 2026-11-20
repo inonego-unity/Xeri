@@ -28,7 +28,7 @@ namespace inonego.Xeri.UI
 
     #region 리소스
 
-        private const string resourceRoot = "Xeri/ContextMenu/";
+        private const string resourceRoot = "Xeri/UI/ContextMenu/";
 
         private static VisualTreeAsset levelLayout;
         private static VisualTreeAsset actionLayout;

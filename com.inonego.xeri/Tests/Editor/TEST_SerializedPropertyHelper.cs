@@ -15,6 +15,7 @@ using NUnit.Framework;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.TEST
 {

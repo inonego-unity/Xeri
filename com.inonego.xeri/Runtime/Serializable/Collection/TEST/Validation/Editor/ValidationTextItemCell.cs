@@ -19,6 +19,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.Serializable;
 using inonego.Xeri.Serializable.Editor;
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Serializable.Validation.Editor
 {

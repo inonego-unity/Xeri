@@ -56,8 +56,8 @@ namespace inonego.Xeri.TEST.UI._Picker
             Assert.NotNull(root.Q<Label>("empty-label"));
             Assert.NotNull(root.Q<VisualElement>("filter-chip-container"));
 
-            var chromeLayout = Resources.Load<VisualTreeAsset>("Xeri/Common/PagedListChrome");
-            var chromeStyle = Resources.Load<StyleSheet>("Xeri/Common/PagedListChrome");
+            var chromeLayout = Resources.Load<VisualTreeAsset>("Xeri/UI/List/PagedListChrome");
+            var chromeStyle = Resources.Load<StyleSheet>("Xeri/UI/List/PagedListChrome");
             Assert.NotNull(chromeLayout);
             Assert.NotNull(chromeStyle);
 

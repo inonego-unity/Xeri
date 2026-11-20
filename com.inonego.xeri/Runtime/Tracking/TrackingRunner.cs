@@ -13,7 +13,7 @@ using System;
 
 using UnityEngine;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Tracking
 {
     // ============================================================
     /// <summary>

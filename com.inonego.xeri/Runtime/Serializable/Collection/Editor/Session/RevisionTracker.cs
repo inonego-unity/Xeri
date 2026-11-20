@@ -24,6 +24,7 @@ using UnityEngine.Pool;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {

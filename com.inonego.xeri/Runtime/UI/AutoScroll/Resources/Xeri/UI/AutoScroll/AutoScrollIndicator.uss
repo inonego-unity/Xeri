@@ -1,0 +1,79 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : AutoScrollIndicator.uss
+수정일 : 2026-11-20
+
+# 설명
+자동 스크롤 기준점 표식의 모양. 둥근 표식 가운데 점과 네 방향 화살표로 이루어지고,
+스크롤하는 방향의 화살표만 밝게 보인다.
+
+  --xeri-auto-scroll-size               표식 지름 (기본 32px)
+  --xeri-auto-scroll-arrow-size         화살표 크기 (기본 12px)
+  --xeri-auto-scroll-background         표식 바탕
+  --xeri-auto-scroll-border             표식 테두리
+  --xeri-auto-scroll-icon               점·화살표 기본색
+  --xeri-auto-scroll-icon-active        스크롤 방향 화살표색
+
+# 특이사항, 제약사항
+표식은 패널 최상위에 붙으므로 변수는 패널 루트 같은 상위 요소에 지정한다(상속됨).
+========================================================================= BLOCK_HEADER_END */
+
+.xeri-auto-scroll-indicator {
+    position: absolute;
+    width: var(--xeri-auto-scroll-size, 32px);
+    height: var(--xeri-auto-scroll-size, 32px);
+    translate: -50% -50%;
+    border-width: 1px;
+    border-radius: 16px;
+    border-color: var(--xeri-auto-scroll-border, rgba(255, 255, 255, 0.24));
+    background-color: var(--xeri-auto-scroll-background, rgba(22, 27, 35, 0.92));
+}
+
+.xeri-auto-scroll-indicator__dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    translate: -50% -50%;
+    border-radius: 3px;
+    background-color: var(--xeri-auto-scroll-icon, rgba(255, 255, 255, 0.55));
+}
+
+.xeri-auto-scroll-indicator__arrow {
+    position: absolute;
+    width: var(--xeri-auto-scroll-arrow-size, 12px);
+    height: var(--xeri-auto-scroll-arrow-size, 12px);
+    -unity-background-image-tint-color: var(--xeri-auto-scroll-icon, rgba(255, 255, 255, 0.55));
+}
+
+.xeri-auto-scroll-indicator__arrow--active {
+    -unity-background-image-tint-color: var(--xeri-auto-scroll-icon-active, rgb(255, 255, 255));
+}
+
+.xeri-auto-scroll-indicator__arrow--up {
+    left: 50%;
+    top: 1px;
+    translate: -50% 0;
+    background-image: resource("Xeri/Icons/Lucide/chevron-up");
+}
+
+.xeri-auto-scroll-indicator__arrow--down {
+    left: 50%;
+    bottom: 1px;
+    translate: -50% 0;
+    background-image: resource("Xeri/Icons/Lucide/chevron-down");
+}
+
+.xeri-auto-scroll-indicator__arrow--left {
+    left: 1px;
+    top: 50%;
+    translate: 0 -50%;
+    background-image: resource("Xeri/Icons/Lucide/chevron-left");
+}
+
+.xeri-auto-scroll-indicator__arrow--right {
+    right: 1px;
+    top: 50%;
+    translate: 0 -50%;
+    background-image: resource("Xeri/Icons/Lucide/chevron-right");
+}

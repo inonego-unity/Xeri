@@ -22,7 +22,7 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Primitive.Editor
 {
     using Primitive;
 

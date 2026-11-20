@@ -13,7 +13,10 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+using inonego;
+using inonego.Xeri;
+
+namespace inonego.Xeri.Editor
 {
     // ============================================================
     /// <summary>

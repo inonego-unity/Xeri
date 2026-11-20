@@ -15,7 +15,11 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.Editor;
+
+namespace inonego.Xeri.Serializable.Editor
 {
     // ============================================================
     /// <summary>

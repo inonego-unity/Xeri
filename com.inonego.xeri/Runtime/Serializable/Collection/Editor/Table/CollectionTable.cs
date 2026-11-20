@@ -28,6 +28,8 @@ using UnityEngine.UIElements;
 using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
+using inonego.Xeri.UI.Editor;
+using inonego.Xeri.Editor;
 
 namespace inonego.Xeri.Serializable.Editor
 {

@@ -29,8 +29,8 @@ Utility를 새로운 프로젝트 도메인 코드의 기본 보관소로 사용
 - 오브젝트 풀링: 일반 Pool과 GameObject/Component pool
 - 타이머: Runtime timer와 상태 계약
 - 페이징: `Paginator`, `PageRange`
-- 확장 유틸리티: collection, string, vector, layer, tween, Unity helper
-- 에디터 보조: gizmo와 attribute 관련 공통 기능
+
+확장 헬퍼, gizmo, `ReadOnly`/`HelpBox` attribute는 [Core](../Core/README.md)로 옮겼습니다.
 
 ## 책임 범위
 

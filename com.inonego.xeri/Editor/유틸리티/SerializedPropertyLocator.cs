@@ -13,7 +13,7 @@ using System.Collections.Generic;
 
 using UnityEditor;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Editor
 {
     // ============================================================
     /// <summary>

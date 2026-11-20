@@ -11,11 +11,13 @@ TreeNode를 소비자 제공 행 VisualElement로 재귀 배치하는 Editor UI 
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
+using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Editor
 {
     // ============================================================
     /// <summary>

@@ -25,9 +25,9 @@ using NUnit.Framework;
 using inonego;
 using inonego.Xeri;
 using inonego.Xeri.Editor;
-using inonego.Xeri.Editor.Picker;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
+using inonego.Xeri.UI.Picker.Editor;
 
 namespace inonego.Xeri.TEST.UI._Picker
 {

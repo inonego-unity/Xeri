@@ -20,7 +20,7 @@ using inonego.Xeri;
 using inonego.Xeri.Serializable;
 using inonego.Xeri.Primitive;
 
-namespace inonego.Xeri
+namespace inonego.Xeri.Serializable.Editor
 {
     // ============================================================
     /// <summary>

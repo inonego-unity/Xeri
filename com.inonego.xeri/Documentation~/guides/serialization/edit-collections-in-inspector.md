@@ -95,6 +95,7 @@ using UnityEditor;
 using UnityEngine.UIElements;
 using inonego.Xeri;
 using inonego.Xeri.Serializable.Editor;
+using inonego.Xeri.UI;
 
 [CustomCollectionCell(typeof(LayerRow))]
 internal sealed class LayerRowCell : CollectionCellView
@@ -104,7 +105,7 @@ internal sealed class LayerRowCell : CollectionCellView
     {
         var row = CreateRow();                 // 셀 높이에 맞춘 가로 행
         row.Add(CreateText("name"));           // 기본 요약 글자와 같은 위치·크기
-        var order = new Badge();               // 공용 배지 (inonego.Xeri)
+        var order = new Badge();               // 공용 배지 (inonego.Xeri.UI)
         order.name = "order";
         order.style.marginLeft = 6f;
         row.Add(order);
@@ -130,7 +131,7 @@ internal sealed class LayerRowCell : CollectionCellView
 - 셀 뷰는 요약 자리만 바꿉니다. 단순 값의 입력 필드와 상세 편집·작업 버튼은 그대로 남고, 값 변경은 상세 편집을 거칩니다.
 - 한 뷰 인스턴스를 모든 셀이 공유하므로 뷰 클래스에 행별 상태를 저장하지 마세요. 정리할 것이 있으면 `UnbindCell`을 재정의합니다.
 - `CreateRow()`·`CreateText()`는 표 스타일의 행·텍스트 클래스(`CollectionCellView.RowClassName`·`TextClassName`)를 붙여 기본 셀과 높이·글자 위치를 맞춥니다. 직접 만든 요소에 같은 클래스를 붙여도 됩니다.
-- 상태 표식과 색 견본은 공용 요소 `Badge`·`ColorSwatch`(`inonego.Xeri`)를 쓸 수 있습니다. 폭(`Sizing`)·색(`Tone`, `TextColor`, `BackgroundColor`)은 코드로, 같은 값은 USS 변수(`--xeri-badge-*`)로도 바꿉니다.
+- 상태 표식과 색 견본은 공용 요소 `Badge`·`ColorSwatch`(`inonego.Xeri.UI`)를 쓸 수 있습니다. 폭(`Sizing`)·색(`Tone`, `TextColor`, `BackgroundColor`)은 코드로, 같은 값은 USS 변수(`--xeri-badge-*`)로도 바꿉니다.
 
 ## 4. 컬렉션 종류별로 주의할 점
 
