@@ -9,6 +9,7 @@
 | 폴더 | 역할 | 문서 |
 |---|---|---|
 | AutoScroll | 휠 클릭 자동 스크롤. backend 공통 상태와 UITK adapter | [README](AutoScroll/README.md) |
+| Bar | UGUI/UITK 값 범위와 변화 표시 시각 컴포넌트(`UGUIBar`, `UITKBar`). 수명이나 게임 데이터를 소유하지 않음 | [README](Bar/README.md) |
 | ContextMenu | `XeriContextMenu` 컨텍스트 메뉴(하위 메뉴·단축키 표시·체크) | 아래 Popup 공통 기반 |
 | Display | Badge·ColorSwatch 같은 작은 공용 표시 요소. `Editor/`에 진단 목록·HelpBox·심각도 표시 | 아래 공용 표시 요소 |
 | DragDrop | backend 공통 drag/drop 상태와 UGUI/UITK adapter | [README](DragDrop/README.md) |
@@ -27,7 +28,7 @@
 
 ## 네임스페이스 규칙
 
-- 단순한 기능(ContextMenu, Display, List, Popup, Table)은 `inonego.Xeri.UI`를 함께 씁니다.
+- 단순한 기능(Bar, ContextMenu, Display, List, Popup, Table)은 `inonego.Xeri.UI`를 함께 씁니다.
 - backend 계층이나 하위 구조가 큰 기능(AutoScroll, DragDrop, Picker)은 `inonego.Xeri.UI.<기능>`을 씁니다.
 - `XeriIcon`은 UI 요소가 아니라 UI 밖에서도 쓰는 자산 로더라 `inonego.Xeri`에 둡니다.
 - Editor 코드는 런타임 네임스페이스 뒤에 `.Editor`를 붙입니다(`inonego.Xeri.UI.Editor`, `inonego.Xeri.UI.Picker.Editor`, `inonego.Xeri.UI.DragDrop.Editor`).

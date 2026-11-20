@@ -77,6 +77,8 @@
     href: modules/tracking/tracking.md
 - name: UI Utilities
   items:
+  - name: Bar
+    href: modules/ui/bar.md
   - name: Drag & Drop
     href: ../Runtime/UI/DragDrop/README.md
   - name: Auto Scroll
