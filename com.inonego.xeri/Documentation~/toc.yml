@@ -75,7 +75,7 @@
   items:
   - name: Tracking
     href: modules/tracking/tracking.md
-- name: UI Utilities
+- name: UI Controls
   items:
   - name: Bar
     href: modules/ui/bar.md
@@ -85,10 +85,10 @@
     href: ../Runtime/UI/AutoScroll/README.md
   - name: Picker
     href: ../Runtime/UI/Picker/README.md
-  - name: Popup 공통 기반
+  - name: UI Controls 개요
     href: ../Runtime/UI/README.md
-  - name: Xeri UI (별도 패키지)
-    href: https://inonego-unity.github.io/Xeri-UI/
+- name: Xeri UIFrame (별도 패키지)
+  href: https://inonego-unity.github.io/Xeri-UI/
 - name: Xeri Game (별도 패키지)
   href: https://inonego-unity.github.io/Xeri-Game/
 - name: Generation

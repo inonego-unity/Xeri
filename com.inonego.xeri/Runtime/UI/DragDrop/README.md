@@ -286,5 +286,5 @@ UGUI에서는 `DropZoneUI`의 `DropRuleAsset` 목록을 사용할 수 있고, Co
 
 ## 관련 문서
 
-- [UI Utilities](../README.md)
+- [UI Controls](../README.md)
 - [확장 계약](../../../Documentation~/concepts/extension-contracts.md)

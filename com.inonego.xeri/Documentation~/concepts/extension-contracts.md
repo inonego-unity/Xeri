@@ -29,7 +29,7 @@ Project Adapter / Source / Driver / Handler
 | Drag & Drop | `IDropRule`, `IDropResolver`, `IDragCoordinateProvider` |
 | Playback | `ICuePlayer`, `ICueBinding` |
 
-Game의 Entity·Presentation 확장 계약은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서, Application UI의 Screen·Window 계약은 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
+Game의 Entity·Presentation 확장 계약은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서, Application UI의 Screen·Window 계약은 [Xeri UIFrame](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
 
 ## 관련 문서
 

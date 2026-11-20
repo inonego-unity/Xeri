@@ -1,8 +1,8 @@
-# UI Utilities
+# UI Controls
 
 ## 개요
 
-이 영역은 Drag & Drop, 휠 클릭 자동 스크롤, Picker 및 이들이 재사용하는 공통 목록·Popup 기반을 제공합니다. Screen/Modal/Window 등 Application UI lifecycle은 별도 Xeri UI 패키지가 소유합니다.
+이 영역은 개별 UI 컨트롤(Picker, ContextMenu, Drag & Drop, 휠 클릭 자동 스크롤, Bar)과 이들이 공유하는 기반(Popup 배치, 공통 목록·표, 표시 요소, 아이콘)을 제공합니다. 컨트롤은 수명이나 전역 상태를 소유하지 않으며, Screen/Modal/Focus/Window 같은 Application UI 수명은 별도 Xeri UIFrame 패키지가 맡습니다. 컨트롤은 UIFrame을 참조하지 않고, UIFrame이 이 컨트롤의 일부를 사용합니다.
 
 ## 하위 모듈
 
@@ -23,7 +23,7 @@
 
 - 기능마다 폴더 하나를 두고, Runtime 코드와 그 기능의 Editor 전용 코드를 함께 둡니다.
 - Editor 전용 코드는 기능 폴더 안 `Editor/`에 두고 `Editor.asmref`로 `inonego.Xeri.Editor` 어셈블리에 넣습니다. Core의 다른 영역(Serializable, Core, 유틸리티)과 같은 규칙입니다.
-- 스타일·레이아웃은 기능 폴더 안 `Resources/Xeri/UI/<기능>/`에 두고 `Xeri/UI/<기능>/...` 키로 읽습니다. 키가 `Runtime/UI/<기능>` 폴더와 대칭이고, Xeri UI 패키지의 `Xeri/UI/<영역>/` 규칙과 같은 공간을 씁니다. 아이콘은 UI 밖에서도 쓰므로 `Resources/Xeri/Icons/`(`Xeri/Icons/...`)에 둡니다.
+- 스타일·레이아웃은 기능 폴더 안 `Resources/Xeri/UI/<기능>/`에 두고 `Xeri/UI/<기능>/...` 키로 읽습니다. 키가 `Runtime/UI/<기능>` 폴더와 대칭입니다. Xeri UIFrame의 리소스도 `Xeri/UI/<영역>/` 아래에 있으므로 기능 이름이 겹치지 않게 합니다. 아이콘은 UI 밖에서도 쓰므로 `Resources/Xeri/Icons/`(`Xeri/Icons/...`)에 둡니다.
 - 테스트는 기능 폴더 안 `TEST/EDIT`·`TEST/PLAY`·`TEST/Editor`에 두고 asmref로 테스트 어셈블리에 넣습니다.
 
 ## 네임스페이스 규칙
@@ -64,7 +64,7 @@ Editor 전용 표시 요소는 `Display/Editor`에 있습니다. `DiagnosticList
 
 `Runtime/UI/Popup`은 팝업의 앵커·사용 영역·열림 방향·배치 결과를 `PopupPlacementSolver` 등 공통 계약으로 계산합니다. 공개 `PopupHost`는 앵커 팝업의 패널 입력 차단, 바깥 클릭·패널 크기 변경·소유 요소 분리 시 닫기, 좌표 변환을 맡습니다. `XeriContextMenu`, Picker 드롭다운, 다른 패키지의 팝오버(예: TableGrid 열 메뉴)가 `PopupHost.Open` → `Solve` → `OpenLevel` 순서로 같은 정책을 씁니다. 표시 방식 계약 `IPopupDisplay`와 Editor 표시 구현 등록은 내부 구현입니다. 게임의 Screen/Modal/Window 수명이나 앱 수준 Navigation 정책은 소유하지 않습니다.
 
-Editor 쪽 표시는 `Popup/Editor`(`XeriPopupWindow`, `EditorWorkArea`)가 담당합니다. 팝업 인프라가 존재한다는 사실이 별도 Xeri UI 패키지의 Application UI 기능을 이 패키지에 다시 포함한다는 뜻은 아닙니다.
+Editor 쪽 표시는 `Popup/Editor`(`XeriPopupWindow`, `EditorWorkArea`)가 담당합니다. 팝업 인프라가 존재한다는 사실이 별도 Xeri UIFrame 패키지의 Application UI 기능을 이 패키지에 다시 포함한다는 뜻은 아닙니다.
 
 ## Drag & Drop
 

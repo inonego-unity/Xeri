@@ -28,10 +28,10 @@ Xeri package는 다음 Unity Package를 직접 의존합니다.
 "com.inonego.xeri": "file:../External/UniXeri/com.inonego.xeri"
 ```
 
-Application UI 기능도 사용하는 프로젝트는 Xeri UI package를 함께 연결합니다.
+Application UI 기능도 사용하는 프로젝트는 Xeri UIFrame package를 함께 연결합니다.
 
 ```json
-"com.inonego.xeri.ui": "https://github.com/inonego-unity/Xeri-UI.git?path=/com.inonego.xeri.ui#main"
+"com.inonego.xeri.uiframe": "https://github.com/inonego-unity/Xeri-UI.git?path=/com.inonego.xeri.uiframe#main"
 ```
 
 ## 설치 후 확인
@@ -41,11 +41,11 @@ Application UI 기능도 사용하는 프로젝트는 Xeri UI package를 함께 
 - Core/Serializable/Generation 같은 순수 Runtime 타입은 필요한 위치에서 직접 생성합니다.
 - Audio처럼 Host가 필요한 기능은 Bootstrapper Module 또는 프로젝트 Host를 통해 초기화합니다.
 - Addressables 자원을 읽는 기능은 호출자가 해당 자원의 수명 계약을 함께 관리해야 합니다.
-- Screen/Modal/Presentation/Window UI lifecycle은 Xeri UI package의 설정을 따릅니다.
+- Screen/Modal/Presentation/Window UI lifecycle은 Xeri UIFrame package의 설정을 따릅니다.
 
 ## 관련 문서
 
 - [첫 설정](first-setup.md)
 - [모듈 선택 가이드](choosing-modules.md)
 - [Xeri 통합 패턴](../concepts/integration-patterns.md)
-- [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)
+- [Xeri UIFrame Documentation](https://inonego-unity.github.io/Xeri-UI/)

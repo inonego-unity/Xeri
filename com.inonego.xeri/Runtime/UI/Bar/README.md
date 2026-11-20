@@ -1,4 +1,4 @@
-# Xeri UI Bar
+# Bar
 
 이 폴더는 UGUI/UITK Bar와 값 변화 transition을 구현합니다.
 

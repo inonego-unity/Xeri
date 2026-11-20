@@ -59,5 +59,5 @@ UGUI 등은 같은 `AutoScroller`에 입력(`Begin`·`Move`·`Release`·`End`)�
 
 ## 관련 문서
 
-- [UI Utilities](../README.md)
+- [UI Controls](../README.md)
 - [Drag & Drop](../DragDrop/README.md)

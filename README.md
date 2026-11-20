@@ -36,7 +36,7 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 | **Core** | Bootstrapper, Lease, Singleton, 공통 primitive와 lifecycle 계약 |
 | **Serializable** | Unity 직렬화 보조 컬렉션, serializer, `MValue`, managed reference |
 | **Game (별도 패키지)** | Entity/Actor/Presentation, Spawn, State Machine, HP, AI Group, Targeting, Delivery, Execution, Ability 등은 Xeri-Game의 책임 |
-| **UI Utilities** | Drag & Drop, Picker, 공통 Popup 배치·표시 기반 |
+| **UI Controls** | 개별 UI 컨트롤(Picker, ContextMenu, Popup, Drag & Drop, 자동 스크롤, Bar)과 공통 기반(List, Table, Display, Icons). Screen·Focus 같은 애플리케이션 UI 뼈대는 Xeri UIFrame이 맡습니다 |
 | **Playback** | Cue, Playback lifecycle, Unity Audio |
 | **Tracking** | resolve → transition → commit 반복 갱신과 Lease 수명 |
 | **Rendering** | 대량 Mesh instance batch와 runtime instancing |
@@ -47,7 +47,7 @@ Xeri의 공통 설계 기준은 다음과 같습니다.
 
 - **Xeri Game** — Entity, Spawn, WorldObject와 게임 모듈은 별도 `com.inonego.xeri.game` 패키지에서 제공합니다. 기존 Game 관련 Manual의 사이트 분리는 별도 작업입니다.
 - **Xeri Fabric** — IO, Data, Localization, Workspace Runtime은 [Xeri Fabric Documentation](https://inonego-unity.github.io/Xeri-Fabric/)에서 제공합니다.
-- **Xeri UI** — application UI lifecycle, Window, Tray와 Bar는 [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다.
+- **Xeri UIFrame** — 애플리케이션 UI의 뼈대(Presentation, Screen, Modal, Focus, Input)와 선택 모듈 Window·Tray는 [Xeri UIFrame Documentation](https://inonego-unity.github.io/Xeri-UI/)에서 제공합니다. UIFrame은 이 패키지의 UI Controls 위에서 동작합니다.
 
 ## 빠른 시작
 

@@ -49,10 +49,13 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 
 | 필요 | 모듈 |
 |---|---|
-| Screen/Modal/Presentation/Focus/Window/Tray | [Xeri UI](https://github.com/inonego-unity/Xeri-UI) |
+| Screen/Modal/Presentation/Focus/Window/Tray | [Xeri UIFrame](https://github.com/inonego-unity/Xeri-UI) |
 | UGUI/UITK 공통 Drag & Drop | UI / Drag & Drop |
 | 검색·필터·테이블 선택 UI | UI / Picker |
-| 앵커 팝업 배치와 Picker/Editor 공통 표시 기반 | UI / Popup (공통 인프라, Application UI lifecycle은 Xeri UI 담당) |
+| 값 범위와 증감을 표시하는 막대 | UI / Bar |
+| 휠 클릭 자동 스크롤 | UI / Auto Scroll |
+| 하위 메뉴·단축키를 표시하는 컨텍스트 메뉴 | UI / ContextMenu |
+| 앵커 팝업 배치와 Picker/Editor 공통 표시 기반 | UI / Popup (공통 인프라, Application UI lifecycle은 Xeri UIFrame 담당) |
 | 월드 값을 화면 위치로 반복 반영 | Tracking |
 | 대량 Mesh의 `RenderMeshInstanced` 제출 | Rendering / Instancing |
 
@@ -68,5 +71,5 @@ Xeri는 하나의 거대한 Runtime을 강제하지 않습니다. 해결하려�
 
 1. [첫 설정](first-setup.md)에서 프로젝트 통합 방식을 정합니다.
 2. [Runtime 모듈](../modules/index.md)에서 선택한 시스템의 개념과 계약을 읽습니다.
-3. Application UI가 필요하면 Xeri UI package를 설치합니다.
+3. Application UI가 필요하면 Xeri UIFrame package를 설치합니다.
 4. 실제 작업은 해당 시스템의 [사용 가이드](../guides/index.md)를 따릅니다.

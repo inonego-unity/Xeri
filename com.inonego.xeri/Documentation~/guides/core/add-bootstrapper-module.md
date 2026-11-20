@@ -11,7 +11,7 @@
 다음처럼 Initial Scene과의 순서가 중요한 초기화에 사용합니다.
 
 - 게임 데이터나 설정 준비를 Initial Scene 전에 시작해야 할 때
-- UI/Audio 같은 전역 Host를 특정 phase에서 구성해야 할 때
+- Audio나 Xeri UIFrame의 UI 같은 전역 Host를 특정 phase에서 구성해야 할 때
 - 여러 초기화 작업의 순서를 Asset 목록으로 명시하고 싶을 때
 
 특정 Scene 오브젝트가 활성화될 때만 필요한 기능은 Bootstrapper Module보다 그 오브젝트의 자연스러운 lifecycle에 두는 편이 낫습니다.

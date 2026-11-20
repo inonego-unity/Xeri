@@ -2,7 +2,7 @@
 
 Xeri는 Unity 프로젝트에서 반복되는 Runtime 수명, 데이터 접근, 재생과 직렬화 문제를 독립 모듈과 명시적인 계약으로 다루는 foundation framework입니다.
 
-게임 객체·Ability·Gameplay 기능은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서 제공하며, Application UI lifecycle, Window, Tray와 Bar는 별도 [Xeri UI](https://inonego-unity.github.io/Xeri-UI/) package가 담당합니다.
+게임 객체·Ability·Gameplay 기능은 [Xeri Game](https://inonego-unity.github.io/Xeri-Game/)에서 제공하며, Application UI lifecycle, Window, Tray는 별도 [Xeri UIFrame](https://inonego-unity.github.io/Xeri-UI/) package가 담당합니다.
 
 ## 처음이라면
 
@@ -28,8 +28,9 @@ Xeri의 내부 설계 원칙까지 이해하려면 이후 [Xeri 구조](concepts
 | 위치·방향과 대상 후보를 선택한다 | [Spatial·Targeting](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/spatial-targeting.html) |
 | Physics Contact와 게임 Operation을 연결한다 | [Delivery·Gameplay Operation](https://inonego-unity.github.io/Xeri-Game/docs/modules/action/delivery-operation.html) |
 | Entity와 Scene Actor를 0..N으로 분리하고 Presentation까지 조립한다 | [Entity Actor Runtime 조립하기](https://inonego-unity.github.io/Xeri-Game/docs/guides/foundation/compose-entity-actor-runtime.html) |
-| Screen/Modal/Window UI를 운영한다 | [Xeri UI Documentation](https://inonego-unity.github.io/Xeri-UI/) |
-| UGUI/UITK Drag & Drop 또는 Picker를 구성한다 | [UI Utilities](../Runtime/UI/README.md) |
+| Screen/Modal/Window UI를 운영한다 | [Xeri UIFrame Documentation](https://inonego-unity.github.io/Xeri-UI/) |
+| UGUI/UITK Drag & Drop 또는 Picker를 구성한다 | [UI Controls](../Runtime/UI/README.md) |
+| 휠 클릭 자동 스크롤을 붙인다 | [Auto Scroll](../Runtime/UI/AutoScroll/README.md) |
 | Picker/Editor가 공유하는 팝업 배치 경계를 확인한다 | [UI Popup 공통 기반](../Runtime/UI/README.md) |
 | 배지·색상 견본을 UITK에서 재사용한다 | [공용 표시 요소](../Runtime/UI/README.md#공용-표시-요소) |
 | 체력·진행 값과 증감을 UGUI/UITK로 표시한다 | [Bar](modules/ui/bar.md) |

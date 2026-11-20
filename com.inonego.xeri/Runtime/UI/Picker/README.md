@@ -365,4 +365,4 @@ UI 동작, 검색, 필터, 컬럼, 정렬, preview, 취소 처리는 공통 Pick
 
 ## 관련 문서
 
-- [UI Utilities](../README.md)
+- [UI Controls](../README.md)

@@ -14,7 +14,7 @@ Entity·Spawn·Actor·WorldObject·State Machine 및 Ability·Execution·HP·AI 
 
 패키지의 실제 의존성은 [package.json](package.json)을 기준으로 확인합니다.
 
-Application UI lifecycle, Window, Tray와 Bar는 [Xeri UI](https://github.com/inonego-unity/Xeri-UI) package에서 제공합니다. 이 패키지의 `Runtime/UI`는 Drag & Drop·자동 스크롤·Picker·컨텍스트 메뉴와 이를 지원하는 공통 목록·표·Popup·표시 요소·아이콘 기반만 담당하며 Application UI 수명 관리를 대체하지 않습니다.
+Screen·Modal·Presentation·Focus 같은 애플리케이션 UI의 뼈대와 Window·Tray는 [Xeri UIFrame](https://github.com/inonego-unity/Xeri-UI) package가 제공합니다. 이 패키지의 `Runtime/UI`는 그 위에서 쓰이는 개별 컨트롤(Picker, ContextMenu, Popup, Drag & Drop, 자동 스크롤, Bar)과 공통 기반(목록·표·표시 요소·아이콘)을 제공하며 UIFrame에 의존하지 않습니다.
 
 ## 문서 구조
 

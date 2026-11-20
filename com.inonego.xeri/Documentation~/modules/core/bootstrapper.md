@@ -1,6 +1,6 @@
 # Bootstrapper
 
-Xeri Bootstrapper는 Unity 게임 실행 시 Initial Scene 전후 초기화 모듈을 **자동으로 한 번 실행하는 기본 진입점**입니다. Audio·UI·설정·데이터 모듈은 `BootstrapperSettings`에 등록된 순서와 phase에 따라 실행됩니다. 설정 누락은 자동 초기화 생략이 아니라 구성 오류입니다.
+Xeri Bootstrapper는 Unity 게임 실행 시 Initial Scene 전후 초기화 모듈을 **자동으로 한 번 실행하는 기본 진입점**입니다. Audio·설정·데이터 모듈은 `BootstrapperSettings`에 등록된 순서와 phase에 따라 실행됩니다. Xeri UIFrame의 UI 초기화 모듈도 같은 방식으로 등록됩니다. 설정 누락은 자동 초기화 생략이 아니라 구성 오류입니다.
 
 Bootstrapper는 Initial Scene 전후의 순차 초기화 절차만 정의합니다. 실제 실행 수명, 자원 소유권, 취소 및 정리는 `ApplicationRuntime`과 `ApplicationScope`가 담당합니다. 기본 Unity Host는 한 Play Session에 활성 Runtime 하나를 관리합니다.
 

@@ -59,7 +59,7 @@ UGUI는 `ForegroundColor`·`IncreaseColor`·`DecreaseColor`를 사용하고, UIT
 
 - `SetValue` 또는 `SetRange`의 `instant: true`는 목표값을 즉시 확정합니다.
 - `DOTWEEN` 심볼을 사용하며 Play Mode에서 유효한 `ChangeCurve.Duration`이 있으면 DOTween으로 표시 비율을 전환합니다.
-- 심볼이 없거나 시간이 0이면 즉시 반영합니다. **Presentation Transition 자체는 DOTween Runtime 어셈블리를 필요로 합니다.**
+- 심볼이 없거나 시간이 0이면 즉시 반영합니다. `DOTWEEN` 심볼이 없는 프로젝트에서는 Tween 관련 코드가 컴파일되지 않고 항상 즉시 반영합니다.
 - 비활성 `UGUIBar`는 최신 목표를 즉시 표시하고, 비활성화 시 이전 전이를 종료합니다.
 - Panel에 연결되지 않은 `UITKBar`는 Tween을 시작하지 않고, Panel에 다시 연결되면 최신 목표를 반영합니다.
 - 목표값이 갱신되면 이전 Bar 전이를 중단하고 새 목표값을 사용합니다.
