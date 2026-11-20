@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Cond.cs
-수정일 : 2026-11-10
+수정일 : 2026-11-11
 
 # 설명
 ICond<TContext> 판정을 AND / OR / NOT 논리 연산으로 조합한다.
@@ -12,6 +12,8 @@ using System;
 
 using UnityEngine;
 
+using inonego;
+using inonego.Xeri;
 using inonego.Xeri.Serializable;
 
 namespace inonego.Xeri
@@ -31,7 +33,8 @@ namespace inonego.Xeri
         /// 양쪽 조건을 모두 만족할 때만 참을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static ICond<TContext> AND<TContext>(
+        public static ICond<TContext> AND<TContext>
+        (
             ICond<TContext> left, ICond<TContext> right
         )
         {
@@ -53,7 +56,8 @@ namespace inonego.Xeri
         /// 어느 한쪽 조건이라도 만족하면 참을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static ICond<TContext> OR<TContext>(
+        public static ICond<TContext> OR<TContext>
+        (
             ICond<TContext> left, ICond<TContext> right
         )
         {
@@ -98,11 +102,23 @@ namespace inonego.Xeri
     public sealed class Cond_AND<TContext> : ICond<TContext>
     {
 
-    #region 필드
+    #region 프로퍼티
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 왼쪽 하위 Condition을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ICond<TContext> Left => left;
         [SerializeReference, SerializeReferencePicker]
         private ICond<TContext> left;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 오른쪽 하위 Condition을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ICond<TContext> Right => right;
         [SerializeReference, SerializeReferencePicker]
         private ICond<TContext> right;
 
@@ -163,11 +179,23 @@ namespace inonego.Xeri
     public sealed class Cond_OR<TContext> : ICond<TContext>
     {
 
-    #region 필드
+    #region 프로퍼티
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 왼쪽 하위 Condition을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ICond<TContext> Left => left;
         [SerializeReference, SerializeReferencePicker]
         private ICond<TContext> left;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 오른쪽 하위 Condition을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ICond<TContext> Right => right;
         [SerializeReference, SerializeReferencePicker]
         private ICond<TContext> right;
 
@@ -228,8 +256,14 @@ namespace inonego.Xeri
     public sealed class Cond_NOT<TContext> : ICond<TContext>
     {
 
-    #region 필드
+    #region 프로퍼티
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 반전할 하위 Condition을 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public ICond<TContext> Condition => condition;
         [SerializeReference, SerializeReferencePicker]
         private ICond<TContext> condition;
 

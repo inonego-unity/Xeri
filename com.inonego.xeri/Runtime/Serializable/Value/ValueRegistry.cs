@@ -5,6 +5,7 @@
 # 설명
 이름 붙은 string/int/float/flag 값을 타입별 런타임 컬렉션에 보관하고 변경을 알린다.
 Unity 직렬화 콜백에서 런타임 값과 저장용 목록을 동기화한다.
+조회는 IValueLookup, 조회와 변경 관찰은 IReadOnlyValueRegistry로 노출할 수 있다.
 
 # 제약사항
 하나의 Key는 하나의 값 타입에만 속하며 구조화된 도메인 State를 대신하지 않는다.
@@ -26,7 +27,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ======================================================================
     [Serializable]
-    public class ValueRegistry : ISerializationCallbackReceiver, IDeepCloneable<ValueRegistry>
+    public class ValueRegistry : ISerializationCallbackReceiver, IReadOnlyValueRegistry, IDeepCloneable<ValueRegistry>
     {
 
     #region 필드
