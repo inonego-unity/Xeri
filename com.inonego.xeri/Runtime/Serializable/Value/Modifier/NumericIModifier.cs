@@ -1,13 +1,22 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : NumericIModifier.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-22
 
 # 설명
-int 값에 SET / ADD / SUB / MUL / DIV 수치 연산을 적용하는 IModifier<int> 구현.
-DIV 0은 입력 값을 유지하고 Operation 또는 Value가 변경되면 OnChange를 발행한다.
+int 값에 SET / ADD / SUB / MUL / DIV / MIN / MAX 수치 연산을 적용하는 IModifier<int> 구현.
+연산 규칙은 NumericIOperationHelper.Apply에 있어 Modifier 객체 없이도 같은 규칙을 쓸 수 있다.
+DIV 0은 입력 값을 유지한다.
+Vector2Int·Vector3Int 오버로드는 같은 규칙을 성분마다 적용한다.
+
+# 특이사항, 제약사항
+Operation은 Unity가 정수로 직렬화하므로 기존 값의 순서를 바꾸지 않고 뒤에만 추가한다.
+IsDefined는 SET부터 마지막 연산(MAX)까지의 연속 범위로 판정하므로 연산을 추가하면 상한을 함께 갱신한다.
+벡터의 MIN·MAX는 성분별 비교이며 벡터 크기 제한이 아니다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
+using System.Runtime;
+using System.Runtime.CompilerServices;
 
 using UnityEngine;
 
@@ -20,7 +29,90 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     public enum NumericIOperation
     {
-        SET, ADD, SUB, MUL, DIV
+        SET, ADD, SUB, MUL, DIV, MIN, MAX
+    }
+
+    // ============================================================
+    /// <summary>
+    /// NumericIOperation 을 값에 적용하는 정적 헬퍼.
+    /// </summary>
+    // ============================================================
+    public static class NumericIOperationHelper
+    {
+
+    #region 연산
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 연산을 current 에 value 로 적용한 결과를 반환한다.
+        /// <br/> DIV 0은 current 를 유지한다.
+        /// <br/> 정의되지 않은 연산은 current 를 그대로 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Apply(this NumericIOperation operation, int current, int value)
+        {
+            return operation switch
+            {
+                NumericIOperation.SET => value,
+                NumericIOperation.ADD => current + value,
+                NumericIOperation.SUB => current - value,
+                NumericIOperation.MUL => current * value,
+                NumericIOperation.DIV => value == 0 ? current : current / value,
+                NumericIOperation.MIN => Math.Min(current, value),
+                NumericIOperation.MAX => Math.Max(current, value),
+                _ => current
+            };
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// int 연산 규칙을 Vector2Int 의 성분마다 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector2Int Apply(this NumericIOperation operation, Vector2Int current, Vector2Int value)
+        {
+            return new Vector2Int
+            (
+                operation.Apply(current.x, value.x),
+                operation.Apply(current.y, value.y)
+            );
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// int 연산 규칙을 Vector3Int 의 성분마다 적용한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3Int Apply(this NumericIOperation operation, Vector3Int current, Vector3Int value)
+        {
+            return new Vector3Int
+            (
+                operation.Apply(current.x, value.x),
+                operation.Apply(current.y, value.y),
+                operation.Apply(current.z, value.z)
+            );
+        }
+
+    #endregion
+
+    #region 정의 여부
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 연산이 NumericIOperation 에 정의된 값인지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsDefined(this NumericIOperation operation)
+        {
+            return operation >= NumericIOperation.SET && operation <= NumericIOperation.MAX;
+        }
+
+    #endregion
+
     }
 
     // ============================================================
@@ -29,74 +121,52 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class NumericIModifier : IModifier<int>
+    public class NumericIModifier : OperationModifier<int, NumericIOperation>
     {
 
     #region 필드
 
-        [SerializeField]
-        protected NumericIOperation operation;
-        public virtual NumericIOperation Operation
-        {
-            get => operation;
-            set
-            {
-                if (operation == value) return;
-
-                operation = value;
-
-                InvokeOnChange();
-            }
-        }
-
-        [SerializeField]
-        protected int value;
-        public virtual int Value
-        {
-            get => value;
-            set
-            {
-                if (this.value == value) return;
-
-                this.value = value;
-
-                InvokeOnChange();
-            }
-        }
-
-    #endregion
-
-    #region 이벤트
-
         // ------------------------------------------------------------
         /// <summary>
-        /// Modify 결과에 영향을 주는 내부 상태가 변경된 뒤 발생한다.
+        /// SET 연산이면 입력 값과 무관한 결과를 낸다.
         /// </summary>
         // ------------------------------------------------------------
-        [field: NonSerialized]
-        public event Action OnChange = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// OnChange를 발생시킨다.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected void InvokeOnChange() => OnChange?.Invoke();
+        public override bool Replaces => operation == NumericIOperation.SET;
 
     #endregion
 
     #region 생성자
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기본 연산(SET)과 0 값으로 수정자를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
         public NumericIModifier()
         {
             // NONE
         }
 
-        public NumericIModifier(NumericIOperation operation, int value)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 연산과 피연산자로 수정자를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public NumericIModifier(NumericIOperation operation, int value) : base(operation, value)
         {
-            this.operation = operation;
-            this.value = value;
+            // NONE
         }
+
+    #endregion
+
+    #region 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 빈 NumericIModifier 를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override IModifier<int> @new() => new NumericIModifier();
 
     #endregion
 
@@ -107,17 +177,9 @@ namespace inonego.Xeri.Serializable
         /// Operation 에 따라 value 를 수정해 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public int Modify(int value)
+        public override int Modify(int value)
         {
-            return operation switch
-            {
-                NumericIOperation.SET => this.value,
-                NumericIOperation.ADD => value + this.value,
-                NumericIOperation.SUB => value - this.value,
-                NumericIOperation.MUL => value * this.value,
-                NumericIOperation.DIV => this.value == 0 ? value : value / this.value,
-                _ => value
-            };
+            return operation.Apply(value, this.value);
         }
 
     #endregion

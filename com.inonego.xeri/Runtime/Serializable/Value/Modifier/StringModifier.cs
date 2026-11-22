@@ -1,10 +1,12 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : StringModifier.cs
-수정일 : 2026-09-18
+수정일 : 2026-11-22
 
 # 설명
 string 값에 SET 연산을 적용하는 IModifier<string> 구현.
-Operation 또는 Value가 실제로 변경되면 OnChange를 발행한다.
+
+# 특이사항, 제약사항
+Value 비교는 서수(Ordinal) 비교이며 값이 실제로 바뀔 때만 OnChange를 발행한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -29,74 +31,52 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class StringModifier : IModifier<string>
+    public class StringModifier : OperationModifier<string, StringOperation>
     {
 
     #region 필드
 
-        [SerializeField]
-        protected StringOperation operation;
-        public virtual StringOperation Operation
-        {
-            get => operation;
-            set
-            {
-                if (operation == value) return;
-
-                operation = value;
-
-                InvokeOnChange();
-            }
-        }
-
-        [SerializeField]
-        protected string value;
-        public virtual string Value
-        {
-            get => value;
-            set
-            {
-                if (string.Equals(this.value, value, StringComparison.Ordinal)) return;
-
-                this.value = value;
-
-                InvokeOnChange();
-            }
-        }
-
-    #endregion
-
-    #region 이벤트
-
         // ------------------------------------------------------------
         /// <summary>
-        /// Modify 결과에 영향을 주는 내부 상태가 변경된 뒤 발생한다.
+        /// SET 연산이면 입력 값과 무관한 결과를 낸다.
         /// </summary>
         // ------------------------------------------------------------
-        [field: NonSerialized]
-        public event Action OnChange = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// OnChange를 발생시킨다.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected void InvokeOnChange() => OnChange?.Invoke();
+        public override bool Replaces => operation == StringOperation.SET;
 
     #endregion
 
     #region 생성자
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기본 연산(SET)과 null 값으로 수정자를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
         public StringModifier()
         {
             // NONE
         }
 
-        public StringModifier(StringOperation operation, string value)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 연산과 피연산자로 수정자를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public StringModifier(StringOperation operation, string value) : base(operation, value)
         {
-            this.operation = operation;
-            this.value = value;
+            // NONE
         }
+
+    #endregion
+
+    #region 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 빈 StringModifier 를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override IModifier<string> @new() => new StringModifier();
 
     #endregion
 
@@ -107,7 +87,7 @@ namespace inonego.Xeri.Serializable
         /// Operation 에 따라 value 를 수정해 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public string Modify(string value)
+        public override string Modify(string value)
         {
             return operation switch
             {

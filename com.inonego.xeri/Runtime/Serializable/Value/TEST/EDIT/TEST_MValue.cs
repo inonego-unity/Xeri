@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_MValue.cs
-수정일 : 2026-10-30
+수정일 : 2026-11-21
 
 # 설명
 MValue<T>와 built-in Modifier의 값 계산, 변경 전파와 구독 lifecycle을 검증한다.
@@ -875,6 +875,22 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(5f, new NumericFModifier(NumericFOperation.SUB, 5f ).Modify(10f));
             Assert.AreEqual(50f, new NumericFModifier(NumericFOperation.MUL, 5f ).Modify(10f));
             Assert.AreEqual(2f, new NumericFModifier(NumericFOperation.DIV, 5f ).Modify(10f));
+            Assert.AreEqual(5f, new NumericFModifier(NumericFOperation.MIN, 5f ).Modify(10f));
+            Assert.AreEqual(3f, new NumericFModifier(NumericFOperation.MIN, 5f ).Modify(3f));
+            Assert.AreEqual(10f, new NumericFModifier(NumericFOperation.MAX, 5f ).Modify(10f));
+            Assert.AreEqual(5f, new NumericFModifier(NumericFOperation.MAX, 5f ).Modify(3f));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// MIN·MAX는 NaN인 피연산자를 무시하고 현재 값을 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_NumericFModifier_MIN_MAX는_NaN피연산자_무시()
+        {
+            Assert.AreEqual(10f, new NumericFModifier(NumericFOperation.MIN, float.NaN).Modify(10f));
+            Assert.AreEqual(10f, new NumericFModifier(NumericFOperation.MAX, float.NaN).Modify(10f));
         }
 
         // ------------------------------------------------------------
@@ -898,6 +914,89 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(5,  new NumericIModifier(NumericIOperation.SUB, 5).Modify(10));
             Assert.AreEqual(50, new NumericIModifier(NumericIOperation.MUL, 5).Modify(10));
             Assert.AreEqual(2,  new NumericIModifier(NumericIOperation.DIV, 5).Modify(10));
+            Assert.AreEqual(5,  new NumericIModifier(NumericIOperation.MIN, 5).Modify(10));
+            Assert.AreEqual(3,  new NumericIModifier(NumericIOperation.MIN, 5).Modify(3));
+            Assert.AreEqual(10, new NumericIModifier(NumericIOperation.MAX, 5).Modify(10));
+            Assert.AreEqual(5,  new NumericIModifier(NumericIOperation.MAX, 5).Modify(3));
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 정적 Apply는 Modifier의 Modify와 모든 연산·입력에서 같은 결과를 낸다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_NumericOperation_Apply는_Modify와_같은결과()
+        {
+            var floats = new[]
+            {
+                -7.5f, -1f, 0f, 3f, 10f
+            };
+
+            var ints = new[]
+            {
+                -7, -1, 0, 3, 10
+            };
+
+            foreach (NumericFOperation operation in Enum.GetValues(typeof(NumericFOperation)))
+            {
+                foreach (var current in floats)
+                {
+                    foreach (var operand in floats)
+                    {
+                        Assert.AreEqual
+                        (
+                            new NumericFModifier(operation, operand).Modify(current),
+                            operation.Apply(current, operand),
+                            $"{operation} {current} {operand}"
+                        );
+                    }
+                }
+            }
+
+            foreach (NumericIOperation operation in Enum.GetValues(typeof(NumericIOperation)))
+            {
+                foreach (var current in ints)
+                {
+                    foreach (var operand in ints)
+                    {
+                        Assert.AreEqual
+                        (
+                            new NumericIModifier(operation, operand).Modify(current),
+                            operation.Apply(current, operand),
+                            $"{operation} {current} {operand}"
+                        );
+                    }
+                }
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// IsDefined는 정의된 연산만 true로 판정하고 범위 밖 값은 거절한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_MValue_NumericOperation_IsDefined는_정의된연산만_허용()
+        {
+            foreach (NumericFOperation operation in Enum.GetValues(typeof(NumericFOperation)))
+            {
+                Assert.IsTrue(operation.IsDefined(), operation.ToString());
+            }
+
+            foreach (NumericIOperation operation in Enum.GetValues(typeof(NumericIOperation)))
+            {
+                Assert.IsTrue(operation.IsDefined(), operation.ToString());
+            }
+
+            Assert.IsFalse(((NumericFOperation)(-1)).IsDefined());
+            Assert.IsFalse(((NumericFOperation)99).IsDefined());
+            Assert.IsFalse(((NumericIOperation)(-1)).IsDefined());
+            Assert.IsFalse(((NumericIOperation)99).IsDefined());
+
+            // 정의되지 않은 연산은 현재 값을 유지한다.
+            Assert.AreEqual(10f, ((NumericFOperation)99).Apply(10f, 5f));
+            Assert.AreEqual(10, ((NumericIOperation)99).Apply(10, 5));
         }
 
     #endregion

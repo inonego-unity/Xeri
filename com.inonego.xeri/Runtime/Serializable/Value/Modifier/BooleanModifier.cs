@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : BooleanModifier.cs
-수정일 : 2026-09-18
+수정일 : 2026-11-22
 
 # 설명
 bool 값에 SET / AND / OR / XOR 논리 연산을 적용하는 IModifier<bool> 구현.
-NOT 정적 인스턴스를 제공하며 Operation 또는 Value 변경 시 OnChange를 발행한다.
+NOT 정적 인스턴스를 제공한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -29,7 +29,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class BooleanModifier : IModifier<bool>
+    public class BooleanModifier : OperationModifier<bool, BooleanOperation>
     {
 
     #region 필드
@@ -41,69 +41,47 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public static BooleanModifier NOT => new BooleanModifier(BooleanOperation.XOR, true);
 
-        [SerializeField]
-        protected BooleanOperation operation;
-        public virtual BooleanOperation Operation
-        {
-            get => operation;
-            set
-            {
-                if (operation == value) return;
-
-                operation = value;
-
-                InvokeOnChange();
-            }
-        }
-
-        [SerializeField]
-        protected bool value;
-        public virtual bool Value
-        {
-            get => value;
-            set
-            {
-                if (this.value == value) return;
-
-                this.value = value;
-
-                InvokeOnChange();
-            }
-        }
-
-    #endregion
-
-    #region 이벤트
-
         // ------------------------------------------------------------
         /// <summary>
-        /// Modify 결과에 영향을 주는 내부 상태가 변경된 뒤 발생한다.
+        /// SET 연산이면 입력 값과 무관한 결과를 낸다.
         /// </summary>
         // ------------------------------------------------------------
-        [field: NonSerialized]
-        public event Action OnChange = null;
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// OnChange를 발생시킨다.
-        /// </summary>
-        // ------------------------------------------------------------
-        protected void InvokeOnChange() => OnChange?.Invoke();
+        public override bool Replaces => operation == BooleanOperation.SET;
 
     #endregion
 
     #region 생성자
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기본 연산(SET)과 false 값으로 수정자를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
         public BooleanModifier()
         {
             // NONE
         }
 
-        public BooleanModifier(BooleanOperation operation, bool value)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 연산과 피연산자로 수정자를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public BooleanModifier(BooleanOperation operation, bool value) : base(operation, value)
         {
-            this.operation = operation;
-            this.value = value;
+            // NONE
         }
+
+    #endregion
+
+    #region 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 빈 BooleanModifier 를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override IModifier<bool> @new() => new BooleanModifier();
 
     #endregion
 
@@ -114,7 +92,7 @@ namespace inonego.Xeri.Serializable
         /// Operation 에 따라 value 를 수정해 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool Modify(bool value)
+        public override bool Modify(bool value)
         {
             return operation switch
             {
