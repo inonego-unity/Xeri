@@ -61,9 +61,42 @@ float current = scale.Modified; // 자동으로 0.25
 재계산 결과가 이전 `Modified`와 같으면 `OnModifiedChange`는 발생하지 않습니다.
 동일한 Modifier 인스턴스를 여러 Key로 등록해도 `MValue`는 해당 인스턴스의 `OnChange`를 한 번만 구독하며, 마지막 등록이 제거될 때 구독을 해제합니다.
 
-`LambdaModifier<T>`는 생성 시 전달한 delegate를 이후 변경하지 않는 런타임 전용 Modifier입니다. Lambda가 참조하는 계산 의존성도 등록 후 불변이어야 하며, 외부 mutable closure를 변경하는 사용 방식은 지원하지 않습니다.
+`LambdaModifier<T>`는 런타임 전용 Modifier입니다. Lambda가 참조하는 계산 의존성은 등록 후 불변이어야 하며, 외부 mutable closure를 변경하는 사용 방식은 지원하지 않습니다.
 
-`invokeEvent: false`는 해당 조작에서 이벤트만 억제하고 `Modified` 캐시는 즉시 갱신합니다.
+`invokeEvent: false`는 해당 조작에서 이벤트만 억제하고 `Modified` 캐시는 즉시 갱신합니다. 아래 묶음 범위 안에서는 재계산이 범위가 닫힐 때로 미뤄집니다.
+
+## 여러 Modifier를 한 번에 바꾸기
+
+매 프레임 여러 효과의 값을 갱신하는 경우처럼 변경이 여러 번 이어지면, `BeginBatch()` 범위로 묶어 재계산과 이벤트를 한 번으로 합칩니다.
+
+```csharp
+var haste = new NumericFModifier(NumericFOperation.MUL, 1f);
+
+scale.AddModifier("haste", haste, 200);
+
+using (scale.BeginBatch())
+{
+    slow.Value = 0.25f;
+    haste.Value = 1.5f;
+}
+
+float current = scale.Modified; // 범위가 닫힌 뒤 한 번 계산된 값
+```
+
+범위 안에서는 `Modified`가 범위를 연 시점의 값으로 유지됩니다. 범위는 반드시 `using`으로 닫습니다.
+
+## 상태 저장과 복원
+
+되돌리기, 재시뮬레이션처럼 이전 상태로 돌아가야 하면 같은 타입 인스턴스를 미리 만들어 `CloneFrom`으로 저장·복원합니다. 복원은 이벤트를 발행하지 않습니다.
+
+```csharp
+var saved = new MValue<float>();
+
+saved.CloneFrom(scale);  // 저장
+scale.CloneFrom(saved);  // 복원
+```
+
+복원할 때 같은 키·같은 타입의 Modifier 인스턴스는 그대로 재사용하고 값만 되돌리므로, 효과 쪽이 들고 있던 Modifier 참조도 계속 유효합니다. 저장 시점과 키 구성이 같으면 복원에 할당이 없습니다.
 
 ## 최종 값의 단일 작성자 두기
 

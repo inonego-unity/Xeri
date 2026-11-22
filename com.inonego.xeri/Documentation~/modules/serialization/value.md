@@ -65,7 +65,21 @@ float result = value.Modified;
 
 Base를 변경하거나 modifier를 추가·제거하면 `MValue<T>`가 Modified를 다시 계산합니다.
 `IModifier<T>`는 상태 변경 알림 계약을 포함하므로 modifier 내부 상태 변경도 자동으로 반영됩니다.
-`LambdaModifier<T>`는 생성 시 delegate와 그 계산 의존성이 불변이라는 전제로 사용하며, 외부 mutable closure 변경은 지원하지 않습니다.
+`LambdaModifier<T>`는 delegate가 참조하는 계산 의존성이 불변이라는 전제로 사용하며, 외부 mutable closure 변경은 지원하지 않습니다.
+
+## 기본 Modifier
+
+| Modifier | 값 | 연산 |
+| --- | --- | --- |
+| `NumericFModifier`, `NumericIModifier` | `float`, `int` | `SET`, `ADD`, `SUB`, `MUL`, `DIV`, `MIN`, `MAX` |
+| `Vector2FModifier`, `Vector3FModifier`, `Vector4FModifier` | `Vector2`, `Vector3`, `Vector4` | `NumericFOperation`을 성분마다 적용 |
+| `Vector2IModifier`, `Vector3IModifier` | `Vector2Int`, `Vector3Int` | `NumericIOperation`을 성분마다 적용 |
+| `BooleanModifier`, `StringModifier` | `bool`, `string` | 논리 연산, `SET` |
+| `LambdaModifier<T>` | 임의 | delegate |
+
+연산 규칙은 `NumericFOperationHelper.Apply`, `NumericIOperationHelper.Apply`에 있어 Modifier 객체 없이도 같은 규칙을 쓸 수 있습니다. `DIV`의 0은 입력 값을 유지하고, float의 `MIN`·`MAX`는 NaN인 피연산자를 무시합니다. 벡터의 `MUL`은 성분별 곱이므로 스칼라 배율은 `(s, s, s)`로 표현하며, `MIN`·`MAX`도 성분별 비교라 벡터 크기 제한이 아닙니다.
+
+`IModifier<T>.Replaces`는 결과가 입력과 무관한지(`SET`처럼 앞 단계 결과를 덮어쓰는지) 알려 줍니다. `LambdaModifier<T>`는 알 수 없으므로 항상 `false`입니다.
 
 ## Modifier 순서
 
@@ -79,9 +93,47 @@ Base를 변경하거나 modifier를 추가·제거하면 `MValue<T>`가 Modified
 
 - `OnBaseChange`: 실제 Base 값이 바뀔 때 발생합니다.
 - `OnModifiedChange`: modifier 적용 결과가 바뀔 때 발생합니다.
-- `InvokeOnBaseChange()`와 `InvokeOnModifiedChange()`는 Undo 복원처럼 backing field가 이미 바뀐 상태에서 이벤트만 다시 전달해야 할 때 사용합니다.
+- 변경 메서드의 `invokeEvent: false`는 외부 이벤트만 억제하며 Modified 캐시는 즉시 갱신합니다. 단, [묶음 범위](#묶음-갱신) 안에서는 재계산이 범위 종료로 미뤄집니다.
 
-일반 값 변경에서 강제 이벤트 API를 기본 경로로 사용하지 않습니다.
+## 묶음 갱신
+
+여러 Modifier 값이나 Base를 한꺼번에 바꿀 때는 `MValue<T>.BeginBatch()` 범위 안에서 바꿉니다. 범위 안의 변경은 재계산과 이벤트를 미뤘다가 가장 바깥 범위가 닫힐 때 한 번 처리합니다.
+
+```csharp
+using (speed.BeginBatch())
+{
+    slow.Value = 0.5f;
+    haste.Value = 1.2f;
+    speed.Set(baseSpeed);
+}
+```
+
+- 범위는 중첩할 수 있으며 `using`으로 연 순서의 역순으로 한 번씩 닫아야 합니다. 이미 닫힌 범위를 다시 닫으면 상태를 바꾸지 않고, 바깥 범위를 먼저 닫으면 안쪽 범위까지 닫아 처리한 뒤 `InvalidOperationException`을 던집니다.
+- 범위 안에서 `Modified`는 범위를 연 시점의 값입니다.
+- 닫힐 때 범위를 연 시점의 값과 비교하며, 이벤트를 요청한 변경 종류(Base·Modified)만 한 번 통지합니다. 범위 안에서 바꿨다가 되돌린 값은 통지하지 않습니다.
+- 범위 객체는 `ref struct`라 할당이 없고 필드에 보관할 수 없습니다.
+
+## 복제와 상태 복원
+
+`Value<T>`, `RangeValue<T>`, `MValue<T>`와 built-in Modifier는 Xeri 깊은 복제 계약(`IDeepCloneable`)을 구현합니다. 미리 만든 인스턴스에 `CloneFrom`으로 담아 두었다가 다시 `CloneFrom`으로 되돌리면 상태를 저장·복원할 수 있습니다.
+
+```csharp
+var snapshot = new MValue<float>();
+snapshot.CloneFrom(speed);   // 저장
+
+// ... 상태 변경 ...
+
+speed.CloneFrom(snapshot);   // 복원
+```
+
+- `CloneFrom`은 상태 복사이며 상태 전이가 아니므로 `ProcessBase`를 거치지 않고 외부 이벤트를 발행하지 않습니다. 내부 동기화와 Modified 갱신 hook은 수행합니다.
+- 같은 구체 타입끼리만 복제할 수 있으며 다른 타입이면 `ArgumentException`입니다.
+- `RangeValue<T>`는 Range를 먼저 복원한 뒤 Base를 복원하므로 이전 범위로 값이 잘리지 않습니다.
+- `MValue<T>`는 키·Order 구성과 구체 타입이 같으면 목록을 그대로 두고 각 Modifier 인스턴스에 상태만 복사합니다(할당 없음). 같은 구성으로 반복 저장·복원하는 롤백은 이 경로를 탑니다. 구성이 다르면 목록을 다시 만들며, 같은 키·같은 타입 인스턴스는 재사용하고 나머지는 새로 복제합니다(목록 항목과 새 Modifier 할당 발생). 복제본은 원본과 Modifier 인스턴스를 공유하지 않으므로 여러 키·여러 MValue 사이의 인스턴스 공유 관계는 복제되지 않습니다.
+- 파생 타입은 상태를 추가하지 않아도 `@new()`를 재정의해 자기 타입을 만들어야 합니다. 재정의하지 않으면 `Clone()`이 타입 불일치(`ArgumentException`)로 실패합니다. 기존 Modifier를 상속할 때도 같습니다.
+- 상태를 추가한 파생 값 타입은 `CloneState()`를, 상태를 추가한 Modifier는 `CloneFrom()`도 재정의해야 복제가 완전합니다. Modifier의 `CloneFrom`은 상태가 바뀌면 `OnChange`를 발행합니다.
+- `MValue<T>.CloneFrom`은 새 Modifier 복제(`Clone`)가 실패하면 대상 MValue를 바꾸지 않고 예외를 전달합니다. 기존 Modifier 인스턴스의 `CloneFrom`이 실패하면 Modifier 목록은 그대로 두고 그때까지 복사된 Base·Modifier 상태로 남으며, 구독과 `Modified`는 그 상태에 맞춘 뒤 예외를 전달합니다.
+- `Clone()`은 `IDeepCloneable<Value<T>>`의 기본 구현이라 `Value<T>` 형식으로 호출하고 결과를 원래 타입으로 변환합니다. 예: `var copy = (MValue<float>)((Value<float>)speed).Clone();` 반복 저장·복원에는 미리 만든 인스턴스와 `CloneFrom`을 쓰는 편이 할당이 없습니다.
 
 ## 직렬화
 
@@ -91,7 +143,8 @@ Base를 변경하거나 modifier를 추가·제거하면 `MValue<T>`가 Modified
 ## 확장 지점
 
 - 값 입력 전처리: `Value<T>.ProcessBase()` 재정의
-- 새 modifier: `IModifier<T>` 구현
+- 새 modifier: `IModifier<T>` 구현. 연산 종류와 피연산자를 가진 Modifier는 `OperationModifier<T, TOperation>`을 상속하면 변경 알림과 복제를 그대로 씁니다
+- 파생 값 타입의 상태 복제: `@new()`, `CloneState()` 재정의
 - 읽기 전용 외부 노출: `IReadOnlyValue<T>`, `IReadOnlyMValue<T>`
 - 변경 가능한 시스템 내부 노출: `IValue<T>`, `IMValue<T>`
 

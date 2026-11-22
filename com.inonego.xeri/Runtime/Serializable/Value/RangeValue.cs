@@ -1,10 +1,13 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : RangeValue.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-22
 
 # 설명
 값을 [Min, Max] 범위로 제한해 관리하는 클래스.
 Range(Range<T>)가 변경되면 현재값을 즉시 재조정한다.
+
+# 특이사항, 제약사항
+복제는 Range를 먼저 복사한 뒤 Base를 복사한다. 순서가 바뀌면 이전 범위로 Base가 잘린다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -42,6 +45,12 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         [SerializeField]
         protected Value<Range<T>> range = new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 범위 값을 노출한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public Value<Range<T>> Range => range;
 
         // ------------------------------------------------------------
@@ -57,9 +66,6 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         public T Max => range.Base.Max;
-
-        [NonSerialized]
-        private Value<Range<T>> subscribedRange;
 
     #endregion
 
@@ -89,17 +95,50 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region Range 내부 연동
+    #region 복제
 
         // ------------------------------------------------------------
         /// <summary>
-        /// Range 공개 이벤트 이전에 Base를 새 범위로 제한한다.
+        /// 복제에 사용할 빈 RangeValue 를 만든다.
         /// </summary>
         // ------------------------------------------------------------
-        private void OnRangeApplied(Range<T> previous, Range<T> current, bool invokeEvent)
+        public override Value<T> @new() => new RangeValue<T>();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Range를 먼저 복사한 뒤 Base를 복사한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override void CloneState(Value<T> source)
         {
-            Set(Base, invokeEvent);
+            var typed = (RangeValue<T>)source;
+
+            BindRange();
+            range.CloneFrom(typed.range);
+
+            base.CloneState(source);
         }
+
+    #endregion
+
+    #region 값 제한
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 값을 범위 내로 제한하는 전처리 훅.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override void ProcessBase(in T prev, ref T next)
+        {
+            next = range.Base.Clamp(next);
+        }
+
+    #endregion
+
+    #region Range 내부 연동
+
+        [NonSerialized]
+        private Value<Range<T>> subscribedRange;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -118,9 +157,19 @@ namespace inonego.Xeri.Serializable
             subscribedRange.OnBaseApplied += OnRangeApplied;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Range 공개 이벤트 이전에 Base를 새 범위로 제한한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void OnRangeApplied(Range<T> previous, Range<T> current, bool invokeEvent)
+        {
+            Set(Base, invokeEvent);
+        }
+
     #endregion
 
-    #region 직렬화 변경 확정 및 상태 복구
+    #region 직렬화 변경 확정
 
         // ------------------------------------------------------------
         /// <summary>
@@ -131,6 +180,8 @@ namespace inonego.Xeri.Serializable
         {
             BindRange();
             var currentRange = Range.Base;
+
+            // 인스펙터 편집 중 Min이 Max보다 큰 범위는 제한할 수 없으므로 확정을 미룬다.
             if (currentRange.Min.CompareTo(currentRange.Max) > 0)
             {
                 return;
@@ -150,19 +201,9 @@ namespace inonego.Xeri.Serializable
             }
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Unity 역직렬화에서 내부 구독과 Base 제한을 이벤트 없이 복원한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void OnAfterDeserialize()
-        {
-            BindRange();
-            if (range.Base.Min.CompareTo(range.Base.Max) <= 0)
-            {
-                @base = range.Base.Clamp(Base);
-            }
-        }
+    #endregion
+
+    #region ISerializationCallbackReceiver
 
         // ------------------------------------------------------------
         /// <summary>
@@ -174,19 +215,32 @@ namespace inonego.Xeri.Serializable
             // NONE
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Unity 역직렬화에서 내부 구독과 Base 제한을 이벤트 없이 복원한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void OnAfterDeserialize()
+        {
+            BindRange();
+
+            // Min이 Max보다 큰 범위로 저장된 값은 Clamp할 수 없으므로 그대로 둔다.
+            if (range.Base.Min.CompareTo(range.Base.Max) <= 0)
+            {
+                @base = range.Base.Clamp(Base);
+            }
+        }
+
     #endregion
 
-    #region 메서드
+    #region 비교
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 값을 범위 내로 제한하는 전처리 훅.
+        /// IComparable&lt;T&gt; 구현.
         /// </summary>
         // ------------------------------------------------------------
-        protected override void ProcessBase(in T prev, ref T next)
-        {
-            next = range.Base.Clamp(next);
-        }
+        public int CompareTo(T other) => @base.CompareTo(other);
 
     #endregion
 
@@ -202,17 +256,15 @@ namespace inonego.Xeri.Serializable
             return wrapper != null ? wrapper.@base : default;
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// IComparable&lt;T&gt; 구현.
-        /// </summary>
-        // ------------------------------------------------------------
-        public int CompareTo(T other) => @base.CompareTo(other);
-
     #endregion
 
     #region Object 오버라이드
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 구체 타입의 값 또는 T 값과 Base를 비교한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public override bool Equals(object obj)
         {
             if (obj is RangeValue<T> other && other.GetType() == GetType())
@@ -222,8 +274,18 @@ namespace inonego.Xeri.Serializable
             return false;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Base의 해시 코드를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public override int GetHashCode() => @base.GetHashCode();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Base와 Range를 문자열로 표현한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public override string ToString() => $"{@base} {range.Base}";
 
     #endregion

@@ -1,10 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Value.cs
-수정일 : 2026-10-29
+수정일 : 2026-11-22
 
 # 설명
 단일 값을 관리하며 변경 이벤트를 발행하는 제네릭 클래스.
 ProcessBase 오버라이드로 값 전처리를 확장할 수 있다.
+IDeepCloneable로 같은 구체 타입 사이의 상태를 복제한다.
+
+# 특이사항, 제약사항
+CloneFrom은 상태 복사이며 상태 전이가 아니므로 ProcessBase를 거치지 않고 외부 이벤트를 발행하지 않는다.
+invokeEvent: false 변경과 같이 내부 동기화(OnBaseApplied)는 수행한다.
+CloneFrom은 같은 구체 타입의 source만 받는다.
+모든 파생 타입은 상태가 없어도 @new를 재정의해 자기 타입을 만든다. 재정의하지 않으면 Clone이 타입 불일치로 실패한다.
+상태를 추가한 파생 타입은 CloneState도 재정의한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -23,7 +31,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class Value<T> : IValue<T>
+    public class Value<T> : IValue<T>, IDeepCloneable<Value<T>>
     {
 
     #region 필드
@@ -37,6 +45,12 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         [SerializeField]
         protected T @base;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 값. 설정은 Set을 통해 이루어진다.
+        /// </summary>
+        // ------------------------------------------------------------
         public T Base
         {
             get => @base;
@@ -91,7 +105,61 @@ namespace inonego.Xeri.Serializable
 
     #endregion
 
-    #region 메서드
+    #region 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 복제에 사용할 같은 구체 타입의 빈 인스턴스를 만든다.
+        /// <br/> 모든 파생 타입은 자기 타입을 만들도록 재정의한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual Value<T> @new() => new Value<T>();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> source의 상태를 외부 이벤트 없이 복사한다.
+        /// <br/> 같은 구체 타입만 받으며 자기 자신이면 아무 일도 하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(Value<T> source)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (source.GetType() != GetType())
+            {
+                throw new ArgumentException
+                (
+                    $"같은 구체 타입에서만 복제할 수 있습니다. ({source.GetType().Name} → {GetType().Name}) 파생 타입이 @new를 재정의했는지 확인하세요.",
+                    nameof(source)
+                );
+            }
+
+            if (ReferenceEquals(source, this)) return;
+
+            CloneState(source);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 타입 검사를 마친 source의 상태를 복사한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected virtual void CloneState(Value<T> source)
+        {
+            var (prev, next) = (@base, source.@base);
+
+            if (comparer.Equals(prev, next)) return;
+
+            @base = next;
+            OnBaseApplied?.Invoke(prev, next, false);
+        }
+
+    #endregion
+
+    #region 값 설정
 
         // ----------------------------------------------------------------------
         /// <summary>
@@ -146,6 +214,10 @@ namespace inonego.Xeri.Serializable
             OnBaseChange?.Invoke(this, new(previous, current));
         }
 
+    #endregion
+
+    #region 직렬화 변경 통지
+
         // ------------------------------------------------------------
         /// <summary>
         /// 직렬화로 적용된 Base와 이전 상태를 비교해 변경을 통지한다.
@@ -190,6 +262,11 @@ namespace inonego.Xeri.Serializable
 
     #region Object 오버라이드
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 구체 타입의 값 또는 T 값과 Base를 비교한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public override bool Equals(object obj)
         {
             if (obj is Value<T> other && other.GetType() == GetType())
@@ -199,8 +276,18 @@ namespace inonego.Xeri.Serializable
             return false;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Base의 해시 코드를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public override int GetHashCode() => comparer.GetHashCode(@base);
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Base를 문자열로 표현한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public override string ToString() => @base != null ? @base.ToString() : string.Empty;
 
     #endregion
