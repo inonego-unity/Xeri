@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UITKScrollViewTarget.cs
-수정일 : 2026-11-20
+수정일 : 2026-11-22
 
 # 설명
 UI Toolkit ScrollView를 자동 스크롤 대상으로 연결한다. scrollOffset을 옮기며 ScrollView가 범위로 맞춘다.
@@ -50,6 +50,21 @@ namespace inonego.Xeri.UI.AutoScroll
     #endregion
 
     #region 스크롤
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 내용이 보이는 영역보다 커서 가로나 세로로 움직일 수 있는지 여부.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool CanScroll
+        {
+            get
+            {
+                var vertical = ScrollView.verticalScroller;
+                var horizontal = ScrollView.horizontalScroller;
+                return vertical.highValue > vertical.lowValue || horizontal.highValue > horizontal.lowValue;
+            }
+        }
 
         // ----------------------------------------------------------------------
         /// <summary>
