@@ -69,7 +69,8 @@ namespace inonego.Xeri.TEST.Serializable._Value
             value.AddModifier("push", push);
             push.Value = Vector3.right;
 
-            Assert.That(() => push.Value = new Vector3(next += 1f, 0f, 0f), Is.Not.AllocatingGCMemory());
+            // 할당 검사는 반환값 없는 TestDelegate만 받으므로 대입을 문 블록으로 감싼다.
+            Assert.That(() => { push.Value = new Vector3(next += 1f, 0f, 0f); }, Is.Not.AllocatingGCMemory());
         }
 
         // ------------------------------------------------------------
