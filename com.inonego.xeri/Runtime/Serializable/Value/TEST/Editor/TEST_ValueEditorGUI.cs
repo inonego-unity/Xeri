@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_ValueEditorGUI.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
 Value·MValue·RangeValue Drawer의 기존 Inspector 구성 계약을 검증한다.
@@ -118,7 +118,7 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
                 Assert.AreEqual(2, root.childCount);
                 Assert.IsNotNull(root.Q<Toggle>());
-                Assert.IsNotNull(root.Q<CollectionTable>());
+                Assert.IsNotNull(root.Q<CollectionTableGrid>());
 
                 var row = root.Q<VisualElement>("value-base-row");
                 Assert.AreEqual(5, row.childCount);

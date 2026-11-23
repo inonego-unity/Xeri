@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionAddFlow.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-22
 
 # 설명
 컬렉션에 새 행을 추가하는 절차를 담당한다.
@@ -76,13 +76,27 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public void Start(VisualElement anchor)
         {
+            // 초안 창은 열 하나를 고친다. 종류가 초안 열을 둘 이상 두면 앞 열 값을 잃으므로 형식을 고르기 전에 막는다.
             var columns = new List<CollectionColumn>();
+            CollectionColumn draftColumn = null;
             foreach (var column in session.Kind.Columns)
             {
-                if (column.CreatesValueOnAdd)
+                if (!column.CreatesValueOnAdd)
                 {
-                    columns.Add(column);
+                    continue;
                 }
+
+                if (column.Edit == CollectionCellEdit.Draft)
+                {
+                    if (draftColumn != null)
+                    {
+                        throw new InvalidOperationException($"초안 열은 하나만 둘 수 있습니다: {draftColumn.ID}, {column.ID}");
+                    }
+
+                    draftColumn = column;
+                }
+
+                columns.Add(column);
             }
 
             if (columns.Count == 0)
@@ -107,7 +121,7 @@ namespace inonego.Xeri.Serializable.Editor
 
             // 선택기를 연 뒤 상위 배열 요소가 바뀌면 다른 컬렉션에 추가하지 않는다.
             var locator = new SerializedPropertyLocator(session.Source.GetProperty());
-            ChooseTypes(columns, creators, anchor, 0, new List<Type>(columns.Count), locator);
+            ChooseTypes(columns, draftColumn, creators, anchor, 0, new List<Type>(columns.Count), locator);
         }
 
         // ------------------------------------------------------------
@@ -118,6 +132,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void ChooseTypes
         (
             IReadOnlyList<CollectionColumn> columns,
+            CollectionColumn draftColumn,
             IReadOnlyList<ICollectionCellValueCreator> creators,
             VisualElement anchor,
             int index,
@@ -127,7 +142,7 @@ namespace inonego.Xeri.Serializable.Editor
         {
             if (index == columns.Count)
             {
-                AddWithValues(columns, creators, chosen);
+                AddWithValues(columns, draftColumn, creators, chosen);
                 return;
             }
 
@@ -148,7 +163,7 @@ namespace inonego.Xeri.Serializable.Editor
                     }
 
                     chosen.Add(type);
-                    ChooseTypes(columns, creators, anchor, index + 1, chosen, locator);
+                    ChooseTypes(columns, draftColumn, creators, anchor, index + 1, chosen, locator);
                 },
                 onFailed
             );
@@ -163,12 +178,12 @@ namespace inonego.Xeri.Serializable.Editor
         private void AddWithValues
         (
             IReadOnlyList<CollectionColumn> columns,
+            CollectionColumn draftColumn,
             IReadOnlyList<ICollectionCellValueCreator> creators,
             IReadOnlyList<Type> types
         )
         {
             var draft = CollectionDraft.ForNewRow();
-            CollectionColumn draftColumn = null;
             object draftValue = null;
             for (var index = 0; index < columns.Count; index++)
             {
@@ -178,9 +193,8 @@ namespace inonego.Xeri.Serializable.Editor
                     return;
                 }
 
-                if (columns[index].Edit == CollectionCellEdit.Draft)
+                if (columns[index] == draftColumn)
                 {
-                    draftColumn = columns[index];
                     draftValue = value;
                     continue;
                 }

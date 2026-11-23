@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionEditorAttributeDrawer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
-[CollectionEditor]를 붙인 List<T>·1차원 배열을 공통 컬렉션 표(CollectionTable)로 표시하는 UI Toolkit PropertyDrawer.
+[CollectionEditor]를 붙인 List<T>·1차원 배열을 공통 컬렉션 표(CollectionTableGrid)로 표시하는 UI Toolkit PropertyDrawer.
 요소 형식, SerializeReference, Unique·Columns·VisibleRows와 ReadOnly는 공통 진입점이 필드에서 읽는다.
 ========================================================================= BLOCK_HEADER_END */
 

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValueDrawer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
 MValue<T> 전용 UI Toolkit PropertyDrawer.
@@ -127,7 +127,7 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 var kind = MValueModifierHooks<T>.CreateKind(modifiersProperty);
                 var source = new CollectionSource(so, modifiersProperty.propertyPath, kind);
-                root.Add(new CollectionTable(new CollectionSession(source)));
+                root.Add(new CollectionTableGrid(new CollectionSession(source)));
             }
 
             // 현재 경로로 owner를 찾는다. Unity가 중첩 인스턴스를 교체할 수 있다.

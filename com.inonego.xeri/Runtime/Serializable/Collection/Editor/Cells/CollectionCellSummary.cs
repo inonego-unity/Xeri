@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionCellSummary.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 SerializedProperty에서 셀 요약 문자열과 표시 문자열을 만든다.
@@ -32,6 +32,33 @@ namespace inonego.Xeri.Serializable.Editor
     internal static class CollectionCellSummary
     {
 
+    #region 값 종류
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 문자열이 아닌 배열·목록인지 반환한다(string도 isArray가 참이라 따로 뺀다).
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool IsList(SerializedProperty property)
+        {
+            return property.isArray && property.propertyType != SerializedPropertyType.String;
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 셀 안에서 바로 고칠 수 없는 복합 값인지 반환한다.
+        /// <br/> 배열·목록, 일반 class/struct(Generic), 관리 참조가 복합 값이다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public static bool IsComposite(SerializedProperty property)
+        {
+            return IsList(property)
+                || property.propertyType == SerializedPropertyType.Generic
+                || property.propertyType == SerializedPropertyType.ManagedReference;
+        }
+
+    #endregion
+
     #region 요약
 
         // ------------------------------------------------------------
@@ -46,7 +73,7 @@ namespace inonego.Xeri.Serializable.Editor
                 return string.Empty;
             }
 
-            if (property.isArray && property.propertyType != SerializedPropertyType.String)
+            if (IsList(property))
             {
                 return $"{property.arraySize} items";
             }
@@ -97,8 +124,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             // 배열·리스트와 단순 값은 값 하나의 표시 문자열과 같다.
-            var isArray = property.isArray && property.propertyType != SerializedPropertyType.String;
-            if (isArray || property.propertyType != SerializedPropertyType.Generic)
+            if (IsList(property) || property.propertyType != SerializedPropertyType.Generic)
             {
                 return GetDisplayText(property);
             }

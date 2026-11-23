@@ -1,9 +1,9 @@
-﻿/* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : CollectionTableOptions.cs
-수정일 : 2026-11-19
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : CollectionTableGridOptions.cs
+수정일 : 2026-11-21
 
 # 설명
-컬렉션 표의 표시 행 수와 제목처럼 편집 규칙과 무관한 표시 설정을 전달한다.
+컬렉션 표(CollectionTableGrid)의 표시 행 수와 제목처럼 편집 규칙과 무관한 표시 설정을 전달한다.
 
 # 특이사항, 제약사항
 부모 높이를 채우는 배치는 이 설정이 아니라 호스트 USS의 --xeri-collection-fill 값으로 정한다.
@@ -18,7 +18,7 @@ namespace inonego.Xeri.Serializable.Editor
     /// 컬렉션 표의 표시 설정.
     /// </summary>
     // ============================================================
-    internal readonly struct CollectionTableOptions
+    internal readonly struct CollectionTableGridOptions
     {
 
     #region 상수
@@ -64,7 +64,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// 표시 행 수와 제목으로 설정을 만든다.
         /// </summary>
         // ------------------------------------------------------------
-        public CollectionTableOptions(int visibleRows, string label)
+        public CollectionTableGridOptions(int visibleRows, string label)
         {
             VisibleRows = Math.Clamp(visibleRows, 1, MaxVisibleRows);
             Label = string.IsNullOrWhiteSpace(label) ? null : label;
@@ -79,9 +79,9 @@ namespace inonego.Xeri.Serializable.Editor
         /// 기본 표시 설정을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public static CollectionTableOptions Default()
+        public static CollectionTableGridOptions Default()
         {
-            return new CollectionTableOptions(DefaultVisibleRows, null);
+            return new CollectionTableGridOptions(DefaultVisibleRows, null);
         }
 
     #endregion

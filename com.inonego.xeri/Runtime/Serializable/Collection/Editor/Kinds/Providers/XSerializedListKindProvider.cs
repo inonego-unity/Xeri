@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XSerializedListKindProvider.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
 XHashSet·XQueue·XStack의 종류 정의를 만든다.
@@ -16,6 +16,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.Editor;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -70,7 +71,7 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 new CollectionColumn
                 (
-                    valueColumnID, "값", TableColumnLayout.Flexible(240f, 100f, 0f, 1f), null,
+                    valueColumnID, "값", TableGridColumnLayout.Flexible(240f, 100f, 0f, 1f), null,
                     elementType, isReference, createsValueOnAdd: isReference
                 ),
             };

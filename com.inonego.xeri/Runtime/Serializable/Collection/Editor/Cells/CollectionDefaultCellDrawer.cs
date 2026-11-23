@@ -1,16 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionDefaultCellDrawer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-24
 
 # 설명
 다른 drawer가 맡지 않은 셀을 그리는 기본 drawer.
-단순 값은 PropertyField로 셀 안에서 바로 고치고, 복합 값·초안 열·읽기 전용 셀은 요약과 상세 편집 버튼을 보인다.
+단순 값은 PropertyField로 셀 안에서 바로 고치고, 복합 값·읽기 전용 셀은 요약과 상세 편집 버튼을 보인다.
+단순 값 초안 열(키·순서)은 바인딩하지 않은 TableGrid 입력 셀 뷰(CollectionInlineInput이 고른 Inline 셀 뷰)로 고치고, 확정하면 표 호스트가 검증한 뒤 쓴다.
 값 형식에 등록된 셀 뷰(CollectionCellView)가 있으면 요약 문자열 대신 그 뷰를 보인다.
 
 # 특이사항, 제약사항
 셀 UI는 행이 바뀌어도 재사용하며 PropertyField 바인딩은 경로나 속성 종류가 바뀔 때만 다시 건다.
-입력 필드와 요약 행은 처음 필요할 때 만든다. 한 열의 셀은 대개 한쪽만 쓰므로 나머지는 만들지 않는다.
-값 확정은 표가 SerializedPropertyChangeEvent로 처리한다.
+입력 필드·초안 입력칸·요약 행은 처음 필요할 때 만든다. 한 열의 셀은 대개 한쪽만 쓰므로 나머지는 만들지 않는다.
+바인딩 입력 필드의 값 확정은 표가 SerializedPropertyChangeEvent로 처리한다.
+초안 입력칸은 표 셀 문맥(CollectionCell.GridContext)이 있을 때만 쓴다. 없으면 요약과 초안 창으로 고친다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -23,6 +25,7 @@ using UnityEngine.UIElements;
 using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -45,6 +48,8 @@ namespace inonego.Xeri.Serializable.Editor
         {
             internal bool DelayedInput;
             internal PropertyField Field;
+            internal VisualElement InlineInput;
+            internal TableGridCellView InlineView;
             internal SummaryRow Summary;
             internal CollectionCell? Cell;
             internal bool HasFieldBinding;
@@ -136,6 +141,13 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
+            // 단순 값 초안 열은 셀 안 입력칸으로 고치고, 확정은 표를 거쳐 호스트가 검증한다.
+            var draftEdit = cell.Column.Edit == CollectionCellEdit.Draft && cell.GridContext.HasValue;
+            if (editable && draftEdit && IsSimple(property) && ShowInlineInput(view, cell, property))
+            {
+                return;
+            }
+
             ReleaseField(view);
             var cellView = CollectionCellViews.Find(property, cell.Column);
             if (cellView != null)
@@ -164,15 +176,14 @@ namespace inonego.Xeri.Serializable.Editor
         {
             var view = (CellView)element;
             ReleaseField(view);
+            HideInlineInput(view);
             view.Summary?.Content.Release();
             view.Cell = null;
         }
 
         private static bool IsSimple(SerializedProperty property)
         {
-            return !(property.isArray && property.propertyType != SerializedPropertyType.String)
-                && property.propertyType != SerializedPropertyType.Generic
-                && property.propertyType != SerializedPropertyType.ManagedReference;
+            return !CollectionCellSummary.IsComposite(property);
         }
 
     #endregion
@@ -182,6 +193,7 @@ namespace inonego.Xeri.Serializable.Editor
         private static void ShowField(CellView view, SerializedProperty property)
         {
             var field = EnsureField(view);
+            HideInlineInput(view);
             if (view.Summary != null)
             {
                 view.Summary.Content.Release();
@@ -248,6 +260,68 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
+    #region 초안 입력칸
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 초안 열 값을 바인딩하지 않은 TableGrid 입력 셀 뷰에 보인다.
+        /// <br/> 열 형식을 입력칸으로 고칠 수 없거나 속성에서 값을 읽을 수 없으면 false다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private static bool ShowInlineInput(CellView view, CollectionCell cell, SerializedProperty property)
+        {
+            var column = cell.Column;
+            var inputView = CollectionInlineInput.FindView(column);
+            if (inputView == null || !CollectionInlineInput.TryRead(property, column.ValueType, out var value))
+            {
+                HideInlineInput(view);
+                return false;
+            }
+
+            // 열 형식은 고정이므로 입력칸은 한 번 만들고 행이 바뀌면 값만 다시 보인다.
+            if (view.InlineInput == null || view.InlineView != inputView)
+            {
+                view.InlineInput?.RemoveFromHierarchy();
+                view.InlineInput = inputView.MakeCell();
+                view.InlineInput.AddToClassList(CollectionInlineInput.ClassName);
+                view.InlineView = inputView;
+                view.Insert(0, view.InlineInput);
+            }
+
+            // 열 값 형식은 표 열(object)이 아니라 Collection 열이 안다. 입력칸이 후보·오브젝트 형식을 맞추게 문맥에 준다.
+            var context = cell.GridContext.Value.WithValueType(column.ValueType);
+            inputView.BindBoxed(view.InlineInput, value, in context);
+            CollectionInlineInput.FitScope(view.InlineInput, property);
+
+            ReleaseField(view);
+            if (view.Field != null)
+            {
+                view.Field.style.display = DisplayStyle.None;
+            }
+
+            if (view.Summary != null)
+            {
+                view.Summary.Content.Release();
+                view.Summary.style.display = DisplayStyle.None;
+            }
+
+            view.InlineInput.style.display = DisplayStyle.Flex;
+            return true;
+        }
+
+        private static void HideInlineInput(CellView view)
+        {
+            if (view.InlineInput == null)
+            {
+                return;
+            }
+
+            view.InlineView.Unbind(view.InlineInput);
+            view.InlineInput.style.display = DisplayStyle.None;
+        }
+
+    #endregion
+
     #region 요약 행
 
         private static void ShowSummary(CellView view, string text, string tooltip)
@@ -273,6 +347,7 @@ namespace inonego.Xeri.Serializable.Editor
                 view.Field.style.display = DisplayStyle.None;
             }
 
+            HideInlineInput(view);
             view.Summary ??= CreateSummaryRow(view);
             view.Summary.style.display = DisplayStyle.Flex;
             return view.Summary;

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : SerializedListKindProvider.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
 [CollectionEditor]를 붙인 List<T>·1차원 배열의 종류 정의를 만든다.
@@ -22,6 +22,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.Editor;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -85,7 +86,7 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 new CollectionColumn
                 (
-                    valueColumnID, "값", TableColumnLayout.Flexible(240f, 100f, 0f, 1f), null,
+                    valueColumnID, "값", TableGridColumnLayout.Flexible(240f, 100f, 0f, 1f), null,
                     elementType, isReference, createsValueOnAdd: isReference
                 ),
             };
@@ -161,30 +162,30 @@ namespace inonego.Xeri.Serializable.Editor
         /// 필드 형식에 맞는 열 폭과 남는 폭 비율을 정한다.
         /// </summary>
         // ------------------------------------------------------------
-        private static TableColumnLayout GetFieldLayout(Type fieldType, bool isFirst)
+        private static TableGridColumnLayout GetFieldLayout(Type fieldType, bool isFirst)
         {
             // 첫 열은 행의 식별 이름이므로 남는 폭을 가장 많이 차지한다.
             if (isFirst)
             {
-                return TableColumnLayout.Flexible(160f, 100f, 0f, 1.2f);
+                return TableGridColumnLayout.Flexible(160f, 100f, 0f, 1.2f);
             }
 
             // 드롭다운은 선택지 이름이 잘리지 않도록 폭을 고정한다.
             if (fieldType.IsEnum)
             {
-                return TableColumnLayout.Fixed(110f);
+                return TableGridColumnLayout.Fixed(110f);
             }
 
             // 체크박스는 좁게, 문자열은 넓게, 숫자는 그 사이로 둔다.
             if (fieldType == typeof(bool))
             {
-                return TableColumnLayout.Flexible(72f, 60f, 0f, 0.8f);
+                return TableGridColumnLayout.Flexible(72f, 60f, 0f, 0.8f);
             }
 
             var isNumber = fieldType.IsPrimitive || fieldType == typeof(decimal);
             return isNumber
-                ? TableColumnLayout.Flexible(90f, 64f, 0f, 1f)
-                : TableColumnLayout.Flexible(140f, 80f, 0f, 1.5f);
+                ? TableGridColumnLayout.Flexible(90f, 64f, 0f, 1f)
+                : TableGridColumnLayout.Flexible(140f, 80f, 0f, 1.5f);
         }
 
         private static string GetFieldHeader(FieldInfo field)

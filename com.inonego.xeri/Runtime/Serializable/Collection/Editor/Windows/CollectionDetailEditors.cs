@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionDetailEditors.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 셀·행의 상세 편집을 어떤 창으로 열지 정한다.
@@ -61,7 +61,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             // 단순 값과 빈 참조는 상세 창에서 고칠 내용이 없다.
-            if (!IsComplex(property) || SerializedPropertyHelper.GetValue(property) == null)
+            if (!CollectionCellSummary.IsComposite(property) || SerializedPropertyHelper.GetValue(property) == null)
             {
                 return false;
             }
@@ -94,13 +94,6 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 CollectionValueEditorWindow.CloseForCollection(session.SerializedObject.targetObject, session.Source.Path);
             }
-        }
-
-        private static bool IsComplex(SerializedProperty property)
-        {
-            return property.isArray && property.propertyType != SerializedPropertyType.String
-                || property.propertyType == SerializedPropertyType.Generic
-                || property.propertyType == SerializedPropertyType.ManagedReference;
         }
 
     #endregion

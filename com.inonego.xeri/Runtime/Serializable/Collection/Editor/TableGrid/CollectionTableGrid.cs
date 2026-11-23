@@ -1,23 +1,31 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : CollectionTable.cs
-수정일 : 2026-11-19
+파일명 : CollectionTableGrid.cs
+수정일 : 2026-11-23
 
 # 설명
-컬렉션 편집 세션을 Inspector 표로 보여 준다: 검색·선택·페이지·행 메뉴·키보드·드래그·높이 조절.
-셀은 열마다 고른 셀 drawer가 그리고, 모든 변경은 CollectionSession.Apply로 요청한다.
-행 검증 아이콘은 드래그 핸들 뒤에 두고, 읽기 전용에서도 탐색·복사·상세 보기를 허용한다.
+컬렉션 편집 세션을 Inspector 표(TableGrid, TableGridOptions.Inspector())로 보여 준다.
+머리(접기·제목·개수·관리 메뉴)·검색·추가 버튼과 높이 조절 손잡이는 이 크롬이 맡고,
+행 표시·선택·끌기 손잡이·키보드 이동은 TableGrid가 맡는다.
+셀은 열마다 고른 셀 drawer를 셀 뷰 어댑터(CellView)가 감싸 그리고, 모든 변경은 CollectionSession.Apply로 요청한다.
+행 진단 아이콘은 셀 앞에, 행 상세·삭제 버튼은 마지막 열 셀 끝에 둔다.
 
 # 특이사항, 제약사항
-기본은 지정 행 수 높이(하단 손잡이로 조절)이며, 호스트 USS가 채움 모드를 켜면
-부모 높이를 따르고 들어가는 행 수로 페이지를 나눠 내부 스크롤을 만들지 않는다.
-화면에 남은 행과 원본이 다르면 이전 표시에서 만든 행 명령을 실행하지 않는다.
-접힌 표는 헤더만 만들고 행 목록·행 메뉴·드래그는 처음 펼칠 때 만든다(인스펙터 로드 비용 절감).
+기본은 지정 행 수 높이(하단 손잡이로 조절)이고, 호스트 USS가 채움 모드(--xeri-collection-fill)를 켜면
+부모 높이를 채우고 표 안에서 스크롤한다.
+행 ID는 직렬화 인덱스다. 구조가 바뀌면 행 식별 값으로 선택을 다시 찾는다.
+화면에 남은 행과 원본이 다르면 이전 표시에서 만든 행 명령·편집 요청을 실행하지 않는다.
+행 복제·행 전체 복사/붙여넣기·삭제·메뉴 단축키와 Enter는 표 기본 동작보다 먼저 이 크롬이 처리하고, 행 메뉴는 표가 넘긴 위치에 연다.
+검색창은 TableGridSearchField이고 표를 직접 검색하지 않는다(SearchesGrid = false, 표는 테마·결과 수에만 쓴다).
+검색은 이 크롬이 셀 drawer 요약으로 걸러 결과 행만 표에 넘기고, 검색 중에는 행을 옮기지 않는 소스를 준다.
+열 상태(폭)는 TableGridViewStatePrefs(대상 형식 + 속성 경로 키)로, 접힘·행 수는 SessionState로 저장한다.
+접힌 표는 머리만 만들고 표는 처음 펼칠 때 만든다(인스펙터 로드 비용 절감).
 표는 객체 전체가 아니라 자기 컬렉션 필드만 감시한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 using UnityEditor;
@@ -27,9 +35,13 @@ using UnityEngine.UIElements;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.Editor;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Editor;
-using inonego.Xeri.Editor;
+using inonego.Xeri.UI.TableGrid;
+using inonego.Xeri.UI.TableGrid.Editor;
+
+using TableGridView = inonego.Xeri.UI.TableGrid.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -38,7 +50,7 @@ namespace inonego.Xeri.Serializable.Editor
     /// 컬렉션 편집 세션의 Inspector 표.
     /// </summary>
     // ============================================================
-    internal sealed class CollectionTable : VisualElement, ICollectionCellHost
+    internal sealed class CollectionTableGrid : VisualElement, ICollectionCellHost
     {
 
     #region 내부 타입
@@ -51,25 +63,85 @@ namespace inonego.Xeri.Serializable.Editor
         private sealed class CellBinding
         {
             internal int SourceIndex = -1;
-            internal int PageIndex = -1;
             internal CollectionColumn Column;
             internal ICollectionCellDrawer Drawer;
-            internal VisualElement Row;
+            internal VisualElement Root;
             internal VisualElement Content;
-            internal VisualElement DragHandle;
             internal SeverityIndicator Validation;
             internal Button RowEditButton;
+            internal TableGridCellContext? GridContext;
+        }
+
+        // ================================================================================
+        /// <summary>
+        /// <br/> 셀 drawer(와 그 안의 CollectionCellView)를 표 셀 뷰로 감싸는 어댑터.
+        /// <br/> 셀 상태는 셀 요소의 CellBinding에 두고 이 뷰는 열마다 하나를 공유한다.
+        /// </summary>
+        // ================================================================================
+        private sealed class CellView : TableGridItemCellView
+        {
+            private readonly CollectionTableGrid owner;
+            private readonly CollectionColumn column;
+            private readonly ICollectionCellDrawer drawer;
+            private readonly bool hasRowActions;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 열과 drawer로 셀 뷰를 만든다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public CellView(CollectionTableGrid owner, CollectionColumn column, ICollectionCellDrawer drawer, bool hasRowActions)
+            {
+                this.owner = owner;
+                this.column = column;
+                this.drawer = drawer;
+                this.hasRowActions = hasRowActions;
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 행이 바뀌어도 재사용할 셀 UI를 만든다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public override VisualElement MakeCell()
+            {
+                return owner.MakeCell(column, drawer, hasRowActions);
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 셀 UI를 표 셀 문맥의 행에 연결한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public override void Bind(VisualElement element, in TableGridCellContext context)
+            {
+                owner.BindCell((CellBinding)element.userData, in context);
+            }
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 셀 UI의 연결을 끊고 UI는 재사용할 수 있게 둔다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public override void Unbind(VisualElement element)
+            {
+                owner.UnbindCell((CellBinding)element.userData);
+            }
         }
 
     #endregion
 
     #region 필드
 
-        // 실제 행·헤더 크기는 CollectionTableStyle.uss의 28px과 일치해야 한다.
+        // 행·헤더 높이는 CollectionTableGridStyle.uss의 28px과 맞춘다.
         private const float rowHeight = 28f;
         private const float tableHeaderHeight = 28f;
+
+        // 행 버튼(.xeri-collection__icon-button) 한 개가 차지하는 폭. USS의 20px + 좌우 여백 2px씩과 맞춘다.
+        private const float rowActionButtonWidth = 24f;
         private const float viewportHeightAllowance = 6f;
-        private const int minimumPageSize = 10;
+        private const string emptyText = "항목이 없습니다.";
+        private const string noResultText = "검색 결과가 없습니다.";
         private static readonly CustomStyleProperty<float> fillProperty = new("--xeri-collection-fill");
 
         // ------------------------------------------------------------
@@ -88,37 +160,34 @@ namespace inonego.Xeri.Serializable.Editor
         private readonly int defaultVisibleRows;
         private readonly string rowsStateKey;
         private readonly string foldoutStateKey;
+        private readonly string viewStateKey;
         private readonly List<int> sourceRows = new();
-        private readonly SearchPagedList<int> searchPagedRows;
-        private readonly PageNavigationController<int> navigation;
-        private readonly VisualElement rowsHost;
+        private readonly List<int> shownRows = new();
+        private readonly HashSet<int> shownRowSet = new();
+        private readonly HashSet<CellBinding> boundCells = new();
+        private readonly VisualElement contentHost;
         private readonly VisualElement resizeHandle;
         private readonly Label titleLabel;
         private readonly Button foldoutButton;
-        private readonly Label emptyLabel;
         private readonly Label countLabel;
-        private readonly ToolbarSearchField searchField;
-        private readonly PagedListChrome chrome;
+        private readonly TableGridSearchField searchField;
         private readonly XeriContextMenu collectionActionsMenu;
         private readonly IVisualElementScheduledItem refreshTask;
 
-        // 행 목록 본문과 페이지 바는 처음 펼칠 때 EnsureBody가 만든다. 접힌 표는 헤더만 만든다.
-        private BaseListView listView;
-        private PaginationBar paginationBar;
-        private CollectionRowDragController rowDrag;
+        // 표와 행 메뉴는 처음 펼칠 때 EnsureBody가 만든다. 접힌 표는 머리만 만든다.
+        private TableGridView grid;
         private XeriContextMenu rowContextMenu;
 
         private CollectionValidation validation = new();
         private bool? hasUnlistedFields;
+        private string searchText = string.Empty;
         private int visibleRows;
         private bool fillsParent;
         private float resizeStartY;
         private int resizeStartRows;
         private bool isExpanded;
         private object selectedIdentity;
-        private string selectedColumnID;
         private bool restoringSelection;
-        private int renderedPageItemCount;
         private bool pendingRefresh;
         private bool pendingStructureRefresh;
         private ulong displayedRevision;
@@ -132,7 +201,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// 편집 세션으로 표를 구성한다.
         /// </summary>
         // ------------------------------------------------------------
-        public CollectionTable(CollectionSession session, CollectionTableOptions? options = null)
+        public CollectionTableGrid(CollectionSession session, CollectionTableGridOptions? options = null)
         {
             Session = session ?? throw new ArgumentNullException(nameof(session));
             kind = session.Kind;
@@ -140,57 +209,41 @@ namespace inonego.Xeri.Serializable.Editor
             isReadOnly = session.IsReadOnly;
             hasFieldColumns = HasFieldColumns(kind);
             addFlow = new CollectionAddFlow(session, () => panel != null, LogCommandFailure, RevealRow, RevealRow, CloseDetailEditors);
-            var settings = options ?? CollectionTableOptions.Default();
+            var settings = options ?? CollectionTableGridOptions.Default();
             label = settings.Label;
-            selectedColumnID = kind.Columns[0].ID;
             refreshTask = schedule.Execute(RefreshWhenIdle);
             refreshTask.Pause();
-            var stateKey = $"{session.SerializedObject.targetObject.GetEntityId()}.{source.Path}";
+            var target = session.SerializedObject.targetObject;
+            var stateKey = $"{target.GetEntityId()}.{source.Path}";
             foldoutStateKey = $"UniXeri.CollectionEditor.Foldout.{stateKey}";
             isExpanded = SessionState.GetBool(foldoutStateKey, false);
+
+            // 열 상태는 같은 형식의 같은 필드끼리 공유한다. 에디터를 다시 열면 바뀌는 값은 키에 쓰지 않는다.
+            viewStateKey = $"Collection.{target.GetType().FullName}.{source.Path}";
 
             // 사용자가 조절한 행 수는 같은 대상과 경로에 대해 편집 세션 동안 유지한다.
             rowsStateKey = $"UniXeri.CollectionEditor.Rows.{stateKey}";
             defaultVisibleRows = settings.VisibleRows;
             visibleRows = ClampVisibleRows(SessionState.GetInt(rowsStateKey, defaultVisibleRows));
-            searchPagedRows = new SearchPagedList<int>(sourceRows, GetSearchText, Math.Max(minimumPageSize, visibleRows));
-            navigation = new PageNavigationController<int>(searchPagedRows);
             AddToClassList("xeri-collection");
             EnableInClassList("xeri-collection--multi-column", kind.Columns.Count > 1);
-            styleSheets.Add(CollectionEditorResources.LoadTableStyle());
+            styleSheets.Add(CollectionEditorResources.LoadTableGridStyle());
 
-            // 구조는 UXML, 스타일은 USS, 데이터 연결과 명령은 표가 담당한다.
-            var content = new VisualElement();
-            CollectionEditorResources.LoadTableLayout().CloneTree(content);
-            chrome = new PagedListChrome();
-            Add(chrome);
-
-            var header = content.Q<VisualElement>("collection-header");
-            var search = content.Q<VisualElement>("collection-search");
-            var add = content.Q<VisualElement>("collection-add");
-            var rows = content.Q<VisualElement>("collection-rows-host");
-            if (header == null || search == null || add == null || rows == null)
-            {
-                throw new InvalidOperationException("CollectionTable의 UXML 구성이 잘못되었습니다.");
-            }
-
-            chrome.HeaderHost.Add(header);
-            chrome.SearchHost.Add(search);
-            chrome.ToolbarActionHost.Add(add);
-            chrome.ContentHost.Add(rows);
-
-            titleLabel = this.Q<Label>("collection-title");
+            // 구조는 UXML, 스타일은 USS, 데이터 연결과 명령은 이 크롬이 담당한다.
+            CollectionEditorResources.LoadTableGridLayout().CloneTree(this);
+            var header = Require<VisualElement>("collection-header");
+            contentHost = Require<VisualElement>("collection-content");
+            titleLabel = Require<Label>("collection-title");
             titleLabel.tooltip = kind.Description;
-            foldoutButton = this.Q<Button>("collection-foldout")
-                ?? throw new InvalidOperationException("CollectionTable 접기 버튼이 없습니다.");
+            foldoutButton = Require<Button>("collection-foldout");
             foldoutButton.clicked += () => SetExpanded(!isExpanded);
-            countLabel = this.Q<Label>("collection-count");
-            emptyLabel = this.Q<Label>("collection-empty");
-            searchField = this.Q<ToolbarSearchField>("collection-search");
+            countLabel = Require<Label>("collection-count");
+            searchField = Require<TableGridSearchField>("collection-search");
             searchField.tooltip = "항목 검색";
-            searchField.RegisterValueChangedCallback(evt => HandleSearchTextChanged(evt.newValue));
+            searchField.SearchesGrid = false;
+            searchField.SearchTextChanged += (_, _) => HandleSearchTextChanged(searchField.Text);
 
-            var actionsButton = this.Q<Button>("collection-actions");
+            var actionsButton = Require<Button>("collection-actions");
             actionsButton.text = string.Empty;
             actionsButton.iconImage = XeriIcon.LoadBackground("ellipsis");
             actionsButton.tooltip = "컬렉션 관리";
@@ -198,7 +251,7 @@ namespace inonego.Xeri.Serializable.Editor
             collectionActionsMenu = new XeriContextMenu(actionsButton);
             actionsButton.clicked += ShowCollectionActions;
 
-            // 제목·빈 헤더를 눌러도 접되, 관리 메뉴와 접기 버튼 클릭은 중복 처리하지 않는다. 채움 모드는 항상 펼친다.
+            // 제목·빈 머리를 눌러도 접되, 관리 메뉴와 접기 버튼 클릭은 중복 처리하지 않는다. 채움 모드는 항상 펼친다.
             header.RegisterCallback<ClickEvent>
             (
                 evt =>
@@ -208,9 +261,9 @@ namespace inonego.Xeri.Serializable.Editor
                         return;
                     }
 
-                    if (evt.target is VisualElement target
-                        && (target == actionsButton || actionsButton.Contains(target)
-                            || target == foldoutButton || foldoutButton.Contains(target)))
+                    if (evt.target is VisualElement clicked
+                        && (clicked == actionsButton || actionsButton.Contains(clicked)
+                            || clicked == foldoutButton || foldoutButton.Contains(clicked)))
                     {
                         return;
                     }
@@ -219,14 +272,12 @@ namespace inonego.Xeri.Serializable.Editor
                 }
             );
 
-            var addButton = this.Q<Button>("collection-add");
+            var addButton = Require<Button>("collection-add");
             addButton.text = string.Empty;
             addButton.iconImage = XeriIcon.LoadBackground("plus");
             addButton.tooltip = "항목 추가";
             addButton.SetEnabled(!isReadOnly && kind.Supports(CollectionEdits.Add));
             addButton.clicked += () => HandleAdd(addButton);
-
-            rowsHost = rows;
 
             // 목록 하단 손잡이로 표시 행 수를 조절하고 더블 클릭으로 기본값을 복원한다.
             resizeHandle = new VisualElement
@@ -238,12 +289,15 @@ namespace inonego.Xeri.Serializable.Editor
             resizeHandle.RegisterCallback<PointerDownEvent>(HandleResizePointerDown);
             resizeHandle.RegisterCallback<PointerMoveEvent>(HandleResizePointerMove);
             resizeHandle.RegisterCallback<PointerUpEvent>(HandleResizePointerUp);
-            chrome.ContentHost.Add(resizeHandle);
+            contentHost.Add(resizeHandle);
+
+            // 행 명령 단축키는 표 기본 키 처리보다 먼저 받고, 표가 쓰지 않은 Escape는 올라올 때 받는다.
+            RegisterCallback<KeyDownEvent>(HandleShortcutKeyDown, TrickleDown.TrickleDown);
+            RegisterCallback<KeyDownEvent>(HandleEscapeKeyDown);
+            RegisterCallback<MouseUpEvent>(HandleInlineContextMouseUp, TrickleDown.TrickleDown);
 
             // 부모를 채우는 배치는 호스트 USS가 --xeri-collection-fill로 지정한다.
             RegisterCallback<CustomStyleResolvedEvent>(HandleCustomStyleResolved);
-            rowsHost.RegisterCallback<GeometryChangedEvent>(HandleRowsGeometryChanged);
-            emptyLabel.pickingMode = PickingMode.Ignore;
 
             // 셀 편집은 바인딩 통지로 확정하고 외부 변경 관찰은 표시 갱신만 한다.
             // 객체 전체가 아니라 이 컬렉션 필드만 감시해 다른 필드 편집에는 반응하지 않는다.
@@ -260,6 +314,12 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 SaveRevision();
             }
+        }
+
+        private T Require<T>(string elementName)
+        where T : VisualElement
+        {
+            return XeriUIResources.Require<T>(this, elementName, "CollectionTableGrid");
         }
 
         private static bool HasFieldColumns(CollectionKind kind)
@@ -281,7 +341,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 헤더 컨트롤러와 첫 행 바인딩을 보존하며 펼침 상태를 바꾼다.
+        /// 머리 컨트롤러와 첫 행 바인딩을 보존하며 펼침 상태를 바꾼다.
         /// </summary>
         // ------------------------------------------------------------
         private void SetExpanded(bool expanded)
@@ -308,36 +368,52 @@ namespace inonego.Xeri.Serializable.Editor
             }
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 행 목록과 행 메뉴·드래그를 처음 필요할 때 한 번 만든다.
+        /// <br/> 표와 행 메뉴를 처음 필요할 때 한 번 만든다.
+        /// <br/> 열이 하나면 헤더를 숨기고, 행을 옮길 수 있는 종류만 끌기 손잡이를 둔다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private void EnsureBody()
         {
-            if (listView != null)
+            if (grid != null)
             {
                 return;
             }
 
-            listView = CreateListView();
-            listView.name = "collection-rows";
-            rowContextMenu = new XeriContextMenu(listView, HandleRowContextMenuKeyDown);
-            listView.selectionType = SelectionType.Single;
-            listView.reorderable = false;
-            listView.reorderMode = ListViewReorderMode.Simple;
-            listView.fixedItemHeight = rowHeight;
-            listView.showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly;
-            listView.focusable = true;
-            rowDrag = new CollectionRowDragController(Session, sourceRows, searchPagedRows, listView, SelectDragPageRow, MoveRowToIndex);
-            listView.itemsSource = searchPagedRows.PageItemsSource;
-            listView.selectionChanged += HandleSelectionChanged;
-            renderedPageItemCount = searchPagedRows.PageItems.Count;
+            var options = TableGridOptions.Inspector();
+            options.Access = isReadOnly ? TableGridAccess.ReadOnly : TableGridAccess.Editable;
+            options.RowHeight = rowHeight;
+            options.ShowHeader = kind.Columns.Count > 1;
+            options.ShowReorderHandle = !isReadOnly && kind.CanReorder;
+            options.EmptyText = emptyText;
+            options.NoResultText = noResultText;
+            grid = new TableGridView(options)
+            {
+                name = "collection-rows",
+            };
+            grid.AddToClassList("xeri-collection__grid");
+            grid.SetColumns(CreateGridColumns());
 
-            // 기본 DropdownMenu는 "/"를 계층 구분자로 쓰고 단축키 열이 없으므로 자체 메뉴를 쓴다.
-            listView.RegisterCallback<MouseUpEvent>(HandleContextMouseUp, TrickleDown.TrickleDown);
-            listView.RegisterCallback<KeyDownEvent>(HandleKeyDown, TrickleDown.TrickleDown);
-            listView.RegisterCallback<FocusOutEvent>
+            // 검색창은 표의 테마를 따른다. 검색은 이 크롬이 거르므로 표 검색으로 보내지 않는다.
+            searchField.Grid = grid;
+
+            // 열 상태(표시·순서·폭)만 저장하고 쿼리·세션은 저장하지 않는다.
+            TableGridViewStatePrefs.Bind(grid, viewStateKey, includeQuery: false);
+
+            // 행 메뉴는 표가 행을 고른 뒤 넘긴 위치에 이 크롬이 연다.
+            grid.HostContextMenu = ShowRowContextMenu;
+            rowContextMenu = new XeriContextMenu(grid, HandleRowContextMenuKeyDown);
+            grid.SelectionChanged += HandleSelectionChanged;
+            grid.EditRequested += HandleEditRequested;
+            grid.DetailRequested += HandleDetailRequested;
+            grid.RowActivated += HandleRowActivated;
+            if (!isReadOnly && kind.CanReorder)
+            {
+                grid.MoveRowsRequested += HandleMoveRowsRequested;
+            }
+
+            grid.RegisterCallback<FocusOutEvent>
             (
                 _ =>
                 {
@@ -348,62 +424,118 @@ namespace inonego.Xeri.Serializable.Editor
                 }
             );
 
-            // 빈 상태 안내는 목록 위에 겹쳐 높이를 바꾸지 않는다.
-            rowsHost.Insert(0, listView);
-            chrome.BindPageListView(listView);
-            paginationBar = new PaginationBar(searchPagedRows.Paginator, HandlePageNavigation);
-            chrome.PaginationHost.Add(paginationBar);
-
-            // 이미 패널에 붙은 뒤 만들어졌으면 붙을 때 하던 드래그 연결을 여기서 한다.
-            if (panel != null && !isReadOnly)
-            {
-                rowDrag.Bind();
-            }
+            // 높이 조절 손잡이는 표 아래에 둔다.
+            contentHost.Insert(0, grid);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// 열이 하나면 헤더 없는 ListView, 여럿이면 다중 열 표를 만든다.
+        /// <br/> 종류의 열마다 표 열을 만든다. 값 규칙 글자는 셀 drawer 요약(검색 글자)이다.
+        /// <br/> 보기 정렬·필터·그룹·표 검색은 쓰지 않는다(표시 순서는 종류가 정한다).
         /// </summary>
-        // ------------------------------------------------------------
-        private BaseListView CreateListView()
+        // --------------------------------------------------------------------------------
+        private IReadOnlyList<TableGridColumn> CreateGridColumns()
         {
-            if (kind.Columns.Count == 1)
-            {
-                // 다중 열 표처럼 셀을 항목 안에 둔다. 셀이 곧 항목이면 Unity 항목 스타일이 셀 여백을 덮어 행이 위로 치우친다.
-                var column = kind.Columns[0];
-                return new ListView
-                {
-                    makeItem = () => MakeItem(column),
-                    bindItem = (item, index) => BindCell(item[0], index),
-                    unbindItem = (item, index) => UnbindCell(item[0], index),
-                };
-            }
-
-            // 고정 열은 유지하고 가변 열은 남는 폭을 채운다. 창 폭에 따라 달라지는 열 폭은 저장하지 않는다.
-            var table = new MultiColumnListView();
-            table.sortingMode = ColumnSortingMode.None;
-            table.columns.resizable = true;
-            table.columns.resizePreview = false;
-            var layouts = new List<TableColumnLayout>(kind.Columns.Count);
+            var columns = new List<TableGridColumn>(kind.Columns.Count);
             var lastColumn = kind.Columns[kind.Columns.Count - 1];
             foreach (var column in kind.Columns)
             {
                 var spec = column;
-                var layout = spec == lastColumn ? ReserveRowActions(spec.Layout) : spec.Layout;
-                var tableColumn = TableColumnSizing.CreateColumn(spec.ID, spec.Header, layout);
-                tableColumn.resizable = layout.Mode == TableColumnLayoutMode.Flexible;
-                tableColumn.sortable = false;
-                tableColumn.makeHeader = () => MakeColumnHeader(spec);
-                tableColumn.makeCell = () => MakeCell(spec);
-                tableColumn.bindCell = BindCell;
-                tableColumn.unbindCell = UnbindCell;
-                table.columns.Add(tableColumn);
-                layouts.Add(layout);
+                var drawer = CollectionCellDrawers.Resolve(spec);
+                var isLast = spec == lastColumn;
+                var layout = isLast ? ReserveRowActions(spec.Layout) : spec.Layout;
+                var edit = CreateGridEdit(spec);
+                columns.Add
+                (
+                    new TableGridColumn<int, object>
+                    (
+                        spec.ID, spec.Header, sourceIndex => GetCellText(sourceIndex, spec, drawer),
+                        TableGridFormats.Default<object>(), layout, TableGridAlignment.Left, edit,
+                        filterable: false, sortable: false, groupable: false, searchable: false,
+                        view: new CellView(this, spec, drawer, isLast)
+                    )
+                );
             }
 
-            table.ApplyColumnSizing(layouts);
-            return table;
+            return columns;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 열 편집 방식을 표 편집 방식으로 바꾼다.
+        /// <br/> ReadOnly → None, Inline → Inline(Immediate),
+        /// <br/> Delayed → Inline(Confirm), 복합 값 열 → Detail.
+        /// <br/> 초안 열은 셀 입력칸으로 고칠 수 있으면 Inline(Confirm),
+        /// <br/> 아니면 Detail(초안 창)이다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private TableGridCellEdit CreateGridEdit(CollectionColumn column)
+        {
+            if (isReadOnly || column.Edit == CollectionCellEdit.ReadOnly)
+            {
+                return TableGridCellEdit.None;
+            }
+
+            if (IsComplexColumn(column))
+            {
+                return TableGridCellEdit.Detail;
+            }
+
+            return column.Edit switch
+            {
+                CollectionCellEdit.Inline => TableGridCellEdit.Inline(TableGridInlineCommit.Immediate),
+                CollectionCellEdit.Delayed => TableGridCellEdit.Inline(TableGridInlineCommit.Confirm),
+                _ => CollectionInlineInput.Supports(column)
+                    ? TableGridCellEdit.Inline(TableGridInlineCommit.Confirm)
+                    : TableGridCellEdit.Detail,
+            };
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 셀 안에서 바로 고칠 수 없는 복합 값 열인지 반환한다.
+        /// <br/> 관리 참조·목록·일반 class/struct가 복합 값이다.
+        /// <br/> 형식을 모르면 단순 값으로 본다(셀 안 컨트롤의 포커스를 지키기 위해서다).
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static bool IsComplexColumn(CollectionColumn column)
+        {
+            if (column.IsManagedReference)
+            {
+                return true;
+            }
+
+            var type = column.ValueType;
+            if (type == null || type == typeof(string) || type.IsPrimitive || type.IsEnum || type == typeof(decimal))
+            {
+                return false;
+            }
+
+            if (typeof(UnityEngine.Object).IsAssignableFrom(type))
+            {
+                return false;
+            }
+
+            // 배열·목록은 복합 값이고, UnityEngine의 기본 값 형식(Vector3, Color 등)은 단순 값이다.
+            return typeof(IList).IsAssignableFrom(type) || type.Namespace != "UnityEngine";
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 표 열이 가진 편집 방식을 읽는다(CreateGridColumns가 열마다 정한 값).
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private TableGridCellEdit GetGridEdit(CollectionColumn column)
+        {
+            foreach (var gridColumn in grid.Columns)
+            {
+                if (string.Equals(gridColumn.ID, column.ID, StringComparison.Ordinal))
+                {
+                    return gridColumn.Edit;
+                }
+            }
+
+            throw new InvalidOperationException($"표에 없는 열입니다: {column.ID}");
         }
 
         // ------------------------------------------------------------
@@ -411,29 +543,27 @@ namespace inonego.Xeri.Serializable.Editor
         /// 행 버튼(상세 편집·삭제)이 들어가는 마지막 열에 버튼 폭을 더한다.
         /// </summary>
         // ------------------------------------------------------------
-        private TableColumnLayout ReserveRowActions(TableColumnLayout layout)
+        private TableGridColumnLayout ReserveRowActions(TableGridColumnLayout layout)
         {
-            // 아이콘 버튼은 20px + 좌우 여백 2px씩이다(CollectionTableStyle.uss).
-            const float buttonWidth = 24f;
-            var reserved = (hasFieldColumns ? 2 : 1) * buttonWidth;
-            if (layout.Mode == TableColumnLayoutMode.Fixed)
+            var reserved = (hasFieldColumns ? 2 : 1) * rowActionButtonWidth;
+            if (layout.Mode == TableGridColumnLayoutMode.Fixed)
             {
-                return TableColumnLayout.Fixed(layout.Width + reserved);
+                return TableGridColumnLayout.Fixed(layout.Width + reserved);
             }
 
             var maxWidth = layout.MaxWidth > 0f ? layout.MaxWidth + reserved : layout.MaxWidth;
-            return TableColumnLayout.Flexible(layout.Width + reserved, layout.MinWidth + reserved, maxWidth, layout.StretchWeight);
+            return TableGridColumnLayout.Flexible(layout.Width + reserved, layout.MinWidth + reserved, maxWidth, layout.StretchWeight);
         }
 
-        private static VisualElement MakeColumnHeader(CollectionColumn column)
+        private string GetCellText(int sourceIndex, CollectionColumn column, ICollectionCellDrawer drawer)
         {
-            var header = new VisualElement();
-            header.AddToClassList("xeri-collection__column-header");
+            if (sourceIndex < 0 || sourceIndex >= source.Count)
+            {
+                return string.Empty;
+            }
 
-            var label = new Label(column.Header);
-            label.AddToClassList("xeri-collection__column-header-label");
-            header.Add(label);
-            return header;
+            var property = source.GetCell(sourceIndex, column);
+            return property == null ? string.Empty : drawer.GetSummary(property, column) ?? string.Empty;
         }
 
     #endregion
@@ -442,61 +572,26 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 한 열 표의 항목을 만들고 셀을 그 안에 둔다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private VisualElement MakeItem(CollectionColumn column)
-        {
-            var item = new VisualElement();
-            item.AddToClassList("xeri-collection__item");
-            item.Add(MakeCell(column));
-            return item;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// 셀 UI와 콜백을 한 번 만들고 재사용할 연결 상태를 함께 보관한다.
         /// </summary>
         // ------------------------------------------------------------
-        private VisualElement MakeCell(CollectionColumn column)
+        private VisualElement MakeCell(CollectionColumn column, ICollectionCellDrawer drawer, bool hasRowActions)
         {
-            var drawer = CollectionCellDrawers.Resolve(column);
             var cell = new VisualElement();
             cell.AddToClassList("xeri-collection__cell");
             var binding = new CellBinding
             {
                 Column = column,
                 Drawer = drawer,
-                Row = new VisualElement(),
+                Root = cell,
                 Content = drawer.CreateElement(column),
                 Validation = new SeverityIndicator(),
             };
             cell.userData = binding;
-            binding.Row.AddToClassList("xeri-collection__row");
-            cell.Add(binding.Row);
 
-            var isFirst = column == kind.Columns[0];
-            if (!isReadOnly && isFirst && kind.CanReorder)
-            {
-                binding.DragHandle = rowDrag.CreateReorderHandle();
-                binding.Row.Add(binding.DragHandle);
-            }
-
-            // 진단 아이콘은 드래그 핸들 뒤, 값 콘텐츠 앞에 둔다.
-            binding.Row.Add(binding.Validation);
-            binding.Row.RegisterCallback<PointerDownEvent>
-            (
-                evt =>
-                {
-                    if (binding.SourceIndex >= 0 && (evt.button == 0 || evt.button == 1))
-                    {
-                        selectedColumnID = column.ID;
-                        listView.SetSelection(binding.PageIndex);
-                    }
-                },
-                TrickleDown.TrickleDown
-            );
-            binding.Row.Add(binding.Content);
+            // 진단 아이콘은 값 콘텐츠 앞에 둔다. 끌기 손잡이는 표가 행 앞에 둔다.
+            cell.Add(binding.Validation);
+            cell.Add(binding.Content);
 
             // 셀을 더블 클릭하면 상세 편집을 연다. 셀 안의 입력 필드는 더블 클릭을 단어 선택에 쓰므로 제외한다.
             binding.Content.RegisterCallback<PointerDownEvent>
@@ -514,9 +609,9 @@ namespace inonego.Xeri.Serializable.Editor
                 }
             );
 
-            if (column == kind.Columns[kind.Columns.Count - 1])
+            if (hasRowActions)
             {
-                binding.Row.Add(CreateRowActions(binding));
+                cell.Add(CreateRowActions(binding));
             }
 
             return cell;
@@ -544,47 +639,40 @@ namespace inonego.Xeri.Serializable.Editor
                 rowActions.Add(binding.RowEditButton);
             }
 
-            var deleteButton = CollectionIconButton.Create(() => HandleRemoveAt(binding.PageIndex, binding.SourceIndex), "trash", "행 삭제");
+            var deleteButton = CollectionIconButton.Create(() => HandleRemoveAt(binding.SourceIndex), "trash", "행 삭제");
             deleteButton.AddToClassList("xeri-collection__row-remove");
             deleteButton.SetEnabled(!isReadOnly && kind.Supports(CollectionEdits.Remove));
             rowActions.Add(deleteButton);
             return rowActions;
         }
 
-        private void BindCell(VisualElement element, int pageIndex)
+        private void BindCell(CellBinding binding, in TableGridCellContext context)
         {
-            if (pageIndex < 0 || pageIndex >= searchPagedRows.PageItems.Count)
+            if (!(context.Item is int sourceIndex) || sourceIndex < 0 || sourceIndex >= source.Count)
             {
-                UnbindCell(element, pageIndex);
+                UnbindCell(binding);
                 return;
             }
 
-            var binding = (CellBinding)element.userData;
-            binding.PageIndex = pageIndex;
-            binding.SourceIndex = searchPagedRows.PageItems[pageIndex];
-            binding.Row.userData = binding.SourceIndex;
+            binding.SourceIndex = sourceIndex;
+            binding.GridContext = context;
+            boundCells.Add(binding);
             BindContent(binding);
-            if (binding.DragHandle != null)
-            {
-                rowDrag.UpdateReorderHandle(binding.DragHandle, pageIndex, binding.SourceIndex);
-            }
-
             if (binding.RowEditButton != null)
             {
-                var hasDetails = HasUnlistedFields(binding.SourceIndex);
+                var hasDetails = HasUnlistedFields(sourceIndex);
                 binding.RowEditButton.style.display = hasDetails ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
             RefreshCellValidation(binding);
         }
 
-        private static void UnbindCell(VisualElement element, int _)
+        private void UnbindCell(CellBinding binding)
         {
-            var binding = (CellBinding)element.userData;
+            boundCells.Remove(binding);
             binding.Drawer.Unbind(binding.Content);
             binding.SourceIndex = -1;
-            binding.PageIndex = -1;
-            binding.Row.userData = null;
+            binding.GridContext = null;
             binding.Validation.SetSeverity(null);
             binding.Validation.tooltip = null;
         }
@@ -592,7 +680,8 @@ namespace inonego.Xeri.Serializable.Editor
         private void BindContent(CellBinding binding)
         {
             var property = source.GetCell(binding.SourceIndex, binding.Column);
-            binding.Drawer.Bind(binding.Content, new CollectionCell(this, binding.SourceIndex, binding.Column, property, isReadOnly));
+            var cell = new CollectionCell(this, binding.SourceIndex, binding.Column, property, isReadOnly, binding.GridContext);
+            binding.Drawer.Bind(binding.Content, cell);
         }
 
         // ------------------------------------------------------------
@@ -675,6 +764,18 @@ namespace inonego.Xeri.Serializable.Editor
 
     #region 행 표시와 선택 복원
 
+        private bool IsSearching => !string.IsNullOrWhiteSpace(searchText);
+
+        private static string GetRowID(int sourceIndex)
+        {
+            return sourceIndex.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static bool TryGetRowIndex(string rowID, out int sourceIndex)
+        {
+            return int.TryParse(rowID, NumberStyles.None, CultureInfo.InvariantCulture, out sourceIndex);
+        }
+
         // ------------------------------------------------------------
         /// <summary>
         /// 현재 표시 순서와 검색 결과를 다시 구성해 표시한다.
@@ -683,7 +784,7 @@ namespace inonego.Xeri.Serializable.Editor
         private void RefreshRows()
         {
             UpdateRows();
-            RefreshPageView();
+            RefreshView(false);
         }
 
         private void UpdateRows()
@@ -694,37 +795,55 @@ namespace inonego.Xeri.Serializable.Editor
             sourceRows.Clear();
             sourceRows.AddRange(source.GetDisplayRows());
             validation = Session.Validate();
-            searchPagedRows.Refresh();
+            RebuildShownRows();
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 페이지 조각을 표시하고 여전히 같은 항목인 선택을 복구한다.
+        /// 표시 순서의 행 가운데 검색어에 맞는 행만 보일 행으로 고른다.
         /// </summary>
         // ------------------------------------------------------------
-        private void RefreshPageView()
+        private void RebuildShownRows()
+        {
+            shownRows.Clear();
+            shownRowSet.Clear();
+            var searching = IsSearching;
+            foreach (var sourceIndex in sourceRows)
+            {
+                if (searching && !SearchTextUtility.Matches(GetSearchText(sourceIndex), searchText))
+                {
+                    continue;
+                }
+
+                shownRows.Add(sourceIndex);
+                shownRowSet.Add(sourceIndex);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 보일 행을 표에 넘기고 여전히 같은 항목인 선택을 복구한다.
+        /// <br/> resetScroll이면 맨 위로 스크롤한다(검색어 변경).
+        /// </summary>
+        // ------------------------------------------------------------
+        private void RefreshView(bool resetScroll)
         {
             // 접힌 표에서 컬렉션 관리 명령을 실행해도 목록 갱신이 필요하면 본문을 만든다.
             EnsureBody();
-            rowDrag.CancelDrag();
-            chrome.CancelPageScroll();
             restoringSelection = true;
             try
             {
-                var itemCount = searchPagedRows.PageItems.Count;
-                if (renderedPageItemCount != itemCount)
-                {
-                    listView.Rebuild();
-                    renderedPageItemCount = itemCount;
-                }
-                else
-                {
-                    listView.RefreshItems();
-                }
+                // 검색은 이 크롬이 걸러 결과 행만 넘기므로 걸러진 상태를 표에 알린다.
+                // 검색 중에는 표시 순서가 원본과 달라지므로 행을 옮기지 않는 소스를 준다.
+                var searching = IsSearching;
+                var activeColumnID = grid.ActiveColumnID;
+                grid.IsSourceNarrowed = searching;
+                var rows = new List<int>(shownRows);
+                var canReorder = !isReadOnly && kind.CanReorder && !searching;
+                grid.SetSource(new TableGridListSource<int>(rows, GetRowID, canReorder), !resetScroll);
 
                 var selected = selectedIdentity == null ? -1 : source.Find(selectedIdentity);
-                var pageIndex = searchPagedRows.IndexOfPage(selected);
-                listView.SetSelection(pageIndex >= 0 ? pageIndex : -1);
+                grid.SelectRow(shownRowSet.Contains(selected) ? GetRowID(selected) : null, activeColumnID);
             }
             finally
             {
@@ -736,15 +855,15 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 개수·빈 상태·높이를 현재 상태에 맞게 표시한다.
+        /// 개수·검색 상태·높이를 현재 상태에 맞게 표시한다.
         /// </summary>
         // ------------------------------------------------------------
         private void RefreshStatus()
         {
-            var searching = isExpanded && !string.IsNullOrWhiteSpace(searchPagedRows.SearchText);
+            var searching = isExpanded && IsSearching;
             var count = source.Count;
             titleLabel.text = label ?? source.DisplayName;
-            countLabel.text = searching ? $"{searchPagedRows.FilteredCount}/{count}" : $"{count}";
+            countLabel.text = searching ? $"{shownRows.Count}/{count}" : $"{count}";
             countLabel.tooltip = searching ? "검색 결과 / 전체 항목" : "전체 항목 수";
             EnableInClassList("xeri-collection--searching", searching);
             if (!isExpanded)
@@ -752,11 +871,34 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            emptyLabel.text = searching ? "검색 결과가 없습니다." : "항목이 없습니다.";
-            emptyLabel.style.display = searchPagedRows.PageItems.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            listView.style.display = DisplayStyle.Flex;
-            paginationBar.style.display = DisplayStyle.Flex;
             ApplyListHeight();
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 행을 고르고 표의 키보드 이동 기준으로 둔다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void SelectSourceRow(int sourceIndex)
+        {
+            if (grid == null)
+            {
+                return;
+            }
+
+            var shown = shownRowSet.Contains(sourceIndex);
+            selectedIdentity = shown ? source.GetIdentity(sourceIndex) : null;
+            grid.SelectRow(shown ? GetRowID(sourceIndex) : null, grid.ActiveColumnID);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 고른 행이 보이도록 스크롤한다. 배치 전이면 표가 배치 뒤에 맞춘다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void ScrollToSelection()
+        {
+            grid?.ScrollToSelection();
         }
 
     #endregion
@@ -765,61 +907,37 @@ namespace inonego.Xeri.Serializable.Editor
 
         private static int ClampVisibleRows(int rows)
         {
-            return Math.Clamp(rows, 1, CollectionTableOptions.MaxVisibleRows);
+            return Math.Clamp(rows, 1, CollectionTableGridOptions.MaxVisibleRows);
         }
 
         private float HeaderHeight => kind.Columns.Count > 1 ? tableHeaderHeight : 0f;
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// <br/> 행 모드는 표시 행 수만큼 높이를 고정하고 초과분만 스크롤한다.
-        /// <br/> 채움 모드는 부모 높이를 따르고 들어가는 행 수로 페이지를 나눈다.
+        /// <br/> 행 모드는 표시 행 수만큼 높이를 고정하고 초과분은 표 안에서 스크롤한다.
+        /// <br/> 채움 모드는 부모 높이를 따르고 표 안에서 스크롤한다.
         /// </summary>
         // ----------------------------------------------------------------------
         private void ApplyListHeight()
         {
             // 본문이 아직 없으면 처음 펼칠 때 RefreshStatus가 높이를 다시 적용한다.
-            if (listView == null)
+            if (grid == null)
             {
                 return;
             }
 
-            var scroll = listView.Q<ScrollView>();
             if (fillsParent)
             {
-                listView.style.height = StyleKeyword.Null;
-                if (scroll != null)
-                {
-                    scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-                }
-
+                grid.style.height = StyleKeyword.Null;
+                grid.style.flexGrow = 1f;
+                grid.style.flexShrink = 1f;
                 return;
             }
 
-            // 정확히 표시 행 수일 때 스크롤바가 생기지 않도록 여유를 포함하고 너비 변화 없이 항상 세로 스크롤바를 둔다.
-            listView.style.height = HeaderHeight + visibleRows * rowHeight + viewportHeightAllowance;
-            if (scroll != null)
-            {
-                scroll.verticalScrollerVisibility = ScrollerVisibility.AlwaysVisible;
-            }
-        }
-
-        private void SetPageSize(int size)
-        {
-            if (!searchPagedRows.SetPageSize(size))
-            {
-                return;
-            }
-
-            if (TryGetSelectedSourceIndex(out var selected))
-            {
-                searchPagedRows.MoveToItem(selected);
-            }
-
-            if (isExpanded)
-            {
-                RefreshPageView();
-            }
+            // 정확히 표시 행 수일 때 스크롤바가 생기지 않도록 여유를 포함한다.
+            grid.style.flexGrow = 0f;
+            grid.style.flexShrink = 0f;
+            grid.style.height = HeaderHeight + visibleRows * rowHeight + viewportHeightAllowance;
         }
 
         private void SetVisibleRows(int rows)
@@ -831,7 +949,6 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             visibleRows = rows;
-            SetPageSize(Math.Max(minimumPageSize, visibleRows));
             ApplyListHeight();
         }
 
@@ -845,10 +962,6 @@ namespace inonego.Xeri.Serializable.Editor
 
             fillsParent = fill;
             EnableInClassList("xeri-collection--fill", fill);
-            if (!fill)
-            {
-                SetPageSize(Math.Max(minimumPageSize, visibleRows));
-            }
 
             // 호스트가 공간을 맡긴 채움 모드에서는 접지 않고 항상 목록을 보인다.
             if (fill && !isExpanded)
@@ -857,17 +970,6 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             ApplyListHeight();
-        }
-
-        private void HandleRowsGeometryChanged(GeometryChangedEvent evt)
-        {
-            if (!fillsParent || !isExpanded)
-            {
-                return;
-            }
-
-            var available = evt.newRect.height - HeaderHeight - viewportHeightAllowance;
-            SetPageSize(Math.Max(1, (int)Math.Floor(available / rowHeight)));
         }
 
         private void HandleResizePointerDown(PointerDownEvent evt)
@@ -923,11 +1025,6 @@ namespace inonego.Xeri.Serializable.Editor
 
         private void HandleAttach(AttachToPanelEvent _)
         {
-            if (!isReadOnly)
-            {
-                rowDrag?.Bind();
-            }
-
             CollectionSession.Committed -= HandleExternalChange;
             CollectionSession.Committed += HandleExternalChange;
             Undo.undoRedoPerformed -= HandleUndoRedo;
@@ -954,7 +1051,6 @@ namespace inonego.Xeri.Serializable.Editor
             CollectionSession.Committed -= HandleExternalChange;
             Undo.undoRedoPerformed -= HandleUndoRedo;
             refreshTask.Pause();
-            rowDrag?.Unbind();
         }
 
         // ------------------------------------------------------------
@@ -1107,7 +1203,7 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(searchPagedRows.SearchText))
+            if (IsSearching)
             {
                 if (!IsEditingCell())
                 {
@@ -1117,20 +1213,18 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
+            // 보이는 셀만 값과 진단을 다시 연결한다. 표 행은 다시 읽지 않아 입력 중인 컨트롤을 유지한다.
             ClearPendingRefresh();
             validation = Session.Validate();
-            listView.Query<VisualElement>(className: "xeri-collection__cell").ForEach
-            (
-                element =>
+            foreach (var binding in boundCells)
+            {
+                if (binding.SourceIndex >= 0 && binding.SourceIndex < source.Count)
                 {
-                    var binding = (CellBinding)element.userData;
-                    if (binding.SourceIndex >= 0 && binding.SourceIndex < source.Count)
-                    {
-                        BindContent(binding);
-                        RefreshCellValidation(binding);
-                    }
+                    BindContent(binding);
+                    RefreshCellValidation(binding);
                 }
-            );
+            }
+
             RefreshStatus();
         }
 
@@ -1172,15 +1266,15 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         private bool IsEditingCell()
         {
-            if (listView == null)
+            if (grid == null)
             {
                 return false;
             }
 
             var focused = panel?.focusController?.focusedElement as VisualElement;
-            while (focused != null && focused != listView)
+            while (focused != null && focused != grid)
             {
-                if (focused.ClassListContains("unity-base-field") && listView.Contains(focused))
+                if (focused.ClassListContains("unity-base-field") && grid.Contains(focused))
                 {
                     return true;
                 }
@@ -1191,13 +1285,25 @@ namespace inonego.Xeri.Serializable.Editor
             return false;
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 표에 보인 행이 원본과 달라졌는지 확인한다.
+        /// <br/> 관찰하지 않은 외부 변경이나 보류 중인 구조 갱신이 있으면 달라진 것이다.
+        /// <br/> 달라졌으면 이전 표시의 행 ID로 만든 요청을 실행하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private bool IsDisplayStale()
+        {
+            return Session.Observe() || Session.Revision != displayedRevision || pendingStructureRefresh;
+        }
+
     #endregion
 
     #region 편집 결과 표시
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 편집 결과 행을 검색과 페이지 밖에서도 보이게 한다.
+        /// 편집 결과 행을 검색 밖에서도 보이게 한다.
         /// </summary>
         // ------------------------------------------------------------
         private void RevealRow(CollectionEditResult result)
@@ -1222,7 +1328,6 @@ namespace inonego.Xeri.Serializable.Editor
             // 바뀐 행을 유일하게 알 수 없으면 다른 행을 임의로 선택하지 않는다.
             selectedIdentity = null;
             RefreshRows();
-            listView.ClearSelection();
         }
 
         private void RevealRow(int sourceIndex)
@@ -1237,18 +1342,18 @@ namespace inonego.Xeri.Serializable.Editor
             UpdateRows();
 
             // 결과가 검색 밖이면 검색을 해제해 성공 결과를 숨기지 않는다.
-            var searchText = searchPagedRows.SearchText;
-            if (!string.IsNullOrWhiteSpace(searchText) && !SearchTextUtility.Matches(GetSearchText(sourceIndex), searchText))
+            if (IsSearching && !SearchTextUtility.Matches(GetSearchText(sourceIndex), searchText))
             {
-                searchField.SetValueWithoutNotify(string.Empty);
-                searchPagedRows.SetSearchText(string.Empty);
+                searchField.SetTextWithoutNotify(string.Empty);
+                searchText = string.Empty;
+                RebuildShownRows();
             }
 
-            searchPagedRows.MoveToItem(sourceIndex);
-            RefreshPageView();
-            var pageIndex = searchPagedRows.IndexOfPage(sourceIndex);
-            listView.SetSelection(pageIndex);
-            listView.ScrollToItem(pageIndex);
+            RefreshView(false);
+
+            // 값 형식 행은 같은 값이 여럿일 수 있으므로 결과 행을 직접 고른다.
+            SelectSourceRow(sourceIndex);
+            ScrollToSelection();
         }
 
         private void CloseDetailEditors()
@@ -1263,12 +1368,13 @@ namespace inonego.Xeri.Serializable.Editor
 
     #endregion
 
-    #region 검색·추가·페이지
+    #region 검색·추가
 
         private void HandleSearchTextChanged(string value)
         {
-            searchPagedRows.SetSearchText(value);
-            RefreshPageView();
+            searchText = value ?? string.Empty;
+            RebuildShownRows();
+            RefreshView(true);
         }
 
         private string GetSearchText(int sourceIndex)
@@ -1291,34 +1397,11 @@ namespace inonego.Xeri.Serializable.Editor
             }
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 페이지 이동 결과를 선택 항목과 목록 스크롤에 반영한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void HandlePageNavigation(PageNavigationRequest request)
-        {
-            var result = navigation.Navigate(request);
-            if (!result.ShouldApply)
-            {
-                return;
-            }
-
-            selectedIdentity = result.SelectedIndex >= 0
-                ? source.GetIdentity(searchPagedRows.PageItems[result.SelectedIndex])
-                : null;
-            RefreshPageView();
-            if (result.SelectedIndex >= 0)
-            {
-                chrome.ScrollToPageBoundary(result.ScrollAnchor);
-            }
-        }
-
     #endregion
 
-    #region 선택과 키보드 입력
+    #region 선택과 표 요청
 
-        private void HandleSelectionChanged(IEnumerable<object> selectedItems)
+        private void HandleSelectionChanged(object sender, TableGridSelectionChanged evt)
         {
             if (!restoringSelection)
             {
@@ -1328,86 +1411,211 @@ namespace inonego.Xeri.Serializable.Editor
             RefreshStatus();
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 유효한 드래그 시작 시 첫 열과 페이지 행 선택을 맞춘다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void SelectDragPageRow(int pageIndex)
-        {
-            selectedColumnID = kind.Columns[0].ID;
-            listView.SetSelection(pageIndex);
-        }
-
         private bool TryGetSelectedSourceIndex(out int sourceIndex)
         {
             sourceIndex = -1;
-            var pageIndex = listView.selectedIndex;
-            if (pageIndex < 0 || pageIndex >= searchPagedRows.PageItems.Count)
+            if (grid == null)
             {
                 return false;
             }
 
-            sourceIndex = searchPagedRows.PageItems[pageIndex];
-            return true;
+            var selection = grid.Selection;
+            if (selection.Kind != TableGridSelectionKind.Row || selection.RowIDs.Count == 0)
+            {
+                return false;
+            }
+
+            return TryGetRowIndex(selection.RowIDs[0], out sourceIndex) && IsCurrentRow(sourceIndex);
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 표에 포커스가 있을 때 행 명령 단축키를 처리한다.
+        /// 직렬화 인덱스가 지금 표에 보이는 행인지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void HandleKeyDown(KeyDownEvent evt)
+        private bool IsCurrentRow(int sourceIndex)
         {
-            if (IsEditingFieldTarget(evt.target as VisualElement))
+            return sourceIndex >= 0 && sourceIndex < source.Count && shownRowSet.Contains(sourceIndex);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> 셀 입력칸(Inline Confirm)이 확정한 값을 세션에 쓴다.
+        /// <br/> 초안 열은 초안 검증(키 중복 등)을 통과했을 때만 쓴다.
+        /// <br/> 거부하면 원래 값을 다시 보인다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleEditRequested(object sender, TableGridEditRequest request)
+        {
+            if (isReadOnly || request.Edits.Count == 0)
             {
                 return;
             }
 
-            // 키보드 사용자도 Shift+F10으로 같은 행 메뉴를 열 수 있다.
+            // 화면에 남은 행과 원본이 다르면 이전 표시의 행 ID로 쓰지 않는다.
+            if (IsDisplayStale())
+            {
+                LogCommandFailure("행이 변경되어 편집을 반영하지 않았습니다.");
+                RefreshRows();
+                return;
+            }
+
+            // 셀 하나씩 확정하는 입력만 받는다. 쓰면 행 순서가 바뀔 수 있어 이어지는 행 ID를 믿을 수 없다.
+            if (request.Edits.Count != 1)
+            {
+                LogCommandFailure("여러 셀을 한 번에 바꿀 수 없습니다.");
+                RefreshRows();
+                return;
+            }
+
+            var edit = request.Edits[0];
+            var column = kind.FindColumn(edit.ColumnID);
+            if (column == null || !TryGetRowIndex(edit.RowID, out var sourceIndex) || !IsCurrentRow(sourceIndex))
+            {
+                RefreshRows();
+                return;
+            }
+
+            ApplyCellEdit(sourceIndex, column, edit.Value);
+        }
+
+        private void HandleDetailRequested(object sender, TableGridDetailRequest request)
+        {
+            OpenRequestedCell(request.RowID, request.ColumnID);
+        }
+
+        private void HandleRowActivated(object sender, TableGridRowActivated evt)
+        {
+            OpenRequestedCell(evt.RowID, evt.ColumnID);
+        }
+
+        private void OpenRequestedCell(string rowID, string columnID)
+        {
+            var column = kind.FindColumn(columnID) ?? kind.Columns[0];
+            if (TryGetRowIndex(rowID, out var sourceIndex) && IsCurrentRow(sourceIndex))
+            {
+                OpenDetail(sourceIndex, column);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 끌기 손잡이·Alt+방향키의 행 이동 요청을 삽입형 이동 편집으로 바꾼다.
+        /// <br/> 행 선택은 한 행이므로 한 행만 옮긴다. 검색 중에는 표가 요청하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void HandleMoveRowsRequested(object sender, TableGridMoveRowsRequest request)
+        {
+            if (isReadOnly || !kind.CanReorder || IsSearching || request.RowIDs.Count != 1)
+            {
+                return;
+            }
+
+            if (IsDisplayStale())
+            {
+                LogCommandFailure("행이 변경되어 이동하지 않았습니다.");
+                RefreshRows();
+                return;
+            }
+
+            if (!TryGetRowIndex(request.RowIDs[0], out var sourceIndex) || !IsCurrentRow(sourceIndex)
+                || !TryGetRowIndex(request.TargetRowID, out var targetIndex) || !IsCurrentRow(targetIndex))
+            {
+                RefreshRows();
+                return;
+            }
+
+            // 옮길 행을 빼면 그 뒤 행이 한 칸 당겨지므로 대상보다 앞에서 오면 한 칸 줄인다.
+            var destinationIndex = request.Placement == TableGridMovePlacement.Before
+                ? (sourceIndex < targetIndex ? targetIndex - 1 : targetIndex)
+                : (sourceIndex < targetIndex ? targetIndex : targetIndex + 1);
+            MoveRowToIndex(sourceIndex, destinationIndex);
+        }
+
+    #endregion
+
+    #region 키보드 명령
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표에 포커스가 있을 때 행 명령 단축키를 표보다 먼저 처리한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleShortcutKeyDown(KeyDownEvent evt)
+        {
+            // 셀 안 입력 컨트롤의 키는 그 컨트롤이 쓴다.
+            if (grid == null || evt.target != grid)
+            {
+                return;
+            }
+
+            if (HandleShortcut(evt))
+            {
+                StopShortcutEvent(evt);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> Shift+F10 행 메뉴, Enter 상세 편집, Delete 행 삭제와
+        /// <br/> Ctrl·Cmd+C/V/D 행 복사·붙여넣기·복제를 처리한다.
+        /// <br/> 행 복사와 섞이는 표 기본 잘라내기(Ctrl·Cmd+X)와
+        /// <br/> Windows Backspace 지우기는 막는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool HandleShortcut(KeyDownEvent evt)
+        {
+            // 키보드 사용자도 Shift+F10으로 같은 행 메뉴를 열 수 있다. 활성 셀 아래에 열고, 보이지 않으면 표 왼쪽 위다.
             if (evt.shiftKey && evt.keyCode == KeyCode.F10)
             {
-                ShowRowContextMenu(listView.worldBound.position + new Vector2(18f, 36f));
-                StopShortcutEvent(evt);
-                return;
+                var position = grid.TryGetActiveCellBounds(out var cell) ? new Vector2(cell.xMin, cell.yMax) : grid.worldBound.position;
+                ShowRowContextMenu(position);
+                return true;
             }
 
-            if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+            if (XeriShortcutKeys.IsSubmit(evt.keyCode))
             {
                 OpenSelectedCell();
-                StopShortcutEvent(evt);
-                return;
-            }
-
-            if (evt.keyCode == KeyCode.Escape)
-            {
-                rowDrag.CancelDrag();
-                selectedIdentity = null;
-                listView.ClearSelection();
-                listView.Focus();
-                StopShortcutEvent(evt);
-                return;
+                return true;
             }
 
             var actionKey = evt.ctrlKey || evt.commandKey;
             Action command = actionKey && evt.keyCode == KeyCode.C ? HandleCopySelected
                 : actionKey && evt.keyCode == KeyCode.V ? HandlePasteSelected
                 : actionKey && evt.keyCode == KeyCode.D ? HandleDuplicateSelected
-                : evt.keyCode == KeyCode.Delete
-                    || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace)
-                    ? HandleRemove
-                    : null;
+                : evt.keyCode == KeyCode.Delete || (XeriShortcutKeys.IsMac && evt.keyCode == KeyCode.Backspace) ? HandleRemove
+                : null;
             if (command != null)
             {
                 command();
-                StopShortcutEvent(evt);
+                return true;
             }
+
+            return (actionKey && evt.keyCode == KeyCode.X) || evt.keyCode == KeyCode.Backspace;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표가 쓰지 않은 Escape로 선택을 해제한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void HandleEscapeKeyDown(KeyDownEvent evt)
+        {
+            if (grid == null || evt.target != grid || evt.keyCode != KeyCode.Escape)
+            {
+                return;
+            }
+
+            selectedIdentity = null;
+            grid.SelectRow(null, null);
+            grid.Focus();
+            StopShortcutEvent(evt);
         }
 
         private void OpenSelectedCell()
         {
-            var column = kind.FindColumn(selectedColumnID);
-            if (column != null && TryGetSelectedSourceIndex(out var selected))
+            var column = kind.FindColumn(grid.ActiveColumnID) ?? kind.Columns[0];
+            if (TryGetSelectedSourceIndex(out var selected))
             {
                 OpenDetail(selected, column);
             }
@@ -1415,7 +1623,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         private bool IsEditingFieldTarget(VisualElement element)
         {
-            while (element != null && element != listView)
+            while (element != null && element != grid)
             {
                 if (element is TextField || element.ClassListContains("unity-base-field"))
                 {
@@ -1438,107 +1646,126 @@ namespace inonego.Xeri.Serializable.Editor
 
     #region 행 메뉴
 
-        private void HandleContextMouseUp(MouseUpEvent evt)
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 셀 안 입력 컨트롤의 우클릭과 macOS Ctrl+클릭은 표가 행 메뉴를 열지 않으므로
+        /// <br/> 여기서 연다. 그 밖의 우클릭은 표가 행을 고른 뒤 HostContextMenu로 넘긴다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private void HandleInlineContextMouseUp(MouseUpEvent evt)
         {
-            var contextClick = evt.button == 1
-                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.button == 0 && evt.ctrlKey);
-            if (!contextClick || !TryGetContextRow(evt.target as VisualElement, out var binding))
+            if (grid == null)
             {
                 return;
             }
 
-            selectedColumnID = binding.Column.ID;
-            if (listView.selectedIndex != binding.PageIndex)
+            var target = evt.target as VisualElement;
+            var macContextClick = XeriShortcutKeys.IsMac && evt.button == 0 && evt.ctrlKey;
+            if (!(evt.button == 1 || macContextClick) || !TryGetCellBinding(target, out var binding) || !IsCurrentRow(binding.SourceIndex))
             {
-                listView.SetSelection(binding.PageIndex);
+                return;
             }
 
-            ShowRowContextMenu(evt.mousePosition, binding.PageIndex, binding.SourceIndex);
+            if (!macContextClick && !IsInlineControlTarget(binding, target))
+            {
+                return;
+            }
+
+            SelectSourceRow(binding.SourceIndex);
+            ShowRowContextMenu(evt.mousePosition);
             evt.StopImmediatePropagation();
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 스크롤바·헤더를 제외하고 실제 클릭한 행의 연결 상태를 찾는다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private bool TryGetContextRow(VisualElement target, out CellBinding binding)
+        private bool TryGetCellBinding(VisualElement target, out CellBinding binding)
         {
             binding = null;
-            for (var element = target; element != null && element != listView; element = element.parent)
+            for (var element = target; element != null && element != grid; element = element.parent)
             {
-                if (!element.ClassListContains("xeri-collection__cell"))
+                if (element.ClassListContains("xeri-collection__cell") && element.userData is CellBinding found)
                 {
-                    continue;
+                    binding = found;
+                    return found.SourceIndex >= 0;
                 }
-
-                binding = element.userData as CellBinding;
-                return binding != null && IsCurrentPageRow(binding.PageIndex, binding.SourceIndex);
             }
 
             return false;
         }
 
-        private bool IsCurrentPageRow(int pageIndex, int sourceIndex)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표가 포인터를 양보하는 Inline 셀 안 컨트롤을 눌렀는지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool IsInlineControlTarget(CellBinding binding, VisualElement target)
         {
-            return pageIndex >= 0 && pageIndex < searchPagedRows.PageItems.Count
-                && sourceIndex >= 0 && sourceIndex < source.Count
-                && searchPagedRows.PageItems[pageIndex] == sourceIndex;
+            if (GetGridEdit(binding.Column).Kind != TableGridCellEditKind.Inline)
+            {
+                return false;
+            }
+
+            for (var element = target; element != null && element != binding.Root; element = element.parent)
+            {
+                if (element.focusable)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 선택 행 메뉴를 단축키 열이 있는 팝업으로 연다.
+        /// 고른 행 메뉴를 단축키 열이 있는 팝업으로 연다.
         /// </summary>
         // ------------------------------------------------------------
-        private void ShowRowContextMenu(Vector2 worldPosition, int pageIndex = -1, int sourceIndex = -1)
+        private void ShowRowContextMenu(Vector2 worldPosition)
         {
             CloseRowContextMenu();
 
-            // 화면에 남은 행과 현재 원본이 다르면 이전 표시에서 명령을 만들지 않는다.
-            if (Session.Observe() || Session.Revision != displayedRevision || pendingRefresh)
+            // 화면에 남은 행과 현재 원본이 다르면 이전 표시에서 명령을 만들지 않는다(편집 요청과 같은 판정).
+            if (IsDisplayStale())
             {
                 RequestRefresh();
                 return;
             }
 
-            if (pageIndex < 0 && TryGetSelectedSourceIndex(out var selectedSource))
-            {
-                pageIndex = listView.selectedIndex;
-                sourceIndex = selectedSource;
-            }
-
-            var hasSelection = IsCurrentPageRow(pageIndex, sourceIndex);
+            var hasSelection = TryGetSelectedSourceIndex(out var sourceIndex);
             var rowLocator = hasSelection ? new SerializedPropertyLocator(source.GetRow(sourceIndex)) : null;
             var canEdit = hasSelection && !isReadOnly;
             var canPaste = canEdit && kind.Supports(CollectionEdits.Paste)
                 && SerializedPropertyClipboard.CanPasteValue(source.GetRow(sourceIndex), out _);
             var originalRevision = Session.Revision;
-            var isMac = UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
-            var modifier = isMac ? "Cmd+" : "Ctrl+";
-            var deleteShortcut = isMac ? "Backspace" : "Delete";
+            var deleteShortcut = XeriShortcutKeys.Format(XeriShortcutKeys.IsMac ? KeyCode.Backspace : KeyCode.Delete);
 
-            void Run(Action execute) => ExecuteContextRowAction(pageIndex, sourceIndex, originalRevision, rowLocator, execute);
+            void Run(Action execute) => ExecuteContextRowAction(sourceIndex, originalRevision, rowLocator, execute);
 
             var items = new List<XeriContextMenuItem>
             {
                 XeriContextMenuItem.Command
                 (
                     "행 복제", () => Run(HandleDuplicateSelected),
-                    enabled: canEdit && kind.Supports(CollectionEdits.Duplicate), shortcut: modifier + "D"
+                    enabled: canEdit && kind.Supports(CollectionEdits.Duplicate), shortcut: XeriShortcutKeys.Format(KeyCode.D, action: true)
                 ),
                 XeriContextMenuItem.Separator(),
-                XeriContextMenuItem.Command("행 전체 복사", () => Run(HandleCopySelected), enabled: hasSelection, shortcut: modifier + "C"),
-                XeriContextMenuItem.Command("행 전체 붙여넣기", () => Run(HandlePasteSelected), enabled: canPaste, shortcut: modifier + "V"),
+                XeriContextMenuItem.Command("행 전체 복사", () => Run(HandleCopySelected), enabled: hasSelection, shortcut: XeriShortcutKeys.Format(KeyCode.C, action: true)),
+                XeriContextMenuItem.Command("행 전체 붙여넣기", () => Run(HandlePasteSelected), enabled: canPaste, shortcut: XeriShortcutKeys.Format(KeyCode.V, action: true)),
                 XeriContextMenuItem.Separator(),
                 XeriContextMenuItem.Command
                 (
-                    "인덱스로 이동...", () => Run(OpenMoveIndex),
-                    enabled: canEdit && kind.CanReorder && string.IsNullOrWhiteSpace(searchPagedRows.SearchText)
+                    "위로 이동", () => Run(() => HandleMoveSelected(-1)),
+                    enabled: hasSelection && CanMoveSelected(-1, out _), shortcut: XeriShortcutKeys.Format(KeyCode.UpArrow, alt: true)
                 ),
-                XeriContextMenuItem.Separator(),
-                XeriContextMenuItem.Command("위로 이동", () => Run(() => HandleMoveSelected(-1)), enabled: hasSelection && CanMoveSelected(-1, out _)),
-                XeriContextMenuItem.Command("아래로 이동", () => Run(() => HandleMoveSelected(1)), enabled: hasSelection && CanMoveSelected(1, out _)),
+                XeriContextMenuItem.Command
+                (
+                    "아래로 이동", () => Run(() => HandleMoveSelected(1)),
+                    enabled: hasSelection && CanMoveSelected(1, out _), shortcut: XeriShortcutKeys.Format(KeyCode.DownArrow, alt: true)
+                ),
+                XeriContextMenuItem.Command
+                (
+                    "위치로 이동...", () => Run(OpenMoveIndex),
+                    enabled: canEdit && kind.CanReorder && !IsSearching
+                ),
                 XeriContextMenuItem.Separator(),
                 XeriContextMenuItem.Command
                 (
@@ -1549,21 +1776,20 @@ namespace inonego.Xeri.Serializable.Editor
             rowContextMenu.Open(worldPosition, items);
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 메뉴를 연 뒤 셀 재사용이나 페이지 변경이 생겨도 다른 행을 고치지 않는다.
+        /// 메뉴를 연 뒤 셀 재사용이나 원본 변경이 생겨도 다른 행을 고치지 않는다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         private void ExecuteContextRowAction
         (
-            int pageIndex, int sourceIndex, ulong originalRevision,
-            SerializedPropertyLocator rowLocator, Action execute
+            int sourceIndex, ulong originalRevision, SerializedPropertyLocator rowLocator, Action execute
         )
         {
             // UI 관찰 콜백보다 먼저 명령이 실행돼도 원본 변경을 검사한다.
             Session.Observe();
             if (Session.Revision != originalRevision
-                || !IsCurrentPageRow(pageIndex, sourceIndex)
+                || !IsCurrentRow(sourceIndex)
                 || rowLocator == null
                 || !rowLocator.TryResolve(Session.SerializedObject, out _, out _))
             {
@@ -1572,9 +1798,9 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            if (listView.selectedIndex != pageIndex)
+            if (!TryGetSelectedSourceIndex(out var selected) || selected != sourceIndex)
             {
-                listView.SetSelection(pageIndex);
+                SelectSourceRow(sourceIndex);
             }
 
             execute();
@@ -1584,11 +1810,14 @@ namespace inonego.Xeri.Serializable.Editor
         private void HandleRowContextMenuKeyDown(KeyDownEvent evt)
         {
             if (evt.ctrlKey || evt.commandKey || evt.keyCode == KeyCode.Delete
-                || (UnityEngine.Application.platform == RuntimePlatform.OSXEditor && evt.keyCode == KeyCode.Backspace))
+                || (XeriShortcutKeys.IsMac && evt.keyCode == KeyCode.Backspace))
             {
                 CloseRowContextMenu();
-                listView.Focus();
-                HandleKeyDown(evt);
+                grid.Focus();
+                if (HandleShortcut(evt))
+                {
+                    StopShortcutEvent(evt);
+                }
             }
         }
 
@@ -1648,7 +1877,7 @@ namespace inonego.Xeri.Serializable.Editor
         {
             if (!isReadOnly && TryGetSelectedSourceIndex(out var sourceIndex))
             {
-                RemoveRowAndSelectNext(listView.selectedIndex, sourceIndex);
+                RemoveRowAndSelectNext(sourceIndex);
             }
         }
 
@@ -1657,34 +1886,37 @@ namespace inonego.Xeri.Serializable.Editor
         /// 재사용된 셀의 오래된 삭제 버튼이 다른 행을 지우지 않게 한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void HandleRemoveAt(int pageIndex, int sourceIndex)
+        private void HandleRemoveAt(int sourceIndex)
         {
             if (isReadOnly)
             {
                 return;
             }
 
-            if (!IsCurrentPageRow(pageIndex, sourceIndex))
+            if (!IsCurrentRow(sourceIndex))
             {
                 RefreshRows();
                 return;
             }
 
-            RemoveRowAndSelectNext(pageIndex, sourceIndex);
+            RemoveRowAndSelectNext(sourceIndex);
         }
 
-        private void RemoveRowAndSelectNext(int pageIndex, int sourceIndex)
+        private void RemoveRowAndSelectNext(int sourceIndex)
         {
+            var position = shownRows.IndexOf(sourceIndex);
             var removedIndices = new[]
             {
                 sourceIndex
             };
-            ApplyRowsEdit(CollectionEdit.Remove(removedIndices));
             selectedIdentity = null;
-            var nextPageIndex = Math.Min(pageIndex, searchPagedRows.PageItems.Count - 1);
-            if (nextPageIndex >= 0)
+            ApplyRowsEdit(CollectionEdit.Remove(removedIndices));
+
+            // 지운 자리(없으면 마지막 행)를 이어서 고른다.
+            var nextPosition = Math.Min(position, shownRows.Count - 1);
+            if (position >= 0 && nextPosition >= 0)
             {
-                listView.SetSelection(nextPageIndex);
+                SelectSourceRow(shownRows[nextPosition]);
             }
         }
 
@@ -1699,8 +1931,7 @@ namespace inonego.Xeri.Serializable.Editor
         private bool CanMoveSelected(int offset, out int sourceIndex)
         {
             sourceIndex = -1;
-            if (isReadOnly || !kind.CanReorder || !string.IsNullOrWhiteSpace(searchPagedRows.SearchText)
-                || !TryGetSelectedSourceIndex(out sourceIndex))
+            if (isReadOnly || !kind.CanReorder || IsSearching || !TryGetSelectedSourceIndex(out sourceIndex))
             {
                 return false;
             }
@@ -1711,13 +1942,12 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 선택 행의 대상 인덱스를 입력받고 바뀌지 않은 원본에만 적용한다.
+        /// 선택 행의 대상 위치를 입력받고 바뀌지 않은 원본에만 적용한다.
         /// </summary>
         // ------------------------------------------------------------
         private void OpenMoveIndex()
         {
-            if (isReadOnly || !kind.CanReorder || !string.IsNullOrWhiteSpace(searchPagedRows.SearchText)
-                || !TryGetSelectedSourceIndex(out var sourceIndex))
+            if (isReadOnly || !kind.CanReorder || IsSearching || !TryGetSelectedSourceIndex(out var sourceIndex))
             {
                 return;
             }
@@ -1745,7 +1975,7 @@ namespace inonego.Xeri.Serializable.Editor
                     var unchanged = source.Count == originalCount && Session.Revision == originalRevision
                         && rowLocator.TryResolve(Session.SerializedObject, out _, out _)
                         && TryGetSelectedSourceIndex(out var selected) && selected == sourceIndex
-                        && string.IsNullOrWhiteSpace(searchPagedRows.SearchText);
+                        && !IsSearching;
                     if (!unchanged)
                     {
                         LogCommandFailure("선택 또는 컬렉션이 변경되어 이동하지 않았습니다.");
@@ -1759,7 +1989,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 메뉴·드래그·인덱스 입력에 같은 삽입형 이동 편집을 적용한다.
+        /// 메뉴·끌기·키보드·위치 입력에 같은 삽입형 이동 편집을 적용한다.
         /// </summary>
         // ------------------------------------------------------------
         private void MoveRowToIndex(int sourceIndex, int destinationIndex)
@@ -1904,7 +2134,8 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 초안 열은 초안 창으로, 그 밖에는 즉시 셀 값을 바꾼다.
+        /// <br/> 셀 입력칸으로 고칠 수 없는 초안 열(복합 값 등)은 초안 창으로,
+        /// <br/> 그 밖에는 셀 값을 바꾼다(초안 열은 세션이 검증한 뒤 쓴다).
         /// </summary>
         // ------------------------------------------------------------
         public void Replace(int sourceIndex, CollectionColumn column, object value)
@@ -1914,14 +2145,13 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            if (column.Edit == CollectionCellEdit.Draft)
+            if (column.Edit == CollectionCellEdit.Draft && GetGridEdit(column).Kind != TableGridCellEditKind.Inline)
             {
                 CollectionDraftWindow.OpenForRow(Session, sourceIndex, column, value, RevealRow);
                 return;
             }
 
-            CloseDetailEditors();
-            RevealRow(Session.Apply(CollectionEdit.SetCell(sourceIndex, column.ID, value)));
+            ApplyCellEdit(sourceIndex, column, value);
         }
 
         // ------------------------------------------------------------
@@ -1948,6 +2178,17 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 LogCommandFailure("목록에서 직접 수정하세요. 참조가 없으면 형식을 선택하세요.");
             }
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 셀 값을 세션으로 쓰고 결과 행을 보인다. 거부되면 원래 값을 다시 보인다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private void ApplyCellEdit(int sourceIndex, CollectionColumn column, object value)
+        {
+            CloseDetailEditors();
+            RevealRow(Session.Apply(CollectionEdit.SetCell(sourceIndex, column.ID, value)));
         }
 
     #endregion

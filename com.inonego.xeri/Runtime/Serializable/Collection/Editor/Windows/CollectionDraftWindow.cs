@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionDraftWindow.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 초안 열(키·순서)의 값을 원본과 분리된 임시 편집 버퍼에서 고치는 비모달 창.
@@ -73,7 +73,9 @@ namespace inonego.Xeri.Serializable.Editor
         private SerializedPropertyLocator locator;
         private SerializedPropertySnapshot originalSnapshot;
         private EditBuffer editBuffer;
+
         private SerializedObject editBufferObject;
+
         private string editFieldName;
         private Enum enumEditValue;
         private Button applyButton;
@@ -548,7 +550,7 @@ namespace inonego.Xeri.Serializable.Editor
         /// 원본을 고치지 않고 임시 값만 검증해 적용 가능 여부를 갱신한다.
         /// </summary>
         // ------------------------------------------------------------
-        private void RefreshValidation()
+        internal void RefreshValidation()
         {
             if (applyButton == null || session == null)
             {

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionColumn.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 컬렉션 표의 열 하나를 정의한다.
@@ -15,6 +15,7 @@ using System;
 using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -60,11 +61,13 @@ namespace inonego.Xeri.Serializable.Editor
         /// 열의 폭 정책을 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public TableColumnLayout Layout { get; }
+        public TableGridColumnLayout Layout { get; }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 행 기준 셀 경로를 반환하며 null이면 행 자체가 셀이다.
+        /// <br/> 행 기준 셀 경로를 반환하며 null이면 행 자체가 셀이다.
+        /// <br/> 한 종류 안에서 null 열과 경로가 있는 열을 섞지 않는다(null 열이 하위 경로를 모두 가져가
+        /// <br/> CollectionSource.TryLocate가 뒤의 열을 찾지 못한다).
         /// </summary>
         // ------------------------------------------------------------
         public string RelativePath { get; }
@@ -117,7 +120,7 @@ namespace inonego.Xeri.Serializable.Editor
         (
             string id,
             string header,
-            TableColumnLayout layout,
+            TableGridColumnLayout layout,
             string relativePath,
             Type valueType,
             bool isManagedReference,

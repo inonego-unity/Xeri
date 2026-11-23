@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XPriorityQueueDrawer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
-XPriorityQueue를 공통 컬렉션 표(CollectionTable)로 표시한다. 힙 정규화는 편집 세션이 맡는다.
+XPriorityQueue를 공통 컬렉션 표(CollectionTableGrid)로 표시한다. 힙 정규화는 편집 세션이 맡는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEditor;

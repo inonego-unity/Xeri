@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XDictionaryKindProvider.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-22
 
 # 설명
 XDictionary_RR·RV·VR·VV의 종류 정의를 만든다.
@@ -16,6 +16,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.Editor;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -50,7 +51,8 @@ namespace inonego.Xeri.Serializable.Editor
         public bool TryCreate(SerializedProperty property, FieldInfo field, out CollectionKind kind)
         {
             var instance = SerializedPropertyHelper.GetTargetObject(property);
-            kind = CollectionKinds.FindGenericType(instance?.GetType(), definitions) != null ? Create(property) : null;
+            var type = FindType(instance);
+            kind = type != null ? CreateFromType(type, instance) : null;
             return kind != null;
         }
 
@@ -62,8 +64,23 @@ namespace inonego.Xeri.Serializable.Editor
         public static CollectionKind Create(SerializedProperty property)
         {
             var instance = SerializedPropertyHelper.GetTargetObject(property);
-            var type = CollectionKinds.FindGenericType(instance?.GetType(), definitions)
-                ?? throw new ArgumentException("XDictionary 속성이 아닙니다.", nameof(property));
+            var type = FindType(instance) ?? throw new ArgumentException("XDictionary 속성이 아닙니다.", nameof(property));
+            return CreateFromType(type, instance);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// 속성 값(instance)의 Runtime 형식에서 XDictionary 형식을 찾는다. 아니면 null이다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        private static Type FindType(object instance)
+        {
+            return CollectionKinds.FindGenericType(instance?.GetType(), definitions);
+        }
+
+        // 키 비교는 값(instance)이 쓰는 Runtime 비교자를 따른다.
+        private static CollectionKind CreateFromType(Type type, object instance)
+        {
             var definition = type.GetGenericTypeDefinition();
             var arguments = type.GetGenericArguments();
             var keyType = arguments[0];
@@ -76,12 +93,12 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 new CollectionColumn
                 (
-                    keyColumnID, "키", TableColumnLayout.Flexible(150f, 100f, 0f, 4f), keyColumnID,
+                    keyColumnID, "키", TableGridColumnLayout.Flexible(150f, 100f, 0f, 4f), keyColumnID,
                     keyType, keyIsReference, CollectionCellEdit.Draft, keyIsReference
                 ),
                 new CollectionColumn
                 (
-                    valueColumnID, "값", TableColumnLayout.Flexible(150f, 100f, 0f, 6f), valueColumnID,
+                    valueColumnID, "값", TableGridColumnLayout.Flexible(150f, 100f, 0f, 6f), valueColumnID,
                     valueType, valueIsReference, CollectionCellEdit.Inline, valueIsReference
                 ),
             };

@@ -102,7 +102,7 @@ public sealed class CollectionExample : MonoBehaviour
 }
 ```
 
-위 필드는 Xeri 컬렉션별 PropertyDrawer로 표시됩니다. 검색, 페이지 이동, 값 편집, 행 추가·삭제 등을 사용할 수 있습니다.
+위 필드는 Xeri 컬렉션별 PropertyDrawer로 표시됩니다. 검색, 스크롤 목록, 값 편집, 행 추가·삭제 등을 사용할 수 있습니다.
 
 일반 `List<T>`와 1차원 배열은 자동 적용되지 않으며 `[CollectionEditor]`로 opt-in합니다. 자세한 사용 방법은 [Collection Editor Inspector 가이드](../../guides/serialization/edit-collections-in-inspector.md)를 참고하세요.
 

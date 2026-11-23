@@ -13,7 +13,7 @@ Xeri 패키지의 컬렉션 Drawer와 `[CollectionEditor]` 속성을 Unity Inspe
 
 - `XDictionary_RR/RV/VR/VV`: Key·Value 직렬화 조합, 중복·무효 Key 진단, Key 편집
 - `XHashSet`, `XQueue`, `XStack`, `XOrdered`, `XPriorityQueue`: 컬렉션별 항목 순서와 편집 정책
-- `[CollectionEditor]`가 적용된 `List<T>`와 배열: 검색, 페이지 이동, 항목 추가·삭제·편집
+- `[CollectionEditor]`가 적용된 `List<T>`와 배열: 검색, 스크롤 목록, 항목 추가·삭제·편집
 - `[CollectionEditor(Unique = true)]`: 중복 원소 진단
 - `SerializeReference`: 다형 관리 참조 및 지원 타입 선택
 - `Range`, `Value`, `MValue`, `XNullable` 등의 인접 Inspector 표시

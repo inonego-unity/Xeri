@@ -1,9 +1,9 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XHashSetDrawer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
-XHashSet 계열을 공통 컬렉션 표(CollectionTable)로 표시하는 UI Toolkit PropertyDrawer.
+XHashSet 계열을 공통 컬렉션 표(CollectionTableGrid)로 표시하는 UI Toolkit PropertyDrawer.
 ========================================================================= BLOCK_HEADER_END */
 
 using UnityEditor;

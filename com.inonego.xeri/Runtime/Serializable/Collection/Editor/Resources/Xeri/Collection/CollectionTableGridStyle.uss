@@ -1,0 +1,455 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : CollectionTableGridStyle.uss
+수정일 : 2026-11-21
+
+# 설명
+Collection Inspector 표(CollectionTableGrid)의 머리·검색 줄·본문 자리와 셀 안 내용(입력 필드·요약·셀 뷰·버튼)의 스타일.
+표 자체(헤더·행·선택·끌기 손잡이)의 모양은 TableGrid Editor 테마(--xeri-table-*)가 정한다.
+기본은 행 수 높이와 하단 조절 손잡이, --xeri-collection-fill 호스트에서는 부모 높이를 채운다.
+
+# 특이사항, 제약사항
+행·헤더 높이 28px은 CollectionTableGrid.cs의 높이 계산과 맞춘다.
+========================================================================= BLOCK_HEADER_END */
+
+/* 표 변수: 헤더를 행과 같은 28px로 맞춘다(행 높이는 C#의 RowHeight). */
+.xeri-collection .xeri-table {
+    --xeri-table-header-height: 28px;
+}
+
+.xeri-collection {
+    flex-grow: 1;
+    min-width: 0;
+    margin-top: 3px;
+    margin-bottom: 6px;
+}
+
+/* 접힌 컬렉션 표는 머리와 항목 수만 남긴다. */
+.xeri-collection--collapsed {
+    flex-grow: 0;
+}
+
+.xeri-collection--collapsed .xeri-collection__toolbar,
+.xeri-collection--collapsed .xeri-collection__content {
+    display: none;
+}
+
+/* 머리: 접기·제목·개수·관리 메뉴 */
+.xeri-collection__header {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    height: 26px;
+    min-height: 26px;
+    margin: 0;
+    padding-left: 5px;
+    padding-right: 4px;
+    border-width: 0;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(127,127,127,0.20);
+    border-radius: 0;
+    background-color: rgba(127,127,127,0.08);
+}
+
+.xeri-collection__foldout-button {
+    width: 18px;
+    min-width: 18px;
+    height: 22px;
+    min-height: 22px;
+    flex-shrink: 0;
+    margin: 0;
+    margin-right: 2px;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: transparent;
+    -unity-text-align: middle-center;
+    font-size: 13px;
+}
+
+.xeri-collection__foldout-button:hover {
+    background-color: rgba(127,127,127,0.18);
+}
+
+.xeri-collection__title {
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+    font-size: 12px;
+    height: 22px;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.xeri-collection__count {
+    font-size: 11px;
+    opacity: 0.72;
+    -unity-text-align: middle-center;
+    height: 22px;
+    margin-left: 7px;
+    flex-shrink: 0;
+}
+
+.xeri-collection--searching .xeri-collection__count {
+    opacity: 1;
+    -unity-font-style: bold;
+}
+
+.xeri-collection__header-spacer {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.xeri-collection__header-button {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 22px;
+    min-width: 22px;
+    height: 22px;
+    min-height: 22px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: transparent;
+    align-items: center;
+    justify-content: center;
+    -unity-text-align: middle-center;
+    font-size: 12px;
+}
+
+.xeri-collection__header-button:hover { background-color: rgba(127,127,127,0.20); }
+
+/* 검색 줄: 검색창과 추가 버튼 */
+.xeri-collection__toolbar {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    height: 27px;
+    min-height: 27px;
+    padding-left: 5px;
+    padding-right: 5px;
+    background-color: rgba(127,127,127,0.08);
+}
+
+/* 검색창(TableGridSearchField)의 크기와 각진 모서리는 Collection Editor가 소유한다.
+   색·테두리·포커스 모양은 검색창 자기 시트(TableGrid 테마)가 정하므로 도구 줄을 포함해 크기만 덮는다. */
+.xeri-collection__toolbar > .xeri-collection__search {
+    width: auto;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 36px;
+    height: 23px;
+    min-height: 23px;
+    margin: 0;
+    border-radius: 0;
+}
+
+.xeri-collection__add-button {
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 26px;
+    min-width: 26px;
+    height: 23px;
+    min-height: 23px;
+    margin-left: 2px;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: transparent;
+    align-items: center;
+    justify-content: center;
+    -unity-text-align: middle-center;
+    font-size: 14px;
+}
+
+.xeri-collection__add-button:hover { background-color: rgba(127,127,127,0.22); }
+
+/* 본문 자리: 표와 아래 높이 조절 손잡이. 표 높이는 C#이 행 수로 정한다. */
+.xeri-collection__content {
+    flex-grow: 0;
+    flex-shrink: 0;
+    min-width: 0;
+    position: relative;
+    background-color: rgba(0,0,0,0.09);
+}
+
+/* 목록 하단 높이 조절 손잡이. 행 단위로 높이가 바뀐다. */
+.xeri-collection__resize-handle {
+    flex-shrink: 0;
+    height: 5px;
+    min-height: 5px;
+    cursor: resize-vertical;
+    border-top-width: 1px;
+    border-top-color: rgba(127,127,127,0.18);
+    background-color: rgba(127,127,127,0.06);
+}
+
+.xeri-collection__resize-handle:hover,
+.xeri-collection__resize-handle--active {
+    background-color: rgba(125,177,221,0.45);
+}
+
+/* 채움 모드: 호스트가 --xeri-collection-fill: 1을 지정하면 부모 높이를 그대로 사용하고 표 안에서 스크롤한다. */
+.xeri-collection--fill {
+    margin-top: 0;
+    margin-bottom: 0;
+    min-height: 0;
+}
+
+.xeri-collection--fill .xeri-collection__content {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.xeri-collection--fill .xeri-collection__resize-handle,
+.xeri-collection--fill .xeri-collection__foldout-button {
+    display: none;
+}
+
+/* 채움 모드는 호스트 패널 안에 붙어 있으므로 바깥 경계선은 호스트가 소유한다. */
+.xeri-collection--fill .xeri-collection__header {
+    border-top-width: 0;
+}
+
+/* 셀: 진단 아이콘 · 값 콘텐츠 · (마지막 열) 행 명령. 셀 틀의 여백·선택 표시는 표가 정한다. */
+.xeri-collection__cell {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.xeri-collection__cell-content {
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 24px;
+    margin-left: 4px;
+    margin-right: 0;
+    justify-content: center;
+    align-items: stretch;
+}
+
+/* SerializeReference 셀은 이 클래스와 cell-content를 함께 가지므로 가로 여백은 cell-content에 맡긴다. */
+.xeri-collection__reference-row {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    min-width: 0;
+    height: 24px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+/* 기본 요약 글자와 셀 뷰 텍스트(CollectionCellView.TextClassName)는 같은 글자 규격을 쓴다. */
+.xeri-collection__data-label,
+.xeri-collection__cell-text {
+    flex-shrink: 1;
+    min-width: 0;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    -unity-text-align: middle-left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 요약 글자는 남는 폭을 채우고, 셀 뷰 텍스트는 글자 길이만큼 차지한다. */
+.xeri-collection__data-label {
+    flex-grow: 1;
+}
+
+.xeri-collection__cell-text {
+    flex-grow: 0;
+}
+
+/* 셀 뷰 행(CollectionCellView.RowClassName): 셀 콘텐츠 높이 안에서 요소를 가로로 가운데 정렬한다. */
+.xeri-collection__cell-row {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* 등록된 셀 뷰가 요약 문자열 자리를 대신 채운다. */
+.xeri-collection__custom-cell {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    height: 24px;
+    flex-direction: row;
+    align-items: center;
+    overflow: hidden;
+}
+
+.xeri-collection__custom-cell > * {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.xeri-collection__cell-content .unity-property-field {
+    flex-grow: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    min-height: 24px;
+    height: 24px;
+    justify-content: center;
+}
+
+/* 인라인 입력과 행 끝 명령 사이 간격은 입력 쪽이 소유한다. 셀 동작 버튼은 행 명령 옆에 바로 붙는다. */
+.xeri-collection__cell-content > .unity-property-field {
+    margin-right: 6px;
+}
+
+.xeri-collection__cell-content .unity-base-field {
+    margin: 0;
+    padding: 0;
+    min-height: 24px;
+    height: 24px;
+    align-items: center;
+}
+
+/* 기본형 입력 영역은 24px 콘텐츠 안에서 20px로 중앙 배치한다. */
+.xeri-collection__cell-content .unity-base-field__input {
+    flex-grow: 1;
+    min-width: 0;
+    align-self: center;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.xeri-collection__cell-content .unity-base-text-field__input,
+.xeri-collection__cell-content .unity-text-input {
+    height: 20px;
+    min-height: 20px;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 12px;
+    -unity-text-align: middle-left;
+}
+
+/* 드롭다운 글자를 20px 입력 높이 전체에 두고 가운데 세로 정렬한다. */
+.xeri-collection__cell-content .unity-base-popup-field__text {
+    height: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    -unity-text-align: middle-left;
+}
+
+.xeri-collection__cell-content .unity-text-element--inner-input-field-component {
+    height: 100%;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 12px;
+    -unity-text-align: middle-left;
+}
+
+/* 아이콘 버튼도 동일한 크기와 툴바 느낌으로 묶는다 */
+.xeri-collection__cell-toolbar {
+    flex-grow: 0;
+    flex-shrink: 0;
+    height: 20px;
+    min-height: 20px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: 6px;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+    background-color: transparent;
+    border-width: 0;
+    border-radius: 0;
+}
+
+/* 행 전체 명령(항목 상세 편집, 행 삭제)을 행 끝의 오른쪽 정렬 그룹으로 둔다. */
+.xeri-collection__row-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    flex-grow: 0;
+    flex-shrink: 0;
+    height: 20px;
+    min-height: 20px;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0;
+}
+
+.xeri-collection__icon-button {
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    min-height: 20px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+    margin-right: 2px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: transparent;
+    -unity-text-align: middle-center;
+}
+.xeri-collection__icon-button:hover { background-color: rgba(127,127,127,0.22); }
+/* Unity Button.iconImage의 자식 이미지를 공통 규격으로 중앙 배치한다.
+   버튼·핸들 높이(20·22px)와 짝수 차이가 나야 반 픽셀 어긋남 없이 가운데에 놓인다. */
+.xeri-collection__foldout-button .unity-button__image,
+.xeri-collection__header-button .unity-button__image,
+.xeri-collection__add-button .unity-button__image,
+.xeri-collection__icon-button .unity-button__image {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    min-height: 12px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    align-self: center;
+    margin: 0;
+    padding: 0;
+    --unity-image-size: scale-to-fit;
+    --unity-image-tint-color: var(--unity-colors-default-text);
+}
+
+/* 추가 버튼은 검색창과 같은 23px 높이라 홀수 크기 아이콘이 가운데에 놓인다. */
+.xeri-collection__add-button .unity-button__image {
+    width: 11px;
+    height: 11px;
+    min-width: 11px;
+    min-height: 11px;
+}
+
+.xeri-collection__row-remove:hover { background-color: rgba(198,76,76,0.25); }
+
+/* 단순 값 초안 열(키·순서)의 셀 안 입력칸. 바인딩 입력 필드와 같은 자리를 쓴다. */
+.xeri-collection__cell-content > .xeri-collection__draft-input {
+    flex-grow: 1;
+    min-width: 0;
+    margin-right: 6px;
+}

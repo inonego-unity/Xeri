@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ICollectionCellDrawer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
 셀 하나를 그리는 drawer 계약, 셀 값을 만드는 생성 계약,
@@ -9,6 +9,7 @@ drawer가 표에 요청을 보내는 셀 문맥(CollectionCell)과 drawer 레지
 # 특이사항, 제약사항
 drawer는 CollectionSession을 직접 부르지 않는다. 값 변경·확정·상세 편집은 셀 문맥을 거쳐 표(호스트)에 요청한다.
 drawer 선택은 열마다 한 번: 열 지정 drawer → 등록 drawer(FullName 순, 먼저 맞는 것) → 기본 drawer.
+셀 문맥은 표(TableGrid) 셀 문맥을 함께 든다. 셀 안 입력칸은 그 셀 호스트로 값 변경을 요청하고, 확정 전까지 보류하는 일(Inline Confirm)은 표가 맡는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -22,6 +23,8 @@ using UnityEngine.UIElements;
 
 using inonego;
 using inonego.Xeri;
+using inonego.Xeri.UI;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -113,6 +116,13 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public bool CanEdit => !IsReadOnly && Column.Edit != CollectionCellEdit.ReadOnly;
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표 셀 문맥(셀 호스트 포함)을 반환하며 표 밖에서 그리면 null이다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public TableGridCellContext? GridContext { get; }
+
         private readonly string propertyPath;
 
     #endregion
@@ -127,7 +137,7 @@ namespace inonego.Xeri.Serializable.Editor
         public CollectionCell
         (
             ICollectionCellHost host, int sourceIndex, CollectionColumn column,
-            SerializedProperty property, bool isReadOnly
+            SerializedProperty property, bool isReadOnly, TableGridCellContext? gridContext = null
         )
         {
             Host = host ?? throw new ArgumentNullException(nameof(host));
@@ -135,6 +145,7 @@ namespace inonego.Xeri.Serializable.Editor
             Column = column ?? throw new ArgumentNullException(nameof(column));
             Property = property;
             IsReadOnly = isReadOnly;
+            GridContext = gridContext;
             propertyPath = property?.propertyPath;
         }
 

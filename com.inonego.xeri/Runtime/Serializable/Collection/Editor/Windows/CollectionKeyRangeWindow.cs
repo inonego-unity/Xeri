@@ -1,10 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionKeyRangeWindow.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 정수 키를 쓰는 컬렉션에서 범위별 키 추가·제거·제한을 입력받는다.
 생성한 키 집합의 적용과 Undo는 CollectionSession의 ApplyKeySet 편집에 맡긴다.
+
+# 특이사항, 제약사항
+표의 세션을 그대로 쓰므로, 창을 연 사이 Inspector가 다시 만들어져 세션이 해제됐을 수 있다.
+적용 전에 session.IsAlive로 확인하고, 해제됐으면 적용하지 않고 안내한 뒤 창을 닫는다.
+도메인 리로드로 세션이 사라진 채 다시 그려지면 다시 열라는 안내만 보인다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -75,6 +80,13 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         private void CreateGUI()
         {
+            // 도메인 리로드로 창만 남고 세션이 사라졌으면 다시 열도록 알린다(상세 편집 창과 같은 안내).
+            if (session == null)
+            {
+                rootVisualElement.Add(new HelpBox("인스펙터에서 키 범위 편집을 다시 여세요.", HelpBoxMessageType.Info));
+                return;
+            }
+
             var content = CollectionUtilityWindowLayout.Build(rootVisualElement);
 
             minField = new IntegerField("최솟값")
@@ -150,8 +162,10 @@ namespace inonego.Xeri.Serializable.Editor
                 keys.Add((int)value);
             }
 
-            if (session.SerializedObject.targetObject == null)
+            // 해제된 SerializedObject는 접근만 해도 예외가 나므로 Observe 전에 세션의 생존을 확인한다.
+            if (!session.IsAlive)
             {
+                EditorUtility.DisplayDialog("정수 키 범위", CollectionSession.DisposedMessage, "확인");
                 Close();
                 return;
             }

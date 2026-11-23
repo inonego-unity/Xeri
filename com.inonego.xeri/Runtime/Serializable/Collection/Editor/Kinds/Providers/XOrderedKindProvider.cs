@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XOrderedKindProvider.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-22
 
 # 설명
 XOrdered<TOrder, TValue>·XOrdered<TOrder, TKey, TValue>의 종류 정의를 만든다.
@@ -17,6 +17,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.Editor;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -50,8 +51,8 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public bool TryCreate(SerializedProperty property, FieldInfo field, out CollectionKind kind)
         {
-            var instance = SerializedPropertyHelper.GetTargetObject(property);
-            kind = CollectionKinds.FindGenericType(instance?.GetType(), definitions) != null ? Create(property) : null;
+            var type = FindType(property);
+            kind = type != null ? CreateFromType(type, null) : null;
             return kind != null;
         }
 
@@ -62,9 +63,23 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         public static CollectionKind Create(SerializedProperty property, ICollectionKindHooks hooks = null)
         {
+            var type = FindType(property) ?? throw new ArgumentException("XOrdered 속성이 아닙니다.", nameof(property));
+            return CreateFromType(type, hooks);
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 속성 값의 Runtime 형식에서 XOrdered 형식을 찾는다. 아니면 null이다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private static Type FindType(SerializedProperty property)
+        {
             var instance = SerializedPropertyHelper.GetTargetObject(property);
-            var type = CollectionKinds.FindGenericType(instance?.GetType(), definitions)
-                ?? throw new ArgumentException("XOrdered 속성이 아닙니다.", nameof(property));
+            return CollectionKinds.FindGenericType(instance?.GetType(), definitions);
+        }
+
+        private static CollectionKind CreateFromType(Type type, ICollectionKindHooks hooks)
+        {
             var arguments = type.GetGenericArguments();
             var isKeyed = arguments.Length == 3;
             var orderType = arguments[0];
@@ -73,12 +88,12 @@ namespace inonego.Xeri.Serializable.Editor
             // 순서는 핸들·편집 버튼과 두세 자리 값이 함께 들어가도록 96px로 고정하고 키:값은 4:6 가중치로 나눈다.
             var order = new CollectionColumn
             (
-                orderColumnID, "순서", TableColumnLayout.Fixed(96f), orderColumnID,
+                orderColumnID, "순서", TableGridColumnLayout.Fixed(96f), orderColumnID,
                 orderType, false, CollectionCellEdit.Draft
             );
             var value = new CollectionColumn
             (
-                valueColumnID, "값", TableColumnLayout.Flexible(isKeyed ? 150f : 240f, 100f, 0f, isKeyed ? 6f : 1f),
+                valueColumnID, "값", TableGridColumnLayout.Flexible(isKeyed ? 150f : 240f, 100f, 0f, isKeyed ? 6f : 1f),
                 valueColumnID, valueType, true, CollectionCellEdit.Inline, true
             );
             if (!isKeyed)
@@ -95,7 +110,7 @@ namespace inonego.Xeri.Serializable.Editor
             var keyType = arguments[1];
             var key = new CollectionColumn
             (
-                keyColumnID, "키", TableColumnLayout.Flexible(150f, 100f, 0f, 4f), keyColumnID,
+                keyColumnID, "키", TableGridColumnLayout.Flexible(150f, 100f, 0f, 4f), keyColumnID,
                 keyType, false, CollectionCellEdit.Draft
             );
             var keyRule = new CollectionKeyRule

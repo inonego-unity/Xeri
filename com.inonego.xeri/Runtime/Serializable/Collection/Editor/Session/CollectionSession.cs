@@ -1,16 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionSession.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 컬렉션 편집의 단일 쓰기 입구다.
 모든 편집은 Apply에서 같은 순서로 처리한다:
-검증 → Undo 기록 → 쓰기 → Apply → Runtime 동기화 → 소유자 동기화 → 변경 세대 진행 → 통지 → 결과 행 재탐색.
+생존 확인 → 검증 → Undo 기록 → 쓰기 → Apply → Runtime 동기화 → 소유자 동기화 → 변경 세대 진행 → 통지 → 결과 행 재탐색.
+대상 SerializedObject가 해제됐으면(IsAlive 거짓) 쓰지 않고 실패 결과를 돌려준다.
 외부 변경과 Undo/Redo는 Observe·Restore로 받아들이며 새 편집으로 확정하지 않는다.
 
 # 특이사항, 제약사항
 Undo는 Unity Undo(Undo.RecordObjects)만 사용한다. 자체 실행 이력을 두지 않는다.
 결과 행은 정규화 전에 기록한 행 식별 값, 키 값 순서로 다시 찾는다.
+초안 열(키·순서)의 셀 쓰기는 초안 창과 같은 검증(형식·필수·키 중복)을 통과해야만 쓴다.
 직렬화 상태 비교는 RevisionTracker가 대상·경로마다 한 번만 하고, 세션은 마지막으로 받아들인 세대 번호만 비교한다.
 ========================================================================= BLOCK_HEADER_END */
 
@@ -71,6 +73,13 @@ namespace inonego.Xeri.Serializable.Editor
         /// </summary>
         // ------------------------------------------------------------
         public ulong Revision => Source.Revision;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 대상이 해제돼 편집할 수 없을 때 보이는 안내.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal const string DisposedMessage = "대상 컬렉션이 해제되었습니다. 인스펙터에서 다시 여세요.";
 
         // ------------------------------------------------------------
         /// <summary>
@@ -409,7 +418,9 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 편집 요청을 한 번의 Undo로 적용하고 결과를 반환한다.
+        /// <br/> 편집 요청을 한 번의 Undo로 적용하고 결과를 반환한다.
+        /// <br/> 대상 SerializedObject가 해제됐으면(Inspector 재구성 등)
+        /// <br/> 쓰지 않고 실패를 돌려준다.
         /// </summary>
         // ------------------------------------------------------------
         public CollectionEditResult Apply(CollectionEdit edit)
@@ -417,6 +428,12 @@ namespace inonego.Xeri.Serializable.Editor
             if (edit == null)
             {
                 throw new ArgumentNullException(nameof(edit));
+            }
+
+            // 모든 쓰기가 지나는 입구라 여기서 한 번 막는다(해제된 SerializedObject는 접근만 해도 예외다).
+            if (!IsAlive)
+            {
+                return CollectionEditResult.Failure(DisposedMessage);
             }
 
             if (IsReadOnly)
@@ -454,7 +471,7 @@ namespace inonego.Xeri.Serializable.Editor
             var validation = Validate(draft);
             if (!validation.CanApply)
             {
-                return CollectionEditResult.Failure(validation.Diagnostics[0].Message);
+                return Reject(validation);
             }
 
             return Write
@@ -584,9 +601,10 @@ namespace inonego.Xeri.Serializable.Editor
                 return CollectionEditResult.Failure($"{column.Header} 열은 수정할 수 없습니다.");
             }
 
+            // 초안 열은 행 위치·정체성을 정하므로 초안 창과 같은 검증을 거친 뒤에만 쓴다.
             if (column.Edit == CollectionCellEdit.Draft)
             {
-                return CollectionEditResult.Failure($"{column.Header} 열은 검증 후 확정해야 합니다.");
+                return ApplyValidatedCell(sourceIndex, column, value);
             }
 
             if (!IsRow(sourceIndex))
@@ -605,6 +623,18 @@ namespace inonego.Xeri.Serializable.Editor
             );
         }
 
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 초안 열 셀 하나를 기존 행 초안으로 검증하고 통과하면 쓴다.
+        /// <br/> 실패하면 첫 진단 메시지(예: 키 중복)로 거부하고 원본을 바꾸지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private CollectionEditResult ApplyValidatedCell(int sourceIndex, CollectionColumn column, object value)
+        {
+            var draft = CollectionDraft.ForRow(sourceIndex).Set(column.ID, value);
+            return ApplyValidatedDraft(draft, $"{Kind.Label} {column.Header} 변경");
+        }
+
         private CollectionEditResult ApplyCommitDraft(CollectionDraft draft)
         {
             if (!draft.SourceIndex.HasValue)
@@ -612,22 +642,38 @@ namespace inonego.Xeri.Serializable.Editor
                 return CollectionEditResult.Failure("기존 행 초안이 아닙니다.");
             }
 
+            return ApplyValidatedDraft(draft, $"{Kind.Label} 항목 변경");
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 기존 행 초안을 검증하고 통과하면 undoName 한 번의 Undo로 쓴다.
+        /// <br/> 실패하면 첫 진단 메시지로 거부하고 원본을 바꾸지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        private CollectionEditResult ApplyValidatedDraft(CollectionDraft draft, string undoName)
+        {
             var validation = Validate(draft);
             if (!validation.CanApply)
             {
-                return CollectionEditResult.Failure(validation.Diagnostics[0].Message);
+                return Reject(validation);
             }
 
             var sourceIndex = draft.SourceIndex.Value;
             return Write
             (
-                $"{Kind.Label} 항목 변경",
+                undoName,
                 _ =>
                 {
                     WriteDraft(sourceIndex, draft);
                     return sourceIndex;
                 }
             );
+        }
+
+        private static CollectionEditResult Reject(CollectionValidation validation)
+        {
+            return CollectionEditResult.Failure(validation.Diagnostics[0].Message);
         }
 
         private CollectionEditResult ApplyCommitBound(string propertyPath)
@@ -766,36 +812,19 @@ namespace inonego.Xeri.Serializable.Editor
         {
             var rule = Kind.KeyRule;
             var column = Kind.KeyColumn;
-            var requested = new HashSet<object>(rule.Comparer);
-            foreach (var key in keys)
-            {
-                if (key != null)
-                {
-                    requested.Add(key);
-                }
-            }
 
             switch (operation)
             {
                 case CollectionKeySetOperation.Add:
-                    var existing = new HashSet<object>(rule.Comparer);
-                    for (var index = 0; index < rows.arraySize; index++)
-                    {
-                        var key = Source.GetValue(index, column);
-                        if (key != null)
-                        {
-                            existing.Add(key);
-                        }
-                    }
-
-                    AppendKeys(rows, column, keys, existing);
+                    AppendKeys(rows, column, keys, CollectKeys(rows, column, rule));
                     break;
 
                 case CollectionKeySetOperation.Remove:
+                    var removed = CreateKeySet(rule, keys);
                     for (var index = rows.arraySize - 1; index >= 0; index--)
                     {
                         var key = Source.GetValue(index, column);
-                        if (key != null && requested.Contains(key))
+                        if (key != null && removed.Contains(key))
                         {
                             SerializedPropertyHelper.DeleteArrayElement(rows, index);
                         }
@@ -804,10 +833,29 @@ namespace inonego.Xeri.Serializable.Editor
                     break;
 
                 case CollectionKeySetOperation.Confine:
-                    ConfineKeys(rows, column, rule, requested);
+                    ConfineKeys(rows, column, rule, CreateKeySet(rule, keys));
                     AppendKeys(rows, column, keys, CollectKeys(rows, column, rule));
                     break;
             }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 요청한 키(null 제외)를 규칙의 비교자로 모은 집합을 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static HashSet<object> CreateKeySet(CollectionKeyRule rule, IReadOnlyList<object> keys)
+        {
+            var set = new HashSet<object>(rule.Comparer);
+            foreach (var key in keys)
+            {
+                if (key != null)
+                {
+                    set.Add(key);
+                }
+            }
+
+            return set;
         }
 
         // ------------------------------------------------------------

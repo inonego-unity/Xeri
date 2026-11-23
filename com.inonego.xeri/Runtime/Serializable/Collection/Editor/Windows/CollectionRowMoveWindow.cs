@@ -1,10 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionRowMoveWindow.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-23
 
 # 설명
 Collection Editor에서 선택한 직렬화 행의 이동 대상 전체 인덱스를 입력받는다.
-이동 가능 여부와 실제 순서 변경은 호출한 CollectionTable이 검증하고 편집 세션에 요청한다.
+이동 가능 여부와 실제 순서 변경은 호출한 CollectionTableGrid가 검증하고 편집 세션에 요청한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -13,6 +13,8 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+
+using inonego.Xeri.UI;
 
 namespace inonego.Xeri.Serializable.Editor
 {
@@ -104,7 +106,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         private void HandleKeyDown(KeyDownEvent evt)
         {
-            if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+            if (XeriShortcutKeys.IsSubmit(evt.keyCode))
             {
                 Apply();
                 evt.StopPropagation();

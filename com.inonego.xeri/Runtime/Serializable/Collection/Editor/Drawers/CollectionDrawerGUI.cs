@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : CollectionDrawerGUI.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-21
 
 # 설명
 컬렉션 PropertyDrawer들의 공통 진입점이다.
@@ -82,8 +82,8 @@ namespace inonego.Xeri.Serializable.Editor
 
                 var source = new CollectionSource(property.serializedObject, property.propertyPath, kind);
                 var visibleRows = field?.GetCustomAttribute<CollectionEditorAttribute>(inherit: true)?.VisibleRows
-                    ?? CollectionTableOptions.DefaultVisibleRows;
-                return new CollectionTable(new CollectionSession(source, isReadOnly), new CollectionTableOptions(visibleRows, label));
+                    ?? CollectionTableGridOptions.DefaultVisibleRows;
+                return new CollectionTableGrid(new CollectionSession(source, isReadOnly), new CollectionTableGridOptions(visibleRows, label));
             }
             catch (Exception exception)
             {
