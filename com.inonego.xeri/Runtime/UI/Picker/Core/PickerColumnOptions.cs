@@ -1,27 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerColumnOptions.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-21
 
 # 설명
 Picker table column의 layout, 정렬, 검색, 표시 정책을 한곳에 모으는 옵션 모델.
 ========================================================================= BLOCK_HEADER_END */
 
-using System;
+using inonego;
+using inonego.Xeri;
+using inonego.Xeri.UI;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.UI.Picker
 {
-    // ============================================================
-    /// <summary>
-    /// Picker column text 정렬.
-    /// </summary>
-    // ============================================================
-    public enum PickerColumnAlignment
-    {
-        Left,
-        Center,
-        Right,
-    }
-
     // ============================================================
     /// <summary>
     /// Picker column text overflow 정책.
@@ -36,32 +27,58 @@ namespace inonego.Xeri.UI.Picker
 
     // ============================================================
     /// <summary>
-    /// Picker column 표시 여부.
-    /// </summary>
-    // ============================================================
-    public enum PickerColumnVisibility
-    {
-        Visible,
-        Hidden,
-    }
-
-    // ============================================================
-    /// <summary>
     /// Picker table column 표시/동작 옵션.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerColumnOptions
     {
 
     #region 필드
 
-        public readonly TableColumnLayout Layout;
+        private const float DEFAULT_WIDTH = 120f;
+        private const float DEFAULT_MIN_WIDTH = 40f;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 열의 폭 정책이다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public readonly TableGridColumnLayout Layout;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 정렬 가능 여부다.
+        /// </summary>
+        // ------------------------------------------------------------
         public readonly bool Sortable;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 검색 대상 여부다.
+        /// </summary>
+        // ------------------------------------------------------------
         public readonly bool Searchable;
-        public readonly PickerColumnAlignment Alignment;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 텍스트 정렬 방식이다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public readonly TableGridAlignment Alignment;
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 텍스트 넘침 처리 방식이다.
+        /// </summary>
+        // ------------------------------------------------------------
         public readonly PickerColumnOverflow Overflow;
-        public readonly PickerColumnVisibility Visibility;
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// 목록 표에 열로 보일지 여부다. 숨긴 열도 검색 글자에는 들어간다(Searchable이면).
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public readonly bool Visible;
 
     #endregion
 
@@ -74,20 +91,20 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public PickerColumnOptions
         (
-            TableColumnLayout layout,
+            TableGridColumnLayout layout,
             bool sortable,
             bool searchable,
-            PickerColumnAlignment alignment,
+            TableGridAlignment alignment,
             PickerColumnOverflow overflow,
-            PickerColumnVisibility visibility
+            bool visible
         ) : base()
         {
-            Layout     = layout ?? TableColumnLayout.Flexible(120f, 40f, 0f, 1f);
+            Layout     = layout ?? TableGridColumnLayout.Flexible(DEFAULT_WIDTH, DEFAULT_MIN_WIDTH, 0f, 1f);
             Sortable   = sortable;
             Searchable = searchable;
             Alignment  = alignment;
             Overflow   = overflow;
-            Visibility = visibility;
+            Visible    = visible;
         }
 
     #endregion
@@ -104,19 +121,19 @@ namespace inonego.Xeri.UI.Picker
             float width,
             bool sortable = true,
             bool searchable = true,
-            PickerColumnAlignment alignment = PickerColumnAlignment.Left,
+            TableGridAlignment alignment = TableGridAlignment.Left,
             PickerColumnOverflow overflow = PickerColumnOverflow.Ellipsis,
-            PickerColumnVisibility visibility = PickerColumnVisibility.Visible
+            bool visible = true
         )
         {
             return new PickerColumnOptions
             (
-                TableColumnLayout.Fixed(width),
+                TableGridColumnLayout.Fixed(width),
                 sortable,
                 searchable,
                 alignment,
                 overflow,
-                visibility
+                visible
             );
         }
 
@@ -127,25 +144,25 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public static PickerColumnOptions Flexible
         (
-            float width = 120f,
-            float minWidth = 40f,
+            float width = DEFAULT_WIDTH,
+            float minWidth = DEFAULT_MIN_WIDTH,
             float maxWidth = 0f,
             float stretchWeight = 1f,
             bool sortable = true,
             bool searchable = true,
-            PickerColumnAlignment alignment = PickerColumnAlignment.Left,
+            TableGridAlignment alignment = TableGridAlignment.Left,
             PickerColumnOverflow overflow = PickerColumnOverflow.Ellipsis,
-            PickerColumnVisibility visibility = PickerColumnVisibility.Visible
+            bool visible = true
         )
         {
             return new PickerColumnOptions
             (
-                TableColumnLayout.Flexible(width, minWidth, maxWidth, stretchWeight),
+                TableGridColumnLayout.Flexible(width, minWidth, maxWidth, stretchWeight),
                 sortable,
                 searchable,
                 alignment,
                 overflow,
-                visibility
+                visible
             );
         }
 

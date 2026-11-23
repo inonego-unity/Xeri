@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerManualEditorWindow.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-22
 
 # 설명
 Picker EditorWindow 선택 UI를 직접 조작해 확인하는 수동 Editor 테스트.
@@ -28,6 +28,7 @@ using inonego.Xeri.Editor;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
 using inonego.Xeri.UI.Picker.Editor;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.TEST.UI._Picker
 {
@@ -48,14 +49,67 @@ namespace inonego.Xeri.TEST.UI._Picker
         // ============================================================
         private sealed class Entry
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 항목 식별자.
+            /// </summary>
+            // ------------------------------------------------------------
             public string ID;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 항목 이름.
+            /// </summary>
+            // ------------------------------------------------------------
             public string Name;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 정렬 확인용 점수.
+            /// </summary>
+            // ------------------------------------------------------------
             public int Score;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 코드 글자.
+            /// </summary>
+            // ------------------------------------------------------------
             public string Code;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 상태 글자.
+            /// </summary>
+            // ------------------------------------------------------------
             public string Status;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 출처 글자.
+            /// </summary>
+            // ------------------------------------------------------------
             public string Source;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 숨김 열 확인용 메타 글자.
+            /// </summary>
+            // ------------------------------------------------------------
             public string InternalMeta;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 미리보기 설명.
+            /// </summary>
+            // ------------------------------------------------------------
             public string Desc;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 미리보기 이미지.
+            /// </summary>
+            // ------------------------------------------------------------
             public Texture2D Thumbnail;
         }
 
@@ -86,7 +140,7 @@ namespace inonego.Xeri.TEST.UI._Picker
             (
                 "점수",
                 entry => entry.Score,
-                PickerColumnOptions.Fixed(width: 64f, alignment: PickerColumnAlignment.Right)
+                PickerColumnOptions.Fixed(width: 64f, alignment: TableGridAlignment.Right)
             )
                 .Column
             (
@@ -104,14 +158,14 @@ namespace inonego.Xeri.TEST.UI._Picker
             (
                 "출처",
                 entry => entry.Source,
-                PickerColumnOptions.Fixed(width: 90f, alignment: PickerColumnAlignment.Center)
+                PickerColumnOptions.Fixed(width: 90f, alignment: TableGridAlignment.Center)
             )
                 .Column
             (
                 "internal-meta",
                 "숨김 메타",
                 entry => entry.InternalMeta,
-                PickerColumnOptions.Fixed(width: 120f, searchable: false, visibility: PickerColumnVisibility.Hidden)
+                PickerColumnOptions.Fixed(width: 120f, searchable: false, visible: false)
             )
                 .FilterByEntry("active", "활성", false, entry => entry.Status == "활성")
                 .FilterByEntry("external", "외부", false, entry => entry.Source == "외부")

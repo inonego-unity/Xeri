@@ -1,12 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerViewResourceLoader.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-23
 
 # 설명
 Picker runtime view가 사용할 UXML/USS asset을 Resources에서 로드한다.
 ========================================================================= BLOCK_HEADER_END */
-
-using System;
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -38,7 +36,7 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public static VisualTreeAsset LoadLayout()
         {
-            return LoadRequired<VisualTreeAsset>(layoutPath, "PickerView UXML");
+            return XeriUIResources.Require<VisualTreeAsset>(layoutPath, "Picker");
         }
 
         // ------------------------------------------------------------
@@ -48,7 +46,7 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public static StyleSheet LoadThemeStyle()
         {
-            return LoadRequired<StyleSheet>(themeStylePath, "PickerTheme USS");
+            return XeriUIResources.Require<StyleSheet>(themeStylePath, "Picker");
         }
 
         // ------------------------------------------------------------
@@ -58,24 +56,7 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         public static StyleSheet LoadViewStyle()
         {
-            return LoadRequired<StyleSheet>(viewStylePath, "PickerView USS");
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Resources 경로에서 필수 asset을 로드한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static T LoadRequired<T>(string path, string label) where T : UnityEngine.Object
-        {
-            var asset = Resources.Load<T>(path);
-
-            if (asset == null)
-            {
-                throw new InvalidOperationException($"{label}을 Resources에서 로드할 수 없습니다. Path: {path}");
-            }
-
-            return asset;
+            return XeriUIResources.Require<StyleSheet>(viewStylePath, "Picker");
         }
 
     #endregion

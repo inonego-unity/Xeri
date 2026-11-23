@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerColumnSpec.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-23
 
 # 설명
 Picker table column의 header, 표시/동작 옵션, 값 생성 규칙.
@@ -15,7 +15,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker table column 정의.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerColumnSpec<TEntry>
     {
 
@@ -80,7 +79,7 @@ namespace inonego.Xeri.UI.Picker
         {
             var value = valueGetter(entry);
 
-            return new PickerColumnValue(ID, Header, value, Options.Searchable);
+            return new PickerColumnValue(ID, value, Options.Searchable);
         }
 
     #endregion

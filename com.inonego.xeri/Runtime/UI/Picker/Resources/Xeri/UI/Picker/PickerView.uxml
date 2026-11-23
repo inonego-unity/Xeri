@@ -1,4 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="preview-pane" class="xeri-picker__preview">
         <ui:VisualElement class="xeri-picker__preview-row">
             <ui:Image name="preview-image" class="xeri-picker__preview-image" />
@@ -13,10 +13,9 @@
         </ui:ScrollView>
         <ui:VisualElement name="preview-tags" class="xeri-picker__preview-tags" />
     </ui:VisualElement>
-    <uie:ToolbarSearchField name="search-field" class="xeri-picker__search-field" />
-    <ui:VisualElement name="filter-chip-container" class="xeri-picker__filter-row" />
-    <ui:VisualElement name="table-pane" class="xeri-picker__table-pane">
-        <ui:MultiColumnListView name="entry-table" class="xeri-picker__table" />
-        <ui:Label name="empty-label" text="비어있음" class="xeri-picker__empty-label" />
+    <ui:VisualElement name="toolbar" class="xeri-picker__toolbar">
+        <inonego.Xeri.UI.TableGrid.TableGridSearchField name="search-field" class="xeri-picker__search-field" />
+        <ui:VisualElement name="filter-chip-container" class="xeri-picker__filter-row" />
     </ui:VisualElement>
+    <ui:VisualElement name="table-pane" class="xeri-picker__table-pane" />
 </ui:UXML>

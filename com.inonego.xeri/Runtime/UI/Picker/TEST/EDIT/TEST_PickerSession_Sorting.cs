@@ -1,9 +1,10 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerSession_Sorting.cs
-수정일 : 2026-10-24
+수정일 : 2026-11-22
 
 # 설명
-PickerSession의 숫자·문자열 열 정렬과 정렬 불가능한 열의 동작을 검증한다.
+Picker 목록 표의 숫자·문자열 열 정렬(원래 값 비교)과 정렬 불가능한 열의 동작을 검증한다.
+헤더 클릭처럼 정렬을 요청하고, 아래 키로 첫 행을 골라 순서를 확인한다.
 
 # 테스트 구성
  C: 열 정렬 계약
@@ -20,6 +21,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.TEST.UI._Picker
 {
@@ -62,11 +64,13 @@ namespace inonego.Xeri.TEST.UI._Picker
                 },
             };
 
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("점수", true);
+            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { });
+            var grid = CreateGrid(session);
+            RequestSort(grid, "점수", TableGridSortDirection.Ascending);
 
-            Assert.AreEqual("B", session.PageEntries[0].Label);
-            Assert.AreEqual("A", session.PageEntries[1].Label);
+            Assert.AreEqual("B", SelectFirstRow(grid, session));
+            grid.HandleForwardedKey(UnityEngine.KeyCode.DownArrow, false);
+            Assert.AreEqual("A", session.CurrentEntry.Label);
         }
 
         // ------------------------------------------------------------
@@ -98,11 +102,13 @@ namespace inonego.Xeri.TEST.UI._Picker
                 },
             };
 
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("가중치", true);
+            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { });
+            var grid = CreateGrid(session);
+            RequestSort(grid, "가중치", TableGridSortDirection.Ascending);
 
-            Assert.AreEqual("B", session.PageEntries[0].Label);
-            Assert.AreEqual("A", session.PageEntries[1].Label);
+            Assert.AreEqual("B", SelectFirstRow(grid, session));
+            grid.HandleForwardedKey(UnityEngine.KeyCode.DownArrow, false);
+            Assert.AreEqual("A", session.CurrentEntry.Label);
         }
 
         // ------------------------------------------------------------
@@ -134,20 +140,22 @@ namespace inonego.Xeri.TEST.UI._Picker
                 },
             };
 
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("코드", true);
+            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { });
+            var grid = CreateGrid(session);
+            RequestSort(grid, "코드", TableGridSortDirection.Ascending);
 
-            Assert.AreEqual("A", session.PageEntries[0].Label);
-            Assert.AreEqual("B", session.PageEntries[1].Label);
+            Assert.AreEqual("A", SelectFirstRow(grid, session));
+            grid.HandleForwardedKey(UnityEngine.KeyCode.DownArrow, false);
+            Assert.AreEqual("B", session.CurrentEntry.Label);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 정렬 불가 column의 정렬 요청은 표시 순서를 바꾸지 않는다.
+        /// 정렬 불가 column의 정렬 요청은 표시 순서와 헤더 정렬 표시를 바꾸지 않는다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         [Test]
-        public void TEST_PickerSession_ColumnSorting_NonSortableColumn_SetSort_무시()
+        public void TEST_PickerSession_ColumnSorting_NonSortableColumn_정렬요청_무시()
         {
             var spec = PickerSpec<Entry, string>
                 .Create("행 선택")
@@ -170,11 +178,14 @@ namespace inonego.Xeri.TEST.UI._Picker
                 },
             };
 
-            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { }, 10);
-            session.SetSort("썸네일", true);
+            var session = new PickerSession<Entry, string>(spec, entries, null, _ => { });
+            var grid = CreateGrid(session);
+            RequestSort(grid, "썸네일", TableGridSortDirection.Ascending);
+            Assert.IsNull(grid.QueryState.SortColumnID);
 
-            Assert.AreEqual("B", session.PageEntries[0].Label);
-            Assert.AreEqual("A", session.PageEntries[1].Label);
+            Assert.AreEqual("B", SelectFirstRow(grid, session));
+            grid.HandleForwardedKey(UnityEngine.KeyCode.DownArrow, false);
+            Assert.AreEqual("A", session.CurrentEntry.Label);
         }
 
     #endregion

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerViewResourceLoader.cs
-수정일 : 2026-09-24
+수정일 : 2026-11-21
 
 # 설명
 Picker UXML/USS Resources loader 계약 테스트.
@@ -21,6 +21,7 @@ using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
 using inonego.Xeri.UI.Picker;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.TEST.UI._Picker
 {
@@ -51,19 +52,9 @@ namespace inonego.Xeri.TEST.UI._Picker
             var root = layout.CloneTree();
             Assert.NotNull(root.Q<Image>("preview-image"));
             Assert.NotNull(root.Q<Button>("select-button"));
-            Assert.NotNull(root.Q<VisualElement>("search-field"));
-            Assert.NotNull(root.Q<MultiColumnListView>("entry-table"));
-            Assert.NotNull(root.Q<Label>("empty-label"));
+            Assert.NotNull(root.Q<TableGridSearchField>("search-field"), "Picker 검색창은 TableGridSearchField여야 합니다.");
             Assert.NotNull(root.Q<VisualElement>("filter-chip-container"));
-
-            var chromeLayout = Resources.Load<VisualTreeAsset>("Xeri/UI/List/PagedListChrome");
-            var chromeStyle = Resources.Load<StyleSheet>("Xeri/UI/List/PagedListChrome");
-            Assert.NotNull(chromeLayout);
-            Assert.NotNull(chromeStyle);
-
-            var chrome = chromeLayout.CloneTree();
-            Assert.NotNull(chrome.Q<VisualElement>("paged-list-search"));
-            Assert.NotNull(chrome.Q<VisualElement>("paged-list-pagination"));
+            Assert.NotNull(root.Q<VisualElement>("table-pane"), "PickerView가 목록 표를 붙일 table-pane이 있어야 합니다.");
         }
 
     #endregion

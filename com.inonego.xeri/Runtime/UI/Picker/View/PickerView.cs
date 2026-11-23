@@ -1,9 +1,17 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerView.cs
-수정일 : 2026-10-28
+수정일 : 2026-11-23
 
 # 설명
 Picker session을 표시하고 Resources 기반 UXML/USS를 적용하는 root VisualElement.
+preview·검색창(TableGridSearchField)·filter chip은 Picker UXML이, 목록 표는 PickerTableGridBinder가 만든 TableGrid가 맡는다.
+검색창은 표를 직접 검색한다(SearchesGrid). 검색·정렬·스크롤·키보드 선택 이동은 표가 맡는다.
+
+# 특이사항, 제약사항
+Enter(현재 항목 확정)·Escape(선택 비우기)는 root에서 먼저 받는다.
+표 밖(검색창·root)에서 누른 방향키·PageUp/Down은 표로 넘기고, 표에 포커스가 있으면 표가 직접 처리한다.
+표 안의 하위 요소(입력칸 등)에서 온 키는 그 요소가 처리하도록 넘긴다.
+Picker 크롬도 표와 같은 테마 수정 클래스(xeri-table--editor, xeri-table--light)를 붙여 Unity 스킨을 따른다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -14,6 +22,7 @@ using UnityEngine.UIElements;
 using inonego;
 using inonego.Xeri;
 using inonego.Xeri.UI;
+using inonego.Xeri.UI.TableGrid;
 
 namespace inonego.Xeri.UI.Picker
 {
@@ -30,9 +39,7 @@ namespace inonego.Xeri.UI.Picker
         private readonly PickerSession<TEntry, TValue> session;
         private readonly PickerPreviewBinder<TEntry, TValue> previewBinder;
         private readonly PickerFilterBinder<TEntry, TValue> filterBinder;
-        private readonly PickerTableBinder<TEntry, TValue> tableBinder;
-        private readonly PagedListChrome chrome;
-        private readonly PaginationBar paginationBar;
+        private readonly PickerTableGridBinder<TEntry, TValue> gridBinder;
 
     #endregion
 
@@ -77,40 +84,25 @@ namespace inonego.Xeri.UI.Picker
                 throw new ArgumentNullException(nameof(layout));
             }
 
-            var content = new VisualElement();
-            layout.CloneTree(content);
+            layout.CloneTree(this);
 
-            chrome = new PagedListChrome();
-            Add(chrome);
-            paginationBar = new PaginationBar
-            (
-                session.Paginator,
-                HandlePageNavigation
-            );
-            chrome.PaginationHost.Add(paginationBar);
-
-            var preview = content.Q<VisualElement>("preview-pane");
-            var search = content.Q<VisualElement>("search-field");
-            var filters = content.Q<VisualElement>("filter-chip-container");
-            var table = content.Q<VisualElement>("table-pane");
-            if (preview == null || search == null || filters == null || table == null)
+            var search = this.Q<TableGridSearchField>("search-field");
+            var filters = this.Q<VisualElement>("filter-chip-container");
+            var table = this.Q<VisualElement>("table-pane");
+            if (this.Q<VisualElement>("preview-pane") == null || search == null || filters == null || table == null)
             {
                 throw new InvalidOperationException("PickerView 전용 콘텐츠 UXML이 올바르지 않습니다.");
             }
 
-            chrome.HeaderHost.Add(preview);
-            chrome.SearchHost.Add(search);
+            // filter가 없는 Picker는 filter 행을 배치에서 뺀다.
             if (session.Filters.Count > 0)
             {
-                chrome.AddToolbarExtra(filters);
                 filterBinder = new PickerFilterBinder<TEntry, TValue>(session, this);
             }
-
-            chrome.ContentHost.Add(table);
-            search.RegisterCallback<ChangeEvent<string>>
-            (
-                evt => session.SetSearchText(evt.newValue)
-            );
+            else
+            {
+                filters.style.display = DisplayStyle.None;
+            }
 
             if (themeStyle != null)
             {
@@ -129,8 +121,15 @@ namespace inonego.Xeri.UI.Picker
                 previewBinder = new PickerPreviewBinder<TEntry, TValue>(session, this);
             }
 
-            tableBinder = new PickerTableBinder<TEntry, TValue>(session, this);
-            chrome.BindPageListView(this.Q<MultiColumnListView>("entry-table"));
+            gridBinder = new PickerTableGridBinder<TEntry, TValue>(session, table);
+
+            // 검색창은 표를 직접 검색한다. 결과가 바뀌면 빠진 현재 항목을 비우고 보이는 자리를 맞춘다.
+            search.Grid = gridBinder.Grid;
+            search.SearchesGrid = true;
+            search.SearchTextChanged += (_, _) => gridBinder.HandleResultsChanged();
+
+            // 크롬도 표와 같은 기준(패널 종류, Unity 스킨)으로 테마 수정 클래스를 붙인다.
+            TableGridTheming.Attach(this, gridBinder.Grid.Options);
 
             RegisterCallback<KeyDownEvent>(HandleKeyDown, TrickleDown.TrickleDown);
             RegisterCallback<AttachToPanelEvent>(HandleAttached);
@@ -150,10 +149,9 @@ namespace inonego.Xeri.UI.Picker
         // ------------------------------------------------------------
         private void Refresh()
         {
-            chrome.CancelPageScroll();
             previewBinder?.Refresh();
             filterBinder?.Refresh();
-            tableBinder?.Refresh();
+            gridBinder.Refresh();
         }
 
         // ------------------------------------------------------------
@@ -180,11 +178,11 @@ namespace inonego.Xeri.UI.Picker
             evt.StopImmediatePropagation();
         }
 
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         /// <summary>
-        /// 텍스트 입력 내부의 좌우 커서 이동은 picker shortcut으로 처리하지 않는다.
+        /// 텍스트 입력 내부의 좌우·Home/End 커서 이동은 표로 넘기지 않는다.
         /// </summary>
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------------------
         private static bool IsTextInputEvent(KeyDownEvent evt)
         {
             if (evt.target is TextField) return true;
@@ -200,29 +198,21 @@ namespace inonego.Xeri.UI.Picker
             return false;
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 표 루트가 아닌 표 안의 요소(입력칸·버튼 등)에서 온 키인지 확인한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool IsGridChildEvent(KeyDownEvent evt)
+        {
+            var grid = gridBinder.Grid;
+
+            return evt.target is VisualElement target && target != grid && grid.Contains(target);
+        }
+
     #endregion
 
     #region 이벤트 핸들러
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 페이지네이터 입력을 session의 공통 이동 명령으로 전달한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void HandlePageNavigation(PageNavigationRequest request)
-        {
-            session.NavigatePage(request);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 페이지 데이터와 선택 상태를 갱신한 뒤 목록 스크롤을 적용한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void HandlePageNavigated(PageNavigationResult result)
-        {
-            chrome.ScrollToPageBoundary(result.ScrollAnchor);
-        }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -234,44 +224,39 @@ namespace inonego.Xeri.UI.Picker
             Refresh();
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// keyboard shortcut을 session 명령으로 연결한다.
+        /// Enter·Escape를 session 명령으로, 표 밖의 이동 키를 표로 연결한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private void HandleKeyDown(KeyDownEvent evt)
         {
-            // 페이지 입력과 버튼은 Picker 전체 선택 단축키보다 우선한다.
-            if (evt.target is VisualElement target && paginationBar.Contains(target)) return;
+            // 표 안의 입력칸과 버튼은 Picker 전체 단축키보다 우선한다.
+            if (IsGridChildEvent(evt)) return;
 
             if (evt.keyCode == KeyCode.Escape)
             {
                 session.ClearCurrentEntry();
                 StopShortcutEvent(evt);
+                return;
             }
-            else if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+
+            if (XeriShortcutKeys.IsSubmit(evt.keyCode))
             {
                 session.ConfirmCurrent();
                 StopShortcutEvent(evt);
+                return;
             }
-            else if (evt.keyCode == KeyCode.UpArrow)
+
+            // 표에 포커스가 있으면 표가 직접 처리한다. 검색창의 좌우·Home/End는 글자 커서에 남긴다.
+            if (evt.target == gridBinder.Grid) return;
+
+            var isCursorKey = evt.keyCode == KeyCode.LeftArrow || evt.keyCode == KeyCode.RightArrow
+                || evt.keyCode == KeyCode.Home || evt.keyCode == KeyCode.End;
+            if (isCursorKey && IsTextInputEvent(evt)) return;
+
+            if (gridBinder.Grid.HandleForwardedKey(evt.keyCode, evt.shiftKey))
             {
-                StopShortcutEvent(evt);
-                session.MoveSelectionPrev();
-            }
-            else if (evt.keyCode == KeyCode.DownArrow)
-            {
-                StopShortcutEvent(evt);
-                session.MoveSelectionNext();
-            }
-            else if (evt.keyCode == KeyCode.LeftArrow && !IsTextInputEvent(evt))
-            {
-                session.NavigatePage(new PageNavigationRequest(PageNavigationKind.Previous));
-                StopShortcutEvent(evt);
-            }
-            else if (evt.keyCode == KeyCode.RightArrow && !IsTextInputEvent(evt))
-            {
-                session.NavigatePage(new PageNavigationRequest(PageNavigationKind.Next));
                 StopShortcutEvent(evt);
             }
         }
@@ -285,8 +270,6 @@ namespace inonego.Xeri.UI.Picker
         {
             session.Changed -= HandleSessionChanged;
             session.Changed += HandleSessionChanged;
-            session.PageNavigated -= HandlePageNavigated;
-            session.PageNavigated += HandlePageNavigated;
             Refresh();
             schedule.Execute(Focus);
         }
@@ -299,7 +282,6 @@ namespace inonego.Xeri.UI.Picker
         private void HandleDetached(DetachFromPanelEvent evt)
         {
             session.Changed -= HandleSessionChanged;
-            session.PageNavigated -= HandlePageNavigated;
         }
 
     #endregion

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerWindowBridge.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-21
 
 # 설명
 PickerWindowBridge의 generic 인자 전달과 close/cancel callback wiring 테스트.
@@ -40,7 +40,18 @@ namespace inonego.Xeri.TEST.UI._Picker
         // ============================================================
         private sealed class Entry
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 항목 식별자.
+            /// </summary>
+            // ------------------------------------------------------------
             public string ID;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 항목 이름.
+            /// </summary>
+            // ------------------------------------------------------------
             public string Name;
         }
 
@@ -80,8 +91,7 @@ namespace inonego.Xeri.TEST.UI._Picker
                 entries,
                 "1",
                 value => selectedValue = value,
-                () => cancelCount++,
-                8
+                () => cancelCount++
             );
             var session = bridge.CreateSession(() => closeCount++);
 
@@ -122,8 +132,7 @@ namespace inonego.Xeri.TEST.UI._Picker
                 entries,
                 "1",
                 _ => { },
-                () => cancelCount++,
-                8
+                () => cancelCount++
             );
 
             bridge.CancelIfNotCompleted();

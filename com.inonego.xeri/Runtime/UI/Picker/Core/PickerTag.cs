@@ -6,8 +6,6 @@
 Picker entry와 preview에 표시할 짧은 key-value 태그 모델.
 ========================================================================= BLOCK_HEADER_END */
 
-using System;
-
 namespace inonego.Xeri.UI.Picker
 {
     // ============================================================
@@ -15,7 +13,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker entry와 preview에 표시할 짧은 key-value 태그 모델.
     /// </summary>
     // ============================================================
-    [Serializable]
     public readonly struct PickerTag
     {
 
@@ -48,20 +45,6 @@ namespace inonego.Xeri.UI.Picker
         {
             Label = label ?? string.Empty;
             Value = value ?? string.Empty;
-        }
-
-    #endregion
-
-    #region 메서드
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 검색과 디버깅에 사용할 표시 문자열을 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public override string ToString()
-        {
-            return string.IsNullOrEmpty(Label) ? Value : $"{Label}: {Value}";
         }
 
     #endregion

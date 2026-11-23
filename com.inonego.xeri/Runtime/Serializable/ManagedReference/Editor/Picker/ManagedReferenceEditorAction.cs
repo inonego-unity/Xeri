@@ -142,8 +142,6 @@ namespace inonego.Xeri.Serializable.Editor
             Action<Type> onSelected
         )
         {
-            const int popupPageSize = 5;
-
             var candidates = ManagedReferenceTypeCatalog.GetCreationCandidates(declaredType);
             if (candidates.Count == 0)
             {
@@ -189,8 +187,7 @@ namespace inonego.Xeri.Serializable.Editor
 
                     onSelected(selectedCandidate.Type);
                 },
-                anchor,
-                pageSize: popupPageSize
+                anchor
             );
         }
 

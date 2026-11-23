@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerDefaultTextures.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-22
 
 # 설명
 Picker view에서 사용하는 기본 런타임 텍스처를 제공한다.
@@ -63,25 +63,25 @@ namespace inonego.Xeri.UI.Picker
             };
 
             var baseColor = new Color(0.33f, 0.35f, 0.38f, 1f);
-            var panelDarker = new Color(0.12f, 0.12f, 0.12f, 1f);
-            var textMuted = new Color(0.65f, 0.65f, 0.65f, 1f);
-            var text = new Color(0.84f, 0.84f, 0.84f, 1f);
+            var shadeColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+            var checkColor = new Color(0.65f, 0.65f, 0.65f, 1f);
+            var highlightColor = new Color(0.84f, 0.84f, 0.84f, 1f);
 
             for (var y = 0; y < checkerSize; y++)
             {
                 for (var x = 0; x < checkerSize; x++)
                 {
                     var gradient = (x + y) / 96f;
-                    var color = Blend(baseColor, panelDarker, gradient * 0.35f);
+                    var color = Color.Lerp(baseColor, shadeColor, gradient * 0.35f);
 
                     if (((x / checkerCellSize) + (y / checkerCellSize)) % 2 == 0)
                     {
-                        color = Blend(color, textMuted, 0.08f);
+                        color = Color.Lerp(color, checkColor, 0.08f);
                     }
 
                     if (x > 30 && y < 16)
                     {
-                        color = Blend(color, text, 0.16f);
+                        color = Color.Lerp(color, highlightColor, 0.16f);
                     }
 
                     texture.SetPixel(x, y, color);
@@ -91,16 +91,6 @@ namespace inonego.Xeri.UI.Picker
             texture.Apply(false, true);
 
             return texture;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 목업 텍스처와 같은 색상 보간을 수행한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static Color Blend(Color from, Color to, float weight)
-        {
-            return Color.Lerp(from, to, weight);
         }
 
     #endregion

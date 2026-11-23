@@ -6,8 +6,6 @@
 Picker filter chip과 실제 필터 조건을 함께 보관하는 모델.
 ========================================================================= BLOCK_HEADER_END */
 
-using System;
-
 using inonego;
 using inonego.Xeri;
 
@@ -18,7 +16,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker filter chip과 실제 필터 조건을 함께 보관하는 모델.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerFilterSpec<TEntry, TValue>
     {
 

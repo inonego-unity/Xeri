@@ -15,7 +15,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker 선택 확정 이벤트 인자.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerSelectionEventArgs<TEntry, TValue> : EventArgs
     {
 

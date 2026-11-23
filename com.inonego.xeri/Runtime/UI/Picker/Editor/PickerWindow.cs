@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerWindow.cs
-수정일 : 2026-10-28
+수정일 : 2026-11-22
 
 # 설명
 PickerView를 Unity EditorWindow 안에 호스팅하고 창 수명주기를 관리한다.
@@ -52,8 +52,7 @@ namespace inonego.Xeri.UI.Picker.Editor
             IReadOnlyList<TEntry> entries,
             TValue currentValue,
             Action<TValue> onSelected,
-            Action onCanceled,
-            int pageSize
+            Action onCanceled
         )
         {
             var window = CreateInstance<PickerWindow>();
@@ -63,8 +62,7 @@ namespace inonego.Xeri.UI.Picker.Editor
                 entries,
                 currentValue,
                 onSelected,
-                onCanceled,
-                pageSize
+                onCanceled
             );
             window.titleContent = new GUIContent(window.bridge.Title);
             window.minSize = minimumModalWindowSize;

@@ -189,8 +189,10 @@
     color: var(--xeri-picker-color-text-dim);
 }
 
-/* Toolbar: 공통 배치는 PagedListChrome.uss에서 소유한다. */
-.xeri-picker .xeri-paged-list__toolbar {
+/* Toolbar */
+.xeri-picker__toolbar {
+    flex-shrink: 0;
+    min-width: 0;
     align-items: stretch;
     padding-left: var(--xeri-picker-space-md);
     padding-right: var(--xeri-picker-space-md);
@@ -201,7 +203,8 @@
     background-color: var(--xeri-picker-color-panel);
 }
 
-.xeri-picker__search-field {
+/* 검색창은 TableGridSearchField다. 자기 시트(.xeri-table-search)보다 앞서도록 도구 줄을 포함해 고른다. */
+.xeri-picker__toolbar > .xeri-picker__search-field {
     align-self: stretch;
     width: 100%;
     height: var(--xeri-picker-toolbar-search-height);
@@ -218,14 +221,25 @@
     margin-top: var(--xeri-picker-space-sm);
 }
 
+/* filter 토글 칩: TableGrid 쿼리 칩(.xeri-table-chips__chip)과 같은 계열의 둥근 테두리 칩.
+   높이·반경은 Picker 밀도에 맞춘 Picker 테마 값(표보다 작다)을 쓴다. 켜진 칩은 tone 색으로 채운다. */
 .xeri-picker__filter-chip {
     height: var(--xeri-picker-filter-chip-height);
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 0;
     margin-right: var(--xeri-picker-space-sm);
+    padding-top: 0;
+    padding-bottom: 0;
     padding-left: var(--xeri-picker-space-md);
     padding-right: var(--xeri-picker-space-md);
-    background-color: var(--xeri-picker-color-control);
+    border-width: 1px;
+    border-radius: var(--xeri-picker-radius-pill);
+    background-color: transparent;
     border-color: var(--xeri-picker-color-border-light);
     color: var(--xeri-picker-color-text-muted);
+    font-size: var(--xeri-picker-font-sm);
+    -unity-text-align: middle-center;
 }
 
 .xeri-picker__filter-chip:hover {
@@ -262,140 +276,43 @@
     border-color: var(--xeri-picker-color-gray-blue-border);
 }
 
-/* Table */
+/* Table: 표 모양은 TableGrid Editor 테마(--xeri-table-*)가 정하고 Picker는 셀 내용만 정한다. */
 .xeri-picker__table-pane {
     flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
     position: relative;
     background-color: var(--xeri-picker-color-panel-lower);
 }
 
-.xeri-picker__table {
-    flex-grow: 1;
-    background-color: var(--xeri-picker-color-panel-lower);
-    border-top-width: 0;
-    border-bottom-width: 0;
-    border-left-width: 0;
-    border-right-width: 0;
-}
-
-.xeri-picker__table .unity-multi-column-header {
-    background-color: var(--xeri-picker-color-header);
-    border-bottom-color: var(--xeri-picker-color-border);
-}
-
-.xeri-picker__table .unity-multi-column-header__column {
-    background-color: var(--xeri-picker-color-header);
-    border-right-color: var(--xeri-picker-color-border);
-}
-
-.xeri-picker__table .unity-multi-column-header__column:hover {
-    background-color: var(--xeri-picker-color-control-hover);
-}
-
-.xeri-picker__table .unity-collection-view__item {
-    min-height: var(--xeri-picker-row-height);
-    background-color: var(--xeri-picker-color-row-even);
-}
-
-.xeri-picker__table .unity-collection-view__item:hover {
-    background-color: var(--xeri-picker-color-row-hover);
-}
-
-.xeri-picker__table .unity-collection-view__item--selected {
-    background-color: var(--xeri-picker-color-row-selected);
-}
-
-.xeri-picker__table .unity-base-vertical-collection-view__empty-label,
-.xeri-picker__table .unity-collection-view__empty-label,
-.xeri-picker__table .unity-list-view__empty-label {
-    display: none;
-}
-
-.xeri-picker__table-cell {
-    height: 100%;
+.xeri-picker__grid {
     flex-grow: 1;
 }
 
-.xeri-picker__table-cell--even {
-    background-color: var(--xeri-picker-color-row-even);
+.xeri-table__cell-text.xeri-picker__cell-text--clip {
+    text-overflow: clip;
 }
 
-.xeri-picker__table-cell--odd {
-    background-color: var(--xeri-picker-color-row-odd);
-}
-
-.xeri-picker__table .unity-collection-view__item--selected .xeri-picker__table-cell {
-    background-color: var(--xeri-picker-color-row-selected);
-}
-
-.xeri-picker__table-cell-label {
-    padding-left: var(--xeri-picker-space-sm);
-    -unity-text-align: middle-left;
-    color: var(--xeri-picker-color-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.xeri-picker__table-cell-label--align-left {
-    -unity-text-align: middle-left;
-}
-
-.xeri-picker__table-cell-label--align-center {
-    -unity-text-align: middle-center;
-}
-
-.xeri-picker__table-cell-label--align-right {
-    -unity-text-align: middle-right;
-}
-
-.xeri-picker__table-cell-label--overflow-ellipsis {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.xeri-picker__table-cell-label--overflow-clip {
-    white-space: nowrap;
-    overflow: hidden;
-}
-
-.xeri-picker__table-cell-label--overflow-wrap {
+.xeri-table__cell-text.xeri-picker__cell-text--wrap {
     white-space: normal;
-    overflow: hidden;
+    text-overflow: clip;
 }
 
-.xeri-picker__table-cell-image-frame {
+/* 선택할 수 없는 entry(DisabledWhen)의 셀 */
+.xeri-picker__cell--disabled {
+    opacity: 0.45;
+}
+
+.xeri-picker__cell-image-frame {
+    flex-grow: 1;
+    height: 100%;
     align-items: center;
     justify-content: center;
 }
 
-.xeri-picker__table-cell-image {
+.xeri-picker__cell-image {
     width: var(--xeri-picker-table-image-size);
     height: var(--xeri-picker-table-image-size);
     border-radius: var(--xeri-picker-radius-sm);
     background-color: var(--xeri-picker-color-image-panel);
-}
-
-.xeri-picker__empty-label {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: var(--xeri-picker-row-height);
-    bottom: 0;
-    -unity-text-align: middle-center;
-    font-size: var(--xeri-picker-font-md);
-    color: var(--xeri-picker-color-text-dim);
-}
-
-/* Footer: 구조와 기본 정렬은 공통 USS에서 소유한다. */
-.xeri-picker .xeri-paged-list__footer {
-    min-height: 28px;
-    padding-left: var(--xeri-picker-space-md);
-    padding-right: var(--xeri-picker-space-md);
-    padding-top: 2px;
-    padding-bottom: 2px;
-    border-top-width: 1px;
-    border-top-color: var(--xeri-picker-color-border);
-    background-color: var(--xeri-picker-color-panel);
 }

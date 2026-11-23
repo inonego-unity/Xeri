@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerWindowBridge.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-22
 
 # 설명
 Picker.Show·ShowPopup 인자를 non-generic EditorWindow 또는 팝업 호스트의 생명주기에 연결하기 위한 bridge.
@@ -64,7 +64,6 @@ namespace inonego.Xeri.UI.Picker.Editor
         private readonly TValue currentValue;
         private readonly Action<TValue> onSelected;
         private readonly Action onCanceled;
-        private readonly int pageSize;
         private bool isCompleted = false;
 
         // ------------------------------------------------------------
@@ -89,8 +88,7 @@ namespace inonego.Xeri.UI.Picker.Editor
             IReadOnlyList<TEntry> entries,
             TValue currentValue,
             Action<TValue> onSelected,
-            Action onCanceled,
-            int pageSize
+            Action onCanceled
         ) : base()
         {
             this.spec         = spec ?? throw new ArgumentNullException(nameof(spec));
@@ -98,7 +96,6 @@ namespace inonego.Xeri.UI.Picker.Editor
             this.currentValue = currentValue;
             this.onSelected   = onSelected ?? (_ => { });
             this.onCanceled   = onCanceled ?? (() => { });
-            this.pageSize     = pageSize;
         }
 
     #endregion
@@ -112,7 +109,10 @@ namespace inonego.Xeri.UI.Picker.Editor
         // ------------------------------------------------------------
         internal PickerSession<TEntry, TValue> CreateSession(Action closeWindow)
         {
-            var session = new PickerSession<TEntry, TValue>(spec, entries, currentValue, HandleSelected, pageSize);
+            var session = new PickerSession<TEntry, TValue>
+            (
+                spec, entries, currentValue, HandleSelected
+            );
             session.Confirmed += (_, _) => closeWindow?.Invoke();
 
             return session;

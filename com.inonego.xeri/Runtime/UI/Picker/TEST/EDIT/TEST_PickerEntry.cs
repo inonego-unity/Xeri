@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_PickerEntry.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-23
 
 # 설명
 Picker entry의 표시 metadata, 검색 텍스트, null 표시 정책 테스트.
@@ -69,8 +69,8 @@ namespace inonego.Xeri.TEST.UI._Picker
                 null,
                 new[]
                 {
-                    new PickerColumnValue("visible", "표시", "VISIBLE-CODE", true),
-                    new PickerColumnValue("hidden", "숨김", "HIDDEN-CODE", false),
+                    new PickerColumnValue("visible", "VISIBLE-CODE", true),
+                    new PickerColumnValue("hidden", "HIDDEN-CODE", false),
                 },
                 true,
                 string.Empty
@@ -106,8 +106,8 @@ namespace inonego.Xeri.TEST.UI._Picker
                 },
                 new[]
                 {
-                    new PickerColumnValue("name", "이름", "ALPHA"),
-                    new PickerColumnValue("age", "점수", 18),
+                    new PickerColumnValue("name", "ALPHA"),
+                    new PickerColumnValue("age", 18),
                 },
                 true,
                 string.Empty
@@ -148,7 +148,7 @@ namespace inonego.Xeri.TEST.UI._Picker
                 null,
                 new[]
                 {
-                    new PickerColumnValue("code", "코드", null),
+                    new PickerColumnValue("code", null),
                 },
                 true,
                 null

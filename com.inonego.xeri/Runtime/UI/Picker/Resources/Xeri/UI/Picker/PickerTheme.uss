@@ -1,6 +1,18 @@
 /* Theme tokens shared by every Picker view stylesheet.
  * Keep concrete colors, spacing, type, and fixed layout sizes here so a host can
  * replace this file or override the same variables from a higher-level theme.
+ *
+ * The Picker root receives the same theme modifier classes as its TableGrid
+ * (TableGridTheming): xeri-table--editor in Editor panels and xeri-table--light
+ * for the Unity light skin.
+ * - .xeri-picker: fixed dark values (Player panels have no Unity editor variables).
+ * - .xeri-picker.xeri-table--editor: Unity editor variables (--unity-colors-*), so
+ *   the chrome follows the dark/light skin together with the table.
+ * - .xeri-picker.xeri-table--editor.xeri-table--light: light-skin values for tokens
+ *   that have no Unity editor variable.
+ * To override a token for the Editor theme, use a selector at least as specific as
+ * the block above (for example .my-host .xeri-picker.xeri-table--editor).
+ * The list table itself uses the TableGrid Editor theme (--xeri-table-* variables).
  */
 .xeri-picker {
     /* Unity dark palette */
@@ -32,13 +44,6 @@
     --xeri-picker-color-gray-blue: #545962;
     --xeri-picker-color-gray-blue-border: #727986;
 
-    /* Table */
-    --xeri-picker-color-row-even: #202020;
-    --xeri-picker-color-row-odd: #252525;
-    --xeri-picker-color-row-hover: #2d2d2d;
-    --xeri-picker-color-row-selected: #356b9b;
-    --xeri-picker-color-header: #383838;
-
     /* Spacing scale */
     --xeri-picker-space-xxs: 2px;
     --xeri-picker-space-xs: 3px;
@@ -50,12 +55,12 @@
     /* Font scale */
     --xeri-picker-font-xs: 10px;
     --xeri-picker-font-sm: 11px;
-    --xeri-picker-font-md: 12px;
     --xeri-picker-font-lg: 16px;
 
     /* Radius */
     --xeri-picker-radius-sm: 3px;
     --xeri-picker-radius-md: 4px;
+    --xeri-picker-radius-pill: 11px;
 
     /* Fixed layout sizes */
     --xeri-picker-preview-height: 164px;
@@ -64,7 +69,6 @@
     --xeri-picker-preview-desc-height: 62px;
     --xeri-picker-toolbar-search-height: 22px;
     --xeri-picker-filter-chip-height: 22px;
-    --xeri-picker-row-height: 30px;
     --xeri-picker-table-image-size: 22px;
     --xeri-picker-select-button-width: 54px;
     --xeri-picker-select-button-height: 24px;
@@ -72,4 +76,37 @@
     --xeri-picker-scrollbar-edge-gap: 4px;
     --xeri-picker-scrollbar-slider-margin: 4px;
     --xeri-picker-scrollbar-thumb-width: 6px;
+}
+
+/* Editor theme: Unity editor variables follow the dark/light skin. */
+.xeri-picker.xeri-table--editor {
+    --xeri-picker-color-window: var(--unity-colors-window-background);
+    --xeri-picker-color-panel: var(--unity-colors-toolbar-background);
+    --xeri-picker-color-panel-lower: var(--unity-colors-input_field-background);
+    --xeri-picker-color-image-panel: var(--unity-colors-object_field-background);
+    --xeri-picker-color-control: var(--unity-colors-button-background);
+    --xeri-picker-color-control-hover: var(--unity-colors-button-background-hover);
+    --xeri-picker-color-control-pressed: var(--unity-colors-button-background-pressed);
+    --xeri-picker-color-border: var(--unity-colors-toolbar-border);
+    --xeri-picker-color-border-light: var(--unity-colors-button-border);
+
+    --xeri-picker-color-text: var(--unity-colors-default-text);
+}
+
+/* Editor theme, light skin: tokens without a Unity editor variable. */
+.xeri-picker.xeri-table--editor.xeri-table--light {
+    --xeri-picker-color-text-accent: #ffffff;
+    --xeri-picker-color-text-muted: #505050;
+    --xeri-picker-color-text-dim: #6e6e6e;
+
+    --xeri-picker-color-accent: #3a72b0;
+    --xeri-picker-color-accent-hover: #4a82c0;
+    --xeri-picker-color-accent-pressed: #2c5d93;
+    --xeri-picker-color-accent-border: #2c5d93;
+    --xeri-picker-color-green: #4f8a63;
+    --xeri-picker-color-green-border: #3e7050;
+    --xeri-picker-color-orange: #a07a3c;
+    --xeri-picker-color-orange-border: #85632d;
+    --xeri-picker-color-gray-blue: #6f7785;
+    --xeri-picker-color-gray-blue-border: #5a616d;
 }

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerPopup.cs
-수정일 : 2026-10-28
+수정일 : 2026-11-22
 
 # 설명
 앵커 요소에 붙는 Picker 팝업을 공통 팝업 호스트로 연다.
@@ -56,7 +56,6 @@ namespace inonego.Xeri.UI.Picker.Editor
             TValue currentValue,
             Action<TValue> onSelected,
             Action onCanceled,
-            int pageSize,
             VisualElement anchor
         )
         {
@@ -71,8 +70,7 @@ namespace inonego.Xeri.UI.Picker.Editor
                 entries,
                 currentValue,
                 onSelected,
-                onCanceled,
-                pageSize
+                onCanceled
             );
             PopupHost host = null;
 

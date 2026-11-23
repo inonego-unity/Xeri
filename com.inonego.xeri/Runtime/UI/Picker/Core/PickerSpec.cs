@@ -19,7 +19,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker가 entry를 표시하고 선택값을 만들기 위해 사용하는 불변 설정.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerSpec<TEntry, TValue>
     {
 
@@ -179,7 +178,7 @@ namespace inonego.Xeri.UI.Picker
             var tags           = CreateTags(entry);
             var columns        = CreateColumns(entry);
 
-            return new PickerEntry<TEntry, TValue>
+            return PickerEntry<TEntry, TValue>.FromOwnedArrays
             (
                 entry,
                 valueGetter(entry),

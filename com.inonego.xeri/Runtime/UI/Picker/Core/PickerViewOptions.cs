@@ -6,8 +6,6 @@
 Picker 표시 방식에 대한 view 전용 옵션 값.
 ========================================================================= BLOCK_HEADER_END */
 
-using System;
-
 namespace inonego.Xeri.UI.Picker
 {
     // ============================================================
@@ -15,7 +13,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker 표시 방식에 대한 view 전용 옵션 값.
     /// </summary>
     // ============================================================
-    [Serializable]
     public readonly struct PickerViewOptions
     {
 

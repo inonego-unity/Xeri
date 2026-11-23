@@ -8,7 +8,7 @@ Unity UI Toolkit 기반 단일 선택 UI입니다.
 
 ## 왜 필요한가
 
-Inspector, EditorWindow, 도구 UI마다 검색·필터·정렬·paging·취소 처리를 따로 만들면 선택 UI가 도메인마다 중복됩니다. Xeri Picker는 목록을 어떻게 보여줄지 `PickerSpec`으로 선언하게 하고, 프로젝트 코드는 원본 entry 수집과 최종 선택값 해석만 담당하게 합니다.
+Inspector, EditorWindow, 도구 UI마다 검색·필터·정렬·목록 표시·취소 처리를 따로 만들면 선택 UI가 도메인마다 중복됩니다. Xeri Picker는 목록을 어떻게 보여줄지 `PickerSpec`으로 선언하게 하고, 프로젝트 코드는 원본 entry 수집과 최종 선택값 해석만 담당하게 합니다.
 
 ## 언제 사용하는가
 
@@ -34,15 +34,21 @@ Picker는 다음 책임을 공통으로 처리합니다.
 - 검색
 - filter
 - column 정렬
-- paging
+- 스크롤 목록
 - double click / Enter 선택
 - 선택 없이 닫기 취소 처리
 
 ## 기본 구조
 
-PickerView는 PagedListChrome의 Preview·Search·Content 영역에 Picker 전용 UXML을 배치합니다.
-필터가 없는 Picker에서는 추가 필터 행을 표시하지 않습니다.
-Chrome은 레이아웃만 담당하며 선택 정책은 PickerSession, 테이블 바인딩은 PickerTableBinder가 소유합니다.
+PickerView는 Picker 전용 UXML(preview, 검색창, filter chip 행)과 목록 표를 배치합니다.
+검색창은 Core `TableGridSearchField`(요소 이름 `search-field`)이고 표를 직접 검색합니다(`SearchesGrid`).
+필터가 없는 Picker에서는 filter 행을 표시하지 않습니다.
+목록 표는 Core `TableGrid`(`TableGridOptions.Picker()`: 읽기 전용, 목록 수준 도구, 한 행 선택, Editor 테마)이고,
+PickerTableGridBinder(internal)가 column spec을 `TableGridColumn`으로 바꾸고, 전체 entry를 담은 `TableGridListSource<PickerEntry>` 하나를 표에 연결합니다
+(검색 글자는 entry의 `SearchText`, 정렬은 열의 원래 값 비교와 안정 정렬).
+검색·정렬·스크롤·키보드 선택은 표가 맡고, PickerSession은 filter chip 상태·현재 항목·확정 선택만 가지며 UI 없이 동작합니다.
+filter chip은 표 소스의 필터로 이어집니다.
+표의 쿼리 칩 줄은 쓰지 않습니다(정렬은 헤더 화살표, 필터는 Picker 고유 chip). filter chip은 표 쿼리 칩과 같은 계열의 둥근 테두리 칩이고 켜진 chip은 tone 색으로 채웁니다.
 
 Picker는 두 타입을 기준으로 동작합니다.
 
@@ -71,7 +77,7 @@ var spec = PickerSpec<Student, string>
    (
       "나이",
       entry => entry.Age,
-      PickerColumnOptions.Fixed(width: 64f, alignment: PickerColumnAlignment.Right)
+      PickerColumnOptions.Fixed(width: 64f, alignment: TableGridAlignment.Right)
    )
    .Column
    (
@@ -139,7 +145,7 @@ Picker.ShowPopup
 | `Column(...)` | table column 정의 |
 | `FilterByEntry(...)` | 원본 entry 기준 필터 |
 | `Filter(...)` | picker entry 기준 필터 |
-| `DisabledWhen(...)` | 선택 불가 조건 |
+| `DisabledWhen(...)` | 선택 불가 조건과 사유. 해당 행은 흐리게 보이고, preview 설명 첫 줄과 선택 버튼 툴팁에 사유가 보이며 선택할 수 없다 |
 | `Preview(false)` | preview 영역 숨김 |
 
 ## Column Options
@@ -166,7 +172,7 @@ Picker.ShowPopup
    PickerColumnOptions.Fixed
    (
       width: 72f,
-      alignment: PickerColumnAlignment.Right
+      alignment: TableGridAlignment.Right
    )
 )
 .Column
@@ -177,7 +183,7 @@ Picker.ShowPopup
    (
       width: 180f,
       searchable: false,
-      visibility: PickerColumnVisibility.Hidden
+      visible: false
    )
 )
 ```
@@ -200,19 +206,20 @@ PickerColumnOptions.Fixed(width: 80f)
 PickerColumnOptions.Flexible(width: 180f, minWidth: 120f)
 ```
 
-`stretchWeight`는 현재 정확한 `1:2:1` 비율을 보장하는 값이 아닙니다.
-정확한 비율 기반 width 계산이 필요하면 별도 layout calculator로 확장합니다.
+가변 열은 고정 열을 뺀 남은 폭을 `stretchWeight` 비율로 나눕니다(`TableGridColumnLayout.Distribute`).
+최소·최대 폭에 걸린 열은 그 폭으로 두고 나머지 열이 다시 나눕니다.
+열 경계를 끌면 폭을 바꿀 수 있고, 경계를 두 번 누르면 내용에 맞춥니다.
 
 ### 옵션 항목
 
 | 옵션 | 의미 |
 |---|---|
-| `Layout` | fixed/flexible 폭 정책 |
+| `Layout` | fixed/flexible 폭 정책(`TableGridColumnLayout`) |
 | `Sortable` | column header 정렬 가능 여부 |
 | `Searchable` | column 표시 문자열을 검색 문자열에 포함할지 여부 |
-| `Alignment` | cell text 정렬 |
+| `Alignment` | cell text 정렬(`TableGridAlignment`) |
 | `Overflow` | 긴 cell text 처리 정책 |
-| `Visibility` | table 표시 여부 |
+| `Visible` | table 열로 보일지 여부(숨겨도 `Searchable`이면 검색에는 쓴다) |
 
 ## Preview Overflow
 
@@ -335,6 +342,13 @@ Picker.Show
 Picker.Show(spec, entries, currentValue, value => { });
 ```
 
+## 목록 표시 방식
+
+목록은 늘 전체 결과를 한 목록에서 스크롤합니다(`TableGridNavigation.Scroll`, 페이지 바 없음).
+검색·필터·정렬이 바뀌면 고른 항목이 남아 있으면 그 항목을, 없으면 맨 위를 보입니다.
+
+결과가 없으면 표 가운데에 `비어있음`, 검색어나 켜진 filter로 좁힌 결과가 없으면 `검색 결과 없음`을 표시합니다.
+
 ## 키보드 조작
 
 | 입력 | 동작 |
@@ -342,11 +356,20 @@ Picker.Show(spec, entries, currentValue, value => { });
 | `Enter` | 현재 항목 선택 |
 | `Double Click` | 항목 선택 |
 | `Esc` | 현재 선택 해제 |
-| `Up / Down` | 항목 이동 |
-| `Left / Right` | 페이지 이동 |
+| `Up / Down`, `PageUp / PageDown` | 항목 이동(표의 키보드 선택) |
 
-첫 항목에서 위로 이동하면 이전 페이지 마지막 항목으로 이동하고,
-마지막 항목에서 아래로 이동하면 다음 페이지 첫 항목으로 이동합니다.
+이동 키는 표가 처리합니다. 위/아래는 전체 결과 순서로 이웃 항목을 고르고 목록이 그 항목을 따라 스크롤합니다.
+검색창에 입력하는 중에도 위/아래·Enter로 목록을 고를 수 있습니다(검색창의 좌/우·Home/End는 글자 커서 이동).
+
+## 테마
+
+목록 표는 TableGrid `Editor` 테마(`--xeri-table-*` 변수, Unity 에디터 색)를 씁니다.
+Picker 크롬(preview, 검색·filter 행)은 `PickerTheme.uss`의 `--xeri-picker-*` 변수를 씁니다.
+Editor 패널에서는 Picker 루트에도 표와 같은 수정 클래스(`xeri-table--editor`, 라이트 스킨이면 `xeri-table--light`)가 붙어
+변수 값이 Unity 에디터 변수(`--unity-colors-*`)를 따르므로 다크·라이트 스킨에서 표와 함께 바뀝니다.
+Unity 변수가 없는 값(흐린 글자, 강조·filter chip 색)은 라이트 스킨 고정값을 따로 둡니다.
+Editor 테마의 값을 바꾸려면 `.my-host .xeri-picker.xeri-table--editor`처럼 이 블록 이상으로 구체적인 선택자를 씁니다.
+Player 패널에서는 고정 다크 값을 씁니다.
 
 ## 확장 지점
 

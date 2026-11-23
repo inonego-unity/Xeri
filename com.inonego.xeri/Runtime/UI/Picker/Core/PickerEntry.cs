@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerEntry.cs
-수정일 : 2026-09-24
+수정일 : 2026-11-23
 
 # 설명
 Picker 내부에서 사용하는 표시 entry 모델.
@@ -24,7 +24,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker 내부에서 사용하는 표시 entry 모델.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerEntry<TEntry, TValue>
     {
 
@@ -136,12 +135,28 @@ namespace inonego.Xeri.UI.Picker
             // NONE
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// 이미 배열로 구성된 내부 entry 데이터를 복사 없이 보관한다.
+        /// spec이 새로 만든 배열을 복사 없이 넘겨받아 entry를 만든다(호출자가 배열을 다시 쓰지 않는다).
         /// </summary>
-        // ------------------------------------------------------------
-        internal PickerEntry
+        // --------------------------------------------------------------------------------
+        internal static PickerEntry<TEntry, TValue> FromOwnedArrays
+        (
+            TEntry entry,
+            TValue value,
+            string label,
+            string desc,
+            Texture2D image,
+            PickerTag[] tags,
+            PickerColumnValue[] columns,
+            bool isEnabled,
+            string disabledReason
+        )
+        {
+            return new PickerEntry<TEntry, TValue>(entry, value, label, desc, image, tags, columns, isEnabled, disabledReason);
+        }
+
+        private PickerEntry
         (
             TEntry entry,
             TValue value,

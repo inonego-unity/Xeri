@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerSpecBuilder.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-23
 
 # 설명
 Provider 직접 구현 없이 PickerSpec을 구성하기 위한 fluent builder.
@@ -327,7 +327,7 @@ namespace inonego.Xeri.UI.Picker
         {
             if (valueGetter == null)
             {
-                throw new InvalidOperationException("PickerSpec requires Value selector.");
+                throw new InvalidOperationException("값 선택자가 없습니다. Value로 지정해야 합니다.");
             }
 
             return new PickerSpec<TEntry, TValue>

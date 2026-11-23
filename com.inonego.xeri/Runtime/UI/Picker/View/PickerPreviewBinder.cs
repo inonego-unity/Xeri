@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : PickerPreviewBinder.cs
-수정일 : 2026-09-17
+수정일 : 2026-11-22
 
 # 설명
 Picker preview UXML 요소를 session 현재 entry에 바인딩한다.
@@ -74,41 +74,73 @@ namespace inonego.Xeri.UI.Picker
             image.image      = preview?.Image ?? PickerDefaultTextures.GrayChecker;
             nameLabel.text   = preview?.Name ?? "선택 없음";
             subLabel.text    = preview?.SubLabel ?? "목록에서 항목을 선택하세요. 더블 클릭하면 선택됩니다.";
-            descLabel.text   = preview?.Desc ?? "데이터 종류에 따라 이미지, 요약 정보, 참조, 검증 결과 등을 표시할 수 있습니다.";
+            descLabel.text   = FormatDesc(entry, preview?.Desc);
             selectButton.SetEnabled(entry != null && entry.IsEnabled);
+            selectButton.tooltip = entry != null && !entry.IsEnabled ? FormatDisabledReason(entry) : string.Empty;
             descScroll.scrollOffset = Vector2.zero;
 
+            // 태그 글자는 여기서 한 번만 정리하고 빈 것은 담지 않는다. SetTags는 잇기만 한다.
             tagContainer.Clear();
+            var tags = new List<string>();
             if (preview == null)
             {
-                SetTags(session.DefaultPreviewTags);
-                return;
+                foreach (var tag in session.DefaultPreviewTags)
+                {
+                    AddTag(tags, CleanTagPart(tag));
+                }
             }
-
-            var tags = new List<string>();
-            foreach (var tag in preview.Tags)
+            else
             {
-                if (string.IsNullOrEmpty(tag.Label) && string.IsNullOrEmpty(tag.Value)) continue;
-
-                tags.Add(FormatTag(tag));
+                foreach (var tag in preview.Tags)
+                {
+                    AddTag(tags, FormatTag(tag));
+                }
             }
 
             SetTags(tags);
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// Preview tag row에 하나의 구분 문자열을 표시한다.
+        /// 정리된 tag 글자를 " | "로 이어 preview tag row에 한 줄로 표시한다.
         /// </summary>
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         private void SetTags(IReadOnlyList<string> tags)
         {
-            var text = JoinTags(tags);
-            if (string.IsNullOrEmpty(text)) return;
+            if (tags.Count == 0) return;
 
-            var label = new Label(text);
+            var label = new Label(string.Join(" | ", tags));
             label.AddToClassList("xeri-picker__tag");
             tagContainer.Add(label);
+        }
+
+        private static void AddTag(List<string> tags, string text)
+        {
+            if (!string.IsNullOrEmpty(text))
+            {
+                tags.Add(text);
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 설명 글자. 선택할 수 없는 entry면 그 이유를 맨 앞 줄에 둔다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static string FormatDesc(PickerEntry<TEntry, TValue> entry, string desc)
+        {
+            desc ??= string.Empty;
+            if (entry == null || entry.IsEnabled) return desc;
+
+            var reason = FormatDisabledReason(entry);
+            return string.IsNullOrEmpty(desc) ? reason : $"{reason}\n\n{desc}";
+        }
+
+        private static string FormatDisabledReason(PickerEntry<TEntry, TValue> entry)
+        {
+            return string.IsNullOrEmpty(entry.DisabledReason)
+                ? "선택할 수 없습니다."
+                : $"선택할 수 없습니다: {entry.DisabledReason}";
         }
 
         // ------------------------------------------------------------
@@ -125,25 +157,6 @@ namespace inonego.Xeri.UI.Picker
             if (string.IsNullOrEmpty(value)) return label;
 
             return $"{label} {value}";
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 여러 tag를 목업과 같은 pipe 구분 문자열로 합친다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static string JoinTags(IReadOnlyList<string> tags)
-        {
-            var visibleTags = new List<string>();
-            foreach (var tag in tags)
-            {
-                var text = CleanTagPart(tag);
-                if (string.IsNullOrEmpty(text)) continue;
-
-                visibleTags.Add(text);
-            }
-
-            return string.Join(" | ", visibleTags);
         }
 
         // ------------------------------------------------------------

@@ -19,7 +19,6 @@ namespace inonego.Xeri.UI.Picker
     /// Picker preview 영역이 공통으로 표시할 데이터 모델.
     /// </summary>
     // ============================================================
-    [Serializable]
     public sealed class PickerPreviewModel
     {
 
