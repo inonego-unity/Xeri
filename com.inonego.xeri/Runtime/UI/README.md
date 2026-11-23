@@ -14,10 +14,10 @@
 | Display | Badge·ColorSwatch 같은 작은 공용 표시 요소. `Editor/`에 진단 목록·HelpBox·심각도 표시 | 아래 공용 표시 요소 |
 | DragDrop | backend 공통 drag/drop 상태와 UGUI/UITK adapter | [README](DragDrop/README.md) |
 | Icons | `XeriIcon`과 공용 Lucide 아이콘(`Resources/Xeri/Icons/Lucide`) | 아래 공용 아이콘 |
-| List | PagedListChrome 셸, SearchPagedList 검색·페이지 상태, PaginationBar 표시 | 아래 공통 목록 UI |
-| Picker | UI Toolkit 기반 선택 UI와 table/filter/paging | [README](Picker/README.md) |
+| List | PageNavigator 페이지 이동 컨트롤(`Paged` 표), 페이지 이동 공용 형식, SearchTextUtility 검색 일치, ListRows 교차 행 USS | 아래 공통 목록 UI |
+| Picker | UI Toolkit 기반 선택 UI와 검색·filter·정렬. 목록 표는 TableGrid(기본 스크롤, 선택하면 페이지) | [README](Picker/README.md) |
 | Popup | 앵커 배치 Solver와 Editor/Runtime 공유 표시 호스트. `Editor/`에 Editor 표시 구현 | 아래 Popup 공통 기반 |
-| Table | 표 열 폭 정책 `TableColumnLayout`과 배분 계산 | 아래 공통 목록 UI |
+| TableGrid | 범용 표 컨트롤 `TableGrid`(가상화·고정 열·셀 범위·편집·클립보드·열 메뉴·필터), 목록 파이프라인 source `TableGridListSource<T>`(검색 → 필터 → 정렬), 검색창 `TableGridSearchField`, 열 폭 정책 `TableGridColumnLayout` | [README](TableGrid/README.md) |
 
 ## 폴더 규칙
 
@@ -28,8 +28,8 @@
 
 ## 네임스페이스 규칙
 
-- 단순한 기능(Bar, ContextMenu, Display, List, Popup, Table)은 `inonego.Xeri.UI`를 함께 씁니다.
-- backend 계층이나 하위 구조가 큰 기능(AutoScroll, DragDrop, Picker)은 `inonego.Xeri.UI.<기능>`을 씁니다.
+- 단순한 기능(Bar, ContextMenu, Display, List, Popup)은 `inonego.Xeri.UI`를 함께 씁니다.
+- backend 계층이나 하위 구조가 큰 기능(AutoScroll, DragDrop, Picker, TableGrid)은 `inonego.Xeri.UI.<기능>`을 씁니다.
 - `XeriIcon`은 UI 요소가 아니라 UI 밖에서도 쓰는 자산 로더라 `inonego.Xeri`에 둡니다.
 - Editor 코드는 런타임 네임스페이스 뒤에 `.Editor`를 붙입니다(`inonego.Xeri.UI.Editor`, `inonego.Xeri.UI.Picker.Editor`, `inonego.Xeri.UI.DragDrop.Editor`).
 - 테스트는 `inonego.Xeri.TEST.UI._<기능>`을 씁니다.
@@ -40,12 +40,22 @@
 
 ## 공통 목록 UI
 
-Runtime/UI/List는 Picker와 Collection Editor에서 재사용하는 목록 UI만 소유합니다.
-PagedListChrome은 UXML/USS 레이아웃과 요소 삽입 지점을 제공하고 검색·선택·직렬화 정책은 소유하지 않습니다.
-검색·필터·정렬·페이지 상태는 SearchPagedList<T>, 페이지 이동 버튼은 PaginationBar가 담당합니다.
+목록·표는 TableGrid가 맡고, Runtime/UI/List에는 표와 사용처가 함께 쓰는 작은 부품만 남습니다.
+
+| 부품 | 공개 | 역할 |
+|---|---|---|
+| `PageNavigator` | internal | TableGrid `Paged` 모드의 페이지 이동 컨트롤(처음·이전·번호·다음·마지막). TableGrid 상태 줄 가운데 슬롯에 놓이고, 모양은 자기 시트 `Xeri/UI/List/PageNavigator`를 직접 붙인다. 범위·개수 글자는 보이지 않고 상태 줄이 보인다 |
+| `PageNavigationKind`·`PageNavigationRequest` | public | 페이지 이동 요청 형식(`Pagination/PageNavigationTypes.cs`). PageNavigator가 만들고 TableGrid가 처리한다 |
+| `SearchTextUtility` | internal | 검색 글자 잇기와 일치 규칙(공백뿐이면 검색 안 함, 대소문자 무시 포함). TableGrid 목록 source·Picker·Collection이 같은 규칙을 쓴다 |
+| `ListRows.uss` | Resources | ListView 계열 교차 행 배경(`Xeri/UI/List/ListRows`). Xeri UIFrame 관리 도구가 쓴다 |
+
+페이지 계산은 Core `Paginator`(`유틸리티/페이징`)가 맡습니다.
+검색 → 필터 → 정렬은 `TableGridListSource<T>`가, 검색창은 `TableGridSearchField`가, 페이지는 표(`Paged` 모드)가 맡습니다.
+Picker는 전체 entry를 담은 `TableGridListSource<PickerEntry>` 하나를 표에 연결하고, 검색(`TableGridSearchField`)·정렬·페이지·키보드 선택은 표가 맡습니다. Picker는 filter chip·미리보기·확정만 맡습니다.
+Collection Editor는 TableGrid(`TableGridOptions.Inspector()`)로 표시하고 검색창은 `TableGridSearchField`, 검색은 셀 요약 글자를 SearchTextUtility로 직접 거릅니다.
 Picker의 선택·필터 동작은 PickerSession에, Collection Editor의 편집 적용과 Undo는 CollectionSession에 남깁니다.
 
-Runtime/UI/Table의 열 폭 정책은 공개 모델 `TableColumnLayout`(고정·가변, 최소·최대 폭, 가중치)으로 선언합니다. `TableColumnLayout.Distribute`는 주어진 전체 폭을 열마다 나누는 순수 계산이라, MultiColumnListView를 쓰지 않는 자체 표 구현도 같은 배분 규칙을 씁니다. MultiColumnListView에 적용하는 부분은 내부 `TableColumnSizing`이 맡습니다.
+열 폭 정책은 공개 모델 `TableGridColumnLayout`(`Runtime/UI/TableGrid/Core`, 고정·가변, 최소·최대 폭, 가중치)으로 선언합니다. `TableGridColumnLayout.Distribute`는 주어진 전체 폭을 열마다 나누는 순수 계산입니다.
 
 ## 공용 표시 요소
 
@@ -62,7 +72,7 @@ Editor 전용 표시 요소는 `Display/Editor`에 있습니다. `DiagnosticList
 
 ## Popup 공통 기반
 
-`Runtime/UI/Popup`은 팝업의 앵커·사용 영역·열림 방향·배치 결과를 `PopupPlacementSolver` 등 공통 계약으로 계산합니다. 공개 `PopupHost`는 앵커 팝업의 패널 입력 차단, 바깥 클릭·패널 크기 변경·소유 요소 분리 시 닫기, 좌표 변환을 맡습니다. `XeriContextMenu`, Picker 드롭다운, 다른 패키지의 팝오버(예: TableGrid 열 메뉴)가 `PopupHost.Open` → `Solve` → `OpenLevel` 순서로 같은 정책을 씁니다. 표시 방식 계약 `IPopupDisplay`와 Editor 표시 구현 등록은 내부 구현입니다. 게임의 Screen/Modal/Window 수명이나 앱 수준 Navigation 정책은 소유하지 않습니다.
+`Runtime/UI/Popup`은 팝업의 앵커·사용 영역·열림 방향·배치 결과를 `PopupPlacementSolver` 등 공통 계약으로 계산합니다. 공개 `PopupHost`는 앵커 팝업의 패널 입력 차단, 바깥 클릭·패널 크기 변경·소유 요소 분리 시 닫기, 좌표 변환을 맡습니다. `XeriContextMenu`, Picker 드롭다운, TableGrid 열 메뉴 같은 팝오버가 `PopupHost.Open` → `Solve` → `OpenLevel` 순서로 같은 정책을 씁니다. 표시 방식 계약 `IPopupDisplay`와 Editor 표시 구현 등록은 내부 구현입니다. 게임의 Screen/Modal/Window 수명이나 앱 수준 Navigation 정책은 소유하지 않습니다.
 
 Editor 쪽 표시는 `Popup/Editor`(`XeriPopupWindow`, `EditorWorkArea`)가 담당합니다. 팝업 인프라가 존재한다는 사실이 별도 Xeri UIFrame 패키지의 Application UI 기능을 이 패키지에 다시 포함한다는 뜻은 아닙니다.
 
@@ -72,7 +82,7 @@ Drag & Drop은 drag 상태와 drop 판정, 좌표 변환, UGUI/UI Toolkit adapte
 
 ## Picker
 
-Picker는 검색·필터·paging 가능한 선택 UI를 구성하기 위한 model/view/editor 기능을 제공합니다. List와 Dictionary 같은 구체 facade를 통해 공통 선택 흐름을 재사용할 수 있습니다.
+Picker는 검색·필터·정렬 가능한 선택 UI를 구성하기 위한 model/view/editor 기능을 제공합니다. 목록은 TableGrid(`TableGridOptions.Picker()`)로 표시하며 기본은 스크롤이고 `Paged`를 고를 수 있습니다. List와 Dictionary 같은 구체 facade를 통해 공통 선택 흐름을 재사용할 수 있습니다.
 
 ## 관련 문서
 
