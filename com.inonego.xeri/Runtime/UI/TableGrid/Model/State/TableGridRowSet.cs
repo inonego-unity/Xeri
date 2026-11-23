@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridRowSet.cs
-수정일 : 2026-11-22
+수정일 : 2026-11-23
 
 # 설명
 표가 보이는 소스 결과의 행을 동기로 조회한다. 위치의 행, ID의 위치, 행 수를 소스에 묻는다.
@@ -208,6 +208,39 @@ namespace inonego.Xeri.UI.TableGrid
             }
 
             return index;
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 위치 first~last(둘 다 포함)를 데이터 행이 이어진 구간으로 나눠 runs에 담는다.
+        /// <br/> 그룹 머리·요약 같은 비데이터 행은 구간에 넣지 않고 구간을 끊는다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        public void CollectDataRuns(int first, int last, List<(int First, int Last)> runs)
+        {
+            runs.Clear();
+            if (first > last)
+            {
+                return;
+            }
+
+            var positions = EnsureNonDataPositions();
+            var found = positions.BinarySearch(first);
+            var start = first;
+            for (var index = found >= 0 ? found : ~found; index < positions.Count && positions[index] <= last; index++)
+            {
+                if (positions[index] > start)
+                {
+                    runs.Add((start, positions[index] - 1));
+                }
+
+                start = positions[index] + 1;
+            }
+
+            if (start <= last)
+            {
+                runs.Add((start, last));
+            }
         }
 
         private List<int> EnsureNonDataPositions()

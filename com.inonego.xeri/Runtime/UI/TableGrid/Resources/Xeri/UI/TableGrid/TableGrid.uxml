@@ -1,0 +1,28 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="header" class="xeri-table__header">
+        <ui:VisualElement name="header-frozen" class="xeri-table__header-frozen" />
+        <ui:VisualElement name="header-scroll" class="xeri-table__header-scroll">
+            <ui:VisualElement name="header-scroll-content" class="xeri-table__header-content" />
+        </ui:VisualElement>
+        <ui:VisualElement name="header-gap" class="xeri-table__header-gap" />
+    </ui:VisualElement>
+    <ui:VisualElement name="body" class="xeri-table__body">
+        <ui:VisualElement name="frozen-pane" class="xeri-table__frozen-pane">
+            <ui:VisualElement name="frozen-rows" class="xeri-table__rows" />
+        </ui:VisualElement>
+        <ui:ScrollView name="scroll-pane" mode="VerticalAndHorizontal" class="xeri-table__scroll-pane">
+            <ui:VisualElement name="scroll-rows" class="xeri-table__rows" />
+        </ui:ScrollView>
+        <ui:Label name="state-label" class="xeri-table__state" picking-mode="Ignore" />
+    </ui:VisualElement>
+    <ui:VisualElement name="status" class="xeri-table__status">
+        <ui:VisualElement name="status-start" class="xeri-table__status-start">
+            <ui:Label name="range-label" class="xeri-table__status-range" />
+        </ui:VisualElement>
+        <ui:VisualElement name="page-slot" class="xeri-table__status-page" />
+        <ui:VisualElement name="status-end" class="xeri-table__status-end">
+            <ui:Label name="message-label" class="xeri-table__status-message" />
+            <inonego.Xeri.UI.Badge name="selection-label" class="xeri-table__status-selection" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

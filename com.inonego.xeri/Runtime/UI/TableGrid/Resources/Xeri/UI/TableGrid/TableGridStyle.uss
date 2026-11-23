@@ -1,0 +1,1155 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : TableGridStyle.uss
+수정일 : 2026-11-23
+
+# 설명
+TableGrid의 모양 규칙. 색·글자 크기·높이·간격·모서리·아이콘 크기는 TableGridTheme.uss의 변수만 쓴다.
+C#은 폭·세로 위치와 상태 클래스만 지정하고, 여백·선·선택 표시는 모두 여기서 정한다.
+
+# 특이사항, 제약사항
+본문은 가로 구분선만 옅게 두고 세로선은 고정 영역 경계에만 둔다. 헤더는 열 사이 구분선을 둔다.
+셀 범위 외곽선은 셀 테두리가 아니라 본문 위 선택 층(selection-layer)이 그려 행 가로선·고정선보다 위에 온다.
+행 끌기의 삽입선(drop-line)도 같은 층에 그린다. 세로 위치와 보임은 C#이 정한다.
+열 끌기의 삽입선(header-drop-line)은 헤더 안에 세로로 그린다. 가로 위치와 보임은 C#이 정한다.
+셀은 네 변에 늘 1px 투명 테두리를 두고 편집·거부 표시만 색을 바꾼다. 테두리 폭이 바뀌지 않아 글자가 움직이지 않는다.
+아이콘은 Xeri Core 공용 Lucide 아이콘을 resource()로 쓴다. 24 격자의 안쪽 여백까지 칸에 맞추므로 칸 크기가 곧 아이콘 크기다.
+Badge는 자기 요소에 스타일시트를 붙이므로(margin: 0 등) 바깥 여백을 줄 때는 부모를 포함한 선택자로 덮는다.
+값이 여러 개인 속성(background-size 등)에는 변수를 쓰지 않고 값을 직접 쓴다.
+========================================================================= BLOCK_HEADER_END */
+
+/* 1. 표 루트 */
+
+.xeri-table {
+    flex-grow: 1;
+    min-height: 0;
+    overflow: hidden;
+    background-color: var(--xeri-table-canvas);
+    color: var(--xeri-table-text);
+    font-size: var(--xeri-table-font-size);
+}
+
+/* 2. 헤더 */
+
+.xeri-table__header {
+    flex-direction: row;
+    flex-shrink: 0;
+    height: var(--xeri-table-header-height);
+    background-color: var(--xeri-table-header);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--xeri-table-line-header);
+}
+
+.xeri-table__header-frozen {
+    flex-direction: row;
+    flex-shrink: 0;
+    height: 100%;
+}
+
+.xeri-table__header-scroll {
+    flex-grow: 1;
+    height: 100%;
+    overflow: hidden;
+}
+
+.xeri-table__header-content {
+    flex-direction: row;
+    height: 100%;
+}
+
+.xeri-table__header-gap {
+    flex-shrink: 0;
+    height: 100%;
+}
+
+.xeri-table__header-handle,
+.xeri-table__header-selector {
+    flex-shrink: 0;
+    height: 100%;
+}
+
+.xeri-table__header-cell {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    height: 100%;
+    padding-left: var(--xeri-table-space-lg);
+    padding-right: var(--xeri-table-space-sm);
+    border-right-width: 1px;
+    border-right-color: var(--xeri-table-line);
+}
+
+.xeri-table__header-cell:hover {
+    background-color: var(--xeri-table-header-hover);
+}
+
+.xeri-table__header-cell--open {
+    background-color: var(--xeri-table-header-open);
+}
+
+/* 고른 열의 헤더: 셀 범위와 같은 바탕에 아래쪽 강조색 표식과 진한 제목.
+   열을 고를 수 있는 표(xeri-table--column-select)만 모든 헤더 칸이 표식 자리를 투명 테두리로 차지해
+   고를 때 제목이 움직이지 않는다. 다른 표의 헤더 모양은 그대로다. */
+
+.xeri-table--column-select .xeri-table__header-cell {
+    border-bottom-width: var(--xeri-table-row-marker-width);
+    border-bottom-color: rgba(0, 0, 0, 0);
+}
+
+.xeri-table--column-select .xeri-table__header-cell--selected,
+.xeri-table--column-select .xeri-table__header-cell--selected:hover {
+    background-color: var(--xeri-table-range-fill);
+    border-bottom-color: var(--xeri-table-accent);
+}
+
+.xeri-table--column-select .xeri-table__header-cell--selected .xeri-table__header-title {
+    color: var(--xeri-table-text-strong);
+}
+
+/* 열 끌기: 옮기는 열의 헤더 칸은 흐리게, 삽입선은 열 경계에 세로로 놓는다. */
+
+.xeri-table__header-cell--dragging {
+    opacity: 0.4;
+}
+
+.xeri-table__header-drop-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--xeri-table-drop-line-width);
+    background-color: var(--xeri-table-drop-line);
+}
+
+.xeri-table__header-cell--frozen-edge {
+    border-right-color: var(--xeri-table-line-frozen);
+}
+
+.xeri-table__header-title {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+    font-size: var(--xeri-table-header-font-size);
+    color: var(--xeri-table-text-muted);
+}
+
+.xeri-table__header-cell--right .xeri-table__header-title {
+    -unity-text-align: middle-right;
+}
+
+.xeri-table__header-cell--active .xeri-table__header-title,
+.xeri-table__header-cell--open .xeri-table__header-title {
+    color: var(--xeri-table-text-strong);
+}
+
+/* 헤더 상태 표시: 상태가 있을 때만 자리를 차지한다. */
+
+.xeri-table__header-sort,
+.xeri-table__header-group,
+.xeri-table__header-filter {
+    display: none;
+    flex-shrink: 0;
+    margin-left: var(--xeri-table-space-xs);
+}
+
+.xeri-table__header-sort,
+.xeri-table__header-group {
+    width: var(--xeri-table-icon-sm);
+    height: var(--xeri-table-icon-sm);
+    -unity-background-image-tint-color: var(--xeri-table-accent);
+}
+
+.xeri-table__header-sort--asc {
+    display: flex;
+    background-image: resource("Xeri/Icons/Lucide/arrow-up");
+}
+
+.xeri-table__header-sort--desc {
+    display: flex;
+    background-image: resource("Xeri/Icons/Lucide/arrow-down");
+}
+
+.xeri-table__header-group--on {
+    display: flex;
+    background-image: resource("Xeri/Icons/Lucide/layers");
+}
+
+.xeri-table__header-filter--on {
+    display: flex;
+    width: var(--xeri-table-dot-size);
+    height: var(--xeri-table-dot-size);
+    margin-left: var(--xeri-table-space-sm);
+    border-radius: var(--xeri-table-radius-sm);
+    background-color: var(--xeri-table-accent);
+}
+
+/* 열 경계 핸들: 칸 오른쪽 끝의 좁은 띠. 호버·끄는 중에만 선으로 보인다. */
+
+.xeri-table__header-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--xeri-table-resize-handle-width);
+    border-right-width: var(--xeri-table-resize-line-width);
+    border-right-color: rgba(0, 0, 0, 0);
+    cursor: resize-horizontal;
+}
+
+.xeri-table__header-resize:hover,
+.xeri-table__header-resize--active {
+    border-right-color: var(--xeri-table-accent);
+}
+
+/* 3. 본문 */
+
+.xeri-table__body {
+    flex-direction: row;
+    flex-grow: 1;
+    align-items: flex-start;
+    min-height: 0;
+}
+
+.xeri-table__frozen-pane {
+    flex-shrink: 0;
+    overflow: hidden;
+    border-right-width: 1px;
+    border-right-color: var(--xeri-table-line-frozen);
+}
+
+.xeri-table__scroll-pane {
+    flex-grow: 1;
+    align-self: stretch;
+    min-width: 0;
+}
+
+.xeri-table__rows {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.xeri-table__state {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    -unity-text-align: middle-center;
+    color: var(--xeri-table-text-muted);
+}
+
+/* 행이 없을 때 호스트가 EmptyContent로 준 요소. 본문 위를 덮고 가운데에 놓는다. */
+
+.xeri-table__empty {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 선택 층: 본문 맨 위에서 셀 범위 외곽선만 그린다. 위치·크기는 C#(TableGridViewport)이 정한다. */
+
+.xeri-table__selection-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+}
+
+.xeri-table__selection-clip {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.xeri-table__selection-outline {
+    position: absolute;
+    display: none;
+    border-width: var(--xeri-table-selection-width);
+    border-color: var(--xeri-table-accent);
+}
+
+/* 행 끌기 삽입선: 행 경계에 가로로 놓는다. 선택 층 폭(고정 + 보이는 스크롤 영역) 전체를 덮는다. */
+.xeri-table__drop-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--xeri-table-drop-line-width);
+    background-color: var(--xeri-table-drop-line);
+}
+
+/* 4. 행 */
+
+.xeri-table__row {
+    flex-direction: row;
+    background-color: var(--xeri-table-row);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--xeri-table-line);
+}
+
+.xeri-table__row--alt {
+    background-color: var(--xeri-table-row-alt);
+}
+
+.xeri-table__row--hover {
+    background-color: var(--xeri-table-row-hover);
+}
+
+.xeri-table__row--selected {
+    background-color: var(--xeri-table-row-selected);
+}
+
+.xeri-table__row--group {
+    background-color: var(--xeri-table-group);
+}
+
+/* 요약 행: 헤더와 같은 바탕에 진한 글자로 데이터 행과 구분한다. */
+.xeri-table__row--summary {
+    background-color: var(--xeri-table-header);
+}
+
+.xeri-table__row--summary .xeri-table__cell-text {
+    color: var(--xeri-table-text-strong);
+    -unity-font-style: bold;
+}
+
+/* 잘라낸 행·셀: 같은 표에 붙여넣어 옮기기 전까지 흐리게 보인다. */
+.xeri-table__row--cut .xeri-table__cell,
+.xeri-table__cell--cut {
+    opacity: 0.45;
+}
+
+/* 끌기 손잡이: 고정 영역 맨 앞 칸. 평소엔 흐린 grip 아이콘, 행 호버 때 또렷하게, 손잡이 호버 때 진하게 보인다. */
+.xeri-table__handle {
+    flex-shrink: 0;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.xeri-table__handle-icon {
+    width: var(--xeri-table-icon-sm);
+    height: var(--xeri-table-icon-sm);
+    opacity: 0.5;
+    background-image: resource("Xeri/Icons/Lucide/grip-vertical");
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+.xeri-table__row:hover .xeri-table__handle-icon,
+.xeri-table__row--hover .xeri-table__handle-icon {
+    opacity: 1;
+}
+
+.xeri-table__handle:hover .xeri-table__handle-icon {
+    -unity-background-image-tint-color: var(--xeri-table-text-strong);
+}
+
+.xeri-table__row--group .xeri-table__handle-icon {
+    display: none;
+}
+
+/* 지금 옮길 수 없으면(정렬·그룹 등) 손잡이를 흐린 채로 둔다. 누르면 상태 줄에 이유가 보인다. */
+.xeri-table--reorder-locked .xeri-table__handle-icon,
+.xeri-table--reorder-locked .xeri-table__row:hover .xeri-table__handle-icon,
+.xeri-table--reorder-locked .xeri-table__row--hover .xeri-table__handle-icon {
+    opacity: 0.25;
+}
+
+.xeri-table--reorder-locked .xeri-table__handle:hover .xeri-table__handle-icon {
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+/* 끌어서 옮기는 중인 행: 놓을 때까지 흐리게 보인다. */
+.xeri-table__row--dragging .xeri-table__cell,
+.xeri-table__row--dragging .xeri-table__handle-icon {
+    opacity: 0.4;
+}
+
+.xeri-table__group-title {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    padding-left: var(--xeri-table-space-lg);
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+    color: var(--xeri-table-text-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 5. 행 번호 칸 (행 머리)
+   Excel의 행 머리처럼 행 번호를 보인다. 누르거나 끌면 행을 고른다.
+   고른 행은 강조색 표식과 진한 글자, 셀 범위가 지나는 행은 진한 글자로 보인다. */
+
+.xeri-table__selector {
+    flex-shrink: 0;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    border-left-width: var(--xeri-table-row-marker-width);
+    border-left-color: rgba(0, 0, 0, 0);
+}
+
+.xeri-table__selector-number {
+    color: var(--xeri-table-text-muted);
+    -unity-text-align: middle-center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.xeri-table__row:hover .xeri-table__selector-number,
+.xeri-table__row--hover .xeri-table__selector-number,
+.xeri-table__row--range .xeri-table__selector-number {
+    color: var(--xeri-table-text);
+}
+
+.xeri-table__row--selected .xeri-table__selector {
+    border-left-color: var(--xeri-table-accent);
+}
+
+.xeri-table__row--selected .xeri-table__selector-number {
+    color: var(--xeri-table-text-strong);
+    -unity-font-style: bold;
+}
+
+/* 체크 상자 (팝오버 공용 모양)
+   비어 있으면 테두리만, 고르면 강조색 바탕에 체크, 일부만 고르면 강조색 테두리에 옅은 바탕. */
+
+.xeri-table-popover__icon--check-box {
+    width: var(--xeri-table-check-size);
+    height: var(--xeri-table-check-size);
+    border-width: 1px;
+    border-radius: var(--xeri-table-radius-sm);
+    border-color: var(--xeri-table-check-border);
+    background-color: var(--xeri-table-field);
+    -unity-background-image-tint-color: var(--xeri-table-on-accent);
+}
+
+.xeri-table-popover__action:hover .xeri-table-popover__icon--check-box,
+.xeri-table-popover__action:focus .xeri-table-popover__icon--check-box {
+    border-color: var(--xeri-table-check-border-hover);
+}
+
+.xeri-table-popover__action--checked .xeri-table-popover__icon--check-box,
+.xeri-table-popover__action--checked:hover .xeri-table-popover__icon--check-box {
+    opacity: 1;
+    border-color: var(--xeri-table-accent);
+    background-color: var(--xeri-table-accent);
+    background-image: resource("Xeri/Icons/Lucide/check");
+}
+
+.xeri-table-popover__action--mixed .xeri-table-popover__icon--check-box,
+.xeri-table-popover__action--mixed:hover .xeri-table-popover__icon--check-box {
+    border-color: var(--xeri-table-accent);
+    background-color: var(--xeri-table-query-chip);
+}
+
+/* 6. 셀 */
+
+.xeri-table__cell {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    height: 100%;
+    padding-left: var(--xeri-table-cell-padding);
+    padding-right: var(--xeri-table-cell-padding);
+    overflow: hidden;
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+}
+
+.xeri-table__cell--center {
+    justify-content: center;
+}
+
+.xeri-table__cell--right {
+    justify-content: flex-end;
+}
+
+.xeri-table__cell--frozen-edge {
+    border-right-color: var(--xeri-table-line-frozen);
+}
+
+.xeri-table__cell-text {
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+    color: var(--xeri-table-text);
+}
+
+.xeri-table__cell--right .xeri-table__cell-text {
+    -unity-text-align: middle-right;
+}
+
+/* 선택 바탕: 범위 안 셀은 옅은 강조색, 활성 셀은 셀 하나일 때 더 옅게, 범위 안에서는 바탕을 비워 구분한다.
+   외곽선은 선택 층이 그린다. */
+
+.xeri-table__cell--in-range {
+    background-color: var(--xeri-table-range-fill);
+}
+
+.xeri-table__cell--active {
+    background-color: var(--xeri-table-active-fill);
+}
+
+.xeri-table__cell--in-range.xeri-table__cell--active {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* 붙여넣기에서 거부된 셀: 잠깐 경고색 테두리 */
+.xeri-table__cell--rejected {
+    border-color: var(--xeri-table-invalid);
+    background-color: var(--xeri-table-invalid-fill);
+}
+
+/* 셀 편집기: 셀 안을 꽉 채우는 입력칸. Unity 기본 상자 대신 표 테마로 그린다. */
+.xeri-table__cell--editing {
+    padding: 0;
+    border-color: var(--xeri-table-accent);
+}
+
+.xeri-table__cell > .xeri-table__editor {
+    flex-grow: 1;
+    margin: 0;
+}
+
+.xeri-table__cell > .xeri-table__editor > .unity-base-text-field__input {
+    height: 100%;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--xeri-table-space-md);
+    padding-right: var(--xeri-table-space-md);
+    border-width: 0;
+    border-radius: 0;
+    background-color: var(--xeri-table-field);
+    color: var(--xeri-table-text-strong);
+    font-size: var(--xeri-table-font-size);
+}
+
+.xeri-table__cell > .xeri-table__editor--invalid > .unity-base-text-field__input {
+    background-color: var(--xeri-table-invalid-fill);
+    color: var(--xeri-table-invalid);
+}
+
+/* 7. 선택형 값 칩 (Xeri Core Badge) */
+
+.xeri-table__chip {
+    --xeri-badge-height: var(--xeri-table-chip-height);
+    --xeri-badge-radius: var(--xeri-table-radius-chip);
+    --xeri-badge-padding: var(--xeri-table-space-md);
+    --xeri-badge-font-size: var(--xeri-table-chip-font-size);
+    --xeri-badge-background-color: var(--xeri-table-chip-neutral-bg);
+
+    color: var(--xeri-table-chip-neutral-text);
+}
+
+/* Badge 기본 스타일(flex-shrink: 0)은 요소 자신에 붙어 있으므로 더 구체적인 선택자로 덮어 좁은 열에서 칩이 줄게 한다. */
+.xeri-table__cell > .xeri-table__chip {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.xeri-table__chip--tone-blue {
+    --xeri-badge-background-color: var(--xeri-table-chip-blue-bg);
+    color: var(--xeri-table-chip-blue-text);
+}
+
+.xeri-table__chip--tone-violet {
+    --xeri-badge-background-color: var(--xeri-table-chip-violet-bg);
+    color: var(--xeri-table-chip-violet-text);
+}
+
+.xeri-table__chip--tone-teal {
+    --xeri-badge-background-color: var(--xeri-table-chip-teal-bg);
+    color: var(--xeri-table-chip-teal-text);
+}
+
+.xeri-table__chip--tone-green {
+    --xeri-badge-background-color: var(--xeri-table-chip-green-bg);
+    color: var(--xeri-table-chip-green-text);
+}
+
+.xeri-table__chip--tone-amber {
+    --xeri-badge-background-color: var(--xeri-table-chip-amber-bg);
+    color: var(--xeri-table-chip-amber-text);
+}
+
+.xeri-table__chip--tone-rose {
+    --xeri-badge-background-color: var(--xeri-table-chip-rose-bg);
+    color: var(--xeri-table-chip-rose-text);
+}
+
+/* 8. 상태 줄 */
+
+.xeri-table__status {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    height: var(--xeri-table-status-height);
+    padding-left: var(--xeri-table-space-lg);
+    padding-right: var(--xeri-table-space-lg);
+    background-color: var(--xeri-table-status);
+    border-top-width: 1px;
+    border-top-color: var(--xeri-table-line-header);
+}
+
+/* 상태 줄은 시작·가운데(페이지 이동 슬롯)·끝 세 구역이다. 시작·끝이 같은 몫을 나눠 가져 가운데 슬롯이 줄 가운데에 놓인다. */
+.xeri-table__status-start,
+.xeri-table__status-end {
+    flex-direction: row;
+    flex-grow: 1;
+    flex-basis: 0;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.xeri-table__status-end {
+    justify-content: flex-end;
+}
+
+.xeri-table__status-page {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.xeri-table__status-range {
+    flex-shrink: 1;
+    margin: 0;
+    padding: 0;
+    font-size: var(--xeri-table-status-font-size);
+    -unity-text-align: middle-left;
+    color: var(--xeri-table-text-muted);
+}
+
+/* 조작 알림(붙여넣기 요약·거부 이유): 잠깐 보였다 사라진다. */
+.xeri-table__status-message {
+    flex-shrink: 1;
+    margin: 0;
+    margin-right: var(--xeri-table-space-lg);
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--xeri-table-status-font-size);
+    -unity-text-align: middle-right;
+    color: var(--xeri-table-text);
+}
+
+.xeri-table__status-message--error {
+    color: var(--xeri-table-invalid);
+}
+
+/* 선택 개수는 Xeri Core Badge(강조 톤)로 보인다. */
+.xeri-table__status-selection {
+    flex-shrink: 0;
+    --xeri-badge-height: var(--xeri-table-chip-height);
+    --xeri-badge-padding: var(--xeri-table-space-md);
+    --xeri-badge-font-size: var(--xeri-table-status-font-size);
+    --xeri-badge-background-color: var(--xeri-table-range-fill);
+    color: var(--xeri-table-accent);
+}
+
+/* 9. 팝오버 (열 메뉴·필터 편집)
+   행 높이·테두리·안쪽 여백은 창 크기 계산과 맞추기 위해 C#(TableGridPopoverMetrics)이 정한다. 여기서는 색·글꼴·가로 여백만 정한다. */
+
+.xeri-table-popover {
+    flex-direction: column;
+    flex-grow: 1;
+    background-color: var(--xeri-table-popover);
+    border-color: var(--xeri-table-popover-border);
+    color: var(--xeri-table-text);
+    font-size: var(--xeri-table-font-size);
+}
+
+.xeri-table-popover__header {
+    flex-direction: row;
+    align-items: center;
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--xeri-table-line-header);
+}
+
+.xeri-table-popover__title {
+    flex-shrink: 1;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-font-style: bold;
+    color: var(--xeri-table-text-strong);
+}
+
+.xeri-table-popover__detail {
+    flex-shrink: 0;
+    margin: 0;
+    margin-left: var(--xeri-table-space-sm);
+    padding: 0;
+    color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-popover__section {
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+    -unity-text-align: lower-left;
+    -unity-font-style: bold;
+    font-size: var(--xeri-table-header-font-size);
+    color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-popover__separator {
+    justify-content: center;
+    padding-left: var(--xeri-table-space-md);
+    padding-right: var(--xeri-table-space-md);
+}
+
+.xeri-table-popover__separator-line {
+    height: 1px;
+    background-color: var(--xeri-table-line-header);
+}
+
+.xeri-table-popover__action {
+    flex-direction: row;
+    align-items: center;
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+}
+
+.xeri-table-popover__action:hover,
+.xeri-table-popover__action:focus {
+    background-color: var(--xeri-table-popover-hover);
+}
+
+.xeri-table-popover__action:disabled {
+    opacity: 0.4;
+}
+
+.xeri-table-popover__action--active .xeri-table-popover__label {
+    color: var(--xeri-table-accent);
+}
+
+.xeri-table-popover__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+    color: var(--xeri-table-text);
+}
+
+/* 하위 창을 여는 행은 오른쪽 끝에 화살표를 배경으로 둔다(아이콘 칸 크기와 같은 16px). */
+.xeri-table-popover__action--submenu {
+    background-image: resource("Xeri/Icons/Lucide/chevron-right");
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+    background-size: 16px 16px;
+    background-position-x: right 8px;
+    background-repeat: no-repeat;
+}
+
+/* 아이콘: 행 왼쪽 아이콘 칸. 아이콘 이름은 수정 클래스로 고른다. */
+
+.xeri-table-popover__icon {
+    flex-shrink: 0;
+    width: var(--xeri-table-icon-md);
+    height: var(--xeri-table-icon-md);
+    margin-right: var(--xeri-table-space-md);
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-popover__action--active .xeri-table-popover__icon {
+    -unity-background-image-tint-color: var(--xeri-table-accent);
+}
+
+/* 체크 상자는 아이콘 칸(16px)보다 작으므로 좌우 1px씩 더해 글자 시작 위치를 다른 행과 맞춘다. */
+.xeri-table-popover__icon.xeri-table-popover__icon--check-box {
+    width: var(--xeri-table-check-size);
+    height: var(--xeri-table-check-size);
+    margin-left: 1px;
+    margin-right: 9px;
+    -unity-background-image-tint-color: var(--xeri-table-on-accent);
+}
+
+.xeri-table-popover__icon--arrow-up { background-image: resource("Xeri/Icons/Lucide/arrow-up"); }
+.xeri-table-popover__icon--arrow-down { background-image: resource("Xeri/Icons/Lucide/arrow-down"); }
+.xeri-table-popover__icon--x { background-image: resource("Xeri/Icons/Lucide/x"); }
+.xeri-table-popover__icon--funnel { background-image: resource("Xeri/Icons/Lucide/funnel"); }
+.xeri-table-popover__icon--layers { background-image: resource("Xeri/Icons/Lucide/layers"); }
+.xeri-table-popover__icon--pin { background-image: resource("Xeri/Icons/Lucide/pin"); }
+.xeri-table-popover__icon--eye { background-image: resource("Xeri/Icons/Lucide/eye"); }
+.xeri-table-popover__icon--columns-3 { background-image: resource("Xeri/Icons/Lucide/columns-3"); }
+.xeri-table-popover__icon--chevron-up { background-image: resource("Xeri/Icons/Lucide/chevron-up"); }
+.xeri-table-popover__icon--chevron-down { background-image: resource("Xeri/Icons/Lucide/chevron-down"); }
+
+/* 필터 편집 */
+
+.xeri-table-filter__choices {
+    padding: 0;
+}
+
+.xeri-table-filter__choice {
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+}
+
+.xeri-table-filter__choice > .xeri-table__chip {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.xeri-table-popover__range,
+.xeri-table-filter__segments {
+    flex-direction: row;
+    align-items: center;
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+}
+
+.xeri-table-filter__segment {
+    flex-grow: 1;
+    flex-basis: 0;
+    justify-content: center;
+    height: var(--xeri-table-control-height);
+    padding-left: var(--xeri-table-space-xs);
+    padding-right: var(--xeri-table-space-xs);
+    border-width: 1px;
+    border-color: var(--xeri-table-field-border);
+}
+
+.xeri-table-filter__segment .xeri-table-popover__icon {
+    display: none;
+}
+
+.xeri-table-filter__segment .xeri-table-popover__label {
+    flex-grow: 0;
+    -unity-text-align: middle-center;
+}
+
+.xeri-table-filter__segment.xeri-table-popover__action--active {
+    border-color: var(--xeri-table-accent);
+    background-color: var(--xeri-table-range-fill);
+}
+
+.xeri-table-filter__dash {
+    margin: 0;
+    margin-left: var(--xeri-table-space-sm);
+    margin-right: var(--xeri-table-space-sm);
+    padding: 0;
+    color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-popover__hint {
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+    -unity-text-align: upper-left;
+    font-size: var(--xeri-table-status-font-size);
+    color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-popover__hint--error {
+    color: var(--xeri-table-invalid);
+}
+
+/* 열 표시·순서 */
+
+.xeri-table-columns__list {
+    padding: 0;
+}
+
+.xeri-table-columns__row {
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-sm);
+}
+
+.xeri-table-columns__row--locked .xeri-table-popover__icon--check-box {
+    opacity: 0.45;
+}
+
+.xeri-table-columns__row .xeri-table-columns__badge {
+    flex-shrink: 0;
+    margin-right: var(--xeri-table-space-xs);
+    --xeri-badge-height: var(--xeri-table-badge-height);
+    --xeri-badge-padding: var(--xeri-table-space-sm);
+    --xeri-badge-font-size: var(--xeri-table-badge-font-size);
+}
+
+.xeri-table-columns__move {
+    flex-shrink: 0;
+    width: var(--xeri-table-control-height);
+    height: var(--xeri-table-control-height);
+    border-radius: var(--xeri-table-radius-sm);
+    background-size: 14px 14px;
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-columns__move:hover {
+    background-color: var(--xeri-table-popover-border);
+    -unity-background-image-tint-color: var(--xeri-table-text-strong);
+}
+
+.xeri-table-columns__move:disabled {
+    opacity: 0.25;
+}
+
+/* 입력칸: Unity 기본 상자 대신 표 테마로 그린다. 기본 스타일보다 구체적인 선택자로 덮는다. */
+
+.xeri-table-popover .xeri-table-popover__field {
+    flex-grow: 1;
+    flex-basis: 0;
+    margin: 0;
+}
+
+.xeri-table-popover .xeri-table-popover__field > .unity-base-text-field__input {
+    height: var(--xeri-table-control-height);
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--xeri-table-space-md);
+    padding-right: var(--xeri-table-space-md);
+    border-width: 1px;
+    border-radius: var(--xeri-table-radius-sm);
+    border-color: var(--xeri-table-field-border);
+    background-color: var(--xeri-table-field);
+    color: var(--xeri-table-text-strong);
+}
+
+.xeri-table-popover .xeri-table-popover__field:focus > .unity-base-text-field__input {
+    border-color: var(--xeri-table-accent);
+}
+
+.xeri-table-popover .xeri-table-popover__field--invalid > .unity-base-text-field__input {
+    border-color: var(--xeri-table-invalid);
+}
+
+.xeri-table-popover__actions {
+    flex-direction: row;
+    align-items: center;
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+    border-top-width: 1px;
+    border-top-color: var(--xeri-table-line-header);
+}
+
+.xeri-table-popover__spacer {
+    flex-grow: 1;
+}
+
+.xeri-table-popover__button {
+    height: var(--xeri-table-button-height);
+    padding-left: var(--xeri-table-space-xl);
+    padding-right: var(--xeri-table-space-xl);
+    border-width: 1px;
+    border-radius: var(--xeri-table-radius-sm);
+    border-color: var(--xeri-table-field-border);
+}
+
+.xeri-table-popover__button .xeri-table-popover__icon {
+    display: none;
+}
+
+.xeri-table-popover__button .xeri-table-popover__label {
+    flex-grow: 0;
+}
+
+.xeri-table-popover__button--primary {
+    margin-left: var(--xeri-table-space-sm);
+    border-color: var(--xeri-table-accent);
+    background-color: var(--xeri-table-accent);
+}
+
+.xeri-table-popover__button--primary .xeri-table-popover__label {
+    color: var(--xeri-table-on-accent);
+    -unity-font-style: bold;
+}
+
+.xeri-table-popover__button--primary:hover,
+.xeri-table-popover__button--primary:focus {
+    background-color: var(--xeri-table-accent);
+    opacity: 0.9;
+}
+
+/* 10. 쿼리 칩 줄 */
+
+.xeri-table-chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: var(--xeri-table-font-size);
+}
+
+.xeri-table-chips__chip {
+    flex-direction: row;
+    align-items: center;
+    height: var(--xeri-table-control-height);
+    margin-top: var(--xeri-table-space-2xs);
+    margin-bottom: var(--xeri-table-space-2xs);
+    margin-left: 0;
+    margin-right: var(--xeri-table-space-sm);
+    border-width: 1px;
+    border-radius: var(--xeri-table-radius-pill);
+    border-color: var(--xeri-table-query-chip-border);
+    background-color: var(--xeri-table-query-chip);
+}
+
+.xeri-table-chips__body {
+    flex-direction: row;
+    align-items: center;
+    height: 100%;
+    padding-left: var(--xeri-table-space-md);
+}
+
+.xeri-table-chips__body .xeri-table-popover__icon {
+    width: var(--xeri-table-icon-sm);
+    height: var(--xeri-table-icon-sm);
+    margin-right: var(--xeri-table-space-xs);
+    -unity-background-image-tint-color: var(--xeri-table-accent);
+}
+
+.xeri-table-chips__label {
+    margin: 0;
+    padding: 0;
+    color: var(--xeri-table-text-strong);
+}
+
+/* 선택형 필터의 고른 값 개수 (Xeri Core Badge). Badge 자체 margin: 0을 덮도록 부모를 포함해 고른다. */
+.xeri-table-chips__body .xeri-table-chips__count {
+    margin-left: var(--xeri-table-space-sm);
+    --xeri-badge-height: var(--xeri-table-badge-height);
+    --xeri-badge-padding: var(--xeri-table-space-sm);
+    --xeri-badge-font-size: var(--xeri-table-badge-font-size);
+}
+
+.xeri-table-chips__remove {
+    width: var(--xeri-table-icon-md);
+    height: var(--xeri-table-icon-md);
+    margin-left: var(--xeri-table-space-xs);
+    margin-right: var(--xeri-table-space-xs);
+    border-radius: var(--xeri-table-radius-chip);
+    background-image: resource("Xeri/Icons/Lucide/x");
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-chips__remove:hover {
+    background-color: var(--xeri-table-query-chip);
+    -unity-background-image-tint-color: var(--xeri-table-text-strong);
+}
+
+/* 11. 검색창
+   입력칸 자체 테두리·바탕은 지우고 검색창 루트가 입력 상자 모양(테두리·바탕·포커스 강조)을 맡는다.
+   :focus-within이 없으므로 포커스 강조는 C#이 붙이는 xeri-table-search--focused로 정한다. */
+
+.xeri-table-search {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+    height: var(--xeri-table-control-height);
+    padding-left: var(--xeri-table-space-sm);
+    padding-right: var(--xeri-table-space-2xs);
+    border-width: 1px;
+    border-radius: var(--xeri-table-radius-sm);
+    border-color: var(--xeri-table-field-border);
+    background-color: var(--xeri-table-field);
+    color: var(--xeri-table-text-strong);
+    font-size: var(--xeri-table-font-size);
+}
+
+.xeri-table-search--focused {
+    border-color: var(--xeri-table-accent);
+}
+
+.xeri-table-search__icon {
+    flex-shrink: 0;
+    width: var(--xeri-table-icon-sm);
+    height: var(--xeri-table-icon-sm);
+    margin-right: var(--xeri-table-space-xs);
+    background-image: resource("Xeri/Icons/Lucide/search");
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-search__input {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.xeri-table-search__input > .unity-base-text-field__input,
+.xeri-table-search__input:hover > .unity-base-text-field__input,
+.xeri-table-search__input:focus > .unity-base-text-field__input {
+    flex-grow: 1;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: var(--xeri-table-space-2xs);
+    padding-right: var(--xeri-table-space-2xs);
+    border-width: 0;
+    background-color: transparent;
+    color: var(--xeri-table-text-strong);
+    -unity-text-align: middle-left;
+}
+
+.xeri-table-search__count {
+    display: none;
+    flex-shrink: 0;
+    margin: 0;
+    padding-left: var(--xeri-table-space-xs);
+    padding-right: var(--xeri-table-space-xs);
+    color: var(--xeri-table-text-muted);
+    font-size: var(--xeri-table-status-font-size);
+    -unity-text-align: middle-right;
+}
+
+.xeri-table-search--counting .xeri-table-search__count {
+    display: flex;
+}
+
+.xeri-table-search__clear {
+    display: none;
+    flex-shrink: 0;
+    width: var(--xeri-table-icon-md);
+    height: var(--xeri-table-icon-md);
+    border-radius: var(--xeri-table-radius-chip);
+    background-image: resource("Xeri/Icons/Lucide/x");
+    -unity-background-image-tint-color: var(--xeri-table-text-muted);
+}
+
+.xeri-table-search--has-text .xeri-table-search__clear {
+    display: flex;
+}
+
+.xeri-table-search__clear:hover {
+    background-color: var(--xeri-table-query-chip);
+    -unity-background-image-tint-color: var(--xeri-table-text-strong);
+}

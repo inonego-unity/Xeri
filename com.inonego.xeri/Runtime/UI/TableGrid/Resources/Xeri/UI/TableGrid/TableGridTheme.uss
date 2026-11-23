@@ -1,0 +1,297 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : TableGridTheme.uss
+수정일 : 2026-11-21
+
+# 설명
+TableGrid의 색·글자 크기·높이·간격·모서리·아이콘 크기 변수. TableGridStyle.uss는 값을 직접 쓰지 않고 이 변수만 참조한다.
+1px 선 두께와 투명색, 행 높이처럼 C#이 정하는 크기는 변수로 두지 않는다.
+두 테마 × 다크·라이트를 제공한다. 크기 변수는 모든 테마가 공유하고 색 변수만 테마마다 다시 정의한다.
+- Default 다크: .xeri-table, .xeri-table-popover, .xeri-table-chips, .xeri-table-search (기본 값)
+- Default 라이트: .xeri-table--light
+- Editor: .xeri-table--editor. Unity 에디터 USS 변수(--unity-colors-*)를 참조하므로 다크·라이트는 Unity 스킨이 정한다.
+  대응하는 Unity 변수가 없는 값(강조색·삽입선, 흐린 글자, 거부 셀, 쿼리·값 칩, 체크 상자)만 다크 스킨 고정값을 두고
+  라이트 스킨 고정값은 .xeri-table--editor.xeri-table--light에서 덮는다.
+수정 클래스(xeri-table--editor, xeri-table--light)는 C#(TableGridTheming)이 표·팝오버·쿼리 칩 줄·검색창 루트에만 붙이므로
+수정 클래스 선택자 하나로 네 루트를 함께 덮는다. 각 루트는 자기 패널 기준으로 정한다(Player 패널은 항상 Default).
+
+# 특이사항, 제약사항
+변수는 표 루트(.xeri-table) 자신에 정의되어 하위 요소로 상속된다.
+상위 요소에만 같은 변수를 지정하면 표 루트 자신의 정의가 우선하므로 값이 바뀌지 않는다.
+팝오버(.xeri-table-popover)·쿼리 칩 줄(.xeri-table-chips)·검색창(.xeri-table-search)은 표 밖 패널·창에 놓이므로 같은 변수를 직접 가진다.
+호스트는 자기 USS에서 이 파일보다 구체적인 선택자로 루트 자신을 지정해 값을 바꾼다.
+- 모든 테마의 값: .my-host .xeri-table { --xeri-table-canvas: ...; } (칩 줄·검색창은 .my-host .xeri-table-chips, .my-host .xeri-table-search도 함께 지정)
+- 테마 하나의 값: .my-host .xeri-table--light, .my-host .xeri-table--editor 등
+- 테마 전체: 표 루트에 호스트 클래스를 더하고 그 클래스를 포함한 선택자(.xeri-table.my-theme 등)로 변수 묶음을 정의한다.
+이 파일의 선택자는 Default 다크·라이트·Editor가 클래스 1개, Editor 라이트 고정값이 클래스 2개다.
+Editor 라이트 고정값까지 덮으려면 클래스 3개 이상(.my-host .xeri-table--editor.xeri-table--light)이 필요하다.
+팝오버는 표 밖 팝업 창·프레임에 놓여 호스트 USS가 닿지 않으므로 호스트의 변수 재지정이 적용되지 않는다.
+========================================================================= BLOCK_HEADER_END */
+
+/* Default 다크(기본 값)와 모든 테마가 공유하는 크기 */
+.xeri-table,
+.xeri-table-popover,
+.xeri-table-chips,
+.xeri-table-search {
+    /* 바탕 */
+    --xeri-table-canvas: #0d1117;
+    --xeri-table-row: #0f141b;
+    --xeri-table-row-alt: #11161e;
+    --xeri-table-row-hover: #161d27;
+    --xeri-table-row-selected: #172033;
+    --xeri-table-header: #141920;
+    --xeri-table-header-hover: #19202a;
+    --xeri-table-header-open: #1c2431;
+    --xeri-table-group: #131a24;
+    --xeri-table-status: #11161d;
+
+    /* 선 */
+    --xeri-table-line: #1a2029;
+    --xeri-table-line-header: #262d38;
+    --xeri-table-line-frozen: #2c3442;
+
+    /* 글자 */
+    --xeri-table-text: #c9d1db;
+    --xeri-table-text-strong: #e6e9ee;
+    --xeri-table-text-muted: #7d8796;
+    --xeri-table-font-size: 12px;
+    --xeri-table-header-font-size: 11px;
+    --xeri-table-status-font-size: 11px;
+
+    /* 강조와 선택 */
+    --xeri-table-accent: #7c92ff;
+    --xeri-table-range-fill: rgba(124, 146, 255, 0.09);
+    --xeri-table-active-fill: rgba(124, 146, 255, 0.05);
+    --xeri-table-drop-line: #7c92ff;
+
+    /* 팝오버(열 메뉴·필터 편집)와 쿼리 칩 */
+    --xeri-table-popover: #161b23;
+    --xeri-table-popover-border: #2c3442;
+    --xeri-table-popover-hover: #1f2732;
+    --xeri-table-field: #0f141b;
+    --xeri-table-field-border: #2a3240;
+    --xeri-table-invalid: #f2a0aa;
+    --xeri-table-invalid-fill: rgba(255, 116, 127, 0.12);
+    --xeri-table-query-chip: rgba(124, 146, 255, 0.12);
+    --xeri-table-query-chip-border: rgba(124, 146, 255, 0.35);
+
+    /* 선택형 값 칩 */
+    --xeri-table-chip-height: 18px;
+    --xeri-table-chip-font-size: 11px;
+    --xeri-table-chip-neutral-bg: #232a35;
+    --xeri-table-chip-neutral-text: #c3cad5;
+    --xeri-table-chip-blue-bg: rgba(103, 183, 255, 0.15);
+    --xeri-table-chip-blue-text: #8cc6ff;
+    --xeri-table-chip-violet-bg: rgba(159, 128, 255, 0.16);
+    --xeri-table-chip-violet-text: #c0a8ff;
+    --xeri-table-chip-teal-bg: rgba(77, 201, 198, 0.14);
+    --xeri-table-chip-teal-text: #86dcd8;
+    --xeri-table-chip-green-bg: rgba(100, 213, 161, 0.14);
+    --xeri-table-chip-green-text: #8fdcb7;
+    --xeri-table-chip-amber-bg: rgba(226, 184, 95, 0.15);
+    --xeri-table-chip-amber-text: #e7c47e;
+    --xeri-table-chip-rose-bg: rgba(255, 116, 127, 0.14);
+    --xeri-table-chip-rose-text: #f2a0aa;
+
+    /* 체크 상자와 강조색 위 글자 */
+    --xeri-table-check-border: #4a5465;
+    --xeri-table-check-border-hover: #7d8796;
+    --xeri-table-on-accent: #0d1117;
+
+    /* 컨트롤 높이 */
+    --xeri-table-header-height: 30px;
+    --xeri-table-status-height: 26px;
+    --xeri-table-control-height: 24px;
+    --xeri-table-button-height: 26px;
+    --xeri-table-badge-height: 16px;
+    --xeri-table-badge-font-size: 10px;
+
+    /* 간격 단계 */
+    --xeri-table-space-2xs: 2px;
+    --xeri-table-space-xs: 4px;
+    --xeri-table-space-sm: 6px;
+    --xeri-table-space-md: 8px;
+    --xeri-table-space-lg: 10px;
+    --xeri-table-space-xl: 12px;
+    --xeri-table-cell-padding: 9px;
+
+    /* 모서리 */
+    --xeri-table-radius-sm: 3px;
+    --xeri-table-radius-chip: 9px;
+    --xeri-table-radius-pill: 12px;
+
+    /* 아이콘: Lucide 24 격자 그대로(안쪽 여백 포함)를 이 크기 칸에 맞춘다. */
+    --xeri-table-icon-sm: 14px;
+    --xeri-table-icon-md: 16px;
+    --xeri-table-check-size: 14px;
+    --xeri-table-dot-size: 6px;
+
+    /* 선택 외곽선·선택 행 표시줄·열 경계 핸들·행 끌기 삽입선 */
+    --xeri-table-selection-width: 1px;
+    --xeri-table-drop-line-width: 2px;
+    --xeri-table-row-marker-width: 2px;
+    --xeri-table-resize-handle-width: 6px;
+    --xeri-table-resize-line-width: 2px;
+}
+
+/* Default 라이트 */
+.xeri-table--light {
+    /* 바탕 */
+    --xeri-table-canvas: #f6f8fa;
+    --xeri-table-row: #ffffff;
+    --xeri-table-row-alt: #f9fafb;
+    --xeri-table-row-hover: #f0f3f7;
+    --xeri-table-row-selected: #e8edff;
+    --xeri-table-header: #f3f5f8;
+    --xeri-table-header-hover: #eaeef3;
+    --xeri-table-header-open: #e3e8ef;
+    --xeri-table-group: #eef1f5;
+    --xeri-table-status: #f3f5f8;
+
+    /* 선 */
+    --xeri-table-line: #e6e9ee;
+    --xeri-table-line-header: #d7dce3;
+    --xeri-table-line-frozen: #c9d0da;
+
+    /* 글자 */
+    --xeri-table-text: #2b3340;
+    --xeri-table-text-strong: #111722;
+    --xeri-table-text-muted: #6b7686;
+
+    /* 강조와 선택 */
+    --xeri-table-accent: #4f63e0;
+    --xeri-table-range-fill: rgba(79, 99, 224, 0.1);
+    --xeri-table-active-fill: rgba(79, 99, 224, 0.06);
+    --xeri-table-drop-line: #4f63e0;
+
+    /* 팝오버(열 메뉴·필터 편집)와 쿼리 칩 */
+    --xeri-table-popover: #ffffff;
+    --xeri-table-popover-border: #d3d9e1;
+    --xeri-table-popover-hover: #f0f3f7;
+    --xeri-table-field: #ffffff;
+    --xeri-table-field-border: #cdd3dc;
+    --xeri-table-invalid: #c9303e;
+    --xeri-table-invalid-fill: rgba(220, 53, 69, 0.1);
+    --xeri-table-query-chip: rgba(79, 99, 224, 0.1);
+    --xeri-table-query-chip-border: rgba(79, 99, 224, 0.35);
+
+    /* 선택형 값 칩 */
+    --xeri-table-chip-neutral-bg: #e9edf2;
+    --xeri-table-chip-neutral-text: #3d4654;
+    --xeri-table-chip-blue-bg: rgba(36, 128, 220, 0.12);
+    --xeri-table-chip-blue-text: #1f6fbf;
+    --xeri-table-chip-violet-bg: rgba(124, 84, 230, 0.12);
+    --xeri-table-chip-violet-text: #6a46c9;
+    --xeri-table-chip-teal-bg: rgba(22, 160, 156, 0.13);
+    --xeri-table-chip-teal-text: #0f7f7b;
+    --xeri-table-chip-green-bg: rgba(34, 160, 100, 0.13);
+    --xeri-table-chip-green-text: #1d7f52;
+    --xeri-table-chip-amber-bg: rgba(204, 140, 20, 0.15);
+    --xeri-table-chip-amber-text: #8f6205;
+    --xeri-table-chip-rose-bg: rgba(220, 53, 69, 0.12);
+    --xeri-table-chip-rose-text: #b82a3a;
+
+    /* 체크 상자와 강조색 위 글자 */
+    --xeri-table-check-border: #aab3c0;
+    --xeri-table-check-border-hover: #6b7686;
+    --xeri-table-on-accent: #ffffff;
+}
+
+/* Editor: Unity 에디터 변수를 따르고, 대응 변수가 없는 값은 다크 스킨 고정값 */
+.xeri-table--editor {
+    /* 바탕 */
+    --xeri-table-canvas: var(--unity-colors-window-background);
+    --xeri-table-row: var(--unity-colors-window-background);
+    --xeri-table-row-alt: var(--unity-colors-alternated_rows-background);
+    --xeri-table-row-hover: var(--unity-colors-highlight-background-hover);
+    --xeri-table-row-selected: var(--unity-colors-highlight-background);
+    --xeri-table-header: var(--unity-colors-toolbar-background);
+    --xeri-table-header-hover: var(--unity-colors-toolbar_button-background-hover);
+    --xeri-table-header-open: var(--unity-colors-toolbar_button-background-checked);
+    --xeri-table-group: var(--unity-colors-inspector_titlebar-background);
+    --xeri-table-status: var(--unity-colors-toolbar-background);
+
+    /* 선 */
+    --xeri-table-line: var(--unity-colors-default-border);
+    --xeri-table-line-header: var(--unity-colors-toolbar-border);
+    --xeri-table-line-frozen: var(--unity-colors-toolbar-border);
+
+    /* 글자 */
+    --xeri-table-text: var(--unity-colors-default-text);
+    --xeri-table-text-strong: var(--unity-colors-default-text);
+    --xeri-table-text-muted: #9a9a9a;
+
+    /* 강조와 선택 */
+    --xeri-table-accent: #4a8ad8;
+    --xeri-table-range-fill: rgba(74, 138, 216, 0.16);
+    --xeri-table-active-fill: rgba(74, 138, 216, 0.08);
+    --xeri-table-drop-line: #4a8ad8;
+
+    /* 팝오버(열 메뉴·필터 편집)와 쿼리 칩 */
+    --xeri-table-popover: var(--unity-colors-window-background);
+    --xeri-table-popover-border: var(--unity-colors-default-border);
+    --xeri-table-popover-hover: var(--unity-colors-highlight-background-hover);
+    --xeri-table-field: var(--unity-colors-input_field-background);
+    --xeri-table-field-border: var(--unity-colors-input_field-border);
+    --xeri-table-invalid: #f08080;
+    --xeri-table-invalid-fill: rgba(229, 72, 77, 0.18);
+    --xeri-table-query-chip: rgba(74, 138, 216, 0.18);
+    --xeri-table-query-chip-border: rgba(74, 138, 216, 0.45);
+
+    /* 선택형 값 칩 */
+    --xeri-table-chip-neutral-bg: rgba(255, 255, 255, 0.08);
+    --xeri-table-chip-neutral-text: var(--unity-colors-default-text);
+    --xeri-table-chip-blue-bg: rgba(103, 183, 255, 0.15);
+    --xeri-table-chip-blue-text: #8cc6ff;
+    --xeri-table-chip-violet-bg: rgba(159, 128, 255, 0.16);
+    --xeri-table-chip-violet-text: #c0a8ff;
+    --xeri-table-chip-teal-bg: rgba(77, 201, 198, 0.14);
+    --xeri-table-chip-teal-text: #86dcd8;
+    --xeri-table-chip-green-bg: rgba(100, 213, 161, 0.14);
+    --xeri-table-chip-green-text: #8fdcb7;
+    --xeri-table-chip-amber-bg: rgba(226, 184, 95, 0.15);
+    --xeri-table-chip-amber-text: #e7c47e;
+    --xeri-table-chip-rose-bg: rgba(255, 116, 127, 0.14);
+    --xeri-table-chip-rose-text: #f2a0aa;
+
+    /* 체크 상자와 강조색 위 글자 */
+    --xeri-table-check-border: #6a6a6a;
+    --xeri-table-check-border-hover: #9a9a9a;
+    --xeri-table-on-accent: #ffffff;
+}
+
+/* Editor 라이트 스킨: Unity 변수가 없는 고정값만 덮는다 */
+.xeri-table--editor.xeri-table--light {
+    /* 글자 */
+    --xeri-table-text-muted: #5f5f5f;
+
+    /* 강조와 선택 */
+    --xeri-table-accent: #2f6ebf;
+    --xeri-table-range-fill: rgba(47, 110, 191, 0.14);
+    --xeri-table-active-fill: rgba(47, 110, 191, 0.07);
+    --xeri-table-drop-line: #2f6ebf;
+
+    /* 팝오버(열 메뉴·필터 편집)와 쿼리 칩 */
+    --xeri-table-invalid: #b3261e;
+    --xeri-table-invalid-fill: rgba(200, 40, 40, 0.1);
+    --xeri-table-query-chip: rgba(47, 110, 191, 0.12);
+    --xeri-table-query-chip-border: rgba(47, 110, 191, 0.4);
+
+    /* 선택형 값 칩 */
+    --xeri-table-chip-neutral-bg: rgba(0, 0, 0, 0.07);
+    --xeri-table-chip-blue-bg: rgba(36, 128, 220, 0.14);
+    --xeri-table-chip-blue-text: #1a5fa6;
+    --xeri-table-chip-violet-bg: rgba(124, 84, 230, 0.14);
+    --xeri-table-chip-violet-text: #5b3bb3;
+    --xeri-table-chip-teal-bg: rgba(22, 160, 156, 0.15);
+    --xeri-table-chip-teal-text: #0c6e6a;
+    --xeri-table-chip-green-bg: rgba(34, 160, 100, 0.15);
+    --xeri-table-chip-green-text: #186c46;
+    --xeri-table-chip-amber-bg: rgba(204, 140, 20, 0.18);
+    --xeri-table-chip-amber-text: #7a5304;
+    --xeri-table-chip-rose-bg: rgba(220, 53, 69, 0.14);
+    --xeri-table-chip-rose-text: #a32433;
+
+    /* 체크 상자 */
+    --xeri-table-check-border: #8a8a8a;
+    --xeri-table-check-border-hover: #5f5f5f;
+}
