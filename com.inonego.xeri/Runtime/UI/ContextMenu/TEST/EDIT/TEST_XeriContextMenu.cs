@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_XeriContextMenu.cs
-수정일 : 2026-11-18
+수정일 : 2026-11-23
 
 # 설명
 컨텍스트 메뉴 항목 경로를 하위 메뉴 트리로 풀어내는 규칙 테스트.
@@ -40,6 +40,16 @@ namespace inonego.Xeri.TEST.UI._ContextMenu
         /// </summary>
         // ------------------------------------------------------------
         private static XeriContextMenuItem Command(string path)
+        {
+            return XeriContextMenuItem.Command(path, () => { });
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이미 나뉜 경로 조각만 가진 명령 항목을 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private static XeriContextMenuItem Command(string[] path)
         {
             return XeriContextMenuItem.Command(path, () => { });
         }
@@ -138,6 +148,47 @@ namespace inonego.Xeri.TEST.UI._ContextMenu
             Assert.AreEqual(first, second);
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 조각 경로의 이름은 슬래시나 빈 글자가 있어도 하위 메뉴로 풀지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriContextMenu_조각경로의_이름은_슬래시가_있어도_풀리지않는다()
+        {
+            var items = new[]
+            {
+                Command(new[] { "N/A" }),
+                Command(new[] { "A" }),
+                Command(new[] { "A/B" }),
+                Command(new[] { "/" }),
+                Command(new[] { "" }),
+            };
+
+            var tree = XeriContextMenuItem.Resolve(items);
+
+            Assert.AreEqual("N/A,A,A/B,/,", Describe(tree));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 조각 경로의 앞쪽 조각은 문자열 경로와 같은 하위 메뉴가 된다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriContextMenu_조각경로는_문자열경로와_같은_하위메뉴에_놓인다()
+        {
+            var items = new[]
+            {
+                Command(new[] { "형식", "N/A" }),
+                Command("형식/문자"),
+            };
+
+            var tree = XeriContextMenuItem.Resolve(items);
+
+            Assert.AreEqual("형식[N/A,문자]", Describe(tree));
+        }
+
     #endregion
 
     #region S-1: 구분선 위치와 정리
@@ -206,6 +257,18 @@ namespace inonego.Xeri.TEST.UI._ContextMenu
         public void TEST_XeriContextMenu_비어있는_경로조각은_예외(string path)
         {
             Assert.Throws<ArgumentException>(() => XeriContextMenuItem.Command(path, () => { }));
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 조각 경로가 비었거나 하위 메뉴 조각이 비어 있으면 허용하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_XeriContextMenu_비어있는_조각경로는_예외()
+        {
+            Assert.Throws<ArgumentException>(() => Command(Array.Empty<string>()));
+            Assert.Throws<ArgumentException>(() => Command(new[] { "", "A" }));
         }
 
         // ------------------------------------------------------------

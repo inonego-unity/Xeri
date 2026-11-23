@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriContextMenu.cs
-수정일 : 2026-11-18
+수정일 : 2026-11-23
 
 # 설명
 런타임 패널과 Editor의 독립 팝업 창에서 공통으로 쓰는 컨텍스트 메뉴의 공개 진입점이다.
@@ -527,67 +527,51 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         internal void HandleMenuKeyDown(KeyDownEvent evt, XeriContextMenuLevel level)
         {
-            if (evt.keyCode == KeyCode.Escape)
+            var handled = true;
+
+            switch (evt.keyCode)
             {
-                Close();
-                owner.Focus();
-                StopKeyEvent(evt);
-                return;
+                case KeyCode.Escape:
+                    Close();
+                    owner.Focus();
+                    break;
+
+                case KeyCode.UpArrow:
+                    MoveActive(level, -1);
+                    break;
+
+                case KeyCode.DownArrow:
+                    MoveActive(level, 1);
+                    break;
+
+                case KeyCode.Tab:
+                    MoveActive(level, evt.shiftKey ? -1 : 1);
+                    break;
+
+                // 오른쪽(열기)과 왼쪽(닫기)은 짝이며, 열 수 없거나 닫을 수 없으면 처리하지 않은 키로 넘긴다.
+                case KeyCode.RightArrow:
+                case KeyCode.Space:
+                case var key when XeriShortcutKeys.IsSubmit(key):
+                    handled = TryOpenSubmenu(level, evt.target);
+                    break;
+
+                case KeyCode.LeftArrow:
+                    handled = TryCloseSubmenu(level);
+                    break;
+
+                default:
+                    handled = false;
+                    break;
             }
 
-            if (evt.keyCode == KeyCode.UpArrow || evt.keyCode == KeyCode.DownArrow
-                || evt.keyCode == KeyCode.Tab)
+            if (handled)
             {
-                if (level.Buttons.Count > 0)
-                {
-                    var index = level.Buttons.IndexOf(level.ActiveButton);
-                    var step = evt.keyCode == KeyCode.UpArrow
-                        || (evt.keyCode == KeyCode.Tab && evt.shiftKey) ? -1 : 1;
-                    var next = index < 0
-                        ? (step > 0 ? 0 : level.Buttons.Count - 1)
-                        : (index + step + level.Buttons.Count) % level.Buttons.Count;
-                    var button = level.Buttons[next];
-                    level.SetActive(button, true);
-                    level.Scroll.ScrollTo(button);
-                    CloseLevelsFrom(level.Depth + 1);
-                }
-
                 StopKeyEvent(evt);
-                return;
             }
-
-            if ((evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter
-                    || evt.keyCode == KeyCode.Space)
-                && evt.target is Button submitButton
-                && level.Items.TryGetValue(submitButton, out var submitItem)
-                && submitItem.Kind == XeriContextMenuItem.ItemKind.Submenu)
+            else
             {
-                OpenSubmenu(level, submitButton, submitItem, true);
-                StopKeyEvent(evt);
-                return;
+                onUnhandledKeyDown?.Invoke(evt);
             }
-
-            if (evt.keyCode == KeyCode.RightArrow
-                && evt.target is Button rightButton
-                && level.Items.TryGetValue(rightButton, out var rightItem)
-                && rightItem.Kind == XeriContextMenuItem.ItemKind.Submenu)
-            {
-                OpenSubmenu(level, rightButton, rightItem, true);
-                StopKeyEvent(evt);
-                return;
-            }
-
-            if (evt.keyCode == KeyCode.LeftArrow && level.ParentButton != null)
-            {
-                var parent = levels[level.Depth - 1];
-                var parentButton = level.ParentButton;
-                CloseLevelsFrom(level.Depth);
-                parent.SetActive(parentButton, true);
-                StopKeyEvent(evt);
-                return;
-            }
-
-            onUnhandledKeyDown?.Invoke(evt);
         }
 
         // ------------------------------------------------------------
@@ -597,14 +581,70 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         internal void HandleMenuSubmit(NavigationSubmitEvent evt, XeriContextMenuLevel level)
         {
-            if (evt.target is Button button
+            if (TryOpenSubmenu(level, evt.target))
+            {
+                evt.StopPropagation();
+                evt.StopImmediatePropagation();
+            }
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 단계의 활성 항목을 step(-1 위, 1 아래)만큼 옮기고 끝에서는 반대편으로 돌린다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void MoveActive(XeriContextMenuLevel level, int step)
+        {
+            if (level.Buttons.Count == 0)
+            {
+                return;
+            }
+
+            var index = level.Buttons.IndexOf(level.ActiveButton);
+            var next = index < 0
+                ? (step > 0 ? 0 : level.Buttons.Count - 1)
+                : (index + step + level.Buttons.Count) % level.Buttons.Count;
+            var button = level.Buttons[next];
+            level.SetActive(button, true);
+            level.Scroll.ScrollTo(button);
+            CloseLevelsFrom(level.Depth + 1);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 입력을 받은 요소가 하위 메뉴 항목이면 하위 메뉴를 열고 true를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool TryOpenSubmenu(XeriContextMenuLevel level, IEventHandler target)
+        {
+            if (target is Button button
                 && level.Items.TryGetValue(button, out var item)
                 && item.Kind == XeriContextMenuItem.ItemKind.Submenu)
             {
                 OpenSubmenu(level, button, item, true);
-                evt.StopPropagation();
-                evt.StopImmediatePropagation();
+                return true;
             }
+
+            return false;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 이 단계가 하위 메뉴이면 닫고 부모 항목으로 돌아가 true를 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private bool TryCloseSubmenu(XeriContextMenuLevel level)
+        {
+            if (level.ParentButton == null)
+            {
+                return false;
+            }
+
+            var parent = levels[level.Depth - 1];
+            var parentButton = level.ParentButton;
+            CloseLevelsFrom(level.Depth);
+            parent.SetActive(parentButton, true);
+            return true;
         }
 
         // ------------------------------------------------------------

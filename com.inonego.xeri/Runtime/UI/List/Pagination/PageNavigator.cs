@@ -1,10 +1,15 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
-파일명 : PaginationBar.cs
-수정일 : 2026-10-28
+파일명 : PageNavigator.cs
+수정일 : 2026-11-23
 
 # 설명
-IReadOnlyPaginator의 결과 범위, 현재·전체 페이지 수와 이동 가능 상태를 표시한다.
-페이지 이동 명령을 공통 요청으로 전달하고, 가용 폭에 따라 표시 영역을 배치한다.
+IReadOnlyPaginator의 현재·전체 페이지 수와 이동 가능 상태를 보여 주고, 사용자의 페이지 이동(처음·이전·번호 입력·다음·마지막)을
+공통 요청(PageNavigationRequest)으로 전달하는 화면 요소.
+
+# 특이사항, 제약사항
+줄을 차지하는 막대가 아니라 가로로 놓이는 컨트롤 묶음이라, 놓을 자리(예: TableGrid 상태 줄 가운데 슬롯)는 호스트가 정한다.
+결과 범위·전체 개수 같은 글자는 보이지 않는다(호스트의 상태 표시가 맡는다). 이동 요청만 올리고 실제 이동은 호스트가 한다.
+모양은 자기 요소에 붙이는 Resources 시트(Xeri/UI/List/PageNavigator)가 정한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -20,18 +25,18 @@ namespace inonego.Xeri.UI
 {
     // ============================================================
     /// <summary>
-    /// 결과 범위와 페이지 이동 컨트롤을 제공한다.
+    /// 페이지 이동 컨트롤(처음·이전·번호·다음·마지막).
     /// </summary>
     // ============================================================
-    internal sealed class PaginationBar : VisualElement
+    internal sealed class PageNavigator : VisualElement
     {
 
     #region 필드
 
+        private const string STYLE_PATH = "Xeri/UI/List/PageNavigator";
+
         private readonly IReadOnlyPaginator paginator;
         private readonly Action<PageNavigationRequest> navigate;
-        private readonly Label countLabel;
-        private readonly VisualElement controls;
         private readonly IntegerField pageField;
         private readonly IntegerField pageCountField;
         private readonly Button firstButton;
@@ -43,12 +48,12 @@ namespace inonego.Xeri.UI
 
     #region 생성자
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
         /// Paginator 상태와 이동 명령을 연결해 컨트롤을 구성한다.
         /// </summary>
-        // ------------------------------------------------------------
-        public PaginationBar
+        // --------------------------------------------------------------------------------
+        public PageNavigator
         (
             IReadOnlyPaginator paginator,
             Action<PageNavigationRequest> navigate
@@ -57,15 +62,11 @@ namespace inonego.Xeri.UI
             this.paginator = paginator ?? throw new ArgumentNullException(nameof(paginator));
             this.navigate = navigate ?? throw new ArgumentNullException(nameof(navigate));
 
-            AddToClassList("xeri-pagination");
-            countLabel = new Label
-            {
-                name = "count-label",
-            };
-            countLabel.AddToClassList("xeri-pagination__count-label");
+            AddToClassList("xeri-page-navigator");
 
-            controls = new VisualElement();
-            controls.AddToClassList("xeri-pagination__controls");
+            // 모양은 놓이는 호스트와 상관없이 자기 시트로 정한다.
+            // 다른 Core UI 요소처럼 필수 시트가 없으면 조용히 무너지지 않게 바로 알린다.
+            styleSheets.Add(XeriUIResources.Require<StyleSheet>(STYLE_PATH, "PageNavigator"));
 
             firstButton = CreateButton
             (
@@ -73,6 +74,7 @@ namespace inonego.Xeri.UI
                 "chevrons-left",
                 () => this.navigate(new PageNavigationRequest(PageNavigationKind.First))
             );
+
             prevButton = CreateButton
             (
                 "prev-page-button",
@@ -86,7 +88,7 @@ namespace inonego.Xeri.UI
                 isDelayed = true,
                 tooltip = "페이지 번호를 입력하여 이동",
             };
-            pageField.AddToClassList("xeri-pagination__page-field");
+            pageField.AddToClassList("xeri-page-navigator__page-field");
             pageField.RegisterValueChangedCallback(HandlePageChanged);
             pageField.RegisterCallback<KeyDownEvent>(HandlePageKeyDown);
 
@@ -96,14 +98,14 @@ namespace inonego.Xeri.UI
                 isReadOnly = true,
                 tooltip = "전체 페이지 수",
             };
-            pageCountField.AddToClassList("xeri-pagination__page-field");
-            pageCountField.AddToClassList("xeri-pagination__page-field--readonly");
+            pageCountField.AddToClassList("xeri-page-navigator__page-field");
+            pageCountField.AddToClassList("xeri-page-navigator__page-field--readonly");
 
             var separator = new Label("/");
-            separator.AddToClassList("xeri-pagination__page-separator");
+            separator.AddToClassList("xeri-page-navigator__page-separator");
 
             var page = new VisualElement();
-            page.AddToClassList("xeri-pagination__page");
+            page.AddToClassList("xeri-page-navigator__page");
             page.Add(pageField);
             page.Add(separator);
             page.Add(pageCountField);
@@ -114,6 +116,7 @@ namespace inonego.Xeri.UI
                 "chevron-right",
                 () => this.navigate(new PageNavigationRequest(PageNavigationKind.Next))
             );
+
             lastButton = CreateButton
             (
                 "last-page-button",
@@ -121,17 +124,12 @@ namespace inonego.Xeri.UI
                 () => this.navigate(new PageNavigationRequest(PageNavigationKind.Last))
             );
 
-            controls.Add(firstButton);
-            controls.Add(prevButton);
-            controls.Add(page);
-            controls.Add(nextButton);
-            controls.Add(lastButton);
+            Add(firstButton);
+            Add(prevButton);
+            Add(page);
+            Add(nextButton);
+            Add(lastButton);
 
-            Add(controls);
-            Add(countLabel);
-
-            RegisterCallback<GeometryChangedEvent>(HandleGeometryChanged);
-            controls.RegisterCallback<GeometryChangedEvent>(HandleGeometryChanged);
             RegisterCallback<AttachToPanelEvent>(HandleAttached);
             RegisterCallback<DetachFromPanelEvent>(HandleDetached);
 
@@ -142,50 +140,22 @@ namespace inonego.Xeri.UI
 
     #region 메서드
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// 결과 범위, 페이지 수와 이동 가능 상태를 화면에 반영한다.
+        /// <br/> 현재·전체 페이지 수와 이동 가능 상태를 화면에 반영한다.
+        /// <br/> Paginator 값이 바뀌면 저절로 부른다.
         /// </summary>
-        // ------------------------------------------------------------
-        private void Refresh()
+        // ----------------------------------------------------------------------
+        public void Refresh()
         {
-            var range = paginator.Range;
-            var begin = range.IsEmpty ? 0 : range.BeginIndex + 1;
-            var end = range.EndIndex;
-
-            countLabel.text = $"{begin}-{end} / 전체 {paginator.TotalCount}개";
             pageField.SetValueWithoutNotify(paginator.PageNumber);
             pageField.SetEnabled(paginator.PageCount > 0);
             pageCountField.SetValueWithoutNotify(paginator.PageCount);
-
-            UpdateLayoutMode(resolvedStyle.width);
 
             firstButton.SetEnabled(paginator.CanMoveFirst);
             prevButton.SetEnabled(paginator.CanMovePrev);
             nextButton.SetEnabled(paginator.CanMoveNext);
             lastButton.SetEnabled(paginator.CanMoveLast);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 버튼과 결과 텍스트의 실제 너비에 따라 줄 배치를 결정한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void UpdateLayoutMode(float width)
-        {
-            if (float.IsNaN(width) || width <= 0f) return;
-
-            var controlsWidth = controls.resolvedStyle.width;
-            if (float.IsNaN(controlsWidth) || controlsWidth <= 0f) return;
-
-            var countWidth = countLabel.MeasureTextSize
-            (
-                countLabel.text,
-                0f, VisualElement.MeasureMode.Undefined,
-                0f, VisualElement.MeasureMode.Undefined
-            ).x;
-            var requiredWidth = controlsWidth + countWidth + countLabel.resolvedStyle.paddingRight;
-            EnableInClassList("xeri-pagination--compact", width < requiredWidth);
         }
 
         // ------------------------------------------------------------
@@ -206,8 +176,7 @@ namespace inonego.Xeri.UI
                 iconImage = XeriIcon.LoadBackground(iconName),
             };
 
-            button.AddToClassList("xeri-pagination__button");
-
+            button.AddToClassList("xeri-page-navigator__button");
             return button;
         }
 
@@ -248,16 +217,6 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 페이지네이터나 이동 버튼 그룹의 실제 너비가 달라지면 배치를 갱신한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private void HandleGeometryChanged(GeometryChangedEvent evt)
-        {
-            UpdateLayoutMode(resolvedStyle.width);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// panel 연결 시 paginator 변경 구독과 표시 동기화를 시작한다.
         /// </summary>
         // ------------------------------------------------------------
@@ -280,7 +239,7 @@ namespace inonego.Xeri.UI
 
         // ------------------------------------------------------------
         /// <summary>
-        /// paginator 상태 변경을 pagination UI에 반영한다.
+        /// paginator 상태 변경을 화면에 반영한다.
         /// </summary>
         // ------------------------------------------------------------
         private void HandlePaginatorChanged(object sender, EventArgs e)

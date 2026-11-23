@@ -1,0 +1,149 @@
+/* BLOCK_HEADER_BEGIN =======================================================================
+파일명 : PageNavigator.uss
+수정일 : 2026-11-23
+
+# 설명
+PageNavigator(페이지 이동 컨트롤)의 버튼·필드 외형을 정의한다.
+PageNavigator가 자기 요소에 이 시트를 직접 붙인다. 놓이는 자리의 폭·정렬은 호스트가 정한다.
+========================================================================= BLOCK_HEADER_END */
+
+/* 페이지 이동 컨트롤 테마와 규격 */
+.xeri-page-navigator {
+    --xeri-page-navigator-control-height: 23px;
+    --xeri-page-navigator-field-height: 21px;
+    --xeri-page-navigator-button-width: 25px;
+    --xeri-page-navigator-field-width: 40px;
+    --xeri-page-navigator-separator-width: 14px;
+    --xeri-page-navigator-icon-size: 11px;
+    --xeri-page-navigator-page-gap: 4px;
+    --xeri-page-navigator-field-padding: 4px;
+    --xeri-page-navigator-text-size: 11px;
+    --xeri-page-navigator-small-text-size: 10px;
+
+    --xeri-page-navigator-button-border: rgba(127,127,127,0.18);
+    --xeri-page-navigator-button-background: rgba(127,127,127,0.07);
+    --xeri-page-navigator-button-hover: rgba(127,127,127,0.18);
+    --xeri-page-navigator-button-active: rgba(95,147,199,0.24);
+    --xeri-page-navigator-field-border: rgba(127,127,127,0.27);
+    --xeri-page-navigator-field-background: rgba(0,0,0,0.12);
+    --xeri-page-navigator-readonly-border: rgba(127,127,127,0.12);
+}
+
+/* 처음·이전·번호·다음·마지막을 한 줄로 늘어놓는 가로 묶음. 폭은 내용만큼이고 줄어들지 않는다. */
+.xeri-page-navigator {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: var(--xeri-page-navigator-control-height);
+}
+
+.xeri-page-navigator__button {
+    width: var(--xeri-page-navigator-button-width);
+    min-width: var(--xeri-page-navigator-button-width);
+    height: 100%;
+    min-height: var(--xeri-page-navigator-control-height);
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-color: var(--xeri-page-navigator-button-border);
+    background-color: var(--xeri-page-navigator-button-background);
+    color: var(--unity-colors-default-text);
+    align-items: center;
+    justify-content: center;
+    font-size: var(--xeri-page-navigator-small-text-size);
+}
+
+/* 처음·이전, 다음·마지막 버튼은 연속된 이동 컨트롤로 표시한다. */
+.xeri-page-navigator > #prev-page-button,
+.xeri-page-navigator > #last-page-button {
+    border-left-width: 0;
+}
+
+.xeri-page-navigator__button:hover {
+    background-color: var(--xeri-page-navigator-button-hover);
+}
+
+.xeri-page-navigator__button:active {
+    background-color: var(--xeri-page-navigator-button-active);
+}
+
+.xeri-page-navigator__button:disabled {
+    background-color: transparent;
+    opacity: 0.36;
+}
+
+/* 페이지 버튼의 Lucide 아이콘은 테마별 텍스트 색상을 사용한다. */
+.xeri-page-navigator__button .unity-button__image {
+    width: var(--xeri-page-navigator-icon-size);
+    height: var(--xeri-page-navigator-icon-size);
+    min-width: var(--xeri-page-navigator-icon-size);
+    min-height: var(--xeri-page-navigator-icon-size);
+    flex-grow: 0;
+    flex-shrink: 0;
+    align-self: center;
+    margin: 0;
+    padding: 0;
+    --unity-image-size: scale-to-fit;
+    --unity-image-tint-color: var(--unity-colors-default-text);
+}
+
+.xeri-page-navigator__page {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    height: 100%;
+    margin-left: var(--xeri-page-navigator-page-gap);
+    margin-right: var(--xeri-page-navigator-page-gap);
+}
+
+.xeri-page-navigator__page-field {
+    width: var(--xeri-page-navigator-field-width);
+    min-width: var(--xeri-page-navigator-field-width);
+    height: var(--xeri-page-navigator-field-height);
+    min-height: var(--xeri-page-navigator-field-height);
+    margin: 0;
+    padding: 0;
+    flex-grow: 0;
+    flex-shrink: 0;
+    font-size: var(--xeri-page-navigator-text-size);
+}
+
+.xeri-page-navigator__page-field .unity-base-field__label {
+    display: none;
+}
+
+.xeri-page-navigator__page-field .unity-base-field__input,
+.xeri-page-navigator__page-field .unity-text-input {
+    height: var(--xeri-page-navigator-field-height);
+    min-height: var(--xeri-page-navigator-field-height);
+    min-width: 0;
+    margin: 0;
+    padding-left: var(--xeri-page-navigator-field-padding);
+    padding-right: var(--xeri-page-navigator-field-padding);
+    background-color: var(--xeri-page-navigator-field-background);
+    border-color: var(--xeri-page-navigator-field-border);
+    -unity-text-align: middle-center;
+}
+
+/* 전체 페이지 수는 편집할 수 없는 보조 값으로 표시한다. */
+.xeri-page-navigator__page-field--readonly .unity-base-field__input,
+.xeri-page-navigator__page-field--readonly .unity-text-input {
+    background-color: transparent;
+    border-color: var(--xeri-page-navigator-readonly-border);
+}
+
+.xeri-page-navigator__page-separator {
+    width: var(--xeri-page-navigator-separator-width);
+    min-width: var(--xeri-page-navigator-separator-width);
+    height: var(--xeri-page-navigator-field-height);
+    flex-shrink: 0;
+    font-size: var(--xeri-page-navigator-text-size);
+    opacity: 0.85;
+    -unity-text-align: middle-center;
+}

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XeriContextMenuItem.cs
-수정일 : 2026-11-18
+수정일 : 2026-11-23
 
 # 설명
 공용 컨텍스트 메뉴의 명령·라벨·구분선 항목을 불변 데이터로 표현한다.
@@ -8,7 +8,9 @@
 항목은 목록에 들어간 순서대로 표시되고, 하위 메뉴와 구분선도 같은 규칙으로 놓인다.
 
 # 특이사항, 제약사항
-경로 조각은 비어 있을 수 없고 라벨에 슬래시를 문자로 쓸 수 없다.
+경로 조각은 비어 있을 수 없고 Command·Label 경로의 이름에는 슬래시를 문자로 쓸 수 없다.
+호스트가 정한 글자(셀 선택지 등)를 그대로 이름으로 쓸 때는 이미 나뉜 경로 조각을 받는
+Command(path 조각 목록, ...)를 쓴다. 조각은 다시 나누지 않으므로 마지막 이름에 '/'·빈 글자도 쓸 수 있다.
 같은 이름이 명령(또는 라벨)이면서 하위 메뉴 경로로도 쓰이면 오류로 처리한다.
 풀어내는 단계에서 각 단계의 맨 앞·맨 뒤·연속 구분선은 제거하므로 여러 곳에서 만든 목록을 그대로 합칠 수 있다.
 ========================================================================= BLOCK_HEADER_END */
@@ -114,17 +116,28 @@ namespace inonego.Xeri.UI
             string shortcut = null, bool isChecked = false, Texture2D icon = null
         )
         {
+            return Command(SplitPath(path, nameof(path)), execute, enabled, shortcut, isChecked, icon);
+        }
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 이미 나뉜 경로 조각으로 실행할 명령 항목을 만든다. 마지막 조각이 표시 이름이고 앞쪽은 하위 메뉴다.
+        /// <br/> 조각은 슬래시로 다시 나누지 않으므로 이름에 '/'나 빈 글자도 쓸 수 있다.
+        /// <br/> 셀 선택지처럼 호스트가 정한 글자를 메뉴에 놓을 때 쓴다. 예: { "형식", "N/A" }.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        public static XeriContextMenuItem Command
+        (
+            IReadOnlyList<string> path, Action execute, bool enabled = true,
+            string shortcut = null, bool isChecked = false, Texture2D icon = null
+        )
+        {
             if (execute == null)
             {
                 throw new ArgumentNullException(nameof(execute));
             }
 
-            var segments = SplitPath(path, nameof(path));
-            return new XeriContextMenuItem
-            (
-                ItemKind.Command, ParentOf(segments), segments[segments.Length - 1],
-                shortcut, enabled, execute, isChecked, icon
-            );
+            return FromPath(ItemKind.Command, path, shortcut, enabled, execute, isChecked, icon);
         }
 
         // ------------------------------------------------------------
@@ -134,11 +147,7 @@ namespace inonego.Xeri.UI
         // ------------------------------------------------------------
         public static XeriContextMenuItem Label(string path)
         {
-            var segments = SplitPath(path, nameof(path));
-            return new XeriContextMenuItem
-            (
-                ItemKind.Label, ParentOf(segments), segments[segments.Length - 1], enabled: false
-            );
+            return FromPath(ItemKind.Label, SplitPath(path, nameof(path)), null, false, null, false, null);
         }
 
         // ----------------------------------------------------------------------
@@ -180,16 +189,42 @@ namespace inonego.Xeri.UI
             return segments;
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// 경로 조각에서 마지막(표시 이름)을 뺀 하위 메뉴 경로를 반환한다.
+        /// <br/> 경로 조각의 마지막을 표시 이름으로, 앞쪽을 하위 메뉴 경로로 나눠 항목을 만든다.
+        /// <br/> 하위 메뉴 조각은 비어 있을 수 없고, 이름은 그대로 쓰므로 빈 글자도 허용한다.
         /// </summary>
-        // ------------------------------------------------------------
-        private static string[] ParentOf(string[] segments)
+        // --------------------------------------------------------------------------------
+        private static XeriContextMenuItem FromPath
+        (
+            ItemKind kind, IReadOnlyList<string> path, string shortcut,
+            bool enabled, Action execute, bool isChecked, Texture2D icon
+        )
         {
-            var parents = new string[segments.Length - 1];
-            Array.Copy(segments, parents, parents.Length);
-            return parents;
+            if (path == null)
+            {
+                throw new ArgumentNullException(nameof(path));
+            }
+
+            if (path.Count == 0)
+            {
+                throw new ArgumentException("메뉴 경로는 비워둘 수 없습니다.", nameof(path));
+            }
+
+            var parents = new string[path.Count - 1];
+            for (var i = 0; i < parents.Length; i++)
+            {
+                if (string.IsNullOrEmpty(path[i]))
+                {
+                    throw new ArgumentException("하위 메뉴 경로 조각은 비어 있을 수 없습니다.", nameof(path));
+                }
+
+                parents[i] = path[i];
+            }
+
+            var text = path[parents.Length]
+                ?? throw new ArgumentException("메뉴 이름은 null일 수 없습니다.", nameof(path));
+            return new XeriContextMenuItem(kind, parents, text, shortcut, enabled, execute, isChecked, icon);
         }
 
     #endregion
