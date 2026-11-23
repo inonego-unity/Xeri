@@ -17,6 +17,11 @@
       "displayName": "Collection Editor Inspector",
       "description": "Manual Inspector scene for Xeri Serializable Collections and opt-in List/Array editors.",
       "path": "Samples~/CollectionEditor"
+    },
+    {
+      "displayName": "TableGrid Editor",
+      "description": "EditorWindow showing 10,000 rows, frozen columns, choice chips, selection, column menu with filter editor and query chips (the window applies sort, filter and grouping as the host).",
+      "path": "Samples~/TableGrid"
     }
   ]
 }
