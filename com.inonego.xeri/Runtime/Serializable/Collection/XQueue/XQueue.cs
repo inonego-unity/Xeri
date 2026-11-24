@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XQueue.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-24
 
 # 설명
 Unity 직렬화를 지원하는 Queue 구현.
@@ -10,6 +10,9 @@ Runtime 변경은 내부 ApplyRuntime 호출 시에만 저장 목록에 반영�
 # 특이사항, 제약사항
 Unity 7 Editor의 역직렬화 복원 뒤 Queue 내부 배열과 위치·개수가 어긋나 Clear가 IndexOutOfRangeException을 낼 수 있다.
 UpdateRuntime은 어차피 저장 목록에서 다시 채우므로, Editor에서는 Clear 전에 어긋난 내부 상태만 빈 상태로 되돌린다(XHashSet과 같은 방식).
+CloneFrom은 runtime 큐만 front 순서 그대로 외부 알림 없이 복사한다. 직렬화 목록은 ApplyRuntime이 맡는다.
+값 형식·string·UnityEngine.Object·delegate·Type 요소는 그대로 복사하고, 그 밖의 참조 요소는 CollectionClone 규칙으로 복제한다. 복제를 지원하지 않는 참조 요소는 예외를 던진다.
+복제가 실패하면 이 Queue를 바꾸지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -28,7 +31,8 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     [Serializable]
     public abstract class XQueueBase<T> : Queue<T>,
-        ISerializationCallbackReceiver, ISerializedRuntimeCollection
+        ISerializationCallbackReceiver, ISerializedRuntimeCollection,
+        IDeepCloneableFrom<Queue<T>>
     {
 
     #region 필드
@@ -39,6 +43,21 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         protected abstract IList<T> Serialized { get; }
+
+    #endregion
+
+    #region 복제
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> source의 runtime 내용을 front 순서 그대로 외부 알림 없이 복사한다.
+        /// <br/> 참조 요소는 복제하며 복제가 실패하면 이 Queue를 바꾸지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void CloneFrom(Queue<T> source)
+        {
+            CollectionCloneHelper.CloneFrom(this, source);
+        }
 
     #endregion
 
@@ -178,8 +197,24 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class XQueue_R<T> : XQueueBase<T>
+    public class XQueue_R<T> :
+        XQueueBase<T>,
+        IDeepCloneable<XQueue_R<T>>
     {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 같은 구체 타입의 빈 컬렉션을 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual XQueue_R<T> @new() => new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source의 runtime 내용을 외부 알림 없이 복사한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(XQueue_R<T> source) => base.CloneFrom(source);
+
         // ------------------------------------------------------------
         /// <inheritdoc />
         // ------------------------------------------------------------
@@ -198,8 +233,24 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class XQueue_V<T> : XQueueBase<T>
+    public class XQueue_V<T> :
+        XQueueBase<T>,
+        IDeepCloneable<XQueue_V<T>>
     {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 같은 구체 타입의 빈 컬렉션을 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual XQueue_V<T> @new() => new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source의 runtime 내용을 외부 알림 없이 복사한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(XQueue_V<T> source) => base.CloneFrom(source);
+
         // ------------------------------------------------------------
         /// <inheritdoc />
         // ------------------------------------------------------------

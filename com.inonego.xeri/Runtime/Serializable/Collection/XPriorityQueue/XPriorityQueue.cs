@@ -1,10 +1,14 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XPriorityQueue.cs
-수정일 : 2026-09-29
+수정일 : 2026-11-24
 
 # 설명
 Unity 직렬화를 지원하는 최대 힙 기반 우선순위 큐.
 높은 TPriority 값이 먼저 Dequeue된다.
+
+# 특이사항, 제약사항
+CloneFrom은 힙 배치를 그대로 외부 알림 없이 복사하므로 힙 불변식이 유지된다.
+요소는 CollectionClone 규칙으로 복제하며 복제를 지원하지 않는 참조 요소는 예외를 던진다. 복제가 실패하면 이 큐를 바꾸지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -12,6 +16,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace inonego.Xeri.Serializable
 {
@@ -23,7 +28,8 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     [Serializable]
     public class XPriorityQueue<TElement, TPriority>
-        : ISerializedCollectionNormalizer
+        : ISerializedCollectionNormalizer,
+        IDeepCloneable<XPriorityQueue<TElement, TPriority>>
     where TElement : class
     where TPriority : struct, IComparable<TPriority>
     {
@@ -38,7 +44,18 @@ namespace inonego.Xeri.Serializable
         [Serializable]
         protected struct Pair : IComparable<Pair>
         {
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 큐에 담긴 요소.
+            /// </summary>
+            // ------------------------------------------------------------
             [SerializeReference] public TElement  Element;
+
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 요소의 우선순위.
+            /// </summary>
+            // ------------------------------------------------------------
             [SerializeField]     public TPriority Priority;
 
             // ------------------------------------------------------------
@@ -93,6 +110,56 @@ namespace inonego.Xeri.Serializable
         public XPriorityQueue()
         {
             // NONE
+        }
+
+    #endregion
+
+    #region 복제
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 같은 구체 타입의 빈 큐를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual XPriorityQueue<TElement, TPriority> @new() => new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> source의 힙 배치를 그대로 복사한다.
+        /// <br/> 요소는 새로 복제하며 복제가 실패하면 이 큐를 바꾸지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(XPriorityQueue<TElement, TPriority> source)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (ReferenceEquals(source, this))
+            {
+                return;
+            }
+
+            var prepared = ListPool<Pair>.Get();
+
+            try
+            {
+                // 새 요소 복제는 실패할 수 있으므로 이 큐를 바꾸기 전에 모두 준비한다.
+                for (var index = 0; index < source.heap.Count; index++)
+                {
+                    var pair = source.heap[index];
+
+                    prepared.Add(new Pair(CollectionClone<TElement>.CloneElement(pair.Element, "XPriorityQueue"), pair.Priority));
+                }
+
+                heap.Clear();
+                heap.AddRange(prepared);
+            }
+            finally
+            {
+                ListPool<Pair>.Release(prepared);
+            }
         }
 
     #endregion

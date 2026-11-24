@@ -7,9 +7,9 @@
 
 - **EDIT**: Runtime 동작 계약. 상위 inonego.Xeri.TEST.EDIT.asmref를 사용한다.
   - TEST_CollectionRuntime.cs: 공통 Apply, Update, 직렬화 콜백
-  - TEST_XOrdered.cs: 기본 정렬·키 기반 고유성·조회 및 대량 데이터 일관성
-  - TEST_XOrdered_Serialization.cs: JSON 직렬화와 관리 참조 공유 계약
+  - TEST_XOrdered.cs: 기본 정렬·키 기반 고유성·조회, 대량 데이터 일관성, Key 인덱스 일관성, JSON 직렬화와 관리 참조 공유 계약
   - TEST_XPriorityQueue.cs: Heap과 우선순위
+  - TEST_CollectionClone.cs: 컬렉션 CloneFrom 계약(키 없는·키 있는 XOrdered는 같은 항목 구성으로 대칭 검증), 확장 메서드, 같은 구성 복제의 GC 할당
 - **Tests/Editor**: 공통 Editor 테스트 어셈블리.
   - TEST_SerializedPropertyClipboard.cs: 값·관리 참조 링크 복사와 복원
 - **Validation**: 수동 검증 씬(CollectionValidation.unity)과 컬렉션 종류별 필드·원소 형식. inonego.Xeri.Collection.Validation(Editor 전용 정의).
@@ -18,7 +18,6 @@
 하위 폴더는 상위 .asmref를 상속하므로 새 .asmdef를 만들지 않는다.
 기존 테스트 파일과 Unity .meta GUID는 보존한다.
 
-TEST_XOrdered는 기본·키 기반 동작과 직렬화 계약을 분리하되 테스트 값을 공유하므로 partial class를 사용한다.
 SerializedPropertyClipboard는 공통 Editor 테스트 어셈블리에서 별도 검증한다.
 
 ## 설계 원칙
@@ -42,6 +41,7 @@ SerializedPropertyClipboard는 공통 Editor 테스트 어셈블리에서 별도
 - TEST_CollectionRuntime
 - TEST_XOrdered
 - TEST_XPriorityQueue
+- TEST_CollectionClone
 
 Domain Reload·씬 재열기 검증은 별도 수명주기 통합 프로젝트에서 실행한다.
 실패한 기존 테스트는 Ignore로 숨기지 않고 Unity 버전, 테스트 이름,

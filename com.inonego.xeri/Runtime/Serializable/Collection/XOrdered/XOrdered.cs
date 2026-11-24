@@ -1,14 +1,18 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XOrdered.cs
-수정일 : 2026-09-29
+수정일 : 2026-11-24
 
 # 설명
 명시적 Order를 기준으로 항상 정렬 상태를 유지하는 Unity 직렬화 가능 컬렉션을 정의한다.
 Keyed 변형은 Order와 독립적인 unique Key lookup을 제공한다.
 
 # 특이사항, 제약사항
-Entry 목록이 직렬화 authoritative state이며 Key 조회도 해당 목록을 기준으로 수행한다.
+항목 목록(entries)이 직렬화 원본이며 정렬·삽입·열거는 XOrderedBase가 맡는다.
 동일 Order는 기존 항목 뒤에 삽입하여 안정적인 순서를 유지한다.
+Keyed 변형은 항목이 8개를 넘으면 Key 조회용 인덱스를 만들어 쓰고, 그 이하는 목록을 직접 훑는다.
+인덱스는 직렬화하지 않는 조회용 캐시이며 역직렬화·Editor 정규화·전체 삭제·복제 재구성 뒤에는 다시 만든다.
+직렬화 데이터에 중복 Key가 있으면 앞쪽 항목이 조회에 쓰인다.
+CloneFrom은 두 변형 모두 XOrderedBase의 같은 규칙을 따르며 Key가 있으면 같은 Key, 없으면 같은 위치의 기존 값을 짝으로 재사용한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -27,85 +31,73 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     [Serializable]
     public class XOrdered<TOrder, TValue> :
+        XOrderedBase<TOrder, TValue, XOrderedEntry<TOrder, TValue>>,
         IReadOnlyXOrdered<TOrder, TValue>,
-        ISerializedCollectionNormalizer
+        IDeepCloneable<XOrdered<TOrder, TValue>>
     where TOrder : struct
     where TValue : class
     {
 
-    #region 내부 데이터
+    #region 복제
 
-        // ============================================================
+        // ------------------------------------------------------------
         /// <summary>
-        /// Order와 Value를 함께 가지는 읽기 전용 항목.
+        /// 복제에 사용할 같은 구체 타입의 빈 컬렉션을 만든다.
         /// </summary>
-        // ============================================================
-        [Serializable]
-        public sealed class Entry
+        // ------------------------------------------------------------
+        public virtual XOrdered<TOrder, TValue> @new() => new();
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> source의 Order와 Value를 순서 그대로 복사한다.
+        /// <br/> 구성이 같으면 기존 Value에 CloneFrom하고 아니면 목록을 다시 만든다.
+        /// <br/> source가 가진 Value 인스턴스는 재사용하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void CloneFrom(XOrdered<TOrder, TValue> source)
         {
-            // ------------------------------------------------------------
-            /// <summary>
-            /// Order 값을 반환하거나 설정한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public TOrder Order => order;
-
-            [SerializeField]
-            private TOrder order;
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 현재 값을 반환한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public TValue Value => value;
-
-            [SerializeReference]
-            private TValue value;
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// Entry 인스턴스를 초기화한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            internal Entry(TOrder order, TValue value)
-            {
-                this.order = order;
-                this.value = value;
-            }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// Order와 Value를 각각 출력한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public void Deconstruct(out TOrder order, out TValue value)
-            {
-                order = Order;
-                value = Value;
-            }
+            CloneFrom(source, default(NoCloneHook));
         }
 
     #endregion
 
-    #region 필드
-
-        [SerializeField]
-        private List<Entry> entries = new();
+    #region 복제 규칙
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 항목 수를 반환한다.
+        /// Key가 없으므로 두 항목의 Key는 항상 같다.
         /// </summary>
         // ------------------------------------------------------------
-        public int Count => entries.Count;
+        protected override bool IsSameKey(in XOrderedEntry<TOrder, TValue> current, in XOrderedEntry<TOrder, TValue> other) => true;
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정한 인덱스의 항목을 반환한다.
+        /// template의 Order와 새 Value로 항목을 만든다.
         /// </summary>
         // ------------------------------------------------------------
-        public Entry this[int index] => entries[index];
+        protected override XOrderedEntry<TOrder, TValue> CreateEntry(in XOrderedEntry<TOrder, TValue> template, TValue value)
+        {
+            return new XOrderedEntry<TOrder, TValue>(template.Order, value);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Key가 없으므로 같은 위치의 기존 Value를 짝으로 본다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override bool TryGetReusable(int sourcePosition, in XOrderedEntry<TOrder, TValue> sourceEntry, out TValue current)
+        {
+            if (sourcePosition < Entries.Count)
+            {
+                current = Entries[sourcePosition].Value;
+
+                return true;
+            }
+
+            current = null;
+
+            return false;
+        }
 
     #endregion
 
@@ -118,9 +110,7 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public void Add(TOrder order, TValue value)
         {
-            var index = FindIndex(order);
-
-            entries.Insert(index, new Entry(order, value));
+            InsertEntry(new XOrderedEntry<TOrder, TValue>(order, value));
         }
 
         // ------------------------------------------------------------
@@ -134,7 +124,7 @@ namespace inonego.Xeri.Serializable
 
             if (index < 0) return false;
 
-            entries.RemoveAt(index);
+            Entries.RemoveAt(index);
 
             return true;
         }
@@ -153,9 +143,9 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public int IndexOf(TValue value)
         {
-            for (var index = 0; index < entries.Count; index++)
+            for (var index = 0; index < Entries.Count; index++)
             {
-                if (EqualityComparer<TValue>.Default.Equals(entries[index].Value, value))
+                if (EqualityComparer<TValue>.Default.Equals(Entries[index].Value, value))
                 {
                     return index;
                 }
@@ -164,90 +154,6 @@ namespace inonego.Xeri.Serializable
             return -1;
         }
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 모든 항목을 제거한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void Clear() => entries.Clear();
-
-    #endregion
-
-    #region 정렬
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 현재 Entry 목록을 Order 기준으로 안정 정렬한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        internal void NormalizeOrder()
-        {
-            var comparer = Comparer<TOrder>.Default;
-
-            for (var index = 1; index < entries.Count; index++)
-            {
-                var entry = entries[index];
-                var insertIndex = index - 1;
-
-                while (insertIndex >= 0
-                    && comparer.Compare(entries[insertIndex].Order, entry.Order) > 0)
-                {
-                    entries[insertIndex + 1] = entries[insertIndex];
-                    insertIndex--;
-                }
-
-                entries[insertIndex + 1] = entry;
-            }
-        }
-
-        void ISerializedCollectionNormalizer.NormalizeSerializedState()
-        {
-            NormalizeOrder();
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 동일 Order 그룹의 오른쪽 끝 다음 index를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private int FindIndex(TOrder order)
-        {
-            var comparer = Comparer<TOrder>.Default;
-            var low = 0;
-            var high = entries.Count;
-
-            while (low < high)
-            {
-                var middle = low + ((high - low) / 2);
-
-                if (comparer.Compare(entries[middle].Order, order) <= 0)
-                {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
-                }
-            }
-
-            return low;
-        }
-
-    #endregion
-
-    #region 열거
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// GetEnumerator 결과를 조회한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public List<Entry>.Enumerator GetEnumerator() => entries.GetEnumerator();
-
-        IEnumerator<Entry> IEnumerable<Entry>.GetEnumerator() => entries.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => entries.GetEnumerator();
-
     #endregion
 
     }
@@ -255,103 +161,85 @@ namespace inonego.Xeri.Serializable
     // ================================================================================
     /// <summary>
     /// <br/> Order 오름차순과 unique Key lookup을 함께 제공하는 직렬화 가능 컬렉션.
-    /// <br/> Order, Key, Value는 하나의 Entry가 소유하며 Key는 정렬 순서와 독립적이다.
+    /// <br/> Order, Key, Value는 하나의 항목이 소유하며 Key는 정렬 순서와 독립적이다.
     /// </summary>
     // ================================================================================
     [Serializable]
     public class XOrdered<TOrder, TKey, TValue> :
+        XOrderedBase<TOrder, TValue, XOrderedEntry<TOrder, TKey, TValue>>,
         IReadOnlyXOrdered<TOrder, TKey, TValue>,
-        ISerializedCollectionNormalizer
+        IDeepCloneable<XOrdered<TOrder, TKey, TValue>>
     where TOrder : struct
     where TKey : IEquatable<TKey>
     where TValue : class
     {
 
-    #region 내부 데이터
+    #region 필드
 
-        // ============================================================
+        // Key 조회용 캐시이며 직렬화하지 않는다. 목록이 바뀌었다고 알리면 비운다.
+        [NonSerialized]
+        private Dictionary<TKey, XOrderedEntry<TOrder, TKey, TValue>> index;
+
+        // 인덱스를 만들 때 같은 Key가 둘 이상 있었는지 나타낸다. 그러면 삭제 뒤에 인덱스를 다시 만든다.
+        [NonSerialized]
+        private bool hasDuplicateKeys;
+
+    #endregion
+
+    #region 복제
+
+        // ------------------------------------------------------------
         /// <summary>
-        /// Order, Key, Value를 함께 가지는 읽기 전용 항목.
+        /// 복제에 사용할 같은 구체 타입의 빈 컬렉션을 만든다.
         /// </summary>
-        // ============================================================
-        [Serializable]
-        public sealed class Entry
+        // ------------------------------------------------------------
+        public virtual XOrdered<TOrder, TKey, TValue> @new() => new();
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> source의 Order·Key·Value를 순서 그대로 복사한다.
+        /// <br/> 구성이 같으면 기존 Value에 CloneFrom하고 아니면 목록을 다시 만든다.
+        /// <br/> source가 가진 Value 인스턴스는 재사용하지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void CloneFrom(XOrdered<TOrder, TKey, TValue> source)
         {
-            // ------------------------------------------------------------
-            /// <summary>
-            /// Order 값을 반환하거나 설정한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public TOrder Order => order;
-
-            [SerializeField]
-            private TOrder order;
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 직렬화할 키 값을 보관한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public TKey Key => key;
-
-            [SerializeField]
-            private TKey key;
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// 현재 값을 반환한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public TValue Value => value;
-
-            [SerializeReference]
-            private TValue value;
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// Entry 인스턴스를 초기화한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            internal Entry(TOrder order, TKey key, TValue value)
-            {
-                this.order = order;
-                this.key = key;
-                this.value = value;
-            }
-
-            // ------------------------------------------------------------
-            /// <summary>
-            /// Order, Key, Value를 각각 출력한다.
-            /// </summary>
-            // ------------------------------------------------------------
-            public void Deconstruct(out TOrder order, out TKey key, out TValue value)
-            {
-                order = Order;
-                key = Key;
-                value = Value;
-            }
+            CloneFrom(source, default(NoCloneHook));
         }
 
     #endregion
 
-    #region 필드
-
-        [SerializeField]
-        private List<Entry> entries = new();
+    #region 복제 규칙
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 항목 수를 반환한다.
+        /// 두 항목의 Key가 같은지 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public int Count => entries.Count;
+        protected override bool IsSameKey(in XOrderedEntry<TOrder, TKey, TValue> current, in XOrderedEntry<TOrder, TKey, TValue> other)
+        {
+            return EqualityComparer<TKey>.Default.Equals(current.Key, other.Key);
+        }
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 지정한 인덱스의 항목을 반환한다.
+        /// template의 Order·Key와 새 Value로 항목을 만든다.
         /// </summary>
         // ------------------------------------------------------------
-        public Entry this[int index] => entries[index];
+        protected override XOrderedEntry<TOrder, TKey, TValue> CreateEntry(in XOrderedEntry<TOrder, TKey, TValue> template, TValue value)
+        {
+            return new XOrderedEntry<TOrder, TKey, TValue>(template.Order, template.Key, value);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source 항목과 같은 Key의 기존 Value를 짝으로 찾는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        protected override bool TryGetReusable(int sourcePosition, in XOrderedEntry<TOrder, TKey, TValue> sourceEntry, out TValue current)
+        {
+            return TryGetValue(sourceEntry.Key, out current);
+        }
 
     #endregion
 
@@ -364,18 +252,19 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public void Add(TOrder order, TKey key, TValue value)
         {
-            for (var index = 0; index < entries.Count; index++)
+            if (ContainsKey(key))
             {
-                if (EqualityComparer<TKey>.Default.Equals(entries[index].Key, key))
-                {
-                    throw new ArgumentException($"이미 존재하는 키({key})입니다.", nameof(key));
-                }
+                throw new ArgumentException($"이미 존재하는 키({key})입니다.", nameof(key));
             }
 
-            var entry = new Entry(order, key, value);
-            var insertIndex = FindIndex(order);
+            var entry = new XOrderedEntry<TOrder, TKey, TValue>(order, key, value);
 
-            entries.Insert(insertIndex, entry);
+            InsertEntry(entry);
+
+            if (index != null && key is not null)
+            {
+                index.TryAdd(key, entry);
+            }
         }
 
         // ------------------------------------------------------------
@@ -385,23 +274,28 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public bool Remove(TKey key)
         {
-            for (var index = 0; index < entries.Count; index++)
+            if (!TryGetEntry(key, out var entry))
             {
-                if (!EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) continue;
-
-                entries.RemoveAt(index);
-                return true;
+                return false;
             }
 
-            return false;
-        }
+            Entries.RemoveAt(FindPos(entry));
 
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 모든 항목을 제거한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public void Clear() => entries.Clear();
+            // 같은 Key가 더 남아 있을 수 있으면 인덱스를 다시 만든다.
+            if (index != null)
+            {
+                if (hasDuplicateKeys)
+                {
+                    index = null;
+                }
+                else if (key is not null)
+                {
+                    index.Remove(key);
+                }
+            }
+
+            return true;
+        }
 
     #endregion
 
@@ -412,15 +306,7 @@ namespace inonego.Xeri.Serializable
         /// 지정한 Key의 포함 여부를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool ContainsKey(TKey key)
-        {
-            for (var index = 0; index < entries.Count; index++)
-            {
-                if (EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) return true;
-            }
-
-            return false;
-        }
+        public bool ContainsKey(TKey key) => TryGetEntry(key, out _);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -429,113 +315,124 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public bool TryGetValue(TKey key, out TValue value)
         {
-            for (var index = 0; index < entries.Count; index++)
+            if (TryGetEntry(key, out var entry))
             {
-                if (!EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) continue;
+                value = entry.Value;
 
-                value = entries[index].Value;
                 return true;
             }
 
             value = default;
+
             return false;
         }
 
-        // ------------------------------------------------------------
+        // ----------------------------------------------------------------------
         /// <summary>
-        /// TryGetEntry 동작을 시도하고 성공 여부를 반환한다.
+        /// Key에 해당하는 항목을 조회한다. 같은 Key가 둘 이상이면 앞쪽 항목이다.
         /// </summary>
-        // ------------------------------------------------------------
-        public bool TryGetEntry(TKey key, out Entry entry)
+        // ----------------------------------------------------------------------
+        public bool TryGetEntry(TKey key, out XOrderedEntry<TOrder, TKey, TValue> entry)
         {
-            for (var index = 0; index < entries.Count; index++)
+            // null Key는 인덱스에 담을 수 없으므로 항상 목록을 직접 훑는다.
+            if (Entries.Count > LINEAR_SCAN_LIMIT && key is not null)
             {
-                if (!EqualityComparer<TKey>.Default.Equals(entries[index].Key, key)) continue;
+                EnsureIndex();
 
-                entry = entries[index];
+                return index.TryGetValue(key, out entry);
+            }
+
+            var comparer = EqualityComparer<TKey>.Default;
+
+            for (var position = 0; position < Entries.Count; position++)
+            {
+                if (!comparer.Equals(Entries[position].Key, key)) continue;
+
+                entry = Entries[position];
+
                 return true;
             }
 
             entry = default;
+
             return false;
         }
 
     #endregion
 
-    #region 정렬
+    #region 내부 처리
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 현재 Entry 목록을 Order 기준으로 안정 정렬한다.
+        /// 항목 목록이 바뀌었으므로 Key 인덱스를 비운다.
         /// </summary>
         // ------------------------------------------------------------
-        internal void NormalizeOrder()
+        protected override void OnEntriesChanged()
         {
-            var comparer = Comparer<TOrder>.Default;
+            index = null;
+        }
 
-            for (var index = 1; index < entries.Count; index++)
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 아직 없으면 항목 목록에서 Key 인덱스를 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        private void EnsureIndex()
+        {
+            if (index != null)
             {
-                var entry = entries[index];
-                var insertIndex = index - 1;
+                return;
+            }
 
-                while (insertIndex >= 0
-                    && comparer.Compare(entries[insertIndex].Order, entry.Order) > 0)
+            index = new Dictionary<TKey, XOrderedEntry<TOrder, TKey, TValue>>(Entries.Count);
+            hasDuplicateKeys = false;
+
+            for (var position = 0; position < Entries.Count; position++)
+            {
+                var entry = Entries[position];
+
+                if (entry.Key is null) continue;
+
+                // 같은 Key는 앞쪽 항목만 남긴다.
+                if (!index.TryAdd(entry.Key, entry))
                 {
-                    entries[insertIndex + 1] = entries[insertIndex];
-                    insertIndex--;
+                    hasDuplicateKeys = true;
                 }
-
-                entries[insertIndex + 1] = entry;
             }
         }
 
-        void ISerializedCollectionNormalizer.NormalizeSerializedState()
-        {
-            NormalizeOrder();
-        }
-
         // ------------------------------------------------------------
         /// <summary>
-        /// 동일 Order 그룹의 오른쪽 끝 다음 index를 반환한다.
+        /// <br/> 항목이 목록에서 놓인 위치를 반환한다.
+        /// <br/> 같은 Order 구간 안에서 가장 앞쪽의 같은 Key를 찾는다.
         /// </summary>
         // ------------------------------------------------------------
-        private int FindIndex(TOrder order)
+        private int FindPos(XOrderedEntry<TOrder, TKey, TValue> entry)
         {
-            var comparer = Comparer<TOrder>.Default;
-            var low = 0;
-            var high = entries.Count;
+            var comparer = EqualityComparer<TKey>.Default;
+            var found = -1;
 
-            while (low < high)
+            // 구간의 오른쪽 끝에서 왼쪽으로 훑으며 일치할 때마다 갱신해 가장 왼쪽 일치를 남긴다.
+            for (var position = FindIndex(entry.Order) - 1; position >= 0; position--)
             {
-                var middle = low + ((high - low) / 2);
-
-                if (comparer.Compare(entries[middle].Order, order) <= 0)
+                if (CompareOrder(Entries[position].Order, entry.Order) != 0)
                 {
-                    low = middle + 1;
+                    break;
                 }
-                else
+
+                if (comparer.Equals(Entries[position].Key, entry.Key))
                 {
-                    high = middle;
+                    found = position;
                 }
             }
 
-            return low;
+            if (found < 0)
+            {
+                throw new InvalidOperationException("항목이 목록에 없습니다.");
+            }
+
+            return found;
         }
-
-    #endregion
-
-    #region 열거
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// GetEnumerator 결과를 조회한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public List<Entry>.Enumerator GetEnumerator() => entries.GetEnumerator();
-
-        IEnumerator<Entry> IEnumerable<Entry>.GetEnumerator() => entries.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => entries.GetEnumerator();
 
     #endregion
 

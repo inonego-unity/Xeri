@@ -536,14 +536,14 @@ namespace inonego.Xeri.TEST.Serializable._Value
             Assert.AreEqual(20f, target.Modified);
         }
 
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         /// <summary>
-        /// <br/> 재구성 중 재사용 인스턴스의 CloneFrom이 실패해도
-        /// <br/> Modifier 목록은 그대로 남는다.
+        /// <br/> 재구성 중 재사용 인스턴스의 CloneFrom이 실패해도 나머지를 끝까지 복사해
+        /// <br/> Modifier 목록은 source 구성이 되고 실패한 인스턴스만 이전 상태로 남는다.
         /// </summary>
-        // ------------------------------------------------------------
+        // --------------------------------------------------------------------------------
         [Test]
-        public void TEST_ValueClone_MValue_재구성중복사실패_목록유지()
+        public void TEST_ValueClone_MValue_재구성중복사실패_나머지진행_목록은source구성()
         {
             var source = new MValue<float>(20f);
 
@@ -557,14 +557,16 @@ namespace inonego.Xeri.TEST.Serializable._Value
 
             Assert.Throws<InvalidOperationException>(() => target.CloneFrom(source));
 
-            Assert.AreEqual(1, target.Modifiers.Count);
+            // 목록은 source 구성이 되고 실패한 x는 이전 값을 유지한다.
+            Assert.AreEqual(2, target.Modifiers.Count);
             Assert.AreSame(x, target.Modifiers[0].Value);
-            Assert.AreEqual(23f, target.Modified);
+            Assert.AreEqual(3f, x.Value);
+            Assert.AreEqual(123f, target.Modified);
 
             // 구독이 복구되어 이후 변경이 반영된다.
             x.Value = 5f;
 
-            Assert.AreEqual(25f, target.Modified);
+            Assert.AreEqual(125f, target.Modified);
         }
 
     #endregion

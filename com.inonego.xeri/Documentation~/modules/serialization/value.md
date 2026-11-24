@@ -132,7 +132,8 @@ speed.CloneFrom(snapshot);   // 복원
 - `MValue<T>`는 키·Order 구성과 구체 타입이 같으면 목록을 그대로 두고 각 Modifier 인스턴스에 상태만 복사합니다(할당 없음). 같은 구성으로 반복 저장·복원하는 롤백은 이 경로를 탑니다. 구성이 다르면 목록을 다시 만들며, 같은 키·같은 타입 인스턴스는 재사용하고 나머지는 새로 복제합니다(목록 항목과 새 Modifier 할당 발생). 복제본은 원본과 Modifier 인스턴스를 공유하지 않으므로 여러 키·여러 MValue 사이의 인스턴스 공유 관계는 복제되지 않습니다.
 - 파생 타입은 상태를 추가하지 않아도 `@new()`를 재정의해 자기 타입을 만들어야 합니다. 재정의하지 않으면 `Clone()`이 타입 불일치(`ArgumentException`)로 실패합니다. 기존 Modifier를 상속할 때도 같습니다.
 - 상태를 추가한 파생 값 타입은 `CloneState()`를, 상태를 추가한 Modifier는 `CloneFrom()`도 재정의해야 복제가 완전합니다. Modifier의 `CloneFrom`은 상태가 바뀌면 `OnChange`를 발행합니다.
-- `MValue<T>.CloneFrom`은 새 Modifier 복제(`Clone`)가 실패하면 대상 MValue를 바꾸지 않고 예외를 전달합니다. 기존 Modifier 인스턴스의 `CloneFrom`이 실패하면 Modifier 목록은 그대로 두고 그때까지 복사된 Base·Modifier 상태로 남으며, 구독과 `Modified`는 그 상태에 맞춘 뒤 예외를 전달합니다.
+- `MValue<T>`의 Modifier 목록 복제는 `XOrdered.CloneFrom`이 맡으며, `MValue<T>`는 Base 복사 시점과 구독·`Modified` 재계산을 맡습니다.
+- `MValue<T>.CloneFrom`은 새 Modifier 복제(`Clone`)가 실패하면 대상 MValue를 바꾸지 않고 예외를 전달합니다. 기존 Modifier 인스턴스의 `CloneFrom`이 실패해도 나머지를 끝까지 복사하고 Modifier 목록을 source에 맞춘 뒤(실패한 인스턴스는 이전 상태로 남음), 구독과 `Modified`를 그 상태에 맞추고 예외를 전달합니다.
 - `Clone()`은 `IDeepCloneable<Value<T>>`의 기본 구현이라 `Value<T>` 형식으로 호출하고 결과를 원래 타입으로 변환합니다. 예: `var copy = (MValue<float>)((Value<float>)speed).Clone();` 반복 저장·복원에는 미리 만든 인스턴스와 `CloneFrom`을 쓰는 편이 할당이 없습니다.
 
 ## 직렬화

@@ -1,11 +1,16 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : XHashSet.cs
-수정일 : 2026-11-07
+수정일 : 2026-11-24
 
 # 설명
 Unity 직렬화를 지원하는 HashSet 구현.
 SerializeReference(_R) / SerializeField(_V) 두 가지 변형을 제공한다.
 Runtime 변경은 내부 ApplyRuntime 호출 시에만 직렬화 목록에 반영한다.
+
+# 특이사항, 제약사항
+CloneFrom은 runtime 집합만 외부 알림 없이 복사한다. 직렬화 목록은 ApplyRuntime이 맡는다.
+값 형식·string·UnityEngine.Object·delegate·Type 요소는 그대로 복사하고, 그 밖의 참조 요소는 CollectionClone 규칙으로 복제한다. 복제를 지원하지 않는 참조 요소는 예외를 던진다.
+복제가 실패하면 이 HashSet을 바꾸지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -24,7 +29,8 @@ namespace inonego.Xeri.Serializable
     // ============================================================
     [Serializable]
     public abstract class XHashSetBase<T> : HashSet<T>,
-        ISerializationCallbackReceiver, ISerializedRuntimeCollection
+        ISerializationCallbackReceiver, ISerializedRuntimeCollection,
+        IDeepCloneableFrom<HashSet<T>>
     {
 
     #region 필드
@@ -35,6 +41,21 @@ namespace inonego.Xeri.Serializable
         /// </summary>
         // ------------------------------------------------------------
         protected abstract IList<T> Serialized { get; }
+
+    #endregion
+
+    #region 복제
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> source의 runtime 내용을 외부 알림 없이 복사한다.
+        /// <br/> 참조 요소는 복제하며 복제가 실패하면 이 HashSet을 바꾸지 않는다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        public void CloneFrom(HashSet<T> source)
+        {
+            CollectionCloneHelper.CloneFrom(this, source);
+        }
 
     #endregion
 
@@ -178,8 +199,24 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class XHashSet_R<T> : XHashSetBase<T>
+    public class XHashSet_R<T> :
+        XHashSetBase<T>,
+        IDeepCloneable<XHashSet_R<T>>
     {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 같은 구체 타입의 빈 컬렉션을 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual XHashSet_R<T> @new() => new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source의 runtime 내용을 외부 알림 없이 복사한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(XHashSet_R<T> source) => base.CloneFrom(source);
+
         // ------------------------------------------------------------
         /// <inheritdoc />
         // ------------------------------------------------------------
@@ -198,8 +235,24 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     [Serializable]
-    public class XHashSet_V<T> : XHashSetBase<T>
+    public class XHashSet_V<T> :
+        XHashSetBase<T>,
+        IDeepCloneable<XHashSet_V<T>>
     {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복제에 사용할 같은 구체 타입의 빈 컬렉션을 만든다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public virtual XHashSet_V<T> @new() => new();
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// source의 runtime 내용을 외부 알림 없이 복사한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void CloneFrom(XHashSet_V<T> source) => base.CloneFrom(source);
+
         // ------------------------------------------------------------
         /// <inheritdoc />
         // ------------------------------------------------------------

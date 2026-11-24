@@ -1,6 +1,6 @@
-/* BLOCK_HEADER_BEGIN ==================================================================================================================================
+/* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : MValue.cs
-수정일 : 2026-11-22
+수정일 : 2026-11-24
 
 # 설명
 Order 순서로 적용되는 IModifier<T> 목록을 가지는 Modifiable Value.
@@ -12,19 +12,20 @@ Set, AddModifier, RemoveModifier, ClearModifiers는 delegate나 closure를 할�
 동일 Modifier 인스턴스가 여러 Key로 등록되어도 변경 이벤트는 한 번만 구독한다.
 invokeEvent는 외부 이벤트만 제어하며 derived type의 Modified 갱신 hook은 항상 실행한다.
 CloneFrom은 Base와 Modifier 목록(키·Order·상태)을 외부 이벤트 없이 복사하고 Modified를 한 번 다시 계산한다.
+목록 복제는 XOrdered.CloneFrom이 맡고, MValue는 Base 복사 시점과 구독·Modified 재계산을 맡는다.
 키·Order 구성과 구체 타입이 순서대로 같으면 목록을 그대로 두고 각 인스턴스에 CloneFrom한다(할당 없음).
 구성이 다르면 목록을 다시 만들며, 같은 키·같은 타입 인스턴스는 재사용하고 나머지는 Clone한다(목록 항목 할당 발생).
 source가 가진 인스턴스는 재사용하지 않으므로 복제본은 source와 Modifier 인스턴스를 공유하지 않는다.
 여러 키·여러 MValue 사이의 인스턴스 공유 관계는 복제되지 않는다.
-새 Modifier 복제(Clone)가 실패하면 이 MValue를 바꾸지 않는다. 기존 인스턴스의 CloneFrom이 실패하면
-Modifier 목록은 그대로 두고 그때까지 복사된 Base·Modifier 상태로 남으며, 구독과 Modified 캐시는 그 상태에 맞춰진 뒤 예외를 전달한다.
+새 Modifier 복제(Clone)가 실패하면 이 MValue를 바꾸지 않는다. 기존 인스턴스의 CloneFrom이 실패해도 나머지를 끝까지 복사하고
+Modifier 목록을 source에 맞춘 뒤(실패한 인스턴스는 이전 상태로 남음) 구독과 Modified 캐시를 그 상태에 맞추고 예외를 전달한다.
 BeginBatch 범위 안의 변경은 재계산과 외부 이벤트를 가장 바깥 범위가 닫힐 때 한 번으로 합친다.
 범위 안에서 Modified는 범위를 연 시점의 값이며, 범위는 using으로 연 순서의 역순으로 닫는다.
 범위(BatchScope)는 ref struct이며 열린 순서대로 발급 번호를 가진다.
 이미 닫힌 범위를 다시 닫으면 같은 깊이에 새 범위가 열려 있어도 번호로 구별해 상태를 바꾸지 않고 예외만 던진다.
 바깥 범위를 먼저 닫으면 안쪽 범위까지 닫아 처리한 뒤 예외를 던진다.
 범위가 닫힐 때의 이벤트는 범위를 연 시점의 값과 비교하며, 이벤트를 요청한 변경 종류(Base·Modified)만 통지한다.
-==================================================================================================================================== BLOCK_HEADER_END */
+========================================================================= BLOCK_HEADER_END */
 
 using System;
 using System.Collections;
@@ -117,30 +118,6 @@ namespace inonego.Xeri.Serializable
 
     #region 복제
 
-        // 복제 중 재사용할 기존 Modifier를 source 순서대로 담는 작업 버퍼.
-        private List<IModifier<T>> ReusableModifiers
-        {
-            get
-            {
-                reusableModifiers ??= new();
-                return reusableModifiers;
-            }
-        }
-        [NonSerialized]
-        private List<IModifier<T>> reusableModifiers;
-
-        // 복제 결과로 등록할 Modifier를 source 순서대로 담는 작업 버퍼.
-        private List<IModifier<T>> PreparedModifiers
-        {
-            get
-            {
-                preparedModifiers ??= new();
-                return preparedModifiers;
-            }
-        }
-        [NonSerialized]
-        private List<IModifier<T>> preparedModifiers;
-
         // ------------------------------------------------------------
         /// <summary>
         /// 복제에 사용할 빈 MValue 를 만든다.
@@ -162,15 +139,8 @@ namespace inonego.Xeri.Serializable
 
             try
             {
-                // 키·Order 구성이 같으면 목록을 그대로 두고 상태만 복사해 할당을 만들지 않는다.
-                if (CanCloneInPlace(typed.modifiers))
-                {
-                    CloneModifiersInPlace(typed);
-                }
-                else
-                {
-                    RebuildModifiers(typed);
-                }
+                // 목록 복제는 XOrdered가 맡는다. 새 Modifier 준비가 끝난 뒤에 Base 복사와 구독 해제가 일어난다.
+                modifiers.CloneFrom(typed.modifiers, new CloneHook(this, typed));
             }
             finally
             {
@@ -197,188 +167,46 @@ namespace inonego.Xeri.Serializable
             UpdateModified(previousModified);
         }
 
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> 현재 목록과 source 목록의 키·Order·구체 타입이 순서대로 같고
-        /// <br/> 모든 인스턴스를 그대로 재사용할 수 있는지 확인한다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        private bool CanCloneInPlace(XOrdered<int, string, IModifier<T>> sourceModifiers)
-        {
-            if (modifiers.Count != sourceModifiers.Count)
-            {
-                return false;
-            }
-
-            for (var index = 0; index < modifiers.Count; index++)
-            {
-                var current = modifiers[index];
-                var other = sourceModifiers[index];
-
-                if (current.Order != other.Order || !string.Equals(current.Key, other.Key, StringComparison.Ordinal))
-                {
-                    return false;
-                }
-
-                if (current.Value == null || other.Value == null)
-                {
-                    if (current.Value != other.Value) return false;
-
-                    continue;
-                }
-
-                if (current.Value.GetType() != other.Value.GetType())
-                {
-                    return false;
-                }
-
-                // 여러 키가 공유하는 인스턴스나 source와 공유하는 인스턴스는 상태를 덮어쓸 수 없다.
-                for (var previous = 0; previous < index; previous++)
-                {
-                    if (ReferenceEquals(modifiers[previous].Value, current.Value)) return false;
-                }
-
-                if (ContainsInstance(sourceModifiers, current.Value)) return false;
-            }
-
-            return true;
-        }
-
         // ------------------------------------------------------------
         /// <summary>
-        /// 목록은 그대로 두고 각 Modifier에 source 상태를 복사한다.
+        /// Base를 복사하고 Modifier 구독을 끊는다.
         /// </summary>
         // ------------------------------------------------------------
-        private void CloneModifiersInPlace(MValue<T> typed)
+        private void CopyBaseAndDetach(MValue<T> typed)
         {
             base.CloneState(typed);
 
             // Modifier의 CloneFrom 알림으로 재계산되지 않도록 구독을 끊는다. 재구독은 CloneState가 맡는다.
             UnsubscribeModifiers();
-
-            for (var index = 0; index < modifiers.Count; index++)
-            {
-                modifiers[index].Value?.CloneFrom(typed.modifiers[index].Value);
-            }
         }
 
-        // ----------------------------------------------------------------------
+        // ============================================================
         /// <summary>
-        /// <br/> 재사용할 인스턴스를 고르고 나머지는 새로 복제해 목록을 다시 만든다.
-        /// <br/> 새 Modifier 복제가 실패하면 이 MValue를 바꾸지 않는다.
+        /// 목록 준비가 끝난 시점에 Base 복사와 구독 해제를 실행하는 훅.
         /// </summary>
-        // ----------------------------------------------------------------------
-        private void RebuildModifiers(MValue<T> typed)
+        // ============================================================
+        private readonly struct CloneHook : ICloneReadyHook
         {
-            var reusable = ReusableModifiers;
-            var prepared = PreparedModifiers;
+            private readonly MValue<T> owner;
+            private readonly MValue<T> source;
 
-            try
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 복제 대상과 source를 보관한다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public CloneHook(MValue<T> owner, MValue<T> source)
             {
-                // 새 인스턴스 복제는 실패할 수 있으므로 이 MValue를 바꾸기 전에 모두 준비한다.
-                PrepareModifiers(typed.modifiers, reusable, prepared);
-
-                base.CloneState(typed);
-
-                // 재사용 인스턴스의 CloneFrom 알림으로 재계산되지 않도록 구독을 끊는다. 재구독은 CloneState가 맡는다.
-                UnsubscribeModifiers();
-
-                // 재사용 인스턴스는 목록을 비우기 전에 상태를 복사해, 실패해도 기존 목록이 남게 한다.
-                for (var index = 0; index < prepared.Count; index++)
-                {
-                    var modifier = prepared[index];
-
-                    if (modifier != null && ReferenceEquals(modifier, reusable[index]))
-                    {
-                        modifier.CloneFrom(typed.modifiers[index].Value);
-                    }
-                }
-
-                modifiers.Clear();
-
-                // source 순서대로 다시 등록해 같은 Order 안의 순서도 그대로 옮긴다.
-                for (var index = 0; index < prepared.Count; index++)
-                {
-                    var entry = typed.modifiers[index];
-
-                    modifiers.Add(entry.Order, entry.Key, prepared[index]);
-                }
-            }
-            finally
-            {
-                reusable.Clear();
-                prepared.Clear();
-            }
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> 같은 키에 source와 같은 구체 타입으로 등록된 기존 Modifier를 찾는다.
-        /// <br/> 이미 다른 키에 쓰기로 한 인스턴스와 source가 가진 인스턴스는 쓰지 않는다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        private IModifier<T> FindReusableModifier
-        (
-            string key, IModifier<T> source, List<IModifier<T>> reserved,
-            XOrdered<int, string, IModifier<T>> sourceModifiers
-        )
-        {
-            if (source == null || !modifiers.TryGetValue(key, out var current) || current == null)
-            {
-                return null;
+                this.owner = owner;
+                this.source = source;
             }
 
-            if (current.GetType() != source.GetType())
-            {
-                return null;
-            }
-
-            for (var index = 0; index < reserved.Count; index++)
-            {
-                if (ReferenceEquals(reserved[index], current))
-                {
-                    return null;
-                }
-            }
-
-            // source와 공유하는 인스턴스에 CloneFrom하면 source 상태까지 바뀐다.
-            return ContainsInstance(sourceModifiers, current) ? null : current;
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// 목록에 같은 Modifier 인스턴스가 등록되어 있는지 확인한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        private static bool ContainsInstance(XOrdered<int, string, IModifier<T>> list, IModifier<T> modifier)
-        {
-            foreach (var entry in list)
-            {
-                if (ReferenceEquals(entry.Value, modifier)) return true;
-            }
-
-            return false;
-        }
-
-        // ----------------------------------------------------------------------
-        /// <summary>
-        /// <br/> source 순서대로 재사용할 기존 인스턴스를 고르고, 없으면 새로 복제해 둔다.
-        /// <br/> 이 MValue의 상태는 바꾸지 않는다.
-        /// </summary>
-        // ----------------------------------------------------------------------
-        private void PrepareModifiers
-        (
-            XOrdered<int, string, IModifier<T>> sourceModifiers,
-            List<IModifier<T>> reusable, List<IModifier<T>> prepared
-        )
-        {
-            foreach (var entry in sourceModifiers)
-            {
-                var current = FindReusableModifier(entry.Key, entry.Value, reusable, sourceModifiers);
-
-                reusable.Add(current);
-                prepared.Add(current ?? entry.Value?.Clone());
-            }
+            // ------------------------------------------------------------
+            /// <summary>
+            /// 대상의 Base를 복사하고 Modifier 구독을 끊는다.
+            /// </summary>
+            // ------------------------------------------------------------
+            public void OnCloneReady() => owner.CopyBaseAndDetach(source);
         }
 
     #endregion

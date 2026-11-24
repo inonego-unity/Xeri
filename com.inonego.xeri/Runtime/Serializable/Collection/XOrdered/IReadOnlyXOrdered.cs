@@ -19,7 +19,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     public interface IReadOnlyXOrdered<TOrder, TValue> :
-        IReadOnlyList<XOrdered<TOrder, TValue>.Entry>
+        IReadOnlyList<XOrderedEntry<TOrder, TValue>>
     where TOrder : struct
     where TValue : class
     {
@@ -44,7 +44,7 @@ namespace inonego.Xeri.Serializable
     /// </summary>
     // ============================================================
     public interface IReadOnlyXOrdered<TOrder, TKey, TValue> :
-        IReadOnlyList<XOrdered<TOrder, TKey, TValue>.Entry>
+        IReadOnlyList<XOrderedEntry<TOrder, TKey, TValue>>
     where TOrder : struct
     where TKey : IEquatable<TKey>
     where TValue : class
@@ -71,7 +71,7 @@ namespace inonego.Xeri.Serializable
         bool TryGetEntry
         (
             TKey key,
-            out XOrdered<TOrder, TKey, TValue>.Entry entry
+            out XOrderedEntry<TOrder, TKey, TValue> entry
         );
     }
 }

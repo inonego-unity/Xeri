@@ -32,18 +32,38 @@ namespace inonego.Xeri.Serializable
 
     #region 필드
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// string 값 목록을 읽기 전용으로 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public IReadOnlyDictionary<string, string> ValSs => valSs;
         [SerializeField]
         private XDictionary_VV<string, string> valSs = new();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// int 값 목록을 읽기 전용으로 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public IReadOnlyDictionary<string, int> ValIs => valIs;
         [SerializeField]
         private XDictionary_VV<string, int> valIs = new();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// float 값 목록을 읽기 전용으로 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public IReadOnlyDictionary<string, float> ValFs => valFs;
         [SerializeField]
         private XDictionary_VV<string, float> valFs = new();
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 등록된 Flag 키 목록을 읽기 전용으로 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
         public IReadOnlyCollection<string> ValFlags => valFlags;
         [SerializeField]
         private XHashSet_V<string> valFlags = new();
@@ -394,31 +414,11 @@ namespace inonego.Xeri.Serializable
                 return;
             }
 
-            // 복제는 runtime mutation이 아니므로 공개 Clear 경로를 거치지 않는다.
-            valSs.Clear();
-            valIs.Clear();
-            valFs.Clear();
-            valFlags.Clear();
-
-            foreach (var (key, value) in source.valSs)
-            {
-                valSs.Add(key, value);
-            }
-
-            foreach (var (key, value) in source.valIs)
-            {
-                valIs.Add(key, value);
-            }
-
-            foreach (var (key, value) in source.valFs)
-            {
-                valFs.Add(key, value);
-            }
-
-            foreach (var key in source.valFlags)
-            {
-                valFlags.Add(key);
-            }
+            // 복제는 runtime mutation이 아니므로 공개 Clear 경로를 거치지 않고 각 컬렉션이 직접 복사한다.
+            valSs.CloneFrom(source.valSs);
+            valIs.CloneFrom(source.valIs);
+            valFs.CloneFrom(source.valFs);
+            valFlags.CloneFrom(source.valFlags);
         }
 
     #endregion
