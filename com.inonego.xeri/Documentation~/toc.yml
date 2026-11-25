@@ -49,6 +49,8 @@
     href: modules/core/singleton.md
   - name: Primitive
     href: modules/core/primitive.md
+  - name: Revision
+    href: modules/core/revision.md
 - name: Commanding
   items:
   - name: DoSession

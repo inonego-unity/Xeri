@@ -349,19 +349,19 @@ namespace inonego.Xeri.Serializable
         private int batchDepth;
 
         // 깊이별로 열려 있는 범위의 발급 번호. 같은 깊이에 다시 연 범위와 닫힌 범위를 구별한다.
-        private List<int> OpenBatchTokens
+        private List<Revision> OpenBatchGenerations
         {
             get
             {
-                openBatchTokens ??= new();
-                return openBatchTokens;
+                openBatchGenerations ??= new();
+                return openBatchGenerations;
             }
         }
         [NonSerialized]
-        private List<int> openBatchTokens;
+        private List<Revision> openBatchGenerations;
 
         [NonSerialized]
-        private int nextBatchToken;
+        private Revision nextBatchGeneration = Revision.None;
 
         [NonSerialized]
         private bool batchRaiseBase;
@@ -384,13 +384,13 @@ namespace inonego.Xeri.Serializable
         {
             private readonly MValue<T> owner;
             private readonly int depth;
-            private readonly int token;
+            private readonly Revision generation;
 
-            internal BatchScope(MValue<T> owner, int depth, int token)
+            internal BatchScope(MValue<T> owner, int depth, Revision generation)
             {
                 this.owner = owner;
                 this.depth = depth;
-                this.token = token;
+                this.generation = generation;
             }
 
             // ------------------------------------------------------------
@@ -400,7 +400,7 @@ namespace inonego.Xeri.Serializable
             // ------------------------------------------------------------
             public void Dispose()
             {
-                owner?.EndBatch(depth, token);
+                owner?.EndBatch(depth, generation);
             }
         }
 
@@ -421,22 +421,23 @@ namespace inonego.Xeri.Serializable
                 BatchDirty.Clear();
             }
 
-            var token = ++nextBatchToken;
-            var tokens = OpenBatchTokens;
+            nextBatchGeneration = nextBatchGeneration.Inc();
+            var generation = nextBatchGeneration;
+            var generations = OpenBatchGenerations;
 
             batchDepth++;
 
             // 범위가 닫힐 때 줄어든 자리를 재사용해 깊이 최댓값 이상으로 할당하지 않는다.
-            if (tokens.Count < batchDepth)
+            if (generations.Count < batchDepth)
             {
-                tokens.Add(token);
+                generations.Add(generation);
             }
             else
             {
-                tokens[batchDepth - 1] = token;
+                generations[batchDepth - 1] = generation;
             }
 
-            return new BatchScope(this, batchDepth, token);
+            return new BatchScope(this, batchDepth, generation);
         }
 
         // ------------------------------------------------------------
@@ -446,10 +447,10 @@ namespace inonego.Xeri.Serializable
         /// <br/> 안쪽 범위까지 닫은 뒤 예외를 던진다.
         /// </summary>
         // ------------------------------------------------------------
-        private void EndBatch(int depth, int token)
+        private void EndBatch(int depth, Revision generation)
         {
             // 이미 닫힌 범위를 다시 닫으면 상태를 바꾸지 않고 오용을 알린다. 같은 깊이에 새 범위가 열려 있어도 번호로 구별한다.
-            if (depth > batchDepth || OpenBatchTokens[depth - 1] != token)
+            if (depth > batchDepth || OpenBatchGenerations[depth - 1] != generation)
             {
                 throw new InvalidOperationException("이미 닫힌 묶음 범위를 다시 닫으려고 했습니다.");
             }

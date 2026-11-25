@@ -64,7 +64,7 @@ namespace inonego.Xeri.Application
         private static readonly object sync = new();
         private static TaskCompletionSource<bool> startupPromise;
         private static Task previousStops = Task.CompletedTask;
-        private static int sessionVersion;
+        private static Revision sessionGeneration;
         private static bool startRequested;
         private static bool sessionClosing = true;
 
@@ -93,7 +93,7 @@ namespace inonego.Xeri.Application
                 );
                 previous = Current;
                 Current = null;
-                sessionVersion++;
+                sessionGeneration = sessionGeneration.Inc();
                 startRequested = false;
                 sessionClosing = true;
             }
@@ -130,7 +130,7 @@ namespace inonego.Xeri.Application
                 return Task.FromException(new ArgumentNullException(nameof(modules)));
             }
 
-            int version;
+            Revision generation;
             Task completedStops;
             TaskCompletionSource<bool> completion;
             lock (sync)
@@ -149,21 +149,21 @@ namespace inonego.Xeri.Application
                 }
 
                 // 이전 세대가 종료되는 중에도 시작 예약을 선점해 중복 요청을 차단한다.
-                version = sessionVersion;
+                generation = sessionGeneration;
                 startRequested = true;
                 completedStops = previousStops;
                 completion = startupPromise;
             }
 
             // 시작 호출자와 외부 관찰자는 하나의 완료 작업을 공유한다.
-            _ = StartCoreAsync(modules, version, completedStops, completion);
+            _ = StartCoreAsync(modules, generation, completedStops, completion);
             return completion.Task;
         }
 
         private static async Task StartCoreAsync
         (
             IReadOnlyList<IApplicationModule> modules,
-            int version,
+            Revision generation,
             Task completedStops,
             TaskCompletionSource<bool> completion
         )
@@ -175,7 +175,7 @@ namespace inonego.Xeri.Application
                 ApplicationRuntime runtime;
                 lock (sync)
                 {
-                    if (version != sessionVersion || sessionClosing)
+                    if (generation != sessionGeneration || sessionClosing)
                     {
                         throw new OperationCanceledException("Application Play Session이 종료되었습니다.");
                     }
@@ -188,7 +188,7 @@ namespace inonego.Xeri.Application
 
                 lock (sync)
                 {
-                    if (version != sessionVersion || sessionClosing)
+                    if (generation != sessionGeneration || sessionClosing)
                     {
                         completion.TrySetCanceled();
                     }
@@ -250,7 +250,7 @@ namespace inonego.Xeri.Application
                 if (sessionClosing) return;
 
                 sessionClosing = true;
-                sessionVersion++;
+                sessionGeneration = sessionGeneration.Inc();
                 startupPromise?.TrySetCanceled();
                 runtime = Current;
             }

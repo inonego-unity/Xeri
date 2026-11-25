@@ -32,6 +32,7 @@ Core는 일회성 수명 소유권, 공통 값/인터페이스, 조건·필터 �
 - `Cond`/`Filter` 조합과 `Diagnostic` 진단 값
 - 여러 항목을 처리하며 모은 실패를 하나(원래 예외) 또는 `AggregateException`으로 던지는 `ExceptionBuffer`
 - `Dictionary`, `HashSet`, `Queue`, `Stack`, `List<T>`에 상태를 복사하는 `CloneFrom`을 붙이는 `CollectionCloneHelper`
+- 상태가 바뀔 때마다 오르는 순서 있는 발급 번호 `Revision`과, 캡처한 소유자의 번호가 아직 현재인지 확인하는 `RevisionMark`·`IRevisioned`
 - 공통 확장 헬퍼와 `ReadOnly`/`HelpBox` attribute
 - 여러 모듈에서 재사용하는 공통 lifecycle/interface
 
@@ -56,5 +57,6 @@ Core는 일회성 수명 소유권, 공통 값/인터페이스, 조건·필터 �
 - [Bootstrapper](../../Documentation~/modules/core/bootstrapper.md)
 - [Singleton과 슬롯](../../Documentation~/modules/core/singleton.md)
 - [Core Primitive](../../Documentation~/modules/core/primitive.md)
+- [Revision](../../Documentation~/modules/core/revision.md)
 - [Xeri 구조](../../Documentation~/concepts/architecture.md)
 - [소유권과 수명](../../Documentation~/concepts/ownership-and-lifetime.md)

@@ -36,7 +36,7 @@ namespace inonego.Xeri.UI.TableGrid
         private readonly Label rangeLabel;
         private readonly Label messageLabel;
         private readonly Label selectionLabel;
-        private int messageGeneration;
+        private Revision messageGeneration;
 
     #endregion
 
@@ -68,7 +68,9 @@ namespace inonego.Xeri.UI.TableGrid
         // ------------------------------------------------------------
         public void ShowMessage(string text, bool isError)
         {
-            var generation = ++messageGeneration;
+            messageGeneration = messageGeneration.Inc();
+
+            var generation = messageGeneration;
             SetText(messageLabel, text);
             messageLabel.EnableInClassList("xeri-table__status-message--error", isError);
 

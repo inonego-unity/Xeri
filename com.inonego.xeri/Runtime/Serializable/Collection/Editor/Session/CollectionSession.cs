@@ -13,7 +13,7 @@
 Undo는 Unity Undo(Undo.RecordObjects)만 사용한다. 자체 실행 이력을 두지 않는다.
 결과 행은 정규화 전에 기록한 행 식별 값, 키 값 순서로 다시 찾는다.
 초안 열(키·순서)의 셀 쓰기는 초안 창과 같은 검증(형식·필수·키 중복)을 통과해야만 쓴다.
-직렬화 상태 비교는 RevisionTracker가 대상·경로마다 한 번만 하고, 세션은 마지막으로 받아들인 세대 번호만 비교한다.
+직렬화 상태 비교는 SerializedChangeTracker가 대상·경로마다 한 번만 하고, 세션은 마지막으로 받아들인 세대 번호만 비교한다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -69,13 +69,6 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 같은 대상과 경로가 공유하는 변경 세대를 반환한다.
-        /// </summary>
-        // ------------------------------------------------------------
-        public ulong Revision => Source.Revision;
-
-        // ------------------------------------------------------------
-        /// <summary>
         /// 대상이 해제돼 편집할 수 없을 때 보이는 안내.
         /// </summary>
         // ------------------------------------------------------------
@@ -103,13 +96,13 @@ namespace inonego.Xeri.Serializable.Editor
             }
         }
 
-        // 직렬화 상태 비교는 RevisionTracker가 경로마다 한 번만 하고, 세션은 마지막으로 받아들인 세대만 기억한다.
-        private ulong acceptedRevision;
+        // 직렬화 상태 비교는 SerializedChangeTracker가 경로마다 한 번만 하고, 세션은 마지막으로 받아들인 세대만 기억한다.
+        private RevisionMark accepted;
         private bool isCommitting;
 
         // 마지막 진단 결과와 그 결과를 계산한 변경 세대.
         private CollectionValidation cachedValidation;
-        private ulong cachedValidationRevision;
+        private RevisionMark cachedValidationMark;
 
     #endregion
 
@@ -136,7 +129,7 @@ namespace inonego.Xeri.Serializable.Editor
         {
             Source = source ?? throw new ArgumentNullException(nameof(source));
             IsReadOnly = isReadOnly;
-            RevisionTracker.Observe(Source.GetProperty());
+            SerializedChangeTracker.Observe(SerializedObject, Source.Path);
             AcceptRevision();
             Kind.Hooks?.Attach(Source);
         }
@@ -182,7 +175,7 @@ namespace inonego.Xeri.Serializable.Editor
         {
             SerializedObject.UpdateIfRequiredOrScript();
             Kind.Hooks?.SyncOwner(Source);
-            RevisionTracker.Observe(Source.GetProperty());
+            SerializedChangeTracker.Observe(SerializedObject, Source.Path);
             AcceptRevision();
         }
 
@@ -195,13 +188,23 @@ namespace inonego.Xeri.Serializable.Editor
         private bool HasUnacceptedChange()
         {
             // 관찰 기준은 세션이 아니라 대상 객체와 경로별로 공유한다.
-            RevisionTracker.Observe(Source.GetProperty());
-            return Source.Revision != acceptedRevision;
+            SerializedChangeTracker.Observe(SerializedObject, Source.Path);
+            return !accepted.IsCurrent;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 대상과 경로가 공유하는 변경 세대를 지금 시점으로 캡처한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public RevisionMark CaptureRevision()
+        {
+            return RevisionMark.Capture(Source.Changes);
         }
 
         private void AcceptRevision()
         {
-            acceptedRevision = Source.Revision;
+            accepted = CaptureRevision();
         }
 
     #endregion
@@ -216,12 +219,13 @@ namespace inonego.Xeri.Serializable.Editor
         // ----------------------------------------------------------------------
         public CollectionValidation Validate()
         {
-            RevisionTracker.Observe(Source.GetProperty());
-            var revision = Source.Revision;
-            if (cachedValidation == null || cachedValidationRevision != revision)
+            SerializedChangeTracker.Observe(SerializedObject, Source.Path);
+            if (cachedValidation == null || !cachedValidationMark.IsCurrent)
             {
+                var mark = CaptureRevision();
+
                 cachedValidation = BuildValidation();
-                cachedValidationRevision = revision;
+                cachedValidationMark = mark;
             }
 
             return cachedValidation;
@@ -1031,12 +1035,12 @@ namespace inonego.Xeri.Serializable.Editor
             {
                 if (target == SerializedObject.targetObject)
                 {
-                    RevisionTracker.Advance(SerializedObject, Source.Path);
+                    SerializedChangeTracker.ReportWrite(SerializedObject, Source.Path);
                     continue;
                 }
 
                 using var other = new SerializedObject(target);
-                RevisionTracker.Advance(other, Source.Path);
+                SerializedChangeTracker.ReportWrite(other, Source.Path);
             }
         }
 

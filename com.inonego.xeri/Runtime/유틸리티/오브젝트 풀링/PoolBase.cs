@@ -47,10 +47,10 @@ namespace inonego.Xeri.Pool
         // ------------------------------------------------------------
         public IReadOnlyCollection<T> Acquired => acquiredGens.Keys;
 
-        protected Dictionary<T, long> acquiredGens =
+        protected Dictionary<T, Revision> acquiredGens =
             new(ReferenceEqualityComparer<T>.Instance);
 
-        private long nextAcquiredGen = 0;
+        private Revision nextAcquiredGen;
         private bool removeFromAcquiredOnRelease = true;
 
     #endregion
@@ -191,7 +191,7 @@ namespace inonego.Xeri.Pool
 
             try
             {
-                foreach (KeyValuePair<T, long> pair in acquiredGens)
+                foreach (KeyValuePair<T, Revision> pair in acquiredGens)
                 {
                     try
                     {
@@ -411,7 +411,8 @@ namespace inonego.Xeri.Pool
                 throw new InvalidOperationException("이미 현재 풀에서 관리 중인 항목을 획득할 수 없습니다.");
             }
 
-            var generation = ++nextAcquiredGen;
+            nextAcquiredGen = nextAcquiredGen.Inc();
+            var generation = nextAcquiredGen;
             acquiredGens.Add(item, generation);
         }
 
@@ -544,7 +545,7 @@ namespace inonego.Xeri.Pool
         private void ReleaseAcquisition
         (
             T item,
-            long generation,
+            Revision generation,
             Action<T, bool> releaseAction,
             bool pushToReleased,
             bool removeFromAcquired = true

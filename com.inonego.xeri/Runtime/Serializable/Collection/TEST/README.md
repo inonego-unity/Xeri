@@ -10,6 +10,8 @@
   - TEST_XOrdered.cs: 기본 정렬·키 기반 고유성·조회, 대량 데이터 일관성, Key 인덱스 일관성, JSON 직렬화와 관리 참조 공유 계약
   - TEST_XPriorityQueue.cs: Heap과 우선순위
   - TEST_CollectionClone.cs: 컬렉션 CloneFrom 계약(키 없는·키 있는 XOrdered는 같은 항목 구성으로 대칭 검증), 확장 메서드, 같은 구성 복제의 GC 할당
+- **TEST/Editor**: Collection Editor 내부 계약(Editor 테스트 어셈블리 asmref).
+  - TEST_SerializedChangeTracker.cs: 직렬화 변경 관찰기의 관찰·보고·Undo 무효화와 비교 기준(해시·관리 참조 스냅샷·없음)
 - **Tests/Editor**: 공통 Editor 테스트 어셈블리.
   - TEST_SerializedPropertyClipboard.cs: 값·관리 참조 링크 복사와 복원
 - **Validation**: 수동 검증 씬(CollectionValidation.unity)과 컬렉션 종류별 필드·원소 형식. inonego.Xeri.Collection.Validation(Editor 전용 정의).

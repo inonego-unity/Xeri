@@ -190,7 +190,7 @@ namespace inonego.Xeri.Serializable.Editor
         private bool restoringSelection;
         private bool pendingRefresh;
         private bool pendingStructureRefresh;
-        private ulong displayedRevision;
+        private RevisionMark displayed;
 
     #endregion
 
@@ -1031,7 +1031,7 @@ namespace inonego.Xeri.Serializable.Editor
             Undo.undoRedoPerformed += HandleUndoRedo;
 
             // 다시 연결되면 현재 상태를 표시하되 새 변경으로 기록하지 않는다.
-            displayedRevision = Session.Revision;
+            displayed = Session.CaptureRevision();
             RequestRefresh();
             RefreshStatus();
             if (pendingRefresh)
@@ -1086,7 +1086,7 @@ namespace inonego.Xeri.Serializable.Editor
                 return;
             }
 
-            displayedRevision = Session.Revision;
+            displayed = Session.CaptureRevision();
             RequestRefresh(source.Path);
         }
 
@@ -1148,10 +1148,9 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             Session.Restore();
-            var currentRevision = Session.Revision;
-            if (currentRevision != displayedRevision)
+            if (!displayed.IsCurrent)
             {
-                displayedRevision = currentRevision;
+                displayed = Session.CaptureRevision();
                 RequestRefresh();
             }
         }
@@ -1237,7 +1236,7 @@ namespace inonego.Xeri.Serializable.Editor
 
         private void SaveRevision()
         {
-            displayedRevision = Session.Revision;
+            displayed = Session.CaptureRevision();
         }
 
         private bool HasSameSourceRows()
@@ -1294,7 +1293,7 @@ namespace inonego.Xeri.Serializable.Editor
         // ----------------------------------------------------------------------
         private bool IsDisplayStale()
         {
-            return Session.Observe() || Session.Revision != displayedRevision || pendingStructureRefresh;
+            return Session.Observe() || !displayed.IsCurrent || pendingStructureRefresh;
         }
 
     #endregion
@@ -1735,10 +1734,10 @@ namespace inonego.Xeri.Serializable.Editor
             var canEdit = hasSelection && !isReadOnly;
             var canPaste = canEdit && kind.Supports(CollectionEdits.Paste)
                 && SerializedPropertyClipboard.CanPasteValue(source.GetRow(sourceIndex), out _);
-            var originalRevision = Session.Revision;
+            var originalMark = Session.CaptureRevision();
             var deleteShortcut = XeriShortcutKeys.Format(XeriShortcutKeys.IsMac ? KeyCode.Backspace : KeyCode.Delete);
 
-            void Run(Action execute) => ExecuteContextRowAction(sourceIndex, originalRevision, rowLocator, execute);
+            void Run(Action execute) => ExecuteContextRowAction(sourceIndex, originalMark, rowLocator, execute);
 
             var items = new List<XeriContextMenuItem>
             {
@@ -1783,12 +1782,12 @@ namespace inonego.Xeri.Serializable.Editor
         // ------------------------------------------------------------
         private void ExecuteContextRowAction
         (
-            int sourceIndex, ulong originalRevision, SerializedPropertyLocator rowLocator, Action execute
+            int sourceIndex, RevisionMark originalMark, SerializedPropertyLocator rowLocator, Action execute
         )
         {
             // UI 관찰 콜백보다 먼저 명령이 실행돼도 원본 변경을 검사한다.
             Session.Observe();
-            if (Session.Revision != originalRevision
+            if (!originalMark.IsCurrent
                 || !IsCurrentRow(sourceIndex)
                 || rowLocator == null
                 || !rowLocator.TryResolve(Session.SerializedObject, out _, out _))
@@ -1959,7 +1958,7 @@ namespace inonego.Xeri.Serializable.Editor
             }
 
             var originalCount = source.Count;
-            var originalRevision = Session.Revision;
+            var originalMark = Session.CaptureRevision();
             var rowLocator = new SerializedPropertyLocator(source.GetRow(sourceIndex));
             CollectionRowMoveWindow.Open
             (
@@ -1972,7 +1971,7 @@ namespace inonego.Xeri.Serializable.Editor
                     }
 
                     Session.Observe();
-                    var unchanged = source.Count == originalCount && Session.Revision == originalRevision
+                    var unchanged = source.Count == originalCount && originalMark.IsCurrent
                         && rowLocator.TryResolve(Session.SerializedObject, out _, out _)
                         && TryGetSelectedSourceIndex(out var selected) && selected == sourceIndex
                         && !IsSearching;

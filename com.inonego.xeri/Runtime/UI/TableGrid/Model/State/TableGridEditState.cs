@@ -54,7 +54,7 @@ namespace inonego.Xeri.UI.TableGrid
         /// 거부 표시 묶음의 세대. 새로 표시하면 바뀐다.
         /// </summary>
         // ------------------------------------------------------------
-        public int RejectedGeneration { get; private set; }
+        public Revision RejectedGeneration { get; private set; }
 
         // ------------------------------------------------------------
         /// <summary>
@@ -115,7 +115,7 @@ namespace inonego.Xeri.UI.TableGrid
         /// <br/> 너무 많은 셀은 앞쪽 일부만 표시한다.
         /// </summary>
         // ------------------------------------------------------------
-        public int MarkRejected(IEnumerable<TableGridCellAddress> cells)
+        public Revision MarkRejected(IEnumerable<TableGridCellAddress> cells)
         {
             rejected.Clear();
             foreach (var cell in cells)
@@ -128,7 +128,9 @@ namespace inonego.Xeri.UI.TableGrid
                 rejected.Add(cell);
             }
 
-            return ++RejectedGeneration;
+            RejectedGeneration = RejectedGeneration.Inc();
+
+            return RejectedGeneration;
         }
 
         // ------------------------------------------------------------
@@ -136,7 +138,7 @@ namespace inonego.Xeri.UI.TableGrid
         /// 지정한 세대의 거부 표시를 지운다. 그사이 새로 표시했으면 false다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool ClearRejected(int generation)
+        public bool ClearRejected(Revision generation)
         {
             if (generation != RejectedGeneration || rejected.Count == 0)
             {

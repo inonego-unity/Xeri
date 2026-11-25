@@ -62,10 +62,10 @@ namespace inonego.Xeri.Serializable.Editor
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 같은 대상과 경로가 공유하는 변경 세대를 반환한다.
+        /// 같은 대상과 경로가 공유하는 변경 세대의 소유자를 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public ulong Revision => RevisionTracker.Get(SerializedObject.targetObject, Path);
+        internal IRevisioned Changes => SerializedChangeTracker.Track(SerializedObject.targetObject, Path);
 
         // ------------------------------------------------------------
         /// <summary>
