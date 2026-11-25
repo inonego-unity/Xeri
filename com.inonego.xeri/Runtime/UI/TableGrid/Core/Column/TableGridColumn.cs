@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridColumn.cs
-수정일 : 2026-11-24
+수정일 : 2026-11-25
 
 # 설명
 TableGrid 열의 불변 표시·편집 사양과 형식 있는 값 경로를 정의한다.
@@ -61,7 +61,7 @@ namespace inonego.Xeri.UI.TableGrid
                 throw new ArgumentException("열 ID는 비어 있을 수 없습니다.", nameof(id));
             }
 
-            if (!Enum.IsDefined(typeof(TableGridAlignment), alignment))
+            if (!alignment.IsDefined())
             {
                 throw new ArgumentOutOfRangeException(nameof(alignment));
             }

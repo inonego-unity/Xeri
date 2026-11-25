@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridViewState.cs
-수정일 : 2026-11-21
+수정일 : 2026-11-25
 
 # 설명
 TableGrid 보기 상태(열 표시·순서·사용자 폭·고정 열 수, 선택적으로 쿼리와 세션)를 담는 순수 직렬화 데이터와
@@ -282,7 +282,7 @@ namespace inonego.Xeri.UI.TableGrid
                 }
             }
 
-            var hasSort = !string.IsNullOrEmpty(SortColumnID) && Enum.IsDefined(typeof(TableGridSortDirection), SortDirection);
+            var hasSort = !string.IsNullOrEmpty(SortColumnID) && SortDirection.IsDefined();
             return new TableGridQueryState
             (
                 filters,
@@ -401,7 +401,7 @@ namespace inonego.Xeri.UI.TableGrid
                     return true;
 
                 case TableGridColumnValueKind.Text:
-                    if (!Enum.IsDefined(typeof(TableGridFilterOperator), Operator))
+                    if (!Operator.IsDefined())
                     {
                         return false;
                     }

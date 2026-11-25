@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridCellEdit.cs
-수정일 : 2026-11-21
+수정일 : 2026-11-25
 
 # 설명
 열의 셀 편집 방식(None·Editor·Inline·Detail)을 정의한다.
@@ -68,7 +68,7 @@ namespace inonego.Xeri.UI.TableGrid
         // ------------------------------------------------------------
         public static TableGridCellEdit Inline(TableGridInlineCommit commit = TableGridInlineCommit.Immediate)
         {
-            if (!Enum.IsDefined(typeof(TableGridInlineCommit), commit))
+            if (!commit.IsDefined())
             {
                 throw new ArgumentOutOfRangeException(nameof(commit));
             }

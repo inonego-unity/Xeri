@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : UnityAudioCuePlayer.cs
-수정일 : 2026-09-05
+수정일 : 2026-11-25
 
 # 설명
 UnityAudioClipCue를 Pool에서 획득한 AudioSource voice로 즉시 또는 DSP 예약 실행하고 Playback을 갱신한다.
@@ -129,7 +129,7 @@ namespace inonego.Xeri.Playback
                 !variant.SpatialBlend.IsFinite() ||
                 variant.SpatialBlend < 0.0f ||
                 variant.SpatialBlend > 1.0f ||
-                !Enum.IsDefined(typeof(AudioRolloffMode), variant.RolloffMode) ||
+                !variant.RolloffMode.IsDefined() ||
                 !variant.MinDistance.IsFinite() ||
                 variant.MinDistance <= 0.0f ||
                 !variant.MaxDistance.IsFinite() ||

@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridSelection.cs
-수정일 : 2026-11-22
+수정일 : 2026-11-25
 
 # 설명
 셀·행·열 선택 주소와 변경 이벤트 인수를 정의한다.
@@ -154,7 +154,7 @@ namespace inonego.Xeri.UI.TableGrid
             IReadOnlyList<string> columnIDs = null
         )
         {
-            if (!Enum.IsDefined(typeof(TableGridSelectionKind), kind))
+            if (!kind.IsDefined())
             {
                 throw new ArgumentOutOfRangeException(nameof(kind));
             }

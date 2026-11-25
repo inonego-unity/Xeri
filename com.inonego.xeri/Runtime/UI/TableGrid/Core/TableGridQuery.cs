@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridQuery.cs
-수정일 : 2026-11-23
+수정일 : 2026-11-25
 
 # 설명
 도메인 독립적인 TableGrid 필터 규칙과 정렬·그룹 쿼리 스냅샷을 정의한다.
@@ -132,7 +132,7 @@ namespace inonego.Xeri.UI.TableGrid
                 throw new ArgumentException("열 ID가 필요합니다.", nameof(columnID));
             }
 
-            if (!Enum.IsDefined(typeof(TableGridFilterOperator), filterOperator))
+            if (!filterOperator.IsDefined())
             {
                 throw new ArgumentOutOfRangeException(nameof(filterOperator));
             }
@@ -253,7 +253,7 @@ namespace inonego.Xeri.UI.TableGrid
                 throw new ArgumentException("정렬 열과 방향은 함께 지정해야 합니다.");
             }
 
-            if (sortDirection.HasValue && !Enum.IsDefined(typeof(TableGridSortDirection), sortDirection.Value))
+            if (sortDirection.HasValue && !sortDirection.Value.IsDefined())
             {
                 throw new ArgumentOutOfRangeException(nameof(sortDirection));
             }

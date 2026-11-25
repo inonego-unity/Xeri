@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : AudioCueVariant.cs
-수정일 : 2026-09-05
+수정일 : 2026-11-25
 
 # 설명
 Audio Cue Variant가 공통으로 사용하는 authoring 재생 설정을 정의한다.
@@ -40,7 +40,7 @@ namespace inonego.Xeri.Playback
             get => bus;
             set
             {
-                if (!Enum.IsDefined(typeof(AudioBus), value))
+                if (!value.IsDefined())
                 {
                     throw new ArgumentOutOfRangeException
                     (
@@ -162,7 +162,7 @@ namespace inonego.Xeri.Playback
             get => rolloffMode;
             set
             {
-                if (!Enum.IsDefined(typeof(AudioRolloffMode), value))
+                if (!value.IsDefined())
                 {
                     throw new ArgumentOutOfRangeException
                     (

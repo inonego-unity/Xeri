@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridRow.cs
-수정일 : 2026-11-21
+수정일 : 2026-11-25
 
 # 설명
 안정적인 행 식별자, 행 항목, 행 종류를 보유하는 행 스냅샷을 정의한다.
@@ -37,7 +37,7 @@ namespace inonego.Xeri.UI.TableGrid
         {
             TableGridID.Require(id, nameof(id), "행");
 
-            if (!Enum.IsDefined(typeof(TableGridRowKind), kind))
+            if (!kind.IsDefined())
             {
                 throw new ArgumentOutOfRangeException(nameof(kind));
             }
