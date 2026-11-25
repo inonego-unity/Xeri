@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ValueRegistry.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-24
 
 # 설명
 이름 붙은 string/int/float/flag 값을 타입별 런타임 컬렉션에 보관하고 변경을 알린다.
@@ -10,6 +10,8 @@ Unity 직렬화 콜백에서 런타임 값과 저장용 목록을 동기화한�
 # 제약사항
 하나의 Key는 하나의 값 타입에만 속하며 구조화된 도메인 State를 대신하지 않는다.
 CloneFrom은 상태 복제 과정에서 변경 이벤트를 발행하지 않는다.
+Rename은 이름 교환에도 값이 섞이지 않고 검사에 실패하면 아무것도 바꾸지 않으며, 바뀌면 하나의 변경으로 알린다.
+IsSameAs는 모든 타입의 값 구성이 같은지 비교하며 변경 이벤트와 무관하다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -176,13 +178,107 @@ namespace inonego.Xeri.Serializable
 
         // ------------------------------------------------------------
         /// <summary>
+        /// <br/>키 이름을 한 번에 바꿉니다. map은 이전 키 → 새 키이며 새 키가 null이면 그 키를 제거합니다.
+        /// <br/>없는 키는 건너뛰고, 이름 교환(a↔b)도 값이 섞이지 않습니다.
+        /// <br/>둘 이상이 같은 새 키로 가거나 새 키가 바뀌지 않는 기존 키와 겹치면 아무것도 바꾸지 않고 예외를 던집니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public void Rename(IReadOnlyDictionary<string, string> map)
+        {
+            if (map == null)
+            {
+                throw new ArgumentNullException(nameof(map));
+            }
+
+            var moves = new List<(string From, string To)>();
+            foreach (var pair in map)
+            {
+                if (pair.Key != null && Has(pair.Key))
+                {
+                    moves.Add((pair.Key, pair.Value));
+                }
+            }
+
+            if (moves.Count == 0) return;
+
+            // 바꾸기 전에 모두 검사한다. 떠나는 키는 새 키와 겹쳐도 비는 자리가 된다.
+            var leaving = new HashSet<string>();
+            foreach (var (oldKey, _) in moves)
+            {
+                leaving.Add(oldKey);
+            }
+
+            var targets = new HashSet<string>();
+            foreach (var (_, newKey) in moves)
+            {
+                if (newKey == null) continue;
+
+                if (!targets.Add(newKey))
+                {
+                    throw new InvalidOperationException($"둘 이상의 키가 같은 키({newKey})로 바뀝니다.");
+                }
+
+                if (Has(newKey) && !leaving.Contains(newKey))
+                {
+                    throw new InvalidOperationException($"바꿀 키({newKey})가 이미 존재합니다.");
+                }
+            }
+
+            // 값을 먼저 모두 꺼낸 뒤 옛 키를 지우고 새 키로 넣는다. 종류는 0:string 1:int 2:float 3:flag다.
+            var held = new List<(string NewKey, int Kind, string Text, int Number, float Real)>();
+            foreach (var (oldKey, newKey) in moves)
+            {
+                if (HasS(oldKey)) held.Add((newKey, 0, valSs[oldKey], 0, 0f));
+                else if (HasI(oldKey)) held.Add((newKey, 1, null, valIs[oldKey], 0f));
+                else if (HasF(oldKey)) held.Add((newKey, 2, null, 0, valFs[oldKey]));
+                else held.Add((newKey, 3, null, 0, 0f));
+            }
+
+            foreach (var (oldKey, _) in moves)
+            {
+                valSs.Remove(oldKey);
+                valIs.Remove(oldKey);
+                valFs.Remove(oldKey);
+                valFlags.Remove(oldKey);
+            }
+
+            foreach (var (newKey, kind, text, number, real) in held)
+            {
+                if (newKey == null) continue;
+
+                switch (kind)
+                {
+                    case 0: valSs.Add(newKey, text); break;
+                    case 1: valIs.Add(newKey, number); break;
+                    case 2: valFs.Add(newKey, real); break;
+                    default: valFlags.Add(newKey); break;
+                }
+            }
+
+            // 이름 변경은 키 수와 무관하게 하나의 변경으로 알린다.
+            OnChange?.Invoke();
+        }
+
+    #endregion
+
+    #region 전체 연산
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 어떤 타입이든 값이 하나라도 있는지 확인합니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool HasAny => valSs.Count > 0 || valIs.Count > 0 || valFs.Count > 0 || valFlags.Count > 0;
+
+        // ------------------------------------------------------------
+        /// <summary>
         /// 모든 타입의 값을 제거합니다.
         /// </summary>
         // ------------------------------------------------------------
         public void Clear()
         {
             // 이미 비어 있는 Registry는 관찰 가능한 상태 변화가 없다.
-            if (valSs.Count == 0 && valIs.Count == 0 && valFs.Count == 0 && valFlags.Count == 0) return;
+            if (!HasAny) return;
 
             valSs.Clear();
             valIs.Clear();
@@ -419,6 +515,63 @@ namespace inonego.Xeri.Serializable
             valIs.CloneFrom(source.valIs);
             valFs.CloneFrom(source.valFs);
             valFlags.CloneFrom(source.valFlags);
+        }
+
+    #endregion
+
+    #region 비교
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/>모든 타입의 값 구성이 같은지 비교합니다. ignoredKey를 주면 그 키는 어떤 타입이든 비교에서 제외합니다.
+        /// <br/>변경 이벤트와 무관하며, null이면 같지 않고 같은 객체이면 같습니다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool IsSameAs(ValueRegistry other, string ignoredKey = null)
+        {
+            if (other == null) return false;
+            if (ReferenceEquals(other, this)) return true;
+
+            return Same(valSs, other.valSs, ignoredKey)
+                && Same(valIs, other.valIs, ignoredKey)
+                && Same(valFs, other.valFs, ignoredKey)
+                && Same(valFlags, other.valFlags, ignoredKey);
+        }
+
+        private static bool Same<T>
+        (
+            IReadOnlyDictionary<string, T> a, IReadOnlyDictionary<string, T> b, string ignoredKey
+        )
+        {
+            int aCount = a.Count - (ignoredKey != null && a.ContainsKey(ignoredKey) ? 1 : 0);
+            int bCount = b.Count - (ignoredKey != null && b.ContainsKey(ignoredKey) ? 1 : 0);
+            if (aCount != bCount) return false;
+
+            foreach (var pair in a)
+            {
+                if (pair.Key == ignoredKey) continue;
+
+                if (!b.TryGetValue(pair.Key, out var value) || !EqualityComparer<T>.Default.Equals(pair.Value, value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool Same(XHashSet_V<string> a, XHashSet_V<string> b, string ignoredKey)
+        {
+            int aCount = a.Count - (ignoredKey != null && a.Contains(ignoredKey) ? 1 : 0);
+            int bCount = b.Count - (ignoredKey != null && b.Contains(ignoredKey) ? 1 : 0);
+            if (aCount != bCount) return false;
+
+            foreach (var key in a)
+            {
+                if (key != ignoredKey && !b.Contains(key)) return false;
+            }
+
+            return true;
         }
 
     #endregion
