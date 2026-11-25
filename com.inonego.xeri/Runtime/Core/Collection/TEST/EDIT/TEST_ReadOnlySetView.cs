@@ -100,6 +100,59 @@ namespace inonego.Xeri.TEST.Core._Collection
             );
         }
 
+        // ------------------------------------------------------------
+        /// <summary>
+        /// <br/> default View는 빈 집합처럼 동작하고
+        /// <br/> var로 받은 View의 foreach는 힙을 할당하지 않는다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_ReadOnlySetView_default는빈집합이고_foreach는할당하지않음()
+        {
+            var empty = default(ReadOnlySetView<int>);
+            var source = new HashSet<int>
+            {
+                1,
+                2,
+                3
+            };
+            var view = new ReadOnlySetView<int>(source);
+            var count = 0;
+
+            Assert.AreEqual(0, empty.Count);
+            Assert.IsFalse(empty.Contains(1));
+
+            foreach (var item in empty)
+            {
+                count++;
+            }
+
+            Assert.AreEqual(0, count);
+
+            // 계측이 실제로 할당을 잡는지 먼저 확인한다.
+            var leaked = new List<object>();
+            Assert.That(() => leaked.Add(new object()), new UnityEngine.TestTools.Constraints.AllocatingGCMemoryConstraint());
+
+            foreach (var item in view)
+            {
+                count++;
+            }
+
+            Assert.AreEqual(3, count);
+
+            Assert.That
+            (
+                () =>
+                {
+                    foreach (var item in view)
+                    {
+                        count++;
+                    }
+                },
+                UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(Is.Not)
+            );
+        }
+
     #endregion
 
     }
