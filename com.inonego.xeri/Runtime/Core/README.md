@@ -30,6 +30,7 @@ Core는 일회성 수명 소유권, 공통 값/인터페이스, 조건·필터 �
 - Singleton 등록과 조회
 - numeric/범위 primitive, comparer, key generator
 - `Cond`/`Filter` 조합과 `Diagnostic` 진단 값
+- 여러 항목을 처리하며 모은 실패를 하나(원래 예외) 또는 `AggregateException`으로 던지는 `ExceptionBuffer`
 - 공통 확장 헬퍼와 `ReadOnly`/`HelpBox` attribute
 - 여러 모듈에서 재사용하는 공통 lifecycle/interface
 
