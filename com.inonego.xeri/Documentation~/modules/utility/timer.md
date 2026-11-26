@@ -63,6 +63,21 @@ Ready
 - `OnEnd`: duration에 도달했을 때 발생
 - `OnStateChange`: `Ready`, `Run`, `Pause` 상태가 바뀔 때 발생
 
+## 스냅샷과 복원
+
+`Timer`는 `ISnapshotable<TimerSnapshot>`을 구현합니다. 객체를 복제하는 `Clone`과 달리 새 객체를 만들지 않고 현재 값만 구조체로 기록합니다.
+
+```csharp
+var snapshot = timer.Capture();   // 힙 할당 없음
+// ... 시간이 진행되거나 상태가 바뀜
+timer.RestoreFrom(snapshot);      // 변경 알림 없이 기록한 값으로 되돌림
+```
+
+- `TimerSnapshot`은 상태, `Duration`, `ElapsedTime`, Start 값을 담는 읽기 전용 값 구조체이며 `IEquatable`입니다. 값이 모두 같을 때만 같습니다.
+- `RestoreFrom`은 `CloneFrom`처럼 `OnStateChange`와 `OnEnd`를 발행하지 않고 구독도 건드리지 않습니다.
+- 공개 설정자는 Run 또는 Pause에서만 쓸 수 있어서, 중지 뒤 경과 시간이 남은 Ready 상태는 `RestoreFrom`으로만 정확히 되돌릴 수 있습니다.
+- 상위 타입은 하위의 `Capture` 결과를 자기 스냅샷 구조체에 담아 직접 잇습니다. 자동으로 재귀하지 않으며, 크기가 바뀌는 하위에는 `IDeepCloneable`을 씁니다.
+
 ## 사용 경계
 
 Timer는 시간을 어디서 받을지 결정하지 않습니다. Gameplay 시간은 `Time.deltaTime`, physics는 `fixedDeltaTime`, UI는 unscaled time처럼 호출자가 의미에 맞는 delta를 전달합니다.

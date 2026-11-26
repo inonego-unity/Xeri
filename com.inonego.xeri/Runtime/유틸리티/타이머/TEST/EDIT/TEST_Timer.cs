@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_Timer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-26
 
 # 설명
 Timer 핵심 기능 유닛 테스트.
@@ -14,6 +14,7 @@ Unity Test Runner (Edit Mode) 에서 실행한다.
  P: 시간 속성 설정과 범위 제한
  V: 완료 이벤트와 상태 전이
  C: 복제
+ S: 스냅샷 기록과 복원
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -589,6 +590,147 @@ namespace inonego.Xeri.TEST.Utility._Timer
             Assert.Throws<ArgumentNullException>(() => target.CloneFrom(null));
             Assert.IsTrue(target.IsRunning);
             Assert.AreEqual(3.0f, target.Duration);
+        }
+
+    #endregion
+
+    #region S-1: 스냅샷 기록과 복원
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 실행 중 상태를 기록한 뒤 시간이 진행돼도 기록한 값으로 되돌린다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_Capture_RestoreFrom_실행중상태를기록값으로복원()
+        {
+            var timer = new Timer();
+            timer.Start(10.0f);
+            timer.Tick(3.0f);
+            var snapshot = timer.Capture();
+
+            timer.Tick(4.0f);
+            timer.RestoreFrom(snapshot);
+
+            Assert.IsTrue(timer.IsRunning);
+            Assert.AreEqual(10.0f, timer.Duration);
+            Assert.AreEqual(3.0f, timer.ElapsedTime);
+            Assert.AreEqual(snapshot, timer.Capture());
+        }
+
+        // ----------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 완료 뒤 경과 시간이 남은 Ready 상태는 공개 설정자로 만들 수 없다.
+        /// <br/> 기록값으로 시작 이후의 실행 상태에서 그 Ready 상태로 되돌린다.
+        /// </summary>
+        // ----------------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_RestoreFrom_중지후남은경과시간과Start값복원()
+        {
+            var timer = new Timer();
+            timer.Start(5.0f);
+            timer.Tick(2.0f);
+            timer.Stop();
+            timer.cached = 4.0f;
+            var snapshot = timer.Capture();
+
+            timer.Start(8.0f);
+            timer.Tick(1.0f);
+            timer.RestoreFrom(snapshot);
+
+            Assert.AreEqual(TimerState.Ready, timer.Current);
+            Assert.AreEqual(5.0f, timer.Duration);
+            Assert.AreEqual(2.0f, timer.ElapsedTime);
+            Assert.AreEqual(4.0f, timer.cached);
+            Assert.AreEqual(snapshot, timer.Capture());
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 일시정지 상태도 기록하고 복원하며 복원 뒤 Resume으로 이어서 진행한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_RestoreFrom_일시정지상태복원후이어서진행()
+        {
+            var timer = new Timer();
+            timer.Start(8.0f);
+            timer.Tick(2.0f);
+            timer.Pause();
+            var snapshot = timer.Capture();
+
+            timer.Resume();
+            timer.Tick(3.0f);
+            timer.RestoreFrom(snapshot);
+
+            Assert.IsTrue(timer.IsPaused);
+            Assert.AreEqual(2.0f, timer.ElapsedTime);
+
+            timer.Resume();
+            timer.Tick(1.0f);
+
+            Assert.AreEqual(3.0f, timer.ElapsedTime);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 복원은 상태 전이 이벤트를 발행하지 않고 기존 구독은 유지한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_RestoreFrom_이벤트없음_구독유지()
+        {
+            var timer = new Timer();
+            var stateChanges = 0;
+            var ends = 0;
+            timer.OnStateChange += (_, _) => stateChanges++;
+            timer.OnEnd += (_, _) => ends++;
+            var ready = timer.Capture();
+
+            timer.Start(4.0f);
+            timer.Tick(1.0f);
+            var running = timer.Capture();
+            stateChanges = 0;
+
+            timer.RestoreFrom(ready);
+            timer.RestoreFrom(running);
+
+            Assert.AreEqual(0, stateChanges);
+            Assert.AreEqual(0, ends);
+
+            timer.Tick(3.0f);
+
+            Assert.AreEqual(1, stateChanges);
+            Assert.AreEqual(1, ends);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 스냅샷은 기록 값이 모두 같을 때만 같고 하나라도 다르면 다르다.
+        /// </summary>
+        // ------------------------------------------------------------
+        [Test]
+        public void TEST_Timer_Snapshot_모든기록값이같을때만동등()
+        {
+            var timer = new Timer();
+            timer.Start(5.0f);
+            timer.Tick(1.0f);
+            var snapshot = timer.Capture();
+
+            Assert.IsTrue(snapshot == timer.Capture());
+            Assert.IsTrue(snapshot.Equals((object)timer.Capture()));
+            Assert.AreEqual(snapshot.GetHashCode(), timer.Capture().GetHashCode());
+
+            timer.Tick(0.5f);
+            Assert.IsTrue(snapshot != timer.Capture());
+
+            timer.RestoreFrom(snapshot);
+            timer.Pause();
+            Assert.IsTrue(snapshot != timer.Capture());
+
+            timer.Resume();
+            timer.cached = 2.0f;
+            Assert.IsTrue(snapshot != timer.Capture());
         }
 
     #endregion

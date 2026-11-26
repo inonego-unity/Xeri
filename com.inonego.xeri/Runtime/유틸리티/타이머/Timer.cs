@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : Timer.cs
-수정일 : 2026-11-19
+수정일 : 2026-11-26
 
 # 설명
 float 기반 타이머. 외부 Tick(deltaTime)으로 시간을 전진하거나 되돌린다.
@@ -8,6 +8,7 @@ float 기반 타이머. 외부 Tick(deltaTime)으로 시간을 전진하거나 �
 
 # 제약사항
 CloneFrom은 시간과 상태만 복제하고 이벤트를 발행하지 않으며 구독은 복제하지 않는다.
+Capture는 시간과 상태를 값 스냅샷으로 기록하고, RestoreFrom은 그 값으로 이벤트 없이 되돌리며 구독은 건드리지 않는다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -35,13 +36,104 @@ namespace inonego.Xeri.Utility
         // NONE
     }
 
+    // ======================================================================
+    /// <summary>
+    /// <br/> 타이머의 상태·지속 시간·경과 시간·Start 값을 기록한 값 스냅샷.
+    /// <br/> 이벤트 구독은 기록하지 않는다.
+    /// </summary>
+    // ======================================================================
+    public readonly struct TimerSnapshot : IEquatable<TimerSnapshot>
+    {
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기록한 타이머 상태.
+        /// </summary>
+        // ------------------------------------------------------------
+        public TimerState State { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기록한 지속 시간.
+        /// </summary>
+        // ------------------------------------------------------------
+        public TValue Duration { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기록한 경과 시간.
+        /// </summary>
+        // ------------------------------------------------------------
+        public TValue ElapsedTime { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기록한 Start 값.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal TValue Cached { get; }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// Timer가 기록한 값으로 스냅샷을 생성한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        internal TimerSnapshot(TimerState state, TValue duration, TValue elapsedTime, TValue cached)
+        {
+            State = state;
+            Duration = duration;
+            ElapsedTime = elapsedTime;
+            Cached = cached;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 모든 기록 값이 같은지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public bool Equals(TimerSnapshot other)
+        {
+            return State == other.State
+                && Duration.Equals(other.Duration)
+                && ElapsedTime.Equals(other.ElapsedTime)
+                && Cached.Equals(other.Cached);
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 같은 형식이며 모든 기록 값이 같은지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override bool Equals(object obj) => obj is TimerSnapshot other && Equals(other);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 기록 값에서 해시 코드를 계산한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public override int GetHashCode() => HashCode.Combine(State, Duration, ElapsedTime, Cached);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 두 스냅샷의 기록 값이 모두 같은지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool operator ==(TimerSnapshot left, TimerSnapshot right) => left.Equals(right);
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 두 스냅샷의 기록 값 중 하나라도 다른지 반환한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public static bool operator !=(TimerSnapshot left, TimerSnapshot right) => !left.Equals(right);
+    }
+
     // ============================================================
     /// <summary>
     /// float 기반 타이머.
     /// </summary>
     // ============================================================
     [Serializable]
-    public partial class Timer : ITimer, IReadOnlyTimer, IDeepCloneable<Timer>
+    public partial class Timer : ITimer, IReadOnlyTimer, IDeepCloneable<Timer>, ISnapshotable<TimerSnapshot>
     {
 
     #region 필드
@@ -342,6 +434,27 @@ namespace inonego.Xeri.Utility
             cached      = source.cached;
             elapsedTime = source.elapsedTime;
             current     = source.current;
+        }
+
+        // ------------------------------------------------------------
+        /// <summary>
+        /// 현재 상태·시간 값을 할당 없이 스냅샷으로 기록한다.
+        /// </summary>
+        // ------------------------------------------------------------
+        public TimerSnapshot Capture() => new(current, duration, elapsedTime, cached);
+
+        // --------------------------------------------------------------------------------
+        /// <summary>
+        /// <br/> 기록한 스냅샷의 시간과 상태로 변경 알림 없이 되돌린다.
+        /// <br/> 상태 전이가 아니므로 Current 설정자와 이벤트를 거치지 않고 구독은 유지한다.
+        /// </summary>
+        // --------------------------------------------------------------------------------
+        public void RestoreFrom(in TimerSnapshot snapshot)
+        {
+            duration    = snapshot.Duration;
+            cached      = snapshot.Cached;
+            elapsedTime = snapshot.ElapsedTime;
+            current     = snapshot.State;
         }
 
     #endregion
