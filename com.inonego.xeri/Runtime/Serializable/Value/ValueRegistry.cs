@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : ValueRegistry.cs
-수정일 : 2026-11-24
+수정일 : 2026-11-26
 
 # 설명
 이름 붙은 string/int/float/flag 값을 타입별 런타임 컬렉션에 보관하고 변경을 알린다.
@@ -9,6 +9,8 @@ Unity 직렬화 콜백에서 런타임 값과 저장용 목록을 동기화한�
 
 # 제약사항
 하나의 Key는 하나의 값 타입에만 속하며 구조화된 도메인 State를 대신하지 않는다.
+타입별 컬렉션은 그 타입의 값이 처음 들어올 때 만든다. 아직 없는 타입의 조회 프로퍼티는 공유 빈 컬렉션을 반환한다.
+Unity 역직렬화는 빈 컬렉션도 만들어 채우므로 복원된 Registry는 네 컬렉션을 모두 가진다.
 CloneFrom은 상태 복제 과정에서 변경 이벤트를 발행하지 않는다.
 Rename은 이름 교환에도 값이 섞이지 않고 검사에 실패하면 아무것도 바꾸지 않으며, 바뀌면 하나의 변경으로 알린다.
 IsSameAs는 모든 타입의 값 구성이 같은지 비교하며 변경 이벤트와 무관하다.
@@ -39,36 +41,42 @@ namespace inonego.Xeri.Serializable
         /// string 값 목록을 읽기 전용으로 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public IReadOnlyDictionary<string, string> ValSs => valSs;
+        public IReadOnlyDictionary<string, string> ValSs => valSs ?? emptySs;
         [SerializeField]
-        private XDictionary_VV<string, string> valSs = new();
+        private XDictionary_VV<string, string> valSs = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// int 값 목록을 읽기 전용으로 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public IReadOnlyDictionary<string, int> ValIs => valIs;
+        public IReadOnlyDictionary<string, int> ValIs => valIs ?? emptyIs;
         [SerializeField]
-        private XDictionary_VV<string, int> valIs = new();
+        private XDictionary_VV<string, int> valIs = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// float 값 목록을 읽기 전용으로 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public IReadOnlyDictionary<string, float> ValFs => valFs;
+        public IReadOnlyDictionary<string, float> ValFs => valFs ?? emptyFs;
         [SerializeField]
-        private XDictionary_VV<string, float> valFs = new();
+        private XDictionary_VV<string, float> valFs = null;
 
         // ------------------------------------------------------------
         /// <summary>
         /// 등록된 Flag 키 목록을 읽기 전용으로 반환한다.
         /// </summary>
         // ------------------------------------------------------------
-        public IReadOnlyCollection<string> ValFlags => valFlags;
+        public IReadOnlyCollection<string> ValFlags => valFlags ?? emptyFlags;
         [SerializeField]
-        private XHashSet_V<string> valFlags = new();
+        private XHashSet_V<string> valFlags = null;
+
+        // 아직 값이 없는 타입의 조회 프로퍼티가 돌려주는 공유 빈 컬렉션. Core 읽기 전용 View와 같은 방식이다.
+        private static readonly Dictionary<string, string> emptySs = new();
+        private static readonly Dictionary<string, int> emptyIs = new();
+        private static readonly Dictionary<string, float> emptyFs = new();
+        private static readonly HashSet<string> emptyFlags = new();
 
     #endregion
 
@@ -93,10 +101,11 @@ namespace inonego.Xeri.Serializable
         // ----------------------------------------------------------------------
         public void OnBeforeSerialize()
         {
-            ((ISerializedRuntimeCollection)valSs).ApplyRuntime();
-            ((ISerializedRuntimeCollection)valIs).ApplyRuntime();
-            ((ISerializedRuntimeCollection)valFs).ApplyRuntime();
-            ((ISerializedRuntimeCollection)valFlags).ApplyRuntime();
+            // 아직 만들지 않은 컬렉션은 반영할 값이 없다.
+            ((ISerializedRuntimeCollection)valSs)?.ApplyRuntime();
+            ((ISerializedRuntimeCollection)valIs)?.ApplyRuntime();
+            ((ISerializedRuntimeCollection)valFs)?.ApplyRuntime();
+            ((ISerializedRuntimeCollection)valFlags)?.ApplyRuntime();
         }
 
         // ------------------------------------------------------------
@@ -106,10 +115,10 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public void OnAfterDeserialize()
         {
-            ((ISerializedRuntimeCollection)valSs).UpdateRuntime();
-            ((ISerializedRuntimeCollection)valIs).UpdateRuntime();
-            ((ISerializedRuntimeCollection)valFs).UpdateRuntime();
-            ((ISerializedRuntimeCollection)valFlags).UpdateRuntime();
+            ((ISerializedRuntimeCollection)valSs)?.UpdateRuntime();
+            ((ISerializedRuntimeCollection)valIs)?.UpdateRuntime();
+            ((ISerializedRuntimeCollection)valFs)?.UpdateRuntime();
+            ((ISerializedRuntimeCollection)valFlags)?.UpdateRuntime();
         }
 
     #endregion
@@ -123,7 +132,7 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         private bool Has<T>(XDictionary_VV<string, T> dictionary, string key)
         {
-            return dictionary.ContainsKey(key);
+            return dictionary != null && dictionary.ContainsKey(key);
         }
 
         // ------------------------------------------------------------
@@ -138,7 +147,7 @@ namespace inonego.Xeri.Serializable
         /// 특정 키에 값을 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        private T Set<T>(XDictionary_VV<string, T> dictionary, string key, T value)
+        private T Set<T>(ref XDictionary_VV<string, T> dictionary, string key, T value)
         {
             if (Has(dictionary, key))
             {
@@ -155,9 +164,13 @@ namespace inonego.Xeri.Serializable
                 throw new InvalidOperationException($"키({key})에 해당하는 값이 다른 타입으로 존재합니다.");
             }
 
+            // 그 타입의 첫 값이면 이때 컬렉션을 만든다.
+            dictionary ??= new();
+
             // 신규 Key 등록은 fallback 값과 같더라도 Registry 구성 변화로 취급한다.
             dictionary.Add(key, value);
             OnChange?.Invoke();
+
             return value;
         }
 
@@ -168,7 +181,10 @@ namespace inonego.Xeri.Serializable
         // ------------------------------------------------------------
         public bool Remove(string key)
         {
-            var removed = valSs.Remove(key) || valIs.Remove(key) || valFs.Remove(key) || valFlags.Remove(key);
+            var removed =  (valSs?.Remove(key) ?? false)
+                        || (valIs?.Remove(key) ?? false)
+                        || (valFs?.Remove(key) ?? false)
+                        || (valFlags?.Remove(key) ?? false);
             if (!removed) return false;
 
             // 실제 Key 제거가 완료된 뒤 Registry 변경을 외부에 알린다.
@@ -236,12 +252,13 @@ namespace inonego.Xeri.Serializable
 
             foreach (var (oldKey, _) in moves)
             {
-                valSs.Remove(oldKey);
-                valIs.Remove(oldKey);
-                valFs.Remove(oldKey);
-                valFlags.Remove(oldKey);
+                valSs?.Remove(oldKey);
+                valIs?.Remove(oldKey);
+                valFs?.Remove(oldKey);
+                valFlags?.Remove(oldKey);
             }
 
+            // 옮겨 온 값의 타입 컬렉션은 꺼낼 때 있었으므로 그대로 있다.
             foreach (var (newKey, kind, text, number, real) in held)
             {
                 if (newKey == null) continue;
@@ -268,7 +285,7 @@ namespace inonego.Xeri.Serializable
         /// 어떤 타입이든 값이 하나라도 있는지 확인합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool HasAny => valSs.Count > 0 || valIs.Count > 0 || valFs.Count > 0 || valFlags.Count > 0;
+        public bool HasAny => (valSs?.Count ?? 0) > 0 || (valIs?.Count ?? 0) > 0 || (valFs?.Count ?? 0) > 0 || (valFlags?.Count ?? 0) > 0;
 
         // ------------------------------------------------------------
         /// <summary>
@@ -280,10 +297,10 @@ namespace inonego.Xeri.Serializable
             // 이미 비어 있는 Registry는 관찰 가능한 상태 변화가 없다.
             if (!HasAny) return;
 
-            valSs.Clear();
-            valIs.Clear();
-            valFs.Clear();
-            valFlags.Clear();
+            valSs?.Clear();
+            valIs?.Clear();
+            valFs?.Clear();
+            valFlags?.Clear();
 
             // 일괄 정리는 개별 Key 수와 무관하게 하나의 변경으로 알린다.
             OnChange?.Invoke();
@@ -312,7 +329,7 @@ namespace inonego.Xeri.Serializable
         /// 특정 키에 값(string)을 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public string SetS(string key, string value) => Set(valSs, key, value);
+        public string SetS(string key, string value) => Set(ref valSs, key, value);
 
     #endregion
 
@@ -337,49 +354,49 @@ namespace inonego.Xeri.Serializable
         /// 특정 키에 값(int)을 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int SetI(string key, int value) => Set(valIs, key, value);
+        public int SetI(string key, int value) => Set(ref valIs, key, value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(int)을 증가시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int AddI(string key, int value, int fallbackValue = 0) => Set(valIs, key, GetI(key, fallbackValue) + value);
+        public int AddI(string key, int value, int fallbackValue = 0) => Set(ref valIs, key, GetI(key, fallbackValue) + value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(int)을 감소시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int SubI(string key, int value, int fallbackValue = 0) => Set(valIs, key, GetI(key, fallbackValue) - value);
+        public int SubI(string key, int value, int fallbackValue = 0) => Set(ref valIs, key, GetI(key, fallbackValue) - value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(int)을 곱셈시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int MulI(string key, int value, int fallbackValue = 0) => Set(valIs, key, GetI(key, fallbackValue) * value);
+        public int MulI(string key, int value, int fallbackValue = 0) => Set(ref valIs, key, GetI(key, fallbackValue) * value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(int)을 나눗셈시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int DivI(string key, int value, int fallbackValue = 0) => Set(valIs, key, GetI(key, fallbackValue) / value);
+        public int DivI(string key, int value, int fallbackValue = 0) => Set(ref valIs, key, GetI(key, fallbackValue) / value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(int)을 최대값으로 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int MaxI(string key, int value, int fallbackValue = 0) => Set(valIs, key, Math.Max(GetI(key, fallbackValue), value));
+        public int MaxI(string key, int value, int fallbackValue = 0) => Set(ref valIs, key, Math.Max(GetI(key, fallbackValue), value));
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(int)을 최소값으로 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public int MinI(string key, int value, int fallbackValue = 0) => Set(valIs, key, Math.Min(GetI(key, fallbackValue), value));
+        public int MinI(string key, int value, int fallbackValue = 0) => Set(ref valIs, key, Math.Min(GetI(key, fallbackValue), value));
 
     #endregion
 
@@ -404,49 +421,49 @@ namespace inonego.Xeri.Serializable
         /// 특정 키에 값(float)을 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float SetF(string key, float value) => Set(valFs, key, value);
+        public float SetF(string key, float value) => Set(ref valFs, key, value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(float)을 증가시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float AddF(string key, float value, float fallbackValue = 0f) => Set(valFs, key, GetF(key, fallbackValue) + value);
+        public float AddF(string key, float value, float fallbackValue = 0f) => Set(ref valFs, key, GetF(key, fallbackValue) + value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(float)을 감소시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float SubF(string key, float value, float fallbackValue = 0f) => Set(valFs, key, GetF(key, fallbackValue) - value);
+        public float SubF(string key, float value, float fallbackValue = 0f) => Set(ref valFs, key, GetF(key, fallbackValue) - value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(float)을 곱셈시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float MulF(string key, float value, float fallbackValue = 0f) => Set(valFs, key, GetF(key, fallbackValue) * value);
+        public float MulF(string key, float value, float fallbackValue = 0f) => Set(ref valFs, key, GetF(key, fallbackValue) * value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(float)을 나눗셈시킵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float DivF(string key, float value, float fallbackValue = 0f) => Set(valFs, key, GetF(key, fallbackValue) / value);
+        public float DivF(string key, float value, float fallbackValue = 0f) => Set(ref valFs, key, GetF(key, fallbackValue) / value);
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(float)을 최대값으로 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float MaxF(string key, float value, float fallbackValue = 0f) => Set(valFs, key, Mathf.Max(GetF(key, fallbackValue), value));
+        public float MaxF(string key, float value, float fallbackValue = 0f) => Set(ref valFs, key, Mathf.Max(GetF(key, fallbackValue), value));
 
         // ------------------------------------------------------------
         /// <summary>
         /// 특정 키에 값(float)을 최소값으로 설정합니다.
         /// </summary>
         // ------------------------------------------------------------
-        public float MinF(string key, float value, float fallbackValue = 0f) => Set(valFs, key, Mathf.Min(GetF(key, fallbackValue), value));
+        public float MinF(string key, float value, float fallbackValue = 0f) => Set(ref valFs, key, Mathf.Min(GetF(key, fallbackValue), value));
 
     #endregion
 
@@ -457,7 +474,7 @@ namespace inonego.Xeri.Serializable
         /// 특정 키의 값(bool)을 가져옵니다.
         /// </summary>
         // ------------------------------------------------------------
-        public bool HasFlag(string key) => valFlags.Contains(key);
+        public bool HasFlag(string key) => valFlags != null && valFlags.Contains(key);
 
         // ------------------------------------------------------------
         /// <summary>
@@ -476,7 +493,9 @@ namespace inonego.Xeri.Serializable
                 throw new InvalidOperationException($"키({key})에 해당하는 값이 다른 타입으로 존재합니다.");
             }
 
-            // 신규 Flag 등록이 완료된 뒤 Registry 변경을 외부에 알린다.
+            // 신규 Flag 등록이 완료된 뒤 Registry 변경을 외부에 알린다. 첫 Flag면 이때 컬렉션을 만든다.
+            valFlags ??= new();
+            
             valFlags.Add(key);
             OnChange?.Invoke();
         }
@@ -511,10 +530,35 @@ namespace inonego.Xeri.Serializable
             }
 
             // 복제는 runtime mutation이 아니므로 공개 Clear 경로를 거치지 않고 각 컬렉션이 직접 복사한다.
-            valSs.CloneFrom(source.valSs);
-            valIs.CloneFrom(source.valIs);
-            valFs.CloneFrom(source.valFs);
-            valFlags.CloneFrom(source.valFlags);
+            CloneCollection(ref valSs, source.valSs);
+            CloneCollection(ref valIs, source.valIs);
+            CloneCollection(ref valFs, source.valFs);
+            CloneCollection(ref valFlags, source.valFlags);
+        }
+
+        // 원본이 비었으면 대상을 비우기만 하고 새로 만들지 않는다. 값이 있으면 필요할 때 만든 뒤 복사한다.
+        private static void CloneCollection<T>(ref XDictionary_VV<string, T> target, XDictionary_VV<string, T> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                target?.Clear();
+                return;
+            }
+
+            target ??= new();
+            target.CloneFrom(source);
+        }
+
+        private static void CloneCollection(ref XHashSet_V<string> target, XHashSet_V<string> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                target?.Clear();
+                return;
+            }
+
+            target ??= new();
+            target.CloneFrom(source);
         }
 
     #endregion
@@ -538,14 +582,16 @@ namespace inonego.Xeri.Serializable
                 && Same(valFlags, other.valFlags, ignoredKey);
         }
 
+        // 구체 컬렉션으로 받아 열거자를 박싱하지 않는다. 만들지 않은 컬렉션은 빈 컬렉션으로 본다.
         private static bool Same<T>
         (
-            IReadOnlyDictionary<string, T> a, IReadOnlyDictionary<string, T> b, string ignoredKey
+            XDictionary_VV<string, T> a, XDictionary_VV<string, T> b, string ignoredKey
         )
         {
-            int aCount = a.Count - (ignoredKey != null && a.ContainsKey(ignoredKey) ? 1 : 0);
-            int bCount = b.Count - (ignoredKey != null && b.ContainsKey(ignoredKey) ? 1 : 0);
+            int aCount = a == null ? 0 : a.Count - (ignoredKey != null && a.ContainsKey(ignoredKey) ? 1 : 0);
+            int bCount = b == null ? 0 : b.Count - (ignoredKey != null && b.ContainsKey(ignoredKey) ? 1 : 0);
             if (aCount != bCount) return false;
+            if (aCount == 0) return true;
 
             foreach (var pair in a)
             {
@@ -562,9 +608,10 @@ namespace inonego.Xeri.Serializable
 
         private static bool Same(XHashSet_V<string> a, XHashSet_V<string> b, string ignoredKey)
         {
-            int aCount = a.Count - (ignoredKey != null && a.Contains(ignoredKey) ? 1 : 0);
-            int bCount = b.Count - (ignoredKey != null && b.Contains(ignoredKey) ? 1 : 0);
+            int aCount = a == null ? 0 : a.Count - (ignoredKey != null && a.Contains(ignoredKey) ? 1 : 0);
+            int bCount = b == null ? 0 : b.Count - (ignoredKey != null && b.Contains(ignoredKey) ? 1 : 0);
             if (aCount != bCount) return false;
+            if (aCount == 0) return true;
 
             foreach (var key in a)
             {
