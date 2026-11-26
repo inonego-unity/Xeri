@@ -43,7 +43,7 @@ namespace inonego.Xeri.TEST.UI._Bar
         /// </summary>
         // ----------------------------------------------------------------------
         [UnityTest]
-        public IEnumerator TEST_BarTransition_첫Observer실패_Tween종료()
+        public IEnumerator TEST_BarTransition_첫Handler실패_Tween종료()
         {
         #if DOTWEEN
             var transition = new BarTransition();
@@ -58,7 +58,7 @@ namespace inonego.Xeri.TEST.UI._Bar
                     0.75f,
                     curve,
                     false,
-                    (_, _) => throw new InvalidOperationException("observer failure")
+                    (_, _) => throw new InvalidOperationException("handler failure")
                 )
             );
 
@@ -75,11 +75,11 @@ namespace inonego.Xeri.TEST.UI._Bar
 
         // ----------------------------------------------------------------------
         /// <summary>
-        /// 이전 Tween의 observer가 재진입 후 실패해도 새 Tween의 소유권은 유지한다.
+        /// 이전 Tween의 handler가 재진입 후 실패해도 새 Tween의 소유권은 유지한다.
         /// </summary>
         // ----------------------------------------------------------------------
         [UnityTest]
-        public IEnumerator TEST_BarTransition_Observer재진입실패_새Tween유지()
+        public IEnumerator TEST_BarTransition_Handler재진입실패_새Tween유지()
         {
         #if DOTWEEN
             var transition = new BarTransition();
@@ -98,7 +98,7 @@ namespace inonego.Xeri.TEST.UI._Bar
                     {
                         transition.Set(0.75f, curve, false, (_, _) => { });
                         successor = field.GetValue(transition);
-                        throw new InvalidOperationException("previous observer failure");
+                        throw new InvalidOperationException("previous handler failure");
                     }
                 )
             );
@@ -122,7 +122,7 @@ namespace inonego.Xeri.TEST.UI._Bar
 
         // --------------------------------------------------------------------------------
         /// <summary>
-        /// 마지막 Tween tick의 observer가 재진입해도 완료된 이전 Tween은 새 Tween을 지우지 않는다.
+        /// 마지막 Tween tick의 handler가 재진입해도 완료된 이전 Tween은 새 Tween을 지우지 않는다.
         /// </summary>
         // --------------------------------------------------------------------------------
         [UnityTest]
@@ -204,7 +204,7 @@ namespace inonego.Xeri.TEST.UI._Bar
 
         // ------------------------------------------------------------
         /// <summary>
-        /// 마지막 tick에서 새 전이를 시작하도록 observer를 연결한다.
+        /// 마지막 tick에서 새 전이를 시작하도록 handler를 연결한다.
         /// </summary>
         // ------------------------------------------------------------
         private static void StartRetargetOnLastTick

@@ -332,7 +332,7 @@ namespace inonego.Xeri.UI
                 onUpdate(currentRatio, targetRatio);
             }
 
-            // 외부 observer를 호출하기 전에 새 Tween의 소유권을 확보한다.
+            // 외부 handler를 호출하기 전에 새 Tween의 소유권을 확보한다.
             var tween = DOTween.To
             (
                 GetCurrentRatio,

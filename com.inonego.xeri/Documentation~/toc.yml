@@ -16,6 +16,8 @@
     href: concepts/ownership-and-lifetime.md
   - name: 확장 계약
     href: concepts/extension-contracts.md
+  - name: 이벤트 알림과 실패 처리
+    href: concepts/events-and-failures.md
   - name: 프로젝트 통합 패턴
     href: concepts/integration-patterns.md
 - name: 사용 가이드
