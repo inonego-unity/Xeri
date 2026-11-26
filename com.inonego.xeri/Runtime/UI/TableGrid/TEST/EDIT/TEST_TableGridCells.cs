@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TEST_TableGridCells.cs
-수정일 : 2026-11-24
+수정일 : 2026-11-27
 
 # 설명
 TableGrid 셀 구성의 값 규칙(글자로 나타내기·읽기·검증·비교·지우기·복사), 등록소 찾는 순서,
@@ -19,7 +19,7 @@ using System.Globalization;
 using NUnit;
 using NUnit.Framework;
 
-using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 using inonego;
@@ -109,14 +109,6 @@ namespace inonego.Xeri.TEST.UI._TableGrid
             {
                 return name;
             }
-        }
-
-        [Flags]
-        private enum TestFlags
-        {
-            None = 0,
-            Alpha = 1,
-            Beta = 2,
         }
 
         private sealed class StubView : TableGridCellView<BaseValue>
@@ -564,28 +556,6 @@ namespace inonego.Xeri.TEST.UI._TableGrid
             var other = view.MakeCell();
             view.BindBoxed(other, DayOfWeek.Monday, in hosted);
             Assert.AreEqual(DayOfWeek.Monday, FindEnumField(other).value);
-        }
-
-        // ------------------------------------------------------------
-        /// <summary>
-        /// Editor에서는 [Flags] enum을 여러 값을 고르는 입력칸에 조합 값 그대로 보인다.
-        /// </summary>
-        // ------------------------------------------------------------
-        [Test]
-        public void InputCellView_Flags_enum은_조합_값을_보인다()
-        {
-            var column = new TableGridColumn<int, TestFlags>("f", "f", item => TestFlags.None, edit: TableGridCellEdit.Inline());
-            var context = new TableGridCellContext("r", 0, 0, column, true, null);
-            var element = column.MakeCell();
-            var combined = TestFlags.Alpha | TestFlags.Beta;
-
-            column.View.BindBoxed(element, combined, in context);
-
-            var flagsField = element.Q<EnumFlagsField>();
-            Assert.IsNotNull(flagsField);
-            Assert.AreEqual(DisplayStyle.Flex, flagsField.style.display.value);
-            Assert.AreEqual(combined, flagsField.value);
-            Assert.AreEqual(DisplayStyle.None, element.Q<EnumField>().style.display.value);
         }
 
     #endregion

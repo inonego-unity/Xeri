@@ -1,6 +1,6 @@
 /* BLOCK_HEADER_BEGIN =======================================================================
 파일명 : TableGridEnumCellView.cs
-수정일 : 2026-11-24
+수정일 : 2026-11-26
 
 # 설명
 enum 값 열(Inline 편집)의 셀 안 입력칸 셀 뷰다. 단일 값 enum은 EnumField로, [Flags] enum은 여러 값을 고르는
@@ -12,6 +12,8 @@ Editor 어셈블리(inonego.Xeri.Editor)에서만 컴파일된다(EnumFlagsField
 값 변경 알림: EnumField의 ChangeEvent<Enum>은 위로 전달되어 요소가 받는다. EnumFlagsField는 어떤 형식의 ChangeEvent를
 보내는지(int 마스크·Enum)에 기대지 않도록 두 형식 모두에서 현재 값을 읽어, 달라졌을 때만 요소가 ChangeEvent<Enum>을 한 번 보낸다.
 enum 형식은 context.ValueType으로 알고, 모르면 값 자신의 형식을 쓴다.
+EnumFlagsField는 정의된 플래그를 모두 고른 값을 Everything(모든 비트)으로 바꾸므로, 형식에 그 값이 없으면 요소의 값과 알림은
+정의된 플래그를 모두 합한 값으로 되돌린다.
 ========================================================================= BLOCK_HEADER_END */
 
 using System;
@@ -44,6 +46,10 @@ namespace inonego.Xeri.UI.TableGrid.Editor
         private Type enumType;
         private bool isFlags;
         private Enum flagsValue;
+
+        // [Flags] 형식에 정의된 비트를 모두 합한 값과 그 enum 값. 여러 값 입력칸의 Everything을 되돌릴 때 쓴다.
+        private ulong definedFlags;
+        private Enum allFlags;
 
         private INotifyValueChanged<Enum> Active => isFlags ? flags : choice;
 
@@ -85,7 +91,7 @@ namespace inonego.Xeri.UI.TableGrid.Editor
         // ------------------------------------------------------------
         public Enum value
         {
-            get => Active.value;
+            get => isFlags ? ReadFlags() : choice.value;
             set => Active.value = value;
         }
 
@@ -99,7 +105,7 @@ namespace inonego.Xeri.UI.TableGrid.Editor
             Active.SetValueWithoutNotify(newValue);
             if (isFlags)
             {
-                flagsValue = flags.value;
+                flagsValue = ReadFlags();
             }
         }
 
@@ -120,8 +126,16 @@ namespace inonego.Xeri.UI.TableGrid.Editor
             isFlags = type.IsDefined(typeof(FlagsAttribute), false);
 
             var first = (Enum)Enum.ToObject(type, 0);
+            definedFlags = 0;
+            allFlags = null;
             if (isFlags)
             {
+                foreach (Enum defined in Enum.GetValues(type))
+                {
+                    definedFlags |= ToBits(defined);
+                }
+
+                allFlags = (Enum)Enum.ToObject(type, definedFlags);
                 flags.Init(first);
             }
             else
@@ -131,12 +145,12 @@ namespace inonego.Xeri.UI.TableGrid.Editor
 
             choice.style.display = isFlags ? DisplayStyle.None : DisplayStyle.Flex;
             flags.style.display = isFlags ? DisplayStyle.Flex : DisplayStyle.None;
-            flagsValue = isFlags ? flags.value : null;
+            flagsValue = isFlags ? ReadFlags() : null;
         }
 
         private void ForwardFlagsChange()
         {
-            var next = flags.value;
+            var next = ReadFlags();
             if (Equals(next, flagsValue))
             {
                 return;
@@ -149,6 +163,28 @@ namespace inonego.Xeri.UI.TableGrid.Editor
                 change.target = this;
                 SendEvent(change);
             }
+        }
+
+        // 여러 값 입력칸의 값을 읽는다. EnumFlagsField는 정의된 플래그를 모두 고른 값을 Everything(모든 비트)으로 바꿔 돌려준다.
+        // 형식에 그 값이 정의되어 있지 않으면 정의된 플래그를 모두 합한 값으로 되돌려, 셀에 정의되지 않은 값이 들어가지 않게 한다.
+        private Enum ReadFlags()
+        {
+            var current = flags.value;
+            if (current == null)
+            {
+                return null;
+            }
+
+            var bits = ToBits(current);
+            var everything = (bits & definedFlags) == definedFlags && (bits & ~definedFlags) != 0;
+            return everything ? allFlags : current;
+        }
+
+        // enum 값을 기반 형식의 비트 그대로 읽는다. 부호 있는 형식의 음수도 비트를 유지한다.
+        private static ulong ToBits(Enum value)
+        {
+            var signed = value.GetTypeCode() is TypeCode.SByte or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64;
+            return signed ? unchecked((ulong)Convert.ToInt64(value)) : Convert.ToUInt64(value);
         }
 
     #endregion
